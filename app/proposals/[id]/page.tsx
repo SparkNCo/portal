@@ -1,12 +1,5 @@
 import { notFound } from 'next/navigation';
-import {
-  Clock,
-  DollarSign,
-  FolderOpenDot,
-  Mail,
-  Phone,
-  User,
-} from 'lucide-react';
+import { Clock, DollarSign, Dot, Mail, Phone, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -67,7 +60,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
         Home
       </Link>
       <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <FolderOpenDot />
+        <Dot />
         <p>{proposal.business_name}</p>
       </h1>
 
