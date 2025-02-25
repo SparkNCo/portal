@@ -1,0 +1,17 @@
+[
+  {
+    "fields": [
+      [
+        {
+          "type": "email",
+          "class": "w-full",
+          "name": "email",
+          "placeholder": "you@example.com",
+          "icon": "email",
+          "label": "Email",
+          "required": true
+        }
+      ]
+    ]
+  }
+]

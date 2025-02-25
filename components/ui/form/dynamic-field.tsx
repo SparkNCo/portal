@@ -28,6 +28,9 @@ import { HelpTooltip } from '../help-tooltip';
 import { iconMap } from './components/icon-map';
 import { ErrorMessage } from './components/error-message';
 import './styles.css';
+import { Textarea } from '../textarea';
+import { TextAreaInput } from './components/textarea';
+import { MultiSelectInput } from './components/multi-select';
 
 export function DynamicField({
   field,
@@ -90,6 +93,17 @@ export function DynamicField({
       validationRule as keyof typeof validations
     ] || requiredFields(required);
 
+  const { opt, isDisabled } = React.useMemo(() => {
+    return getSelectOptions({
+      options,
+      name,
+      disabled,
+      values,
+      custom_options: {
+        countries: [{ value: 'AR', label: 'Argentina' }],
+      },
+    });
+  }, [values[name]]);
   switch (fieldType) {
     case 'subtitle':
       return (
@@ -98,6 +112,16 @@ export function DynamicField({
         >
           {label}
         </p>
+      );
+    case 'textarea':
+      return (
+        <TextAreaInput
+          field={field}
+          values={values}
+          errors={errors}
+          touched={touched}
+          validationRules={validationRules}
+        />
       );
 
     case 'address_autocomplete':
@@ -115,17 +139,6 @@ export function DynamicField({
       );
 
     case 'select':
-      const { opt, isDisabled } = React.useMemo(() => {
-        return getSelectOptions({
-          options,
-          name,
-          disabled,
-          values,
-          custom_options: {
-            countries: [{ value: 'AR', label: 'Argentina' }],
-          },
-        });
-      }, [values[name]]);
       return (
         <div className={className}>
           <FormLabelComponent
@@ -155,7 +168,7 @@ export function DynamicField({
           >
             <SelectTrigger>
               <SelectValue placeholder={placeholder || label}>
-                {multiple
+                {/* {multiple
                   ? (values[name] || [])
                       .map(
                         (val: string) => opt.find((o) => o.value === val)?.label
@@ -163,7 +176,21 @@ export function DynamicField({
                       .join(', ')
                   : opt.find((o) => o.value === values[name])?.label ||
                     placeholder ||
-                    label}
+                    label} */}
+                {(() => {
+                  const selectedOption = opt.find(
+                    (o) => o.value === values[name]
+                  );
+
+                  return selectedOption ? (
+                    <p className="flex items-center justify-between w-full gap-4">
+                      {selectedOption?.icon && iconMap[selectedOption.icon]}
+                      <span>{selectedOption.label}</span>
+                    </p>
+                  ) : (
+                    <span>{placeholder || label}</span>
+                  );
+                })()}
               </SelectValue>
             </SelectTrigger>
             {!readonly && (
@@ -180,7 +207,7 @@ export function DynamicField({
                       value={option.value}
                     >
                       <div className="flex items-center justify-between w-full gap-4">
-                        {option.icon && <span>{option.icon}</span>}
+                        {option.icon && <span>{iconMap[option.icon]}</span>}
                         <span>{option.label}</span>
                         {option.info && (
                           <HelpTooltip icon={iconMap['help']}>
@@ -194,13 +221,19 @@ export function DynamicField({
               </SelectContent>
             )}
           </Field>
-          <ErrorMessage
-            errors={errors}
-            id={name}
-            touched={touched}
-            key={name}
-          />
+          <ErrorMessage errors={errors} id={name} touched={touched} />
         </div>
+      );
+    case 'multiselect':
+      return (
+        <MultiSelectInput
+          field={field}
+          options={opt}
+          values={values}
+          errors={errors}
+          touched={touched}
+          validationRules={validationRules}
+        />
       );
 
     default:
@@ -219,7 +252,7 @@ export function DynamicField({
                 id={name}
                 name={name}
                 icon={icon}
-                type={type}
+                type={fieldType}
                 required={required}
                 min={min}
                 value={values[name] || initial || ''}
@@ -237,12 +270,7 @@ export function DynamicField({
             )}
           </Field>
 
-          <ErrorMessage
-            errors={errors}
-            id={name}
-            touched={touched}
-            key={name}
-          />
+          <ErrorMessage errors={errors} id={name} touched={touched} />
         </div>
       );
   }

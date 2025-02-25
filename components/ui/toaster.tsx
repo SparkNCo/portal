@@ -30,7 +30,6 @@ export function Toaster(props: Partial<ToasterProps>) {
           description: status_description,
         });
       }
-
       // Clear any 'error', 'status', 'status_description', and 'error_description' search params
       // so that the toast doesn't show up again on refresh, but leave any other search params
       // intact.
@@ -51,7 +50,7 @@ export function Toaster(props: Partial<ToasterProps>) {
     <SonnerToaster
       {...props}
       theme={theme as 'light' | 'dark' | 'system'}
-      position={props.position || 'bottom-right'}
+      position={'bottom-right'}
       expand={props.expand ?? true}
       richColors={props.richColors ?? true}
     />

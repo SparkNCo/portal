@@ -1,25 +1,23 @@
-import { supabase } from "@/lib/supabase/client";
-import { Proposal } from "@/lib/types/db/proposals";
-import { InsertReponseType } from "@/lib/types/utils/inserts-updates-response";
-import { getErrorMessage } from "@/utils/helpers";
+import { supabase } from '@/lib/supabase/client';
+import { Proposal } from '@/lib/types/db/proposals';
+import { InsertReponseType } from '@/lib/types/utils/functions-return-type';
+import { getErrorMessage } from '@/utils/helpers';
 
 export const insertProposal = async (
-  proposal: Partial<Proposal>,
+  proposal: Partial<Proposal>
 ): Promise<InsertReponseType> => {
-  const { data, error } = await supabase
-    .from("proposals")
-    .insert(proposal);
+  const { data, error } = await supabase.from('proposals').insert(proposal);
   if (error) {
     const errorMessage = getErrorMessage(error);
-    console.error("Error inserting data in proposals table:", errorMessage);
+    console.error('Error inserting data in proposals table:', errorMessage);
     return {
       error:
-        "There was an error while creating the proposal. Please try again later.",
+        'There was an error while creating the proposal. Please try again later.',
       success: null,
     };
   }
   return {
-    success: "Proposal created successfully",
+    success: 'Proposal created successfully',
     error: null,
   };
 };

@@ -1,4 +1,4 @@
-import { FormikErrors, FormikTouched } from "formik";
+import { FormikErrors, FormikTouched } from 'formik';
 
 export type LayoutType = FormPageType[];
 

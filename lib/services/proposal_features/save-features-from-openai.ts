@@ -1,6 +1,6 @@
-import { insertProposalFeatures } from "@/lib/repositories/proposal_features/insert";
-import { InsertReponseType } from "@/lib/types/utils/inserts-updates-response";
-import { OpenAIProposalFeature } from "@/lib/types/utils/openai-outputs";
+import { insertProposalFeatures } from '@/lib/repositories/proposal_features/insert';
+import { InsertReponseType } from '@/lib/types/utils/functions-return-type';
+import { OpenAIProposalFeature } from '@/lib/types/utils/openai-outputs';
 
 export const saveFeaturesFromOpenAI = async ({
   features,
@@ -11,15 +11,15 @@ export const saveFeaturesFromOpenAI = async ({
 }): Promise<InsertReponseType> => {
   if (!proposalId) {
     return {
-      error: "Proposal id is required",
+      error: 'Proposal id is required',
       success: null,
     };
   }
   for (const feature of features) {
     const { error, success } = await insertProposalFeatures({
-      title: feature.feature_name,
-      description: feature.feature_description,
-      priority: feature.feature_priority,
+      feature_name: feature.feature_name,
+      feature_description: feature.feature_description,
+      feature_priority: feature.feature_priority,
       proposal_id: proposalId,
     });
     if (error) {
@@ -31,6 +31,6 @@ export const saveFeaturesFromOpenAI = async ({
   }
   return {
     error: null,
-    success: "Features saved successfully",
+    success: 'Features saved successfully',
   };
 };

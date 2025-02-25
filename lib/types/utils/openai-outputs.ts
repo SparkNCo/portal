@@ -4,3 +4,8 @@ export type OpenAIProposalFeature = {
   feature_timeline: string;
   feature_priority: string;
 };
+
+export type OpenAIProposalFeaturesOutput = {
+  features_description: string;
+  proposal_features: OpenAIProposalFeature[];
+};

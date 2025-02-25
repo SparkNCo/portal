@@ -4,13 +4,15 @@ import {
   LayoutType,
   OptionType,
   TagType,
-} from "@/lib/types/utils/form";
+} from '@/lib/types/utils/form';
 import {
   validateDOB,
   validateEmail,
   validatePhone,
-} from "../utils/validations";
-import dayjs from "dayjs";
+  validateProjectRequirements,
+} from '../utils/validations';
+import dayjs from 'dayjs';
+import { projectRequirementOptions, projectStatusOptions } from './options';
 
 export const getInitialValues = (layout: LayoutType, values: any = {}) => {
   const initialValues: any = {};
@@ -19,14 +21,14 @@ export const getInitialValues = (layout: LayoutType, values: any = {}) => {
     if (field?.name) {
       if (values[field.name]) {
         initialValues[field.name] = values[field.name];
-      } else if ("initial" in field) {
+      } else if ('initial' in field) {
         initialValues[field.name] = field.initial;
-      } else if (field.type == "select" && field?.options) {
+      } else if (field.type == 'select' && field?.options) {
         initialValues[field.name] = field.options[0];
-      } else if (field.type == "number") {
+      } else if (field.type == 'number') {
         initialValues[field.name] = 0;
       } else {
-        initialValues[field.name] = "";
+        initialValues[field.name] = '';
       }
     }
   };
@@ -65,18 +67,23 @@ export const getSelectOptions = ({
 }): { opt: OptionType[]; isDisabled: boolean } => {
   let opt: OptionType[] = []; // Initialize as an empty array
   let isDisabled: boolean = disabled;
-
+  if (name == 'project_status') {
+    opt = projectStatusOptions;
+  }
+  if (name == 'project_requirements') {
+    opt = projectRequirementOptions;
+  }
   if (
     options &&
     Array.isArray(options) &&
-    typeof options !== "string" &&
+    typeof options !== 'string' &&
     options.length
   ) {
     opt = options; // If options are valid, assign them directly
   }
   // If after validating all the above, "opt" is still empty, then add a default option
   if (opt.length === 0) {
-    opt = [{ label: "No options", value: "empty-opt", isDisabled: true }];
+    opt = [{ label: 'No options', value: 'empty-opt', isDisabled: true }];
   }
 
   return { opt, isDisabled };
@@ -84,10 +91,10 @@ export const getSelectOptions = ({
 
 export const switchFieldType = (
   field: DynamicFieldType | DynamicFieldType[],
-  values: any,
+  values: any
 ): string => {
   if (Array.isArray(field)) {
-    return "text";
+    return 'text';
   }
   switch (field.type) {
     default:
@@ -96,17 +103,17 @@ export const switchFieldType = (
 };
 export const getValidationRule = (field: any) => {
   switch (field.type) {
-    case "email":
-      return "email";
-    case "phone":
-      return "phone";
+    case 'email':
+      return 'email';
+    case 'phone':
+      return 'phone';
     default:
-      return field?.id;
+      return field?.name;
   }
 };
 export const getMinValue = (field: DynamicFieldType, values: any) => {
   const pred_min_values: any = {
-    today: dayjs().format("YYYY-MM-DD"),
+    today: dayjs().format('YYYY-MM-DD'),
   };
   if (field?.min) {
     const min: number = pred_min_values[field?.min] || field.min;
@@ -125,7 +132,7 @@ export const itsHidden = (field: DynamicFieldType, values: any) => {
 };
 export const itsTitleHidden = (
   field: DynamicFieldType,
-  prescreen_settings: any,
+  prescreen_settings: any
 ) => {
   const statesToCheck = field?.conditions;
   const someFieldIsIncluded = prescreen_settings.some((item: any) => {
@@ -138,8 +145,8 @@ export const itsTitleHidden = (
 export const requiredFields = (required?: boolean) => {
   return (value: any) => {
     if (required) {
-      if (typeof value == "undefined" || !value || (required && value === "")) {
-        return "Required field";
+      if (typeof value == 'undefined' || !value || (required && value === '')) {
+        return 'Required field';
       }
     }
   };
@@ -151,12 +158,9 @@ export const getTags = (name: string): TagType[] => {
   }
 };
 
-export const validations = (
-  values: any,
-  required?: boolean,
-  max?: number,
-) => ({
+export const validations = (values: any, required?: boolean, max?: number) => ({
   email: (value: string) => validateEmail(value),
   phone: (value: string) => validatePhone(value, required),
   birthDate: (value: string) => validateDOB(value),
+  project_requirements: (value: string[]) => validateProjectRequirements(value),
 });

@@ -1,0 +1,31 @@
+[
+  {
+    "fields": [
+      {
+        "type": "number",
+        "name": "project_budget",
+        "icon": "dollar",
+        "placeholder": "Your estimated budget",
+        "label": "Project Budget",
+        "required": true
+      },
+      {
+        "type": "text",
+        "name": "project_timeline",
+        "placeholder": "you@example.com",
+        "icon": "clock",
+        "label": "Project Timeline",
+        "required": true
+      },
+      {
+        "type": "select",
+        "name": "project_status",
+        "placeholder": "Project Status",
+        "label": "Project Status",
+        "icon": "chart-area",
+        "required": true,
+        "options": []
+      }
+    ]
+  }
+]

@@ -5,14 +5,12 @@ export const ErrorMessage = ({
   errors,
   id,
   touched,
-  key,
   index,
 }: {
   errors: any;
   id: string;
   touched: FormikTouched<any>;
   index?: number;
-  key?: string;
 }) => {
   const errorValue = errors[id];
   const touchedValue = touched[id];
@@ -25,8 +23,8 @@ export const ErrorMessage = ({
       if (errorValue[index] === undefined) return null;
 
       if (typeof errorValue[index] === 'string') return errorValue[index];
-      if (typeof errorValue[index] === 'object' && key)
-        return errorValue[index][key] || null;
+      if (typeof errorValue[index] === 'object' && id)
+        return errorValue[index][id] || null;
     }
 
     return null;

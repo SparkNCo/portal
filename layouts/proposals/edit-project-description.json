@@ -1,0 +1,13 @@
+[
+  {
+    "fields": [
+      {
+        "type": "textarea",
+        "name": "project_description",
+        "placeholder": "A brief description of your project",
+        "label": "Project Description",
+        "required": true
+      }
+    ]
+  }
+]

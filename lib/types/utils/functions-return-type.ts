@@ -6,3 +6,8 @@ export type UpdateReponseType = {
   error: string | null;
   success: string | null;
 };
+
+export type ErrorSuccessResponseMessage = {
+  error: string | null;
+  success: string | null;
+};

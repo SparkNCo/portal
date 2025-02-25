@@ -18,19 +18,21 @@ import { SubmitButton } from '@/components/submit-button';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Progress } from '../progress';
 import { DynamicField } from '../form/dynamic-field';
-import { DynamicFieldType } from '@/lib/types/utils/form';
+import { DynamicFieldType, LayoutType } from '@/lib/types/utils/form';
 import { getInitialValues } from './utils/functions';
 import { toast } from 'sonner';
 import { getURL } from '@/utils/helpers';
 import ProgressStepper from './components/stepper';
+import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
 type Props = {
-  layout: any;
+  layout: LayoutType;
   lang: 'fr' | 'en';
-  saveFn: any;
-  completeFn: any;
+  saveFn?: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
+  completeFn: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
   base: any;
   view?: string;
   showStepper?: boolean;
+  afterCompleteFn?: () => void;
   submitButton?: string;
   OAuthComponent?: React.ReactNode;
   submitButtonIcon?: React.ReactElement;
@@ -46,6 +48,7 @@ export default function DynamicForm({
   view,
   submitButtonIcon = <Send className="w-4 h-4" />,
   submitButton = 'Submit',
+  afterCompleteFn,
 }: Props) {
   const [page, setPage] = React.useState(0);
   const [values, setValues] = React.useState(base);
@@ -70,16 +73,7 @@ export default function DynamicForm({
         <ProgressStepper page={page} layout={layout} />
       )}
       {layout?.map(
-        (
-          {
-            title,
-            fields,
-          }: {
-            title?: string;
-            fields: DynamicFieldType[];
-          },
-          i: number
-        ) =>
+        ({ title, fields }, i: number) =>
           page == i && (
             <Formik
               key={'formikPage' + i}
@@ -96,10 +90,27 @@ export default function DynamicForm({
                 formData.append('values', JSON.stringify(updatedValues));
                 formData.append('page', page.toString());
                 try {
-                  await saveFn(formData);
+                  if (saveFn) {
+                    const { error, success } = await saveFn(formData);
+                    if (success) {
+                      toast.success(success);
+                    }
+                    if (error) {
+                      throw new Error(error);
+                    }
+                  }
                   if (page == layout.length - 1) {
-                    await completeFn(formData);
+                    const { error, success } = await completeFn(formData);
                     // setComplete(true);
+                    if (success) {
+                      toast.success(success);
+                    }
+                    if (error) {
+                      throw new Error(error);
+                    }
+                    if (afterCompleteFn) {
+                      afterCompleteFn();
+                    }
                     return;
                   } else {
                     setPage((p) => p + 1);
@@ -138,18 +149,18 @@ export default function DynamicForm({
                       transition={{ duration: 0.4, type: 'spring' }}
                       className="flex flex-col gap-2"
                     >
-                      {fields?.map((field: DynamicFieldType) => {
-                        return (
-                          <React.Fragment key={field.name}>
+                      {fields?.map(
+                        (field: DynamicFieldType | DynamicFieldType[]) => {
+                          return (
                             <DynamicField
                               errors={errors}
                               touched={touched}
                               field={field}
                               values={values}
                             />
-                          </React.Fragment>
-                        );
-                      })}
+                          );
+                        }
+                      )}
                     </motion.div>
                   </AnimatePresence>
 
@@ -163,58 +174,59 @@ export default function DynamicForm({
                       </Link>
                     </>
                   )}
-                  {fields[0]?.type != 'welcome_message' && (
-                    <AnimatePresence mode="popLayout">
-                      <motion.div
-                        key={page}
-                        initial={{ opacity: 0, x: 15 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -15 }}
-                        transition={{ duration: 0.4, type: 'spring' }}
-                        className="flex gap-4"
-                      >
-                        {!complete && i > 0 && (
-                          <Button
-                            type="button"
-                            className="bg-primary w-full"
-                            onClick={() => prevPage(values)}
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                            Previous
-                          </Button>
-                        )}
-
-                        <SubmitButton
-                          className="bg-primary w-full"
-                          disabled={isLoading || complete}
+                  {!Array.isArray(fields[0]) &&
+                    fields[0]?.type != 'welcome_message' && (
+                      <AnimatePresence mode="popLayout">
+                        <motion.div
+                          key={page}
+                          initial={{ opacity: 0, x: 15 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -15 }}
+                          transition={{ duration: 0.4, type: 'spring' }}
+                          className="flex gap-4"
                         >
-                          {!isLoading && (
-                            <>
-                              {i == layout.length - 1
-                                ? lang == 'en'
-                                  ? submitButton
-                                  : 'Soumettre'
-                                : lang == 'en'
-                                  ? 'Next'
-                                  : 'Suivant'}
+                          {!complete && i > 0 && (
+                            <Button
+                              type="button"
+                              className="bg-primary w-full"
+                              onClick={() => prevPage(values)}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                              Previous
+                            </Button>
+                          )}
 
-                              {i == layout.length - 1 ? (
-                                submitButtonIcon
-                              ) : (
-                                <ChevronRight className="w-4 h-4" />
-                              )}
-                            </>
-                          )}
-                          {isLoading && (
-                            <>
-                              <LoaderCircle className="w-4 h-4 animate-spin" />
-                              <p>{lang == 'en' ? 'Wait...' : 'Chargement'}</p>
-                            </>
-                          )}
-                        </SubmitButton>
-                      </motion.div>
-                    </AnimatePresence>
-                  )}
+                          <SubmitButton
+                            className="bg-primary w-full"
+                            disabled={isLoading || complete}
+                          >
+                            {!isLoading && (
+                              <>
+                                {i == layout.length - 1
+                                  ? lang == 'en'
+                                    ? submitButton
+                                    : 'Soumettre'
+                                  : lang == 'en'
+                                    ? 'Next'
+                                    : 'Suivant'}
+
+                                {i == layout.length - 1 ? (
+                                  submitButtonIcon
+                                ) : (
+                                  <ChevronRight className="w-4 h-4" />
+                                )}
+                              </>
+                            )}
+                            {isLoading && (
+                              <>
+                                <LoaderCircle className="w-4 h-4 animate-spin" />
+                                <p>{lang == 'en' ? 'Wait...' : 'Chargement'}</p>
+                              </>
+                            )}
+                          </SubmitButton>
+                        </motion.div>
+                      </AnimatePresence>
+                    )}
                 </form>
               )}
             </Formik>
