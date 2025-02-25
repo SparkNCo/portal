@@ -33,6 +33,8 @@ export const createProposalAndSaveFeaturesFn = async (
     client_phone: proposalData.project_owner_phone,
     project_requirements: proposalData.project_requirements,
     project_budget: proposalData.budget,
+    project_requirements_description:
+      proposalData.project_requirements_description,
     project_timeline: proposalData.timeline,
     project_status: proposalData.project_status,
   });
@@ -51,24 +53,24 @@ export const createProposalAndSaveFeaturesFn = async (
     };
   }
   //! Uncomment the following code to use the real openai data
-  // const { data, error: openaiError } = await supabase.functions.invoke(
-  //   'openai',
-  //   {
-  //     body: gptPayload,
-  //   }
-  // );
-  // if (openaiError) {
-  //   console.log(getErrorMessage(openaiError));
-  //   return {
-  //     error: 'Error generating proposal features',
-  //     success: null,
-  //   };
-  // }
-  // const features: OpenAIProposalFeaturesOutput = JSON.parse(
-  //   data?.data?.choices[0]?.message?.content
-  // );
+  const { data, error: openaiError } = await supabase.functions.invoke(
+    'openai',
+    {
+      body: gptPayload,
+    }
+  );
+  if (openaiError) {
+    console.log(getErrorMessage(openaiError));
+    return {
+      error: 'Error generating proposal features',
+      success: null,
+    };
+  }
+  const features: OpenAIProposalFeaturesOutput = JSON.parse(
+    data?.data?.choices[0]?.message?.content
+  );
   //! Uncomment the following line to use the mock data
-  const features = response;
+  // const features = response;
   const { error: insertingProposalFeaturesError } =
     await saveFeaturesFromOpenAI({
       features: features.proposal_features,
