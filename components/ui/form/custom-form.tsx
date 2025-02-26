@@ -17,18 +17,21 @@ import { Button } from '../button';
 import { SubmitButton } from '@/components/submit-button';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Progress } from '../progress';
-import { DynamicField } from '../form/dynamic-field';
 import { DynamicFieldType, LayoutType } from '@/lib/types/utils/form';
 import { getInitialValues } from './utils/functions';
 import { toast } from 'sonner';
 import { getURL } from '@/utils/helpers';
 import ProgressStepper from './components/stepper';
 import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
+import { DynamicField } from './components/dynamic-field';
+import { v4 } from 'uuid';
 type Props = {
   layout: LayoutType;
   lang: 'fr' | 'en';
-  saveFn?: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
-  completeFn: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
+  saveFn?: (formData: FormData) => Promise<ErrorSuccessResponseMessage | void>;
+  completeFn: (
+    formData: FormData
+  ) => Promise<ErrorSuccessResponseMessage | void>;
   base: any;
   view?: string;
   showStepper?: boolean;
@@ -91,22 +94,22 @@ export default function DynamicForm({
                 formData.append('page', page.toString());
                 try {
                   if (saveFn) {
-                    const { error, success } = await saveFn(formData);
-                    if (success) {
-                      toast.success(success);
+                    const response = await saveFn(formData);
+                    if (response?.success) {
+                      toast.success(response?.success);
                     }
-                    if (error) {
-                      throw new Error(error);
+                    if (response?.error) {
+                      throw new Error(response?.error);
                     }
                   }
                   if (page == layout.length - 1) {
-                    const { error, success } = await completeFn(formData);
+                    const response = await completeFn(formData);
                     // setComplete(true);
-                    if (success) {
-                      toast.success(success);
+                    if (response?.success) {
+                      toast.success(response?.success);
                     }
-                    if (error) {
-                      throw new Error(error);
+                    if (response?.error) {
+                      throw new Error(response?.error);
                     }
                     if (afterCompleteFn) {
                       afterCompleteFn();
@@ -153,6 +156,7 @@ export default function DynamicForm({
                         (field: DynamicFieldType | DynamicFieldType[]) => {
                           return (
                             <DynamicField
+                              key={v4()}
                               errors={errors}
                               touched={touched}
                               field={field}
@@ -176,7 +180,7 @@ export default function DynamicForm({
                   )}
                   {!Array.isArray(fields[0]) &&
                     fields[0]?.type != 'welcome_message' && (
-                      <AnimatePresence mode="popLayout">
+                      <AnimatePresence key={'motion' + page} mode="popLayout">
                         <motion.div
                           key={page}
                           initial={{ opacity: 0, x: 15 }}

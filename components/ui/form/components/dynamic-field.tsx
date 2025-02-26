@@ -9,10 +9,10 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from '../select';
-import { Input } from '../input';
+} from '../../select';
+import { Input } from '../../input';
 import { DynamicFieldProps } from '@/lib/types/utils/form';
-import { ColsFields } from './components/col-fields';
+import { ColsFields } from './../components/col-fields';
 import {
   getSelectOptions,
   getTags,
@@ -21,16 +21,16 @@ import {
   requiredFields,
   switchFieldType,
   validations,
-} from './utils/functions';
-import GoogleAutoCompleteInput from './components/google-autocomplete';
-import { FormLabelComponent } from './components/form-label';
-import { HelpTooltip } from '../help-tooltip';
-import { iconMap } from './components/icon-map';
-import { ErrorMessage } from './components/error-message';
-import './styles.css';
-import { Textarea } from '../textarea';
-import { TextAreaInput } from './components/textarea';
-import { MultiSelectInput } from './components/multi-select';
+} from './../utils/functions';
+import GoogleAutoCompleteInput from './../components/google-autocomplete';
+import { FormLabelComponent } from './../components/form-label';
+import { HelpTooltip } from '../../help-tooltip';
+import { iconMap } from './../components/icon-map';
+import { ErrorMessage } from './../components/error-message';
+import './../styles.css';
+import { Textarea } from '../../textarea';
+import { TextAreaInput } from './../components/textarea';
+import { MultiSelectInput } from './../components/multi-select';
 
 export function DynamicField({
   field,
