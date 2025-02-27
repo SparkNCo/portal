@@ -17,8 +17,10 @@ export default function AuthFormLayout({ children, bgImage, title }: Props) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2 overflow-hidden">
       <div className="flex flex-col gap-4 p-6 md:p-10 overflow-y-auto h-screen">
-        <div className="flex justify-center gap-2 ">
-          <Logo />
+        <div className="flex justify-center ">
+          <div className="dark:bg-white p-2 rounded-md">
+            <Logo />
+          </div>
         </div>
         <div className="flex flex-1 flex-col items-center gap-y-10  justify-center">
           {title && (
