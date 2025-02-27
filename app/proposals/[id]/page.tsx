@@ -1,5 +1,17 @@
-import { notFound } from 'next/navigation';
-import { Clock, DollarSign, Dot, Mail, Phone, User } from 'lucide-react';
+import { notFound, redirect } from 'next/navigation';
+import {
+  Clock,
+  DollarSign,
+  Dot,
+  Info,
+  Lock,
+  LockOpen,
+  Mail,
+  Phone,
+  Shield,
+  ShieldEllipsis,
+  User,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -25,59 +37,105 @@ import edit_project_requirements_layout from '@/layouts/proposals/edit-project-r
 import edit_feature_layout from '@/layouts/proposals/edit-feature.json';
 import { snakeCaseToWords } from '@/utils/helpers';
 import { updateProposalFeatureFn } from '@/lib/services/proposal_features/update-feature';
+import { Proposal } from '@/lib/types/db/proposals';
+import { getLoggedInUser } from '@/lib/repositories/users/get';
+import LogOutButton from '@/components/ui/buttons/logout-button';
+import AlertMessage from '@/components/ui/info-message';
+import ChangePrivacyButton from '@/components/ui/proposals/change-privacy-button';
+import { Button } from '@/components/ui/button';
+import { Suspense } from 'react';
+import RevalidateButton from '@/components/ui/buttons/ss-refresh-button';
 interface ProposalPageProps {
   params: Promise<{
     id: string;
   }>;
 }
-const getProposalAndFeatures = unstable_cache(
+const getProposal = unstable_cache(
   async (proposalId: string) => {
     const proposal = await getProposalById(proposalId);
-    if (!proposal) return { proposal: null, proposal_features: [] };
+    if (!proposal) return null;
 
-    const proposal_features = await getProposalFeaturesByProposalId(proposalId);
-    return { proposal, proposal_features };
+    return proposal;
   },
+
   ['proposal'],
   {
-    revalidate: 3600,
+    revalidate: 600,
     tags: [`proposal`],
+  }
+);
+const getFeatures = unstable_cache(
+  async (proposalId: string) => {
+    const proposal_features = await getProposalFeaturesByProposalId(proposalId);
+    return proposal_features;
+  },
+  ['proposal_features'],
+  {
+    revalidate: 600,
+    tags: [`proposal_features`],
   }
 );
 export default async function ProposalPage({ params }: ProposalPageProps) {
   const { id } = await params;
-  const { proposal, proposal_features } = await getProposalAndFeatures(id);
+  const proposal = await getProposal(id);
+  const proposal_features = await getFeatures(id);
   if (!proposal) {
     return notFound();
   }
+  const user = await getLoggedInUser();
+  const isOwner = user?.id === proposal.user_id;
+  const noUserAttached = !proposal.user_id;
+  const isPublic = proposal.public;
+  //If there is no user attached to the proposal, redirect to the sign up page
+  if (noUserAttached) {
+    return redirect(
+      `/sign-in/user-sign-up?proposalId=${id}&status=Please, enter your password to create your account.`
+    );
+  }
+  if (!isOwner && !proposal.public) {
+    return notFound();
+  }
+
   const headerClass = 'flex items-center justify-between';
+
   return (
     <div className="container  py-8  w-full">
+      <div className="fixed bottom-14 left-3 z-10">
+        <LogOutButton usage="header" />
+      </div>
       <Link
-        href={'/'}
+        href={'/proposals'}
         className="text-primary font-medium underline mb-4 flex items-center gap-2"
       >
-        Home
+        Proposals
       </Link>
-      <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <Dot />
-        <p>{proposal.business_name}</p>
-      </h1>
+      <div className="text-2xl font-bold mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <Dot />
+          <p>{proposal.business_name}</p>
+        </h1>
+        <RevalidateButton
+          revalidate={`/proposals/${id}`}
+          revalidateOption="path"
+        />
+      </div>
 
       <div className="grid gap-6 w-full">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className={''}>
               <CardTitle className={headerClass}>
                 Client Information{' '}
-                <EditProposal
-                  editDescription="You can edit your personal information here."
-                  layout={edit_client_information_layout}
-                  proposal={proposal}
-                  editSection="Client Information"
-                  completeFn={updateProposalFn}
-                  proposal_features={proposal_features}
-                />
+                {isOwner && (
+                  <EditProposal
+                    editDescription="You can edit your personal information here."
+                    layout={edit_client_information_layout}
+                    proposal={proposal}
+                    editSection="Client Information"
+                    completeFn={updateProposalFn}
+                    proposal_features={proposal_features}
+                  />
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -97,19 +155,20 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className={headerClass}>
                 Project Details{' '}
-                <EditProposal
-                  editDescription="You can edit the project details here."
-                  layout={edit_project_details_layout}
-                  proposal={proposal}
-                  editSection="Project Details"
-                  completeFn={updateProposalFn}
-                  proposal_features={proposal_features}
-                />
+                {isOwner && (
+                  <EditProposal
+                    editDescription="You can edit the project details here."
+                    layout={edit_project_details_layout}
+                    proposal={proposal}
+                    editSection="Project Details"
+                    completeFn={updateProposalFn}
+                    proposal_features={proposal_features}
+                  />
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -138,20 +197,56 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
               </div>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className={headerClass}>
+                Project Privacy
+                {isOwner && (
+                  <ChangePrivacyButton isPublic={isPublic} proposalId={id} />
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className=" flex flex-col gap-y-4">
+              <div className="flex items-center gap-2">
+                <Shield className="icon" />
+                <span className="flex items-center gap-2">
+                  Current Status:{' '}
+                  <Badge
+                    className="flex gap-2"
+                    variant={isPublic ? 'default' : 'secondary'}
+                  >
+                    {isPublic ? (
+                      <LockOpen className="icon" />
+                    ) : (
+                      <Lock className="icon" />
+                    )}
+                    {isPublic ? 'PUBLIC' : 'PRIVATE'}
+                  </Badge>
+                </span>
+              </div>
+              <AlertMessage
+                message={` Changing this settings will make your proposal
+                  ${isPublic ? 'private' : 'public'}.`}
+                type="info"
+              />
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className={headerClass}>
               Project Description
-              <EditProposal
-                editDescription="You can edit the project description here."
-                layout={edit_project_description_layout}
-                proposal={proposal}
-                editSection="Project Description"
-                completeFn={updateProposalFn}
-                proposal_features={proposal_features}
-              />
+              {isOwner && (
+                <EditProposal
+                  editDescription="You can edit the project description here."
+                  layout={edit_project_description_layout}
+                  proposal={proposal}
+                  editSection="Project Description"
+                  completeFn={updateProposalFn}
+                  proposal_features={proposal_features}
+                />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -166,14 +261,16 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
           <CardHeader>
             <CardTitle className={headerClass}>
               Project Requirements
-              <EditProposal
-                editDescription="You can edit the project requirements here."
-                layout={edit_project_requirements_layout}
-                proposal={proposal}
-                editSection="Project Requirements"
-                completeFn={updateProposalFn}
-                proposal_features={proposal_features}
-              />
+              {isOwner && (
+                <EditProposal
+                  editDescription="You can edit the project requirements here."
+                  layout={edit_project_requirements_layout}
+                  proposal={proposal}
+                  editSection="Project Requirements"
+                  completeFn={updateProposalFn}
+                  proposal_features={proposal_features}
+                />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -233,18 +330,20 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <EditProposal
-                        base={{
-                          ...feature,
-                          feature_id: feature.id,
-                        }}
-                        editDescription="You can edit the project features here."
-                        layout={edit_feature_layout}
-                        proposal={proposal}
-                        editSection="Project Features"
-                        completeFn={updateProposalFeatureFn}
-                        proposal_features={proposal_features}
-                      />
+                      {isOwner && (
+                        <EditProposal
+                          base={{
+                            ...feature,
+                            feature_id: feature.id,
+                          }}
+                          editDescription="You can edit the project features here."
+                          layout={edit_feature_layout}
+                          proposal={proposal}
+                          editSection="Project Features"
+                          completeFn={updateProposalFeatureFn}
+                          proposal_features={proposal_features}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
