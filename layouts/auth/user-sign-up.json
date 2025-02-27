@@ -1,11 +1,7 @@
 [
   {
+    "title": "Provide a password to finish the process",
     "fields": [
-      {
-        "type": "subtitle",
-        "label": "Provide a password to finish signing up"
-      },
-
       {
         "type": "password",
         "name": "password",
