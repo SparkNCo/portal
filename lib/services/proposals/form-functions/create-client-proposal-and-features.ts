@@ -14,6 +14,8 @@ import {
   OpenAIProposalFeaturesOutput,
 } from '@/lib/types/utils/openai-outputs';
 import { mock_edge_function_data, response } from '@/data';
+import { sendSuccessEmailFn } from '../send-success-email';
+import { revalidatePath } from 'next/cache';
 
 export const createProposalAndSaveFeaturesFn = async (
   formData: FormData
@@ -84,9 +86,22 @@ export const createProposalAndSaveFeaturesFn = async (
       success: null,
     };
   }
+  const { error: emailError } = await sendSuccessEmailFn({
+    call_date: '2023-01-01',
+    client_email: proposalData.project_owner_email,
+    client_name: proposalData.project_owner_name,
+    proposal_id: proposalId,
+  });
+  if (emailError) {
+    return {
+      error: emailError,
+      success: null,
+    };
+  }
+  revalidatePath('/proposals');
   return {
     error: null,
-    success: 'Features saved successfully',
+    success: 'Proposal and features created. Email sent.',
   };
 };
 

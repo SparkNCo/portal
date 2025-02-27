@@ -65,6 +65,14 @@ export const component = ({
       </Container>
     </Section>
 
+    <Section className="bg-white pb-4 px-3">
+      <Container className="">
+        <Text className="text-gray-700 text-base">
+          Don't share this link whit anyone until you enter to the page for the
+          first time!
+        </Text>
+      </Container>
+    </Section>
     <Section className="rounded-md pb-12  px-3">
       <Container>
         <Button
