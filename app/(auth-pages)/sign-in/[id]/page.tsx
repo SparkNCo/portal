@@ -72,7 +72,7 @@ export default async function Layout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user && viewProp !== 'update-password') {
+  if (user && viewProp !== 'update-password' && viewProp !== 'user-sign-up') {
     return redirect('/proposals');
   } else if (!user && viewProp === 'update-password') {
     return redirect('/sign-in');
