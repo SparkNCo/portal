@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { use, useId } from 'react';
 
 import { Formik } from 'formik';
 import {
@@ -25,6 +25,8 @@ import ProgressStepper from './components/stepper';
 import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
 import { DynamicField } from './components/dynamic-field';
 import { v4 } from 'uuid';
+import OauthSignIn from '../auth/oauth';
+type View = 'signin' | 'signup' | 'forgot-password' | 'update-password';
 type Props = {
   layout: LayoutType;
   lang: 'fr' | 'en';
@@ -33,12 +35,13 @@ type Props = {
     formData: FormData
   ) => Promise<ErrorSuccessResponseMessage | void>;
   base: any;
-  view?: string;
+  view?: View;
   showStepper?: boolean;
   afterCompleteFn?: () => void;
   submitButton?: string;
   OAuthComponent?: React.ReactNode;
   submitButtonIcon?: React.ReactElement;
+  thirdPartyAuth?: boolean;
 };
 
 export default function DynamicForm({
@@ -52,6 +55,7 @@ export default function DynamicForm({
   submitButtonIcon = <Send className="w-4 h-4" />,
   submitButton = 'Submit',
   afterCompleteFn,
+  thirdPartyAuth = false,
 }: Props) {
   const [page, setPage] = React.useState(0);
   const [values, setValues] = React.useState(base);
@@ -70,7 +74,7 @@ export default function DynamicForm({
   return (
     <div
       key={'formPage' + page}
-      className={`w-full flex-col flex items-center justify-center z-[10] `}
+      className={`w-full flex-col flex items-center justify-center space-y-4 z-[10] `}
     >
       {showStepper && layout.length > 1 && (
         <ProgressStepper page={page} layout={layout} />
@@ -156,7 +160,7 @@ export default function DynamicForm({
                         (field: DynamicFieldType | DynamicFieldType[]) => {
                           return (
                             <DynamicField
-                              key={v4()}
+                              key={useId()}
                               errors={errors}
                               touched={touched}
                               field={field}
@@ -169,20 +173,28 @@ export default function DynamicForm({
                   </AnimatePresence>
 
                   {view == 'signin' && (
-                    <>
-                      <Link
-                        className=" text-xs text-end text-blue-500"
-                        href={getURL('/sign-in/forgot-password')}
+                    <AnimatePresence mode="popLayout">
+                      <motion.div
+                        key={'forgotPassword' + i}
+                        initial={{ opacity: 0, x: 15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -15 }}
+                        transition={{ duration: 0.4, type: 'spring' }}
+                        className="flex flex-col gap-2 items-end"
                       >
-                        Forgot your password?
-                      </Link>
-                    </>
+                        <Link
+                          className=" text-xs text-end text-blue-500 w-fit"
+                          href={getURL('/sign-in/forgot-password')}
+                        >
+                          Forgot your password?
+                        </Link>
+                      </motion.div>
+                    </AnimatePresence>
                   )}
                   {!Array.isArray(fields[0]) &&
                     fields[0]?.type != 'welcome_message' && (
-                      <AnimatePresence key={'motion' + page} mode="popLayout">
+                      <AnimatePresence mode="popLayout">
                         <motion.div
-                          key={page}
                           initial={{ opacity: 0, x: 15 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -15 }}
@@ -236,6 +248,63 @@ export default function DynamicForm({
             </Formik>
           )
       )}
+      {thirdPartyAuth && (
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            initial={{ opacity: 0, x: 15 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -15 }}
+            transition={{ duration: 0.4, type: 'spring' }}
+            className="space-y-4 w-full"
+          >
+            <div className="divider ">or</div>
+            <OauthSignIn action={getActionForOauth(view)} />
+          </motion.div>
+        </AnimatePresence>
+      )}
+      {getLink(view) && (
+        <AnimatePresence mode="popLayout">
+          <motion.div
+            initial={{ opacity: 0, x: 15 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -15 }}
+            transition={{ duration: 0.4, type: 'spring' }}
+            className="space-y-4 w-full"
+          >
+            {getLink(view)}
+          </motion.div>
+        </AnimatePresence>
+      )}
     </div>
   );
 }
+
+const getActionForOauth = (action?: View): string => {
+  switch (action) {
+    case 'signin':
+      return 'Sign In';
+    case 'signup':
+      return 'Sign Up';
+    default:
+      return '';
+  }
+};
+
+const getLink = (action?: View): React.ReactNode => {
+  switch (action) {
+    case 'signup':
+      return (
+        <h3 className="font-semibold text-xs text-center">
+          Already have an account?{' '}
+          <Link
+            className="text-blue-500"
+            href={getURL('/sign-in/password-signin')}
+          >
+            Sign In
+          </Link>
+        </h3>
+      );
+    default:
+      return null;
+  }
+};
