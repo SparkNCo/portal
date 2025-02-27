@@ -8,7 +8,7 @@ export type FormPageType = {
 };
 
 export type DynamicFieldType = {
-  name: string;
+  name?: string;
   type: string;
   label: string;
   placeholder?: string;

@@ -1,0 +1,26 @@
+[
+  {
+    "fields": [
+      {
+        "type": "subtitle",
+        "label": "Sign In "
+      },
+      {
+        "type": "email",
+        "name": "email",
+        "placeholder": "you@example.com",
+        "icon": "email",
+        "label": "Email",
+        "required": true
+      },
+      {
+        "type": "password",
+        "name": "password",
+        "icon": "lock",
+        "placeholder": "********",
+        "label": "Password",
+        "required": true
+      }
+    ]
+  }
+]

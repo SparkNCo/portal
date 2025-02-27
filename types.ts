@@ -58,6 +58,8 @@ export type Database = {
           project_requirements_description: string;
           project_status: Database['public']['Enums']['project_status'];
           project_timeline: string;
+          public: boolean;
+          user_id: string | null;
         };
         Insert: {
           business_name: string;
@@ -72,6 +74,8 @@ export type Database = {
           project_requirements_description: string;
           project_status?: Database['public']['Enums']['project_status'];
           project_timeline: string;
+          public?: boolean;
+          user_id?: string | null;
         };
         Update: {
           business_name?: string;
@@ -86,6 +90,34 @@ export type Database = {
           project_requirements_description?: string;
           project_status?: Database['public']['Enums']['project_status'];
           project_timeline?: string;
+          public?: boolean;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'proposals_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      users: {
+        Row: {
+          created_at: string;
+          email: string;
+          id: string;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          id?: string;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          id?: string;
         };
         Relationships: [];
       };
