@@ -143,9 +143,18 @@ export default function DynamicForm({
                   }}
                 >
                   {title && (
-                    <h3 className="font-semibold w-full flex gap-2 items-center text-foreground pl-2 border-l-2 border-foreground">
-                      <span> {title}</span>
-                    </h3>
+                    <AnimatePresence mode="popLayout">
+                      <motion.h3
+                        key={'formTitle' + i}
+                        initial={{ opacity: 0, x: 15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -15 }}
+                        transition={{ duration: 0.4, type: 'spring' }}
+                        className="font-semibold w-full flex gap-2 items-center text-foreground pl-2 border-l-2 border-foreground"
+                      >
+                        <span> {title}</span>
+                      </motion.h3>
+                    </AnimatePresence>
                   )}
                   <AnimatePresence mode="popLayout">
                     <motion.div
@@ -187,6 +196,25 @@ export default function DynamicForm({
                           href={getURL('/sign-in/forgot-password')}
                         >
                           Forgot your password?
+                        </Link>
+                      </motion.div>
+                    </AnimatePresence>
+                  )}
+                  {view == 'forgot-password' && (
+                    <AnimatePresence mode="popLayout">
+                      <motion.div
+                        key={'forgotPassword' + i}
+                        initial={{ opacity: 0, x: 15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -15 }}
+                        transition={{ duration: 0.4, type: 'spring' }}
+                        className="flex flex-col gap-2 items-end"
+                      >
+                        <Link
+                          className=" text-xs text-end text-blue-500 w-fit"
+                          href={getURL('/sign-in/password-signin')}
+                        >
+                          I already have an account
                         </Link>
                       </motion.div>
                     </AnimatePresence>
