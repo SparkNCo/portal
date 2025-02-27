@@ -1,12 +1,9 @@
 'use client';
-import Link from 'next/link';
 import { handleRequestFn } from '@/utils/auth-helpers/client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import React, { useState } from 'react';
+import React from 'react';
 // import OauthSignIn from './OauthSignIn';
-import { getURL } from '@/utils/helpers';
 import signin_layout from '@/layouts/auth/sign-in.json';
-import OauthSignIn from '@/components/ui/auth/oauth';
 import { signInWithPassword } from '@/utils/auth-helpers/server';
 import DynamicForm from '../form/custom-form';
 // Define prop type with allowEmail boolean

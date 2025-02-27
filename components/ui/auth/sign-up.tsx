@@ -1,10 +1,6 @@
 'use client';
-import Link from 'next/link';
 import { handleRequestFn } from '@/utils/auth-helpers/client';
-import OauthSignIn from '@/components/ui/auth/oauth';
-import { getURL } from '@/utils/helpers';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import user_sign_up_layout from '@/layouts/auth/user-sign-up.json';
 import CustomForm from '../form/custom-form';
 import { signUp } from '@/utils/auth-helpers/sign-up';

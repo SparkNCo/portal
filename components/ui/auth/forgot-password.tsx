@@ -1,11 +1,8 @@
 'use client';
 
 import { handleRequestFn } from '@/utils/auth-helpers/client';
-import { getURL } from '@/utils/helpers';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { requestPasswordUpdate } from '@/utils/auth-helpers/server';
-import Link from 'next/link';
 import CustomForm from '../form/custom-form';
 import forgot_password_layout from '@/layouts/auth/forgot-password.json';
 interface ForgotPasswordProps {
