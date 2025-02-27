@@ -4,13 +4,14 @@ import { Separator } from '@/components/ui/separator';
 import { getProposalsByUserId } from '@/lib/repositories/proposals/get';
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 export default async function Proposals() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return <div>not logged in</div>;
+  if (!user) redirect('/sign-in');
   const proposals = await getProposalsByUserId(user?.id);
   return (
     <>
