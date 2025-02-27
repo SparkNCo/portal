@@ -29,12 +29,14 @@ import { unstable_cache } from 'next/cache';
 import EditProposal from '@/components/ui/proposals/edit-proposal';
 import { updateProposalFn } from '@/lib/services/proposals/form-functions/update-proposal';
 
-//LAYOUTS IMPORTS
+//!LAYOUTS IMPORTS
 import edit_client_information_layout from '@/layouts/proposals/edit-client-information.json';
 import edit_project_details_layout from '@/layouts/proposals/edit-project-details.json';
 import edit_project_description_layout from '@/layouts/proposals/edit-project-description.json';
 import edit_project_requirements_layout from '@/layouts/proposals/edit-project-requirements.json';
 import edit_feature_layout from '@/layouts/proposals/edit-feature.json';
+//!LAYOUTS IMPORTS
+
 import { snakeCaseToWords } from '@/utils/helpers';
 import { updateProposalFeatureFn } from '@/lib/services/proposal_features/update-feature';
 import { Proposal } from '@/lib/types/db/proposals';
@@ -100,9 +102,11 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
 
   return (
     <div className="container  py-8  w-full">
-      <div className="fixed bottom-14 left-3 z-10">
-        <LogOutButton usage="header" />
-      </div>
+      {user && (
+        <div className="fixed bottom-14 left-3 z-10">
+          <LogOutButton usage="header" />
+        </div>
+      )}
       <Link
         href={'/proposals'}
         className="text-primary font-medium underline mb-4 flex items-center gap-2"
@@ -224,11 +228,13 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                   </Badge>
                 </span>
               </div>
-              <AlertMessage
-                message={` Changing this settings will make your proposal
-                  ${isPublic ? 'private' : 'public'}.`}
-                type="info"
-              />
+              {isOwner && (
+                <AlertMessage
+                  message={` Changing this settings will make your proposal
+                ${isPublic ? 'private' : 'public'}.`}
+                  type="info"
+                />
+              )}
             </CardContent>
           </Card>
         </div>
