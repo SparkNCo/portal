@@ -8,7 +8,7 @@ import { v4 } from 'uuid';
 import { supabase } from '@/lib/supabase/client';
 import { Proposal } from '@/lib/types/db/proposals';
 import { updateProposalById } from '@/lib/repositories/proposals/update';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { ProposalFeature } from '@/lib/types/db/proposal_features';
 
 export const updateProposalFn = async (
@@ -34,7 +34,7 @@ export const updateProposalFn = async (
       success: null,
     };
   }
-  revalidatePath(`/proposals/${proposalData.id}`);
+  revalidateTag(`proposal`);
   return {
     error: null,
     success: 'Proposal updated successfully',

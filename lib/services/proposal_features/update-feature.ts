@@ -7,7 +7,7 @@ import { parseFormData } from '@/utils/helpers';
 
 import { Proposal } from '@/lib/types/db/proposals';
 import { updateProposalById } from '@/lib/repositories/proposals/update';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { ProposalFeature } from '@/lib/types/db/proposal_features';
 import { updateProposalFeatureById } from '@/lib/repositories/proposal_features/update';
 
@@ -44,7 +44,7 @@ export const updateProposalFeatureFn = async (
       success: null,
     };
   }
-  revalidatePath(`/proposals/${proposal_id}`);
+  revalidateTag(`proposal_features`);
   return {
     error: null,
     success: 'Proposal updated successfully',
