@@ -21,7 +21,7 @@ export default function PasswordSignIn({
   redirectMethod = 'client',
 }: PasswordSignInProps) {
   const router = redirectMethod === 'client' ? useRouter() : null;
-  const searchParams = useSearchParams(); // 🔹 Accede a los parámetros de la URL
+  const searchParams = useSearchParams();
 
   const redirectTo = searchParams.get('redirectTo') || '';
 
