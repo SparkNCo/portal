@@ -24,8 +24,7 @@ export default function AuthFormLayout({ children, bgImage, title }: Props) {
         </div>
         <div className="flex flex-1 flex-col items-center gap-y-10  justify-center">
           {title && (
-            <h1 className="font-bold text-3xl inline-flex gap-4 items-center justify-center capitalize leading-[45px]">
-              <Lock className="" />
+            <h1 className="font-bold text-3xl inline-flex gap-4 items-center justify-center  leading-[45px]">
               {title}
             </h1>
           )}
