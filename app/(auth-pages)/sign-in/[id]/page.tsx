@@ -1,10 +1,6 @@
 import AuthFormLayout from '@/components/ui/wrappers/auth-form-wrapper';
-import ForgotPassword from '@/components/ui/auth/forgot-password';
-import OrganizationSignUp from '@/components/ui/auth/organization-sign-up';
 import PasswordSignIn from '@/components/ui/auth/sign-in';
-import EmailSignIn from '@/components/ui/auth/sign-in';
 import SignUp from '@/components/ui/auth/sign-up';
-import SignUpOptionsPage from '@/components/ui/auth/sign-up-options';
 import {
   getAuthTypes,
   getDefaultSignInView,
@@ -15,6 +11,8 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Metadata } from 'next';
+import ForgotPassword from '@/components/ui/auth/forgot-password';
+import UpdatePassword from '@/components/ui/auth/update-password';
 export const metadata: Metadata = {
   title: 'Sign In & Account Access | Spark&Co ',
   description: 'Securely sign in to your Spark&Co account.',
@@ -73,15 +71,12 @@ export default async function Layout({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) {
-    redirect('/proposals');
-  }
 
-  // if (user && manager && viewProp !== 'update-password') {
-  //   return redirect('/dashboard/');
-  // } else if (!user && viewProp === 'update-password') {
-  //   return redirect('/sign-in');
-  // }
+  if (user && viewProp !== 'update-password') {
+    return redirect('/proposals');
+  } else if (!user && viewProp === 'update-password') {
+    return redirect('/sign-in');
+  }
   const title = getTitle({ complete: complete, viewProp });
   return (
     <AuthFormLayout bgImage={''} title={title}>
@@ -100,15 +95,12 @@ export default async function Layout({
               redirectMethod={redirectMethod}
             />
           )}
-          {/* {viewProp === 'forgot-password' && (
+          {viewProp === 'forgot-password' && (
             <ForgotPassword
               allowEmail={allowEmail}
               redirectMethod={redirectMethod}
             />
-          )} */}
-          {/* {viewProp === 'update-password' && (
-            <UpdatePassword redirectMethod={redirectMethod} />
-          )} */}
+          )}
 
           {viewProp === 'user-sign-up' && (
             <SignUp
@@ -134,9 +126,10 @@ const getTitle = ({
   }
   switch (viewProp) {
     case 'forgot-password':
-      return 'Forgot your password?';
+      return null;
+
     case 'update-password':
-      return 'Update Password';
+      return null;
     case 'sign-up':
       return null;
     case 'user-sign-up':

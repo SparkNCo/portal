@@ -100,10 +100,10 @@ export async function signInWithEmail(formData: FormData) {
 }
 
 export async function requestPasswordUpdate(formData: FormData) {
-  const callbackURL = getURL('/auth/reset_password');
+  const callbackURL = getURL('/auth/reset-password');
 
   // Get form data
-  const values = JSON.parse((formData.get('values') as string) || '{}');
+  const values = parseFormData(formData, 'values');
   const { email } = values;
   let redirectPath: string;
 
@@ -124,7 +124,7 @@ export async function requestPasswordUpdate(formData: FormData) {
       '/sign-in/forgot-password?complete=true&message=Check your email for a password reset link. You may now close this tab.';
   } else {
     redirectPath = getErrorRedirect(
-      '/signin/forgot-password',
+      '/sign-in/forgot-password',
       'Hmm... Something went wrong.',
       'Password reset email could not be sent.'
     );
@@ -194,13 +194,13 @@ export async function checkSlug(slug: string) {
 }
 
 export async function updatePassword(formData: FormData) {
-  const values = JSON.parse((formData.get('values') as string) || '{}');
-  const { password, passwordConfirm } = values;
+  const values = parseFormData(formData, 'values');
+  const { password, password_confirm } = values;
   let redirectPath: string;
   // Check that the password and confirmation match
-  if (password !== passwordConfirm) {
+  if (password !== password_confirm) {
     return (redirectPath = getErrorRedirect(
-      '/signin/update-password',
+      '/sign-in/update-password',
       'Your password could not be updated.',
       'Passwords do not match.'
     ));
@@ -212,19 +212,19 @@ export async function updatePassword(formData: FormData) {
 
   if (error) {
     redirectPath = getErrorRedirect(
-      '/signin/update-password',
+      '/sign-in/update-password',
       'Your password could not be updated.',
       error.message
     );
   } else if (data.user) {
     redirectPath = getStatusRedirect(
-      '/signin/password-signin',
+      '/sign-in/password-signin',
       'Success!',
       'Your password has been updated.'
     );
   } else {
     redirectPath = getErrorRedirect(
-      '/signin/update-password',
+      '/sign-in/update-password',
       'Hmm... Something went wrong.',
       'Your password could not be updated.'
     );
@@ -240,7 +240,7 @@ export async function updateEmail(formData: FormData) {
   // Check that the email is valid
   if (!isValidEmail(newEmail)) {
     return getErrorRedirect(
-      '/signin/password-signin',
+      '/sign-in/password-signin',
       'Your email could not be updated.',
       'Invalid email address.'
     );
