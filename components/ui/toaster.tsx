@@ -52,7 +52,7 @@ export function Toaster(props: Partial<ToasterProps>) {
       theme={theme as 'light' | 'dark' | 'system'}
       position={'bottom-right'}
       expand={props.expand ?? true}
-      richColors={props.richColors ?? true}
+      // richColors={props.richColors ?? true}
     />
   );
 }

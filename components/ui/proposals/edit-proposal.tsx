@@ -1,8 +1,6 @@
 'use client';
 import DynamicForm from '@/components/ui/form/custom-form';
 import React from 'react';
-import sign_in_layout from '@/layouts/sign-in.json';
-import { supabase } from '@/lib/supabase/client';
 import { Proposal } from '@/lib/types/db/proposals';
 import { ProposalFeature } from '@/lib/types/db/proposal_features';
 import { LayoutType } from '@/lib/types/utils/form';
@@ -34,8 +32,8 @@ export default function EditProposal({
     <>
       <Drawer
         trigger={
-          <Button className="p-1  h-fit " variant="outline">
-            <Edit size={20} />
+          <Button className="p-2  h-fit " variant="outline">
+            <Edit className="icon" />
           </Button>
         }
         title={editSection}
