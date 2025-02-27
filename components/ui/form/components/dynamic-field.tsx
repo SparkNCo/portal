@@ -51,7 +51,8 @@ export function DynamicField({
     );
   }
   const {
-    name,
+    //I initialize name as an empty string for those fields that don't have a name because they are not inputs, like the cols field or the subtitle field.
+    name = '',
     type,
     label,
     placeholder,

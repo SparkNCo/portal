@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Proposal } from '@/lib/types/db/proposals';
 import { updateProposalById } from '@/lib/repositories/proposals/update';
 import { insertUser } from '@/lib/repositories/users/insert';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 function isValidEmail(email: string) {
   var regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
@@ -151,11 +152,7 @@ export async function signInWithPassword(formData: FormData) {
     );
   } else if (data.user) {
     cookieStore.set('preferredSignInView', 'password-signin', { path: '/' });
-    const { data: signedInUser } = await supabase
-      .from('users')
-      .select()
-      .eq('id', data.user?.id)
-      .single();
+
     //!Here will be the list of proposals maybe
     let path = 'proposals';
     if (redirectTo) {
@@ -194,105 +191,6 @@ export async function checkSlug(slug: string) {
   }
 
   return { slugExists, uniqueSlug };
-}
-
-export async function signUp(formData: FormData) {
-  const callbackURL = getURL(
-    '/sign-in/password-signin?status=Tu cuenta ha sido verificada correctamente, ya puedes iniciar sesión.'
-  );
-  const values = parseFormData(formData, 'values');
-  console.log(values);
-  const { proposalId, password } = values;
-  const { data: proposal } = await supabase
-    .from('proposals')
-    .select()
-    .eq('id', proposalId)
-    .single<Proposal>();
-  if (!proposal) {
-    return getErrorRedirect(
-      '/sign-in/user-sign-up',
-      'Error',
-      'Proposal not found. Please, use the link we sent to your email to finish the sign up process.'
-    );
-  }
-  const { error: signUpError, data } = await supabase.auth.signUp({
-    email: proposal.client_email,
-    password,
-
-    phone: String(proposal.client_phone),
-    options: {
-      data: {
-        display_name: proposal.client_name,
-      },
-    },
-  });
-  let redirectPath: string = '';
-  if (signUpError) {
-    redirectPath = getErrorRedirect(
-      '/sign-in/user-sign-up',
-      'Error',
-      signUpError.message
-    );
-  } else if (data.session && data.user) {
-    const user_id = data.user.id;
-
-    const { error: insertUserError } = await insertUser({
-      id: user_id,
-      email: proposal.client_email,
-    });
-    if (insertUserError) {
-      console.log(insertUserError);
-      return (redirectPath = getErrorRedirect(
-        '/sign-in/user-sign-up',
-        'There was an error while creating your account. Please try again later or contact support for further assistance.'
-      ));
-    }
-    const { error } = await updateProposalById(proposalId, {
-      user_id,
-    });
-
-    if (error) {
-      console.log(error);
-      return (redirectPath = getErrorRedirect(
-        '/sign-in/user-sign-up',
-        'Hmm... Something went wrong.',
-        'We could not sign you up, please try again.'
-      ));
-    }
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: proposal.client_email,
-      password,
-    });
-    if (signInError) {
-      return (redirectPath = getErrorRedirect(
-        '/sign-in/user-sign-up',
-        signInError.message
-      ));
-    }
-    redirectPath = getStatusRedirect(
-      `/proposals/${proposalId}`,
-      'Your account has been created successfully!'
-    );
-  } else if (
-    data.user &&
-    data.user.identities &&
-    data.user.identities.length == 0
-  ) {
-    redirectPath = getErrorRedirect(
-      '/sign-in/user-sign-up',
-      'Error',
-      'There is already an email asociated with this account. If you forgot your password, you can reset it.'
-    );
-  } else if (data.user) {
-  } else {
-    redirectPath = getErrorRedirect(
-      '/sign-in/user-sign-up',
-      'Hmm... Something went wrong.',
-      'We could not sign you up, please try again.'
-    );
-  }
-
-  return redirectPath;
 }
 
 export async function updatePassword(formData: FormData) {

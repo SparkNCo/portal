@@ -109,14 +109,7 @@ export default async function Layout({
           {/* {viewProp === 'update-password' && (
             <UpdatePassword redirectMethod={redirectMethod} />
           )} */}
-          {/* {viewProp === 'sign-up' && <SignUpOptionsPage />}
-          {viewProp === 'organization-sign-up' && (
-            <OrganizationSignUp
-              allowPassword={allowPassword}
-              redirectMethod={redirectMethod}
-            />
-          )}
-        */}
+
           {viewProp === 'user-sign-up' && (
             <SignUp
               allowEmail={allowEmail}

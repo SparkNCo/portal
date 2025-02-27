@@ -1,0 +1,19 @@
+[
+  {
+    "fields": [
+      {
+        "type": "subtitle",
+        "label": "Provide a password to finish signing up"
+      },
+
+      {
+        "type": "password",
+        "name": "password",
+        "icon": "lock",
+        "placeholder": "********",
+        "label": "Password",
+        "required": true
+      }
+    ]
+  }
+]
