@@ -109,18 +109,18 @@ export type Database = {
       users: {
         Row: {
           created_at: string;
-          email: string;
           id: string;
+          role: Database['public']['Enums']['role'];
         };
         Insert: {
           created_at?: string;
-          email: string;
           id?: string;
+          role?: Database['public']['Enums']['role'];
         };
         Update: {
           created_at?: string;
-          email?: string;
           id?: string;
+          role?: Database['public']['Enums']['role'];
         };
         Relationships: [];
       };
@@ -137,6 +137,7 @@ export type Database = {
         | 'GENERATING_REVENUE'
         | 'GROWTH_PHASE'
         | 'INDUSTRY_LEADER';
+      role: 'ADMIN' | 'USER';
     };
     CompositeTypes: {
       [_ in never]: never;

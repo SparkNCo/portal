@@ -10,7 +10,7 @@ export async function signUp(formData: FormData) {
   const values = parseFormData(formData, 'values');
   const proposalId = String(formData.get('proposalId'));
   const supabase = await createClient();
-  const returnUrl = `/sign-in/user-sign-up/${proposalId}`;
+  const returnUrl = `/sign-in/user-sign-up?proposalId=${proposalId}`;
   const { password } = values;
 
   const proposal = await fetchProposal(supabase, proposalId);
@@ -102,11 +102,7 @@ async function handleUserSignUp(
   if (data.session && data.user) {
     const user_id = data.user.id;
 
-    const insertUserError = await insertUserAndHandleError(
-      user_id,
-      proposal.client_email,
-      returnUrl
-    );
+    const insertUserError = await insertUserAndHandleError(user_id, returnUrl);
     if (insertUserError) return insertUserError;
 
     const updateProposalError = await updateProposalAndHandleError(
@@ -151,12 +147,8 @@ async function handleUserSignUp(
   return redirectPath;
 }
 
-async function insertUserAndHandleError(
-  user_id: string,
-  email: string,
-  returnUrl: string
-) {
-  const { error: insertUserError } = await insertUser({ id: user_id, email });
+async function insertUserAndHandleError(user_id: string, returnUrl: string) {
+  const { error: insertUserError } = await insertUser({ id: user_id });
   if (insertUserError) {
     console.log(insertUserError);
     return getErrorRedirect(
@@ -164,7 +156,6 @@ async function insertUserAndHandleError(
       'There was an error while creating your account. Please try again later or contact support for further assistance.'
     );
   }
-  console.log('inserted user');
   return null;
 }
 
@@ -183,7 +174,6 @@ async function updateProposalAndHandleError(
       'We could not sign you up, please try again.'
     );
   }
-  console.log('updated proposal');
   return null;
 }
 
@@ -200,6 +190,5 @@ async function signInUser(
   if (signInError) {
     return getErrorRedirect(returnUrl, 'Error', signInError.message);
   }
-  console.log('signed in');
   return null;
 }
