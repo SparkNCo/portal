@@ -8,10 +8,13 @@ export const ErrorMessage = ({
   index,
 }: {
   errors: any;
-  id: string;
+  id?: string;
   touched: FormikTouched<any>;
   index?: number;
 }) => {
+  if (!id) {
+    return null;
+  }
   const errorValue = errors[id];
   const touchedValue = touched[id];
   if (!errorValue || !touchedValue) return null;

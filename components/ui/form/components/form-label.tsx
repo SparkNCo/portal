@@ -10,7 +10,7 @@ export const FormLabelComponent = ({
   ...props
 }: {
   label: string;
-  id: string;
+  id?: string;
   help?: string;
   required?: boolean;
   description?: string;
