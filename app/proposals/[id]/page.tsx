@@ -44,7 +44,7 @@ import add_feature_layout from '@/layouts/proposals/add-feature.json';
 import { snakeCaseToWords } from '@/utils/helpers';
 import { updateProposalFeatureFn } from '@/lib/services/proposal_features/update-feature';
 import { Proposal } from '@/lib/types/db/proposals';
-import { getLoggedInUser } from '@/lib/repositories/users/get';
+import { getDatabaseUser, getLoggedInUser } from '@/lib/repositories/users/get';
 import LogOutButton from '@/components/ui/buttons/logout-button';
 import AlertMessage from '@/components/ui/info-message';
 import ChangePrivacyButton from '@/components/ui/proposals/change-privacy-button';
@@ -92,7 +92,8 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     return notFound();
   }
   const user = await getLoggedInUser();
-  const isOwner = user?.id === proposal.user_id;
+  const dbUser = await getDatabaseUser(user?.id);
+  const isOwner = user?.id === proposal.user_id || dbUser?.role === 'ADMIN';
   const noUserAttached = !proposal.user_id;
   const isPublic = proposal.public;
   //If there is no user attached to the proposal, redirect to the sign up page
