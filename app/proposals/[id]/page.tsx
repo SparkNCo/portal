@@ -328,6 +328,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                     ...proposal,
                     features: proposal_features,
                   }}
+                  icon={'plus'}
                   editSection="Add a new feature"
                   completeFn={addProposalFeatureFn}
                 />
@@ -384,9 +385,10 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                               className="p-2  h-fit "
                               variant="destructive"
                             >
-                              <Trash2 className="icon" />
+                              <Trash2 className="icon" size={16} />
                             </Button>
                           }
+                          variant={'destructive'}
                           params={feature.id}
                           title="Confirm to delete this feature"
                           subtitle="This action cannot be undone"

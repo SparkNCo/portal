@@ -8,6 +8,7 @@ import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-
 import { Drawer } from '../drawer';
 import { Button } from '../button';
 import { Edit, LucideIcon, Settings } from 'lucide-react';
+import { iconMap } from '../form/components/icon-map';
 
 type Props = {
   layout: LayoutType;
@@ -16,14 +17,14 @@ type Props = {
   editDescription: string;
   base?: any;
   submitButton?: string;
-  icon?: LucideIcon;
+  icon?: string;
 };
 
-export default function EditProposal({
+export default function EditAddProposal({
   layout,
   completeFn,
   editSection,
-  icon: Icon = Edit,
+  icon = 'edit',
   base,
   editDescription,
   submitButton = 'Update',
@@ -33,7 +34,7 @@ export default function EditProposal({
       <Drawer
         trigger={
           <Button className="p-2  h-fit " variant="outline">
-            <Icon className="icon" />
+            {iconMap[icon]}
           </Button>
         }
         title={editSection}
