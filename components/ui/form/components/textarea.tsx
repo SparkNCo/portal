@@ -24,17 +24,16 @@ export const TextAreaInput = ({
         id={field?.name}
         required={field?.required}
       />
+
       <Field name={field.name} validate={validationRules}>
-        {({ field, meta, form }: any) => (
+        {({ field: formikField, meta, form }: any) => (
           <Textarea
-            {...field}
+            {...formikField}
             required={field?.required}
             disabled={field?.disabled}
             readOnly={field?.readonly}
-            rows={6}
-            placeholder={
-              (field?.placeholder && field?.placeholder) || field?.label
-            }
+            rows={4}
+            placeholder={field?.placeholder || field?.label}
           />
         )}
       </Field>
