@@ -8,8 +8,11 @@ import {
   LockOpen,
   Mail,
   Phone,
+  Plus,
   Shield,
   ShieldEllipsis,
+  Trash,
+  Trash2,
   User,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +29,7 @@ import { getProposalById } from '@/lib/repositories/proposals/get';
 import { getProposalFeaturesByProposalId } from '@/lib/repositories/proposal_features/get';
 import Link from 'next/link';
 import { unstable_cache } from 'next/cache';
-import EditProposal from '@/components/ui/proposals/edit-proposal';
+import EditAddProposal from '@/components/ui/proposals/edit-proposal';
 import { updateProposalFn } from '@/lib/services/proposals/form-functions/update-proposal';
 
 //!LAYOUTS IMPORTS
@@ -35,6 +38,7 @@ import edit_project_details_layout from '@/layouts/proposals/edit-project-detail
 import edit_project_description_layout from '@/layouts/proposals/edit-project-description.json';
 import edit_project_requirements_layout from '@/layouts/proposals/edit-project-requirements.json';
 import edit_feature_layout from '@/layouts/proposals/edit-feature.json';
+import add_feature_layout from '@/layouts/proposals/add-feature.json';
 //!LAYOUTS IMPORTS
 
 import { snakeCaseToWords } from '@/utils/helpers';
@@ -47,6 +51,9 @@ import ChangePrivacyButton from '@/components/ui/proposals/change-privacy-button
 import { Button } from '@/components/ui/button';
 import { Suspense } from 'react';
 import RevalidateButton from '@/components/ui/buttons/ss-refresh-button';
+import { Modal } from '@/components/ui/reusable-modal';
+import { deleteFeatureFn } from '@/lib/services/proposal_features/delete-feature';
+import { addProposalFeatureFn } from '@/lib/services/proposal_features/add-feature';
 interface ProposalPageProps {
   params: Promise<{
     id: string;
@@ -131,13 +138,15 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
               <CardTitle className={headerClass}>
                 Client Information{' '}
                 {isOwner && (
-                  <EditProposal
+                  <EditAddProposal
                     editDescription="You can edit your personal information here."
                     layout={edit_client_information_layout}
-                    proposal={proposal}
+                    base={{
+                      ...proposal,
+                      features: proposal_features,
+                    }}
                     editSection="Client Information"
                     completeFn={updateProposalFn}
-                    proposal_features={proposal_features}
                   />
                 )}
               </CardTitle>
@@ -164,13 +173,15 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
               <CardTitle className={headerClass}>
                 Project Details{' '}
                 {isOwner && (
-                  <EditProposal
+                  <EditAddProposal
                     editDescription="You can edit the project details here."
                     layout={edit_project_details_layout}
-                    proposal={proposal}
+                    base={{
+                      ...proposal,
+                      features: proposal_features,
+                    }}
                     editSection="Project Details"
                     completeFn={updateProposalFn}
-                    proposal_features={proposal_features}
                   />
                 )}
               </CardTitle>
@@ -244,13 +255,15 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
             <CardTitle className={headerClass}>
               Project Description
               {isOwner && (
-                <EditProposal
+                <EditAddProposal
                   editDescription="You can edit the project description here."
                   layout={edit_project_description_layout}
-                  proposal={proposal}
+                  base={{
+                    ...proposal,
+                    features: proposal_features,
+                  }}
                   editSection="Project Description"
                   completeFn={updateProposalFn}
-                  proposal_features={proposal_features}
                 />
               )}
             </CardTitle>
@@ -268,13 +281,15 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
             <CardTitle className={headerClass}>
               Project Requirements
               {isOwner && (
-                <EditProposal
+                <EditAddProposal
                   editDescription="You can edit the project requirements here."
                   layout={edit_project_requirements_layout}
-                  proposal={proposal}
+                  base={{
+                    ...proposal,
+                    features: proposal_features,
+                  }}
                   editSection="Project Requirements"
                   completeFn={updateProposalFn}
-                  proposal_features={proposal_features}
                 />
               )}
             </CardTitle>
@@ -302,7 +317,22 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
         {/* Features */}
         <Card>
           <CardHeader>
-            <CardTitle className={headerClass}>Required Features</CardTitle>
+            <CardTitle className={headerClass}>
+              Required Features
+              {isOwner && (
+                <EditAddProposal
+                  editDescription="If you think we missed a feature, you can add it here."
+                  submitButton="Add Feature"
+                  layout={add_feature_layout}
+                  base={{
+                    ...proposal,
+                    features: proposal_features,
+                  }}
+                  editSection="Add a new feature"
+                  completeFn={addProposalFeatureFn}
+                />
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -311,7 +341,7 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                   <TableHead>Feature</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="w-[100px]">Priority</TableHead>
-                  <TableHead className="">Actions</TableHead>
+                  {isOwner && <TableHead className="">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -335,22 +365,38 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                         {feature.feature_priority}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {isOwner && (
-                        <EditProposal
+                    {isOwner && (
+                      <TableCell className="flex items-center gap-2">
+                        <EditAddProposal
                           base={{
+                            ...proposal,
                             ...feature,
                             feature_id: feature.id,
                           }}
                           editDescription="You can edit the project features here."
                           layout={edit_feature_layout}
-                          proposal={proposal}
                           editSection="Project Features"
                           completeFn={updateProposalFeatureFn}
-                          proposal_features={proposal_features}
                         />
-                      )}
-                    </TableCell>
+                        <Modal
+                          trigger={
+                            <Button
+                              className="p-2  h-fit "
+                              variant="destructive"
+                            >
+                              <Trash2 className="icon" />
+                            </Button>
+                          }
+                          params={feature.id}
+                          title="Confirm to delete this feature"
+                          subtitle="This action cannot be undone"
+                          description="Are you sure you want to delete this feature?"
+                          onConfirm={deleteFeatureFn}
+                          confirmText="Delete"
+                          confirmIcon={<Trash2 className="h-4 w-4" />}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

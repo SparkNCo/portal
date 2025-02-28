@@ -14,6 +14,7 @@ export type Database = {
           created_at: string;
           feature_description: string;
           feature_name: string;
+          feature_notes: string | null;
           feature_priority: string;
           id: string;
           proposal_id: string;
@@ -22,6 +23,7 @@ export type Database = {
           created_at?: string;
           feature_description: string;
           feature_name: string;
+          feature_notes?: string | null;
           feature_priority: string;
           id?: string;
           proposal_id?: string;
@@ -30,6 +32,7 @@ export type Database = {
           created_at?: string;
           feature_description?: string;
           feature_name?: string;
+          feature_notes?: string | null;
           feature_priority?: string;
           id?: string;
           proposal_id?: string;

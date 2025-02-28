@@ -18,12 +18,12 @@ export const insertProposalFeatures = async (
     );
     return {
       error:
-        'There was an error while creating the proposal features. Please try again later.',
+        'There was an error while creating the feature. Please try again later.',
       success: null,
     };
   }
   return {
-    success: 'Proposal features created successfully',
+    success: 'Feature created successfully1',
     error: null,
   };
 };

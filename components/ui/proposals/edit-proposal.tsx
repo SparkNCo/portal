@@ -7,33 +7,33 @@ import { LayoutType } from '@/lib/types/utils/form';
 import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
 import { Drawer } from '../drawer';
 import { Button } from '../button';
-import { Edit, Settings } from 'lucide-react';
+import { Edit, LucideIcon, Settings } from 'lucide-react';
 
 type Props = {
-  proposal: Proposal;
-  proposal_features: ProposalFeature[] | null;
   layout: LayoutType;
   completeFn: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
   editSection: string;
   editDescription: string;
   base?: any;
+  submitButton?: string;
+  icon?: LucideIcon;
 };
 
 export default function EditProposal({
-  proposal,
-  proposal_features,
   layout,
   completeFn,
   editSection,
+  icon: Icon = Edit,
   base,
   editDescription,
+  submitButton = 'Update',
 }: Props) {
   return (
     <>
       <Drawer
         trigger={
           <Button className="p-2  h-fit " variant="outline">
-            <Edit className="icon" />
+            <Icon className="icon" />
           </Button>
         }
         title={editSection}
@@ -44,12 +44,8 @@ export default function EditProposal({
         {(setOpen) => (
           <DynamicForm
             layout={layout}
-            base={{
-              ...base,
-              ...proposal,
-              features: proposal_features,
-            }}
-            submitButton="Update"
+            base={base}
+            submitButton={submitButton}
             completeFn={completeFn}
             afterCompleteFn={() => setOpen(false)}
             lang="en"

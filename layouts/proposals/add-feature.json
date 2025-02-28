@@ -1,0 +1,52 @@
+[
+  {
+    "fields": [
+      {
+        "type": "text",
+        "name": "feature_name",
+        "placeholder": "A feature needed for the project",
+        "label": "Feature Name",
+        "required": true
+      },
+      {
+        "type": "textarea",
+        "name": "feature_description",
+        "placeholder": "A brief description of the feature",
+        "label": "Feature Description",
+        "required": true
+      },
+
+      {
+        "type": "select",
+        "name": "feature_priority",
+        "placeholder": "What is the priority of this feature?",
+        "label": "Feature Priority",
+        "required": true,
+        "options": [
+          {
+            "label": "High",
+            "value": "High",
+            "icon": "signal-high"
+          },
+          {
+            "label": "Medium",
+            "value": "Medium",
+            "icon": "signal-medium"
+          },
+          {
+            "label": "Low",
+            "value": "Low",
+            "icon": "signal-low"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "name": "feature_notes",
+        "placeholder": "You can add notes here",
+        "label": "Feature Notes",
+        "required": true
+      }
+    ]
+  }
+]
