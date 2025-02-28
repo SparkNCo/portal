@@ -1,5 +1,5 @@
 'use server';
-import { generateProposalFeaturesPrompt } from '@/lib/generate-prompts';
+import { generateProposalFeaturesPrompt } from '@/lib/services/openai/generate-prompts';
 import { insertProposal } from '@/lib/repositories/proposals/insert';
 import { InsertReponseType } from '@/lib/types/utils/functions-return-type';
 import { getErrorMessage, parseFormData } from '@/utils/helpers';

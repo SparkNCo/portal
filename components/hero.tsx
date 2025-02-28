@@ -4,15 +4,25 @@ import { Button } from './ui/button';
 import React from 'react';
 import Link from 'next/link';
 import { createProposalAndSaveFeaturesFn } from '@/lib/services/proposals/form-functions/create-client-proposal-and-features';
+import { toast } from 'sonner';
 
 export default function Header() {
   const [loading, setLoading] = React.useState(false);
   const testFn = async () => {
     setLoading(true);
     try {
-      const { error } = await createProposalAndSaveFeaturesFn(new FormData());
-    } catch (error) {
-      console.log(error);
+      const { error, success } = await createProposalAndSaveFeaturesFn(
+        new FormData()
+      );
+      // const { error } = await sendSuccessEmailFn(new FormData());
+      if (error) {
+        toast.error(error);
+      }
+      if (success) {
+        toast.success(success);
+      }
+    } catch (error: any) {
+      console.log('error catch --->', error);
     } finally {
       setLoading(false);
     }
@@ -21,15 +31,20 @@ export default function Header() {
   return (
     <div className="flex flex-col gap-16 items-center">
       <Link
-        href={'/proposals/9c8bcc75-f0f0-4189-b3b1-c39da6068237'}
+        href={'/proposals/'}
         className="text-primary font-medium underline mb-4 flex items-center gap-2"
       >
-        Proposal
+        Proposals
       </Link>
-      <Button disabled={loading} onClick={testFn}>
+      <Link
+        href={'/sign-in/'}
+        className="text-primary font-medium underline mb-4 flex items-center gap-2"
+      >
+        Sign In
+      </Link>
+      {/* <Button disabled={loading} onClick={testFn}>
         {loading ? 'Loading...' : 'Test Function'}
-      </Button>
-      <div className="w-full p-[1px] bg-gradient-to-r from-transparent via-foreground/10 to-transparent my-8" />
+      </Button> */}
     </div>
   );
 }
