@@ -43,8 +43,7 @@
         "type": "text",
         "name": "feature_notes",
         "placeholder": "You can add notes here",
-        "label": "Feature Notes",
-        "required": true
+        "label": "Feature Notes"
       }
     ]
   }
