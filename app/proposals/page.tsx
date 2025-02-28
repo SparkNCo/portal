@@ -1,4 +1,3 @@
-import Hero from '@/components/hero';
 import LogOutButton from '@/components/ui/buttons/logout-button';
 import { Separator } from '@/components/ui/separator';
 import { getProposalsByUserId } from '@/lib/repositories/proposals/get';
@@ -13,6 +12,7 @@ export default async function Proposals() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/sign-in');
   const proposals = await getProposalsByUserId(user?.id);
+  if (proposals?.length === 1) redirect(`/proposals/${proposals[0].id}`);
   return (
     <>
       <div className="space-y-4 relative min-h-screen ">
