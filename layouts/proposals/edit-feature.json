@@ -18,7 +18,7 @@
       {
         "type": "select",
         "name": "feature_priority",
-        "placeholder": "A brief description of the feature",
+        "placeholder": "What is the priority of this feature?",
         "label": "Feature Priority",
         "required": true,
         "options": [
@@ -38,6 +38,13 @@
             "icon": "signal-low"
           }
         ]
+      },
+      {
+        "type": "text",
+        "name": "feature_notes",
+        "placeholder": "You can add notes here",
+        "label": "Feature Notes",
+        "required": true
       }
     ]
   }

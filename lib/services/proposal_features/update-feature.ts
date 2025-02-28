@@ -19,6 +19,7 @@ export const updateProposalFeatureFn = async (
     feature_description,
     feature_priority,
     feature_id,
+    feature_notes,
     id: proposal_id,
   }: Partial<ProposalFeature & { feature_id: string }> = parseFormData(
     formData,
@@ -35,6 +36,7 @@ export const updateProposalFeatureFn = async (
   const featureData = {
     feature_name,
     feature_description,
+    feature_notes,
     feature_priority,
   };
   const { error } = await updateProposalFeatureById(feature_id, featureData);
