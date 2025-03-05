@@ -28,13 +28,16 @@ export const extractOpenAIContent = (data: {
 
 export const extractOpenAIEmbeddingContent = (data: {
   data: {
-    data: OpenAI.Embedding | undefined;
+    data: OpenAI.Embedding[] | undefined;
   };
 }) => {
   try {
-    const message: number[] = data?.data?.data?.[0]?.embedding;
-    if (!message) return null;
-    return message;
+    if (!Array.isArray(data?.data?.data) || data.data.data.length === 0) {
+      return null;
+    }
+    const embedding = data.data.data[0]?.embedding;
+    if (!embedding) return null;
+    return embedding;
   } catch (error) {
     console.error('Error parsing OpenAI response:', error);
     return null;
