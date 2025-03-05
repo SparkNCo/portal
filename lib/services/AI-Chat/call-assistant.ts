@@ -11,6 +11,7 @@ import {
   extractPineconeMatchesContent,
 } from '@/lib/utils';
 import { getPineconeDefaultValues } from '../pinecone/get-default-values';
+import { handleEmbedding } from '../openai/get-embedding';
 export type SearchFormData = {
   query: string;
   selectedOptions: string[];
@@ -121,23 +122,6 @@ async function invokeOpenAI(body: any): Promise<{
     return null;
   }
   return extractOpenAIContent(data);
-}
-
-async function handleEmbedding(description: string) {
-  const bodyEmbedding = getGPTDefaultValues({
-    input: description,
-    model: 'text-embedding-ada-002',
-    endpoint: 'embeddings',
-  });
-  if (!bodyEmbedding) return null;
-
-  const { data: openaiEmbedding, error: openaiEmbeddingError } =
-    await supabase.functions.invoke('openai', { body: bodyEmbedding });
-  if (openaiEmbeddingError) {
-    console.log(' Error while calling OPENAI embedding:', openaiEmbeddingError);
-    return null;
-  }
-  return extractOpenAIEmbeddingContent(openaiEmbedding);
 }
 
 async function queryPinecone(embedding: any) {
