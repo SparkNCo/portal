@@ -24,7 +24,7 @@ export const getInitialValues = (layout: LayoutType, values: any = {}) => {
       } else if ('initial' in field) {
         initialValues[field.name] = field.initial;
       } else if (field.type == 'select' && field?.options) {
-        initialValues[field.name] = field.options[0];
+        initialValues[field.name] = '';
       } else if (field.type == 'number') {
         initialValues[field.name] = 0;
       } else {
@@ -48,7 +48,6 @@ export const getInitialValues = (layout: LayoutType, values: any = {}) => {
       initialValues[key] = values[key];
     }
   });
-
   return initialValues;
 };
 
