@@ -232,6 +232,7 @@ export default function DynamicForm({
                           {!complete && i > 0 && (
                             <Button
                               type="button"
+                              variant={'secondary'}
                               className="bg-primary w-full"
                               onClick={() => prevPage(values)}
                             >
@@ -241,7 +242,7 @@ export default function DynamicForm({
                           )}
 
                           <SubmitButton
-                            className="bg-primary w-full"
+                            className=" w-full"
                             disabled={isLoading || complete}
                           >
                             {!isLoading && (
