@@ -38,7 +38,7 @@ export function DynamicField({
   errors,
   touched,
 }: DynamicFieldProps) {
-  const { setFieldValue } = useFormikContext();
+  const { setFieldValue, setFieldTouched } = useFormikContext();
 
   if (Array.isArray(field)) {
     return (
@@ -153,6 +153,11 @@ export function DynamicField({
             as={Select}
             validate={validationRules}
             name={name}
+            onOpenChange={(open) => {
+              if (!open) {
+                setFieldTouched(name, true);
+              }
+            }}
             id={name}
             required={required}
             value={values[name] || initial}
