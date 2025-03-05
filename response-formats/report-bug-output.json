@@ -1,0 +1,22 @@
+{
+  "name": "report-bug",
+  "description": "Generate a bug report object for the bug explanation.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Assign a name to the bug. The name should be short and to the point."
+      },
+      "description": {
+        "type": "string",
+        "description": "Provide a brief but detailed description of the bug based in the user's input."
+      },
+      "priority": {
+        "type": "string",
+        "description": "Assign a priority to the bug. If the user provided a priority level in the prompt, use the priority level. Otherwise, assign a priority level based on the importance of the bug."
+      }
+    },
+    "required": ["title", "description", "priority"]
+  }
+}

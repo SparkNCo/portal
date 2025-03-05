@@ -1,0 +1,22 @@
+{
+  "name": "create-feature",
+  "description": "Generate a feature object for the feature request.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Assign a name to the feature. The name should be short and to the point."
+      },
+      "description": {
+        "type": "string",
+        "description": "Provide a brief but detailed description of the feature."
+      },
+      "priority": {
+        "type": "string",
+        "description": "Assign a priority to the feature. If the user provided a priority level in the prompt, use the priority level. Otherwise, assign a priority level based on the importance of the feature."
+      }
+    },
+    "required": ["title", "description", "priority"]
+  }
+}
