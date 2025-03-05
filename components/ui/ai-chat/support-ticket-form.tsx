@@ -188,9 +188,7 @@ export default function SupportTicketUI() {
     e.preventDefault();
 
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
 
-    console.log('Datos del formulario:', data);
     try {
       const response = await callAssistantFn(formData);
       if (response?.error) {
