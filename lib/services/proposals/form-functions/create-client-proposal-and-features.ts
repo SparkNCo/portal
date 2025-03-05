@@ -5,7 +5,6 @@ import { InsertReponseType } from '@/lib/types/utils/functions-return-type';
 import { getErrorMessage, parseFormData } from '@/utils/helpers';
 import { v4 } from 'uuid';
 import proposal_features_output from '@/response-formats/proposal-features-output.json';
-import { getGPTDefaultValues } from '@/supabase/functions/_shared/default-values';
 import { supabase } from '@/lib/supabase/client';
 import { Proposal } from '@/lib/types/db/proposals';
 import { saveFeaturesFromOpenAI } from '../../proposal_features/save-features-from-openai';
@@ -16,6 +15,7 @@ import {
 import { mock_edge_function_data, response } from '@/data';
 import { sendSuccessEmailFn } from '../send-success-email';
 import { revalidatePath } from 'next/cache';
+import { getGPTDefaultValues } from '../../openai/get-default-values';
 
 export const createProposalAndSaveFeaturesFn = async (
   formData: FormData

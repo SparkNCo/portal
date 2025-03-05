@@ -23,7 +23,7 @@ export const insertProposalFeatures = async (
     };
   }
   return {
-    success: 'Feature created successfully1',
+    success: 'Feature created successfully!',
     error: null,
   };
 };
