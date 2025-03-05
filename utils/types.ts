@@ -15,15 +15,18 @@ export type GPTResponseBody = {
 };
 
 export type PineconeResponseBody = {
-  endpoint: 'vectors/upsert' | 'query';
+  endpoint: 'vectors/upsert' | 'query' | 'vectors/update';
   vector?: number[];
   includeMetadata?: boolean;
   includeValues?: boolean;
   topK?: number;
   index: 'portal';
-  vectors?: {
-    id: string;
-    values: number[];
-    metadata: Record<string, any>;
-  }[];
+  setMetadata?: Record<string, any>;
+  vectors?: VectorType[];
+};
+
+export type VectorType = {
+  id: string;
+  values?: number[];
+  metadata: Record<string, any>;
 };
