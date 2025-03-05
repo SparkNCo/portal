@@ -13,9 +13,10 @@ Deno.serve(async (req) => {
 
   try {
     const body: GPTResponseBody = await req.json();
+    const { endpoint, ...restBody } = body;
     const { data } = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      body,
+      `https://api.openai.com/v1/${endpoint}`,
+      restBody,
       {
         headers: {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -26,7 +27,6 @@ Deno.serve(async (req) => {
     );
     return new Response(
       JSON.stringify({
-        // message: data.choices[0]?.message?.content,
         data,
       }),
       {
@@ -39,8 +39,7 @@ Deno.serve(async (req) => {
     console.error('Error while calling OpenAI:', errorMessage);
     return new Response(
       JSON.stringify({
-        error:
-          'There was an error while processing your request. Please try again later.',
+        error: errorMessage,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
