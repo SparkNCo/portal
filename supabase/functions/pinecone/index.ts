@@ -1,7 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { getErrorMessage } from '../_shared/helpers.ts';
-// const PINECONE_API_KEY = Deno.env.get("PINECONE_API_KEY");
 import axios from 'npm:axios';
 
 const PINECONE_API_KEY = Deno.env.get('PINECONE_API_KEY');
