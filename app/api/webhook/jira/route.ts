@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
       vectors[0].metadata = {
         deletedAt: new Date().toISOString(),
         deleted: true,
+        status: 'Deleted',
       };
     }
 
