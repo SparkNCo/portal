@@ -81,7 +81,7 @@ export default function JiraTicket({
   const borderColor = statusBorderColor(status);
   return (
     <Card
-      className={`w-full max-w-md border-l-4 shadow-md hover:shadow-lg dark:shadow-zinc-900 transition-shadow duration-300 ease-in-out h-full justify-between flex flex-col`}
+      className={`w-full md:max-w-md border-l-4 shadow-md hover:shadow-lg dark:shadow-zinc-900 transition-shadow duration-300 ease-in-out h-full justify-between flex flex-col`}
       style={{ borderLeftColor: borderColor }}
     >
       <CardHeader className="pb-2">
