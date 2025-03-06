@@ -9,12 +9,17 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import {
+  JiraIssueStatusType,
+  JiraIssueType,
+  JiraPriorityType,
+} from '@/lib/types/services/jira';
+import { getInitials, getTimeAgo } from '@/lib/utils';
+import {
   AlertTriangle,
   ArrowDown,
   ArrowRight,
   ArrowUp,
   Bug,
-  Calendar,
   CheckCircle2,
   Clock,
   Link2,
@@ -28,37 +33,25 @@ import {
   Eye,
 } from 'lucide-react';
 import { ReactNode } from 'react';
-
-// Define types for the component props
-export type Priority = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest';
-export type IssueType =
-  | 'Bug'
-  | 'Task'
-  | 'Story'
-  | 'Epic'
-  | 'Feature'
-  | 'Improvement';
-export type Status = 'To Do' | 'In Progress' | 'In Review' | 'Done' | 'Blocked';
-
-export interface Assignee {
-  name: string;
-  avatarUrl?: string;
-  initials: string;
-}
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../tooltip';
 
 export interface JiraTicketProps {
   ticketId: string;
   title: string;
   description: string;
-  priority: Priority;
-  issueType: IssueType;
-  assignee?: Assignee;
-  dueDate?: string | Date;
+  priority: JiraPriorityType;
+  issueType: JiraIssueType;
+  assignee?: string;
   tags?: string[];
   progress?: number;
-  createdAt: string | Date;
+  createdAt: string;
   commentCount?: number;
-  status: Status;
+  status: JiraIssueStatusType;
   projectName: string;
   projectColor?: string;
 }
@@ -70,44 +63,17 @@ export default function JiraTicket({
   priority = 'Medium',
   issueType = 'Task',
   assignee,
-  dueDate,
   tags = [],
   progress = 0,
   createdAt,
   commentCount = 0,
   status = 'To Do',
   projectName,
-  projectColor = '#0052CC', // Default Jira blue
+  projectColor = '#0052CC', // blue default color from Jira
 }: JiraTicketProps) {
-  // Helper function to format date if it's a Date object
-  const formatDate = (date: string | Date | undefined) => {
-    if (!date) return '';
-    if (date instanceof Date) {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    }
-    return date;
-  };
-
-  // Helper function to get time ago string
-  const getTimeAgo = (date: string | Date) => {
-    const dateObj = date instanceof Date ? date : new Date(date);
-    const now = new Date();
-    const diffInDays = Math.floor(
-      (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (diffInDays === 0) return 'today';
-    if (diffInDays === 1) return 'yesterday';
-    return `${diffInDays} days ago`;
-  };
-
-  // Get priority icon and color
+  // Get priority icon and color for the badge
   const getPriorityDetails = (
-    priority: Priority
+    priority: JiraPriorityType
   ): { icon: ReactNode; color: string } => {
     switch (priority) {
       case 'Highest':
@@ -139,7 +105,7 @@ export default function JiraTicket({
   };
 
   // Get issue type icon
-  const getIssueTypeIcon = (type: IssueType) => {
+  const getIssueTypeIcon = (type: JiraIssueType) => {
     switch (type) {
       case 'Bug':
         return <Bug className="h-4 w-4 text-red-500" />;
@@ -157,7 +123,7 @@ export default function JiraTicket({
   };
 
   // Get status badge
-  const getStatusBadge = (status: Status) => {
+  const getStatusBadge = (status: JiraIssueStatusType) => {
     switch (status) {
       case 'To Do':
         return (
@@ -228,16 +194,22 @@ export default function JiraTicket({
           </div>
           {assignee && (
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
+              <User className="size-4 text-muted-foreground" />
               <span>Assignee:</span>
-              <Avatar className="h-5 w-5">
-                {assignee.avatarUrl ? (
-                  <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
-                ) : null}
-                <AvatarFallback className="text-[10px]">
-                  {assignee.initials}
-                </AvatarFallback>
-              </Avatar>
+              <TooltipProvider>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger>
+                    <Avatar className="size-5">
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(assignee)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{assignee}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
           {tags.length > 0 && (
@@ -252,14 +224,6 @@ export default function JiraTicket({
                   {tag}
                 </Badge>
               ))}
-            </div>
-          )}
-          {dueDate && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                Due: {formatDate(dueDate)}
-              </span>
             </div>
           )}
         </div>
@@ -300,7 +264,6 @@ export default function JiraTicket({
           {status === 'Blocked' && (
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
           )}
-          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
       </CardFooter>
     </Card>
