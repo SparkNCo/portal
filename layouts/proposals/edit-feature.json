@@ -25,17 +25,17 @@
           {
             "label": "High",
             "value": "High",
-            "icon": "signal-high"
+            "icon": "chevron-up"
           },
           {
             "label": "Medium",
             "value": "Medium",
-            "icon": "signal-medium"
+            "icon": "equal"
           },
           {
             "label": "Low",
             "value": "Low",
-            "icon": "signal-low"
+            "icon": "chevron-down"
           }
         ]
       },

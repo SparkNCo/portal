@@ -32,6 +32,11 @@ import {
   SignalLow,
   Edit,
   Plus,
+  ChevronsDown,
+  ChevronDown,
+  Equal,
+  ChevronUp,
+  ChevronsUp,
 } from 'lucide-react';
 export const iconMap: any = {
   dollar: <DollarSign className="icon" />,
@@ -62,6 +67,11 @@ export const iconMap: any = {
   'signal-high': <SignalHigh className="icon" />,
   'signal-medium': <SignalMedium className="icon" />,
   'signal-low': <SignalLow className="icon" />,
+  'chevrons-up': <ChevronsUp className="icon" />,
+  'chevron-up': <ChevronUp className="icon" />,
+  equal: <Equal className="icon" />,
+  'chevron-down': <ChevronDown className="icon" />,
+  'chevrons-down': <ChevronsDown className="icon" />,
   //Social media icons
   facebook: <Facebook className="icon" />,
   twitter: <Twitter className="icon" />,
