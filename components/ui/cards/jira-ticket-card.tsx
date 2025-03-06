@@ -31,6 +31,7 @@ import {
   Star,
   ArrowUpCircle,
   Eye,
+  Trash2,
 } from 'lucide-react';
 import { ReactNode } from 'react';
 import {
@@ -48,6 +49,8 @@ export interface JiraTicketProps {
   issueType: JiraIssueType;
   assignee?: string;
   tags?: string[];
+  deleted?: boolean;
+  deletedAt?: string;
   progress?: number;
   createdAt: string;
   commentCount?: number;
@@ -66,10 +69,13 @@ export default function JiraTicket({
   tags = [],
   progress = 0,
   createdAt,
+  deleted,
+  deletedAt,
   commentCount = 0,
   status = 'To Do',
   projectName,
-  projectColor = '#0052CC', // blue default color from Jira
+  projectColor = '#0052CC',
+  // blue default color from Jira
 }: JiraTicketProps) {
   // Get priority icon and color for the badge
   const getPriorityDetails = (
@@ -167,7 +173,7 @@ export default function JiraTicket({
   return (
     <Card
       className={`w-full max-w-md border-l-4 shadow-md hover:shadow-lg dark:shadow-zinc-900 transition-shadow duration-300 ease-in-out h-full justify-between flex flex-col`}
-      style={{ borderLeftColor: projectColor }}
+      style={{ borderLeftColor: deleted ? '#D32F2F' : projectColor }}
     >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
@@ -242,8 +248,17 @@ export default function JiraTicket({
 
         <div className="flex justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Created {getTimeAgo(createdAt)}</span>
+            {deleted ? (
+              <>
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Deleted {getTimeAgo(createdAt)}</span>
+              </>
+            ) : (
+              <>
+                <Clock className="h-3.5 w-3.5" />
+                <span>Created {getTimeAgo(createdAt)}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />

@@ -437,6 +437,8 @@ export default function SupportTicketUI() {
                       commentCount,
                       createdBy,
                       issueKey,
+                      deleted,
+                      deletedAt,
                       project,
                       assignee,
                     }: ExtractedIssueData = match?.metadata || {};
@@ -465,6 +467,8 @@ export default function SupportTicketUI() {
                           priority={priority}
                           projectName={project}
                           commentCount={commentCount}
+                          deleted={deleted}
+                          deletedAt={deletedAt}
                           assignee={assignee}
                           status={status}
                         />

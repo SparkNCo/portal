@@ -21,7 +21,6 @@ export const createOrUpdateTicket = async (
     projectKey: 'TEST',
     issueType: 'Task',
   });
-  console.log(body.body);
   // Llamada a la función de Supabase para invocar la función de Jira
   const { data: jiraData, error: jiraError } = await supabase.functions.invoke(
     'jira',

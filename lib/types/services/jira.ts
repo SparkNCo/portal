@@ -68,6 +68,8 @@ export interface ExtractedIssueData {
   priority: JiraPriorityType;
   summary: string;
   assignee?: string;
+  deleted: boolean;
+  deletedAt?: string;
   project: string;
   issuetype: JiraIssueType;
   issueKey: string;
