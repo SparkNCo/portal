@@ -56,6 +56,16 @@ export async function POST(req: NextRequest) {
         vectors[0].values = embedding;
       }
     }
+    //!----------------UPDATED---------------------
+    if (event == 'jira:issue_deleted') {
+      //If the user deleted an issue, we keep the update endpoint because we'll be doing an update in the metadata object, not deleting the row. We just add "deletedAt" and "deleted" to the metadata object.
+      endpoint = 'vectors/update';
+      vectors[0].metadata = {
+        deletedAt: new Date().toISOString(),
+        deleted: true,
+      };
+    }
+
     //Then at the end we get the body to send to pinecone
     const pineconeBody = getPineconeDefaultValues({
       endpoint: endpoint,
@@ -63,6 +73,8 @@ export async function POST(req: NextRequest) {
       index: 'portal',
       vectors: vectors,
     });
+    console.log(vectors);
+    console.log('--------------------------------');
     console.log(pineconeBody.body);
     const { error: pineconeError } = await supabase.functions.invoke(
       'pinecone',
