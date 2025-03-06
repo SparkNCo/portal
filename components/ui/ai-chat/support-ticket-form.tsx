@@ -51,6 +51,7 @@ import { title } from 'process';
 import { request } from 'http';
 import { spread } from 'axios';
 import { createOrUpdateTicket } from '@/lib/services/AI-Chat/create-update-ticket';
+import { ExtractedIssueData } from '@/lib/types/services/jira';
 const options = [
   {
     icon: LightbulbIcon,
@@ -247,7 +248,7 @@ export default function SupportTicketUI() {
               >
                 <div className="relative">
                   {selectedOption && (
-                    <div className="flex flex-wrap gap-2 mb-4 border rounded-lg px-4 py-2 w-fit">
+                    <div className="flex flex-wrap gap-2 mb-4 border-b px-4 py-2 w-fit">
                       <p className="text-sm text-zinc-600 dark:text-zinc-500">
                         You have selected:
                       </p>
@@ -350,7 +351,7 @@ export default function SupportTicketUI() {
                   <div className="flex items-center gap-4 mt-4  flex-wrap">
                     {/* <input type="hidden" name="priority" value={priority} /> */}
                     {filters.map(({ icon: Icon, title, value }) => (
-                      <>
+                      <React.Fragment key={value}>
                         <input
                           type="hidden"
                           name={value}
@@ -369,7 +370,7 @@ export default function SupportTicketUI() {
                           <Icon className="h-4 w-4" />
                           <span>{title}</span>
                         </Button>
-                      </>
+                      </React.Fragment>
                     ))}
                   </div>
                 </div>
@@ -408,8 +409,19 @@ export default function SupportTicketUI() {
                 <div className="grid grid-cols-3 gap-4">
                   {matches?.map((match, index) => {
                     // @ts-ignore
-                    const { summary, description, issueType, priority } =
-                      match?.metadata;
+                    const {
+                      summary,
+                      description,
+                      issuetype,
+                      priority,
+                      createdAt,
+                      status,
+                      commentCount,
+                      createdBy,
+                      issueKey,
+                      project,
+                      assignee,
+                    }: ExtractedIssueData = match?.metadata || {};
                     return (
                       <motion.button
                         key={index}
@@ -429,12 +441,14 @@ export default function SupportTicketUI() {
                         <JiraTicket
                           title={summary}
                           ticketId={match.id}
-                          createdAt={new Date()}
+                          createdAt={createdAt}
                           description={description}
-                          issueType={issueType}
+                          issueType={issuetype}
                           priority={priority}
-                          projectName="Support"
-                          status="To Do"
+                          projectName={project}
+                          commentCount={commentCount}
+                          assignee={assignee}
+                          status={status}
                         />
                       </motion.button>
                     );
