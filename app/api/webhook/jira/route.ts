@@ -74,9 +74,6 @@ export async function POST(req: NextRequest) {
       index: 'portal',
       vectors: vectors,
     });
-    console.log(vectors);
-    console.log('--------------------------------');
-    console.log(pineconeBody.body);
     const { error: pineconeError } = await supabase.functions.invoke(
       'pinecone',
       { body: pineconeBody }
