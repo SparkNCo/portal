@@ -91,6 +91,7 @@ function extractJiraIssueData(body: JiraWebhookResponse): {
   const project = body?.issue?.fields?.project?.key;
   const metadata: Partial<ExtractedIssueData> = {};
   let getEmbeddingAgain = false;
+  const filterValues = ['resolution'];
   const conditionsToGetNewEmbedding = ['description', 'summary'];
   // Iterate over changelog items to collect changes
 
@@ -100,7 +101,7 @@ function extractJiraIssueData(body: JiraWebhookResponse): {
     const from = item.fromString;
     const fieldChanged = from !== to;
     const field = item.fieldId;
-    if (fieldChanged && to) {
+    if (fieldChanged && to && !filterValues.includes(field)) {
       if (conditionsToGetNewEmbedding.includes(field)) {
         getEmbeddingAgain = true;
       }
