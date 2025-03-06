@@ -11,6 +11,7 @@ export type JiraIssueStatusType =
   | 'To Do'
   | 'In Progress'
   | 'In Review'
+  | 'Deleted'
   | 'Done'
   | 'Blocked';
 

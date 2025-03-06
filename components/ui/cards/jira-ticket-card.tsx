@@ -77,103 +77,12 @@ export default function JiraTicket({
   projectColor = '#0052CC',
   // blue default color from Jira
 }: JiraTicketProps) {
-  // Get priority icon and color for the badge
-  const getPriorityDetails = (
-    priority: JiraPriorityType
-  ): { icon: ReactNode; color: string } => {
-    switch (priority) {
-      case 'Highest':
-        return {
-          icon: <ArrowUp className="h-3 w-3" />,
-          color: 'border-red-500 text-red-500',
-        };
-      case 'High':
-        return {
-          icon: <ArrowUp className="h-3 w-3" />,
-          color: 'border-amber-500 text-amber-500',
-        };
-      case 'Medium':
-        return {
-          icon: <ArrowRight className="h-3 w-3" />,
-          color: 'border-yellow-500 text-yellow-500',
-        };
-      case 'Low':
-        return {
-          icon: <ArrowDown className="h-3 w-3" />,
-          color: 'border-blue-400 text-blue-400',
-        };
-      case 'Lowest':
-        return {
-          icon: <ArrowDown className="h-3 w-3" />,
-          color: 'border-gray-400 text-gray-400',
-        };
-    }
-  };
-
-  // Get issue type icon
-  const getIssueTypeIcon = (type: JiraIssueType) => {
-    switch (type) {
-      case 'Bug':
-        return <Bug className="h-4 w-4 text-red-500" />;
-      case 'Task':
-        return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
-      case 'Story':
-        return <BookOpen className="h-4 w-4 text-green-500" />;
-      case 'Epic':
-        return <Layers className="h-4 w-4 text-purple-500" />;
-      case 'Feature':
-        return <Star className="h-4 w-4 text-yellow-500" />;
-      case 'Improvement':
-        return <ArrowUpCircle className="h-4 w-4 text-cyan-500" />;
-    }
-  };
-
-  // Get status badge
-  const getStatusBadge = (status: JiraIssueStatusType) => {
-    switch (status) {
-      case 'To Do':
-        return (
-          <Badge className="bg-gray-100 hover:bg-gray-100 text-gray-700 rounded-sm">
-            To Do
-          </Badge>
-        );
-      case 'In Progress':
-        return (
-          <Badge className="bg-blue-100 hover:bg-blue-100 text-blue-700 rounded-sm">
-            <Clock className="h-3 w-3 mr-1" />
-            In Progress
-          </Badge>
-        );
-      case 'In Review':
-        return (
-          <Badge className="bg-purple-100 hover:bg-purple-100 text-purple-700 rounded-sm">
-            <Eye className="h-3 w-3 mr-1" />
-            In Review
-          </Badge>
-        );
-      case 'Done':
-        return (
-          <Badge className="bg-green-100 hover:bg-green-100 text-green-700 rounded-sm">
-            <CheckCircle2 className="h-3 w-3 mr-1" />
-            Done
-          </Badge>
-        );
-      case 'Blocked':
-        return (
-          <Badge className="bg-red-100 hover:bg-red-100 text-red-700 rounded-sm">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Blocked
-          </Badge>
-        );
-    }
-  };
-
   const priorityDetails = getPriorityDetails(priority);
-
+  const borderColor = statusBorderColor(status);
   return (
     <Card
       className={`w-full max-w-md border-l-4 shadow-md hover:shadow-lg dark:shadow-zinc-900 transition-shadow duration-300 ease-in-out h-full justify-between flex flex-col`}
-      style={{ borderLeftColor: deleted ? '#D32F2F' : projectColor }}
+      style={{ borderLeftColor: borderColor }}
     >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
@@ -284,3 +193,112 @@ export default function JiraTicket({
     </Card>
   );
 }
+
+// Get priority icon and color for the badge
+const getPriorityDetails = (
+  priority: JiraPriorityType
+): { icon: ReactNode; color: string } => {
+  switch (priority) {
+    case 'Highest':
+      return {
+        icon: <ArrowUp className="h-3 w-3 " />,
+        color: 'border-red-500 text-red-500',
+      };
+    case 'High':
+      return {
+        icon: <ArrowUp className="h-3 w-3" />,
+        color: 'border-amber-500 text-amber-500',
+      };
+    case 'Medium':
+      return {
+        icon: <ArrowRight className="h-3 w-3" />,
+        color: 'border-yellow-500 text-yellow-500',
+      };
+    case 'Low':
+      return {
+        icon: <ArrowDown className="h-3 w-3" />,
+        color: 'border-blue-400 text-blue-400',
+      };
+    case 'Lowest':
+      return {
+        icon: <ArrowDown className="h-3 w-3" />,
+        color: 'border-gray-400 text-gray-400',
+      };
+  }
+};
+
+// Get issue type icon
+const getIssueTypeIcon = (type: JiraIssueType) => {
+  switch (type) {
+    case 'Bug':
+      return <Bug className="h-4 w-4 text-red-500" />;
+    case 'Task':
+      return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
+    case 'Story':
+      return <BookOpen className="h-4 w-4 text-green-500" />;
+    case 'Epic':
+      return <Layers className="h-4 w-4 text-purple-500" />;
+    case 'Feature':
+      return <Star className="h-4 w-4 text-yellow-500" />;
+    case 'Improvement':
+      return <ArrowUpCircle className="h-4 w-4 text-cyan-500" />;
+  }
+};
+
+// Get status badge
+const getStatusBadge = (status: JiraIssueStatusType) => {
+  switch (status) {
+    case 'To Do':
+      return (
+        <Badge className="bg-gray-100 hover:bg-gray-100 text-gray-700 rounded-sm">
+          To Do
+        </Badge>
+      );
+    case 'Deleted':
+      return (
+        <Badge className="bg-red-100 hover:bg-red-100 text-red-700 rounded-sm">
+          <Trash2 className="h-3 w-3 mr-1" />
+          Deleted
+        </Badge>
+      );
+    case 'In Progress':
+      return (
+        <Badge className="bg-blue-100 hover:bg-blue-100 text-blue-700 rounded-sm">
+          <Clock className="h-3 w-3 mr-1" />
+          In Progress
+        </Badge>
+      );
+    case 'In Review':
+      return (
+        <Badge className="bg-purple-100 hover:bg-purple-100 text-purple-700 rounded-sm">
+          <Eye className="h-3 w-3 mr-1" />
+          In Review
+        </Badge>
+      );
+    case 'Done':
+      return (
+        <Badge className="bg-green-100 hover:bg-green-100 text-green-700 rounded-sm">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Done
+        </Badge>
+      );
+    case 'Blocked':
+      return (
+        <Badge className="bg-red-100 hover:bg-red-100 text-red-700 rounded-sm">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Blocked
+        </Badge>
+      );
+  }
+};
+
+const statusBorderColor = (status: JiraIssueStatusType) => {
+  switch (status) {
+    case 'To Do':
+      return '#0052CC';
+    case 'Done':
+      return '#388E3C';
+    default:
+      return '#D32F2F';
+  }
+};
