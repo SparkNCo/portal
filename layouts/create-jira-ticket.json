@@ -1,0 +1,55 @@
+[
+  {
+    "fields": [
+      {
+        "type": "text",
+        "name": "summary",
+        "placeholder": "Provide a summary or title for the ticket",
+        "label": "Summary",
+        "required": true
+      },
+      {
+        "type": "textarea",
+        "name": "description",
+        "placeholder": "A concrete description for the ticket",
+        "label": "Description",
+        "required": true
+      },
+
+      {
+        "type": "select",
+        "name": "priority",
+        "placeholder": "What is the priority of this feature?",
+        "label": "Feature Priority",
+        "required": true,
+        "options": [
+          {
+            "label": "Highest",
+            "value": "Highest",
+            "icon": "chevrons-up"
+          },
+          {
+            "label": "High",
+            "value": "High",
+            "icon": "chevron-up"
+          },
+          {
+            "label": "Medium",
+            "value": "Medium",
+            "icon": "equal"
+          },
+          {
+            "label": "Low",
+            "value": "Low",
+            "icon": "chevron-down"
+          },
+          {
+            "label": "Lowest",
+            "value": "Lowest",
+            "icon": "chevrons-down"
+          }
+        ]
+      }
+    ]
+  }
+]

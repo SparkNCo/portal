@@ -137,6 +137,14 @@ export const getJiraDefaultValues = ({
               },
             },
           ],
+          priority: [
+            {
+              set: {
+                name: priority,
+              },
+            },
+          ],
+          ...additionalFields,
         },
       },
     };
