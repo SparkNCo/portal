@@ -11,12 +11,11 @@ export const deletePineconeRecords = async (
     endpoint: 'vectors/delete',
     ids,
   });
-  const { data: jiraData, error: jiraError } = await supabase.functions.invoke(
-    'pinecone',
-    { body }
-  );
-  if (jiraError) {
-    console.log(jiraError);
+  const { error: pineconeError } = await supabase.functions.invoke('pinecone', {
+    body,
+  });
+  if (pineconeError) {
+    console.log(pineconeError);
     return {
       error:
         'There was an error while executing the function. Please try again later.',
