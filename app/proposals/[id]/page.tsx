@@ -390,13 +390,13 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
                             </Button>
                           }
                           variant={'destructive'}
-                          params={feature.id}
+                          args={feature.id}
                           title="Confirm to delete this feature"
                           subtitle="This action cannot be undone"
                           description="Are you sure you want to delete this feature?"
                           onConfirm={deleteFeatureFn}
                           confirmText="Delete"
-                          confirmIcon={<Trash2 className="h-4 w-4" />}
+                          confirmIcon={<Trash2 />}
                         />
                       </TableCell>
                     )}
