@@ -5,6 +5,7 @@ import { getErrorMessage } from '../_shared/helpers.ts';
 import axios from 'npm:axios';
 
 const PINECONE_API_KEY = Deno.env.get('PINECONE_API_KEY');
+const PINECONE_URL = Deno.env.get('PINECONE_URL');
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -16,7 +17,7 @@ Deno.serve(async (req) => {
     const index = params?.index;
     const endpoint = params?.endpoint;
     const { data } = await axios.post(
-      `https://${index}-ido9773.svc.aped-4627-b74a.pinecone.io/${endpoint}`,
+      `https://${index}-${PINECONE_URL}/${endpoint}`,
       restBody,
       {
         headers: {
