@@ -21,8 +21,9 @@ interface GetJiraDefaultValuesParams {
   endpoint: Endpoints;
   issueType?: IssueType;
   projectKey?: ProjectKey;
-  summary?: string;
-  description?: string;
+  priority: string;
+  summary: string;
+  description: string;
   additionalFields?: Record<string, any>;
 }
 
@@ -37,6 +38,9 @@ interface JiraDefaultValuesReturn {
         key: ProjectKey;
       };
       summary: string;
+      priority: {
+        name: string;
+      };
       description: DescriptionContent | string;
       issuetype: {
         name: IssueType;
@@ -55,6 +59,7 @@ export const getJiraDefaultValues = ({
   issueType = 'Task',
   projectKey = 'TEST',
   summary,
+  priority,
   description = 'A Description',
   additionalFields = {},
 }: GetJiraDefaultValuesParams): JiraDefaultValuesReturn => {
@@ -77,6 +82,9 @@ export const getJiraDefaultValues = ({
         fields: {
           project: { key: projectKey },
           summary: summary || 'Default Summary',
+          priority: {
+            name: priority,
+          },
           description: {
             type: 'doc',
             version: 1,
