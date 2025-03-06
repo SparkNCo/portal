@@ -1,5 +1,5 @@
 'use client';
-import type * as React from 'react';
+import * as React from 'react';
 import { useState } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2, X } from 'lucide-react';
@@ -52,23 +52,25 @@ export interface ModalProps extends VariantProps<typeof modalVariants> {
   subtitle?: string;
   description?: string;
   confirmText?: string;
-  confirmIcon?: React.ReactNode;
-  onConfirm?: (params: any) => Promise<ErrorSuccessResponseMessage | void>;
+  confirmIcon?: React.ReactElement;
+  headerIcon?: React.ReactElement;
+  onConfirm?: (args: any) => Promise<ErrorSuccessResponseMessage | void>;
   onCancel?: () => void;
   children?: React.ReactNode;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
-  params?: any;
+  args?: any;
 }
 
 export function Modal({
   trigger,
   title,
-  params,
+  args,
   subtitle,
   description,
   confirmText = 'Confirm',
   confirmIcon,
+  headerIcon,
   onConfirm,
   onCancel,
   variant,
@@ -83,7 +85,7 @@ export function Modal({
 
     try {
       setIsLoading(true);
-      const response = await onConfirm(params);
+      const response = await onConfirm(args);
       if (response?.error) {
         toast.error(response?.error);
       }
@@ -92,8 +94,7 @@ export function Modal({
       }
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      console.log('Modal catch error:', errorMessage);
-      toast.error('Unexpected error occurred. Please try again.');
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +110,15 @@ export function Modal({
         )}
       >
         <DialogHeader className="py-3 px-5">
-          <DialogTitle className="font-semibold text-base p-0 m-0">
+          <DialogTitle className="font-semibold text-base p-0 m-0 flex items-center gap-2">
+            {headerIcon && (
+              <span className="">
+                {' '}
+                {React.cloneElement(headerIcon, {
+                  className: 'w-4 h-4',
+                })}
+              </span>
+            )}
             {title}
           </DialogTitle>
 
@@ -161,7 +170,13 @@ export function Modal({
             ) : (
               <>
                 {confirmText}
-                {confirmIcon && <span className="">{confirmIcon}</span>}
+                {confirmIcon && (
+                  <span className="">
+                    {React.cloneElement(confirmIcon, {
+                      className: 'w-4 h-4',
+                    })}
+                  </span>
+                )}
               </>
             )}
           </Button>
