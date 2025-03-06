@@ -19,6 +19,7 @@ import {
   Lightbulb,
   Ellipsis,
   Dot,
+  Plus,
 } from 'lucide-react';
 import {
   Command,
@@ -196,6 +197,7 @@ export default function SupportTicketUI() {
         toast.error(response?.error);
         return;
       }
+      console.log(response);
       if (
         response?.matches &&
         response?.matches?.length > 0 &&
@@ -210,6 +212,14 @@ export default function SupportTicketUI() {
           : setLayout(feature_layout);
         setStep(2);
       } else {
+        setStep(2);
+        setTitle('No matches found. You can create a new issue.');
+        if (response?.type) {
+          setRequestType(response?.type);
+          response.type == 'feature'
+            ? setLayout(feature_layout)
+            : setLayout(feature_layout);
+        }
         toast.error('Unexpected error occurred. Please try again.');
       }
     } catch (error) {
@@ -403,7 +413,15 @@ export default function SupportTicketUI() {
                       handleStepTwo();
                     }}
                   >
-                    <Ellipsis /> No one of these matches
+                    {matches.length > 0 ? (
+                      <>
+                        <Ellipsis /> No one of these matches
+                      </>
+                    ) : (
+                      <>
+                        <Plus /> Create a new Issue
+                      </>
+                    )}
                   </Button>
                 </motion.h1>
                 <div className="grid grid-cols-3 gap-4">
