@@ -2,6 +2,8 @@ import { QueryResponse } from '@pinecone-database/pinecone';
 import { clsx, type ClassValue } from 'clsx';
 import OpenAI from 'openai';
 import { twMerge } from 'tailwind-merge';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -50,4 +52,19 @@ export const extractPineconeMatchesContent = (data: {
   const matches = data?.data?.matches;
   if (!matches || matches.length === 0) return [];
   return matches;
+};
+
+dayjs.extend(relativeTime);
+
+export const getTimeAgo = (createdAt: string) => {
+  return dayjs(createdAt).fromNow();
+};
+
+export const getInitials = (name: string) => {
+  const names = name.split(' ');
+  let initials = names[0].substring(0, 1).toUpperCase();
+  if (names.length > 1) {
+    initials += names[names.length - 1].substring(0, 1).toUpperCase();
+  }
+  return initials;
 };

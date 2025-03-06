@@ -1,3 +1,19 @@
+// Define types for the component props
+export type JiraPriorityType = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest';
+export type JiraIssueType =
+  | 'Bug'
+  | 'Task'
+  | 'Story'
+  | 'Epic'
+  | 'Feature'
+  | 'Improvement';
+export type JiraIssueStatusType =
+  | 'To Do'
+  | 'In Progress'
+  | 'In Review'
+  | 'Done'
+  | 'Blocked';
+
 export interface JiraWebhookResponse {
   timestamp: number;
   webhookEvent: EventTypes;
@@ -29,7 +45,7 @@ export interface JiraWebhookResponse {
         key: string;
       };
       issuetype: {
-        name: string;
+        name: JiraIssueType;
       };
     };
     comments: any[];
@@ -47,13 +63,13 @@ export type EventTypes =
 export interface ExtractedIssueData {
   commentCount: number;
   description: string;
-  status: string;
+  status: JiraIssueStatusType;
   createdAt: string;
-  priority: string;
+  priority: JiraPriorityType;
   summary: string;
   assignee?: string;
   project: string;
-  issuetype: string;
+  issuetype: JiraIssueType;
   issueKey: string;
   createdBy: string;
 }
