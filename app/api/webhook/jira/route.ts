@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         vectors[0].values = embedding;
       }
     }
-    //!----------------UPDATED---------------------
+    //!----------------DELETED---------------------
     if (event == 'jira:issue_deleted') {
       //If the user deleted an issue, we keep the update endpoint because we'll be doing an update in the metadata object, not deleting the row. We just add "deletedAt" and "deleted" to the metadata object.
       endpoint = 'vectors/update';
