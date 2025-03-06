@@ -153,7 +153,7 @@ export function DynamicField({
             as={Select}
             validate={validationRules}
             name={name}
-            onOpenChange={(open) => {
+            onOpenChange={(open: boolean) => {
               if (!open) {
                 setFieldTouched(name, true);
               }
@@ -231,16 +231,17 @@ export function DynamicField({
         </div>
       );
     case 'multiselect':
-      return (
-        <MultiSelectInput
-          field={field}
-          options={opt}
-          values={values}
-          errors={errors}
-          touched={touched}
-          validationRules={validationRules}
-        />
-      );
+      if (field.name)
+        return (
+          <MultiSelectInput
+            field={field}
+            options={opt}
+            values={values}
+            errors={errors}
+            touched={touched}
+            validationRules={validationRules}
+          />
+        );
 
     default:
       return (
