@@ -7,7 +7,8 @@ import { supabase } from '@/lib/supabase/client';
 import {
   ExtractedIssueData,
   JiraWebhookResponse,
-} from '@/lib/types/webhooks/jira';
+} from '@/lib/types/services/jira';
+
 import { PineconeResponseBody, VectorType } from '@/utils/types';
 import { NextRequest, NextResponse } from 'next/server';
 
