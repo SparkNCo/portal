@@ -14,6 +14,7 @@ export const getPineconeDefaultValues = ({
   index = 'portal',
   vectors,
   vector,
+  ids,
   includeMetadata = true,
   includeValues = true,
   topK = 3,
@@ -22,6 +23,14 @@ export const getPineconeDefaultValues = ({
     endpoint,
     index,
   };
+  if (endpoint == 'vectors/delete' && ids && ids.length > 0) {
+    return {
+      params,
+      body: {
+        ids,
+      },
+    };
+  }
   if (endpoint == 'vectors/update') {
     const vector = vectors?.[0];
     const { metadata, ...restVector } = vector || {};
