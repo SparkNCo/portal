@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
       endpoint = 'vectors/update';
       // If this is true, then we need to get the embedding again because either the summary or the description has changed.
       if (getEmbeddingAgain) {
-        const embeddingValue = `${metadata.summary}. ${metadata.description}`;
         const embedding = await handleEmbedding(embeddingValue);
         if (!embedding)
           return NextResponse.json({
