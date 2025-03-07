@@ -12,6 +12,7 @@ import {
 } from '@/lib/utils';
 import { getPineconeDefaultValues } from '../pinecone/get-default-values';
 import { handleEmbedding } from '../openai/get-embedding';
+import { JiraIssueType } from '@/lib/types/services/jira';
 export type SearchFormData = {
   query: string;
   selectedOptions: string[];
@@ -21,7 +22,7 @@ export async function callAssistantFn(formData: FormData): Promise<{
   error: string | null;
   matches?: any[] | null;
   success: string | null;
-  type: 'feature' | 'bug' | null;
+  type: JiraIssueType | null;
 }> {
   const {
     query,
@@ -72,7 +73,7 @@ export async function callAssistantFn(formData: FormData): Promise<{
     };
   }
 
-  const matches = await queryPinecone(embedding);
+  const matches = await queryPinecone(embedding, response.type);
   if (!matches) {
     return {
       success: null,
@@ -111,7 +112,7 @@ async function invokeOpenAI(body: any): Promise<{
   title: string;
   description: string;
   priority: string;
-  type: 'feature' | 'bug';
+  type: JiraIssueType;
 } | null> {
   const { data, error: openaiError } = await supabase.functions.invoke(
     'openai',
@@ -124,13 +125,16 @@ async function invokeOpenAI(body: any): Promise<{
   return extractOpenAIContent(data);
 }
 
-async function queryPinecone(embedding: any) {
+async function queryPinecone(embedding: number[], issuetype: JiraIssueType) {
   const { data: pineconeResponse, error: pineconeEmbeddingError } =
     await supabase.functions.invoke('pinecone', {
       body: getPineconeDefaultValues({
         endpoint: 'query',
         index: 'portal',
         vector: embedding,
+        filter: {
+          issuetype: issuetype,
+        },
       }),
     });
   if (pineconeEmbeddingError) {
