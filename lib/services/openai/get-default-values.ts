@@ -38,8 +38,9 @@ export const getGPTDefaultValues = ({
     stream,
     temperature,
     max_tokens,
-    response_format: functions?.length ? undefined : response_format,
-    functions: functions?.length ? functions : undefined,
+    ...(functions?.length ? { functions } : {}),
+    ...(response_format && !functions?.length ? { response_format } : {}),
+    ...(functions?.length ? { function_call } : {}),
     messages: [
       ...messages,
       {
@@ -47,6 +48,5 @@ export const getGPTDefaultValues = ({
         content: prompt,
       },
     ],
-    ...(functions?.length ? { function_call } : {}),
   };
 };
