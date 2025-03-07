@@ -16,6 +16,7 @@ export const getPineconeDefaultValues = ({
   vector,
   ids,
   includeMetadata = true,
+  filter,
   includeValues = true,
   topK = 3,
 }: PineconeResponseBody): PineconeDefaultValuesReturnObject => {
@@ -49,6 +50,7 @@ export const getPineconeDefaultValues = ({
     ...(endpoint == 'query' && { topK }),
     ...(vector && { vector }),
     ...(vectors && { vectors }),
+    ...(filter && { filter }),
     includeMetadata,
     includeValues,
   };

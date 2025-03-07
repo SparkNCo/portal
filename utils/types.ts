@@ -24,6 +24,7 @@ export type PineconeResponseBody = {
   index: 'portal';
   setMetadata?: Record<string, any>;
   vectors?: VectorType[];
+  filter?: Record<string, any>;
 };
 
 export type VectorType = {
