@@ -106,8 +106,8 @@ function extractJiraIssueData(body: JiraWebhookResponse): {
 
   items?.forEach((item) => {
     // Only include fields that have actually changed. For creations, this will always be true because it changes from null to something
-    const to = item.toString;
     const from = item.fromString;
+    const to = item.toString;
     const fieldChanged = from !== to;
     const field = item.fieldId;
     if (fieldChanged && to && !filterValues.includes(field)) {

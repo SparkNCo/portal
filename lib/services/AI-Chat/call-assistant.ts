@@ -33,17 +33,22 @@ export async function callAssistantFn(formData: FormData): Promise<{
     priority,
   } = parseFormData(formData);
 
+  //Generate prompts for OpenAI based on user input and selected options
   const { systemPrompt, userPrompt } = generateClientAssistantPrompt({
     priority: priority,
     option: selectedOption,
     input: query,
   });
+  // Generate available function schemas for OpenAI to format responses
   const functions = generateFunctionsArray();
+  // Prepare the request body for OpenAI API with system prompt and available functions
   const body = getGPTDefaultValues({
     messages: [{ role: 'system', content: systemPrompt }],
     functions,
     prompt: userPrompt,
   });
+  // Check if the request body is empty
+
   if (!body) {
     console.log('body empty', body);
     return {
@@ -54,6 +59,8 @@ export async function callAssistantFn(formData: FormData): Promise<{
     };
   }
   const response = await invokeOpenAI(body);
+  // Call OpenAI to analyze the user's request and determine issue type/details
+
   if (!response) {
     return {
       success: null,
@@ -64,6 +71,8 @@ export async function callAssistantFn(formData: FormData): Promise<{
   }
 
   const embedding = await handleEmbedding(response.description);
+  // Generate vector embedding of the issue description for semantic search
+
   if (!embedding) {
     return {
       type: null,
@@ -74,6 +83,8 @@ export async function callAssistantFn(formData: FormData): Promise<{
   }
 
   const matches = await queryPinecone(embedding, response.type);
+  // Search Pinecone vector database for similar existing issues
+
   if (!matches) {
     return {
       success: null,
@@ -118,6 +129,8 @@ async function invokeOpenAI(body: any): Promise<{
     'openai',
     { body }
   );
+  // Call OpenAI through Supabase Edge Function to keep API key secure
+
   if (openaiError) {
     console.log('Error while calling OPENAI:', openaiError);
     return null;
@@ -137,6 +150,8 @@ async function queryPinecone(embedding: number[], issuetype: JiraIssueType) {
         },
       }),
     });
+  // Query Pinecone through Supabase Edge Function to find similar issues
+
   if (pineconeEmbeddingError) {
     console.log(' Error while calling Pinecone:', pineconeEmbeddingError);
     return null;
@@ -155,4 +170,5 @@ const getTitleMessage = (type: string) => {
     default:
       return 'Does your request matches one of these?';
   }
+  // Generate appropriate message based on issue type
 };
