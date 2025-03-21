@@ -190,7 +190,7 @@ export default function SupportTicketUI() {
   };
   const handleStepOne = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
+    setOpen(false);
     const formData = new FormData(e.currentTarget);
 
     try {
@@ -222,6 +222,9 @@ export default function SupportTicketUI() {
             : setLayout(feature_layout);
         }
       }
+      // Reset form fields
+      setQuery('');
+      setSelectedOption('');
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       toast.error(errorMessage);
