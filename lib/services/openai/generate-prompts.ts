@@ -46,22 +46,25 @@ export const generateClientAssistantPrompt = ({
 The user is going to provide an input with one of the following options:
 * Create new request: (This means the user wants to create a new request). For this, your work is to generate a brief but detailed description of the request based on the user's input. Also you need to generate a brief title for the new request. The title should be short and to the point.
 * Report Bug: (The user wants to report a new bug). For this, your work is to generate a brief but detailed description of the bug based on the user's input, this description will be used to get closest 3 bug items in a Pinecone Database, so make sure the description is clear and concise, but brief. Also you need to generate a brief title for the new bug. The title should be short and to the point.
+* Ask for documentation: User wants information about how to use the platform. You'll be provided with all the existing tickets in Jira for the user's project. Your work is to provide a gentle explanation of how to use the platform and answers the user's questions.
+* Search Ticket: The user wants to find for an specific ticket. The user will provide a prompt and your work is to create a title and brief description with the prompt. The title should be short and to the point. The description should be clear and concise, but brief. 
 
 For bug reports, the output should be formatted as:
 {
   "title": "Title of the bug",
   "description": "Description of the bug",
-  "priority": "Priority of the bug" (from Low, Medium, High),
-  type: "bug"
+  "priority": "Priority of the bug" (from Lowest,Low, Medium, High, Highest),
+  "type": "Bug"
 }
 
 For feature requests, the output should be formatted as:
 {
   "title": "Title of the feature",
   "description": "Description of the feature",
-  "priority": "Priority of the feature" (from Low, Medium, High),
-  type: "feature"
+  "priority": "Priority of the feature" (from Lowest,Low, Medium, High, Highest),
+  "type": "Task"
 }
+
 
 I need you to take into consideration the following:
 - If the user's has no selected one of the options above, your work is to infer the user's intent based on the user's input and generate the appropriate output.
@@ -70,7 +73,7 @@ MOSTLY IMPORTANT: You need to generate the output in one string so I can parse i
 `;
 
   const userPrompt = `
-I want you to generate a the information for a Jira Ticket based on the following information:
+I want you to generate the information for a Jira Ticket based on the following information:
 
 Input: ${input}
 Option: ${option}

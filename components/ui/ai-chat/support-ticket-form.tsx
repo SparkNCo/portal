@@ -13,13 +13,15 @@ import {
   ArrowUp,
   LoaderCircle,
   Paperclip,
-  List,
   ChevronLeft,
-  ChevronRight,
   Lightbulb,
   Ellipsis,
   Dot,
   Plus,
+  SearchIcon,
+  Repeat,
+  CheckCheck,
+  TriangleAlert,
 } from 'lucide-react';
 import {
   Command,
@@ -37,7 +39,6 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/utils/helpers';
 import {
   QueryResponse,
-  RecordMetadata,
   RecordMetadataValue,
 } from '@pinecone-database/pinecone';
 import JiraTicket from '../cards/jira-ticket-card';
@@ -45,14 +46,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import DynamicForm from '../form/custom-form';
 
 //Layouts imports
-
 import feature_layout from '@/layouts/create-jira-ticket.json';
+//Others
 import { LayoutType } from '@/lib/types/utils/form';
-import { title } from 'process';
-import { request } from 'http';
-import { spread } from 'axios';
 import { createOrUpdateTicket } from '@/lib/services/AI-Chat/create-update-ticket';
-import { ExtractedIssueData } from '@/lib/types/services/jira';
+import { ExtractedIssueData, JiraIssueType } from '@/lib/types/services/jira';
+import { Modal } from '../reusable-modal';
+import { deletePineconeRecords } from '@/lib/services/pinecone/delete-pinecone-records';
 const options = [
   {
     icon: LightbulbIcon,
@@ -122,7 +122,7 @@ function SubmitButton() {
     </button>
   );
 }
-const badgeClass = ' border  rounded-full flex items-center gap-1.5 shadow-sm';
+const badgeClass = ' border rounded-full flex items-center gap-1.5 shadow-sm';
 
 export default function SupportTicketUI() {
   const [open, setOpen] = React.useState(false);
@@ -144,9 +144,7 @@ export default function SupportTicketUI() {
     QueryResponse['matches'][0] | null
   >(null);
   const [layout, setLayout] = React.useState<LayoutType>(feature_layout);
-  const [requestType, setRequestType] = React.useState<'feature' | 'bug'>(
-    'feature'
-  );
+  const [issueType, setIssueType] = React.useState<JiraIssueType>('Task');
   const [title, setTitle] = React.useState('');
   // Handle click outside
   React.useEffect(() => {
@@ -165,10 +163,8 @@ export default function SupportTicketUI() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
   // Handle input focus
   const handleFocus = () => setOpen(true);
-
   // Handle option selection
   const handleSelect = (value: string) => {
     setSelectedOption(value);
@@ -186,6 +182,12 @@ export default function SupportTicketUI() {
       [value]: !prev[value as keyof typeof prev],
     }));
   };
+  const handleReTry = () => {
+    setStep(1);
+    setSelectedMatch(null);
+    setTitle('');
+    setMatches([]);
+  };
   const handleStepOne = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -197,7 +199,6 @@ export default function SupportTicketUI() {
         toast.error(response?.error);
         return;
       }
-      console.log(response);
       if (
         response?.matches &&
         response?.matches?.length > 0 &&
@@ -206,8 +207,8 @@ export default function SupportTicketUI() {
       ) {
         setTitle(response?.success);
         setMatches(response?.matches);
-        setRequestType(response?.type);
-        response.type == 'feature'
+        setIssueType(response?.type);
+        response.type == 'Task'
           ? setLayout(feature_layout)
           : setLayout(feature_layout);
         setStep(2);
@@ -215,22 +216,19 @@ export default function SupportTicketUI() {
         setStep(2);
         setTitle('No matches found. You can create a new issue.');
         if (response?.type) {
-          setRequestType(response?.type);
-          response.type == 'feature'
+          setIssueType(response?.type);
+          response.type == 'Task'
             ? setLayout(feature_layout)
             : setLayout(feature_layout);
         }
-        toast.error('Unexpected error occurred. Please try again.');
       }
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      console.log('Modal catch error:', errorMessage);
-      toast.error('Unexpected error occurred. Please try again.');
+      toast.error(errorMessage);
     }
   };
   const handleStepTwo = async (match?: any) => {
     try {
-      console.log(match);
       if (!match) {
         setSelectedMatch(null);
       } else {
@@ -242,8 +240,30 @@ export default function SupportTicketUI() {
       console.log('error catch --->', error);
     }
   };
+
+  const handleReCreateTicket = async (ticket: QueryResponse['matches'][0]) => {
+    try {
+      const formData = new FormData();
+      formData.append('values', JSON.stringify(ticket.metadata));
+      const { error, success } = await createOrUpdateTicket(formData);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      const { error: pineconeError } = await deletePineconeRecords([ticket.id]);
+      if (pineconeError) {
+        toast.error(pineconeError);
+        return;
+      }
+      toast.success(success);
+      handleReTry();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      toast.error(errorMessage);
+    }
+  };
   return (
-    <div className="grid gap-8 w-full ">
+    <div className="grid gap-8 w-full md:py-0 py-8">
       {step === 1 && (
         <>
           <h1 className="text-2xl text-center font-[500] text-[#334155] dark:text-white">
@@ -258,7 +278,7 @@ export default function SupportTicketUI() {
               >
                 <div className="relative">
                   {selectedOption && (
-                    <div className="flex flex-wrap gap-2 mb-4 border-b px-4 py-2 w-fit">
+                    <div className="flex flex-wrap gap-2 mb-4 border-b  py-2 w-fit">
                       <p className="text-sm text-zinc-600 dark:text-zinc-500">
                         You have selected:
                       </p>
@@ -400,31 +420,47 @@ export default function SupportTicketUI() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -15 }}
                   transition={{ duration: 0.4, type: 'spring' }}
-                  className="flex w-full items-center justify-between text-2xl text-center font-[500] text-[#334155] dark:text-white "
+                  className="flex w-full  md:items-center justify-between text-2xl  font-[500] text-[#334155] dark:text-white md:flex-row items-start flex-col gap-y-2 "
                 >
                   <div className="flex items-center gap-2">
-                    <Lightbulb />
+                    {matches.length > 0 ? <Lightbulb /> : <SearchIcon />}
+
                     {title}
                   </div>
-                  <Button
-                    type="button"
-                    className=""
-                    onClick={() => {
-                      handleStepTwo();
-                    }}
-                  >
-                    {matches.length > 0 ? (
-                      <>
-                        <Ellipsis /> No one of these matches
-                      </>
-                    ) : (
-                      <>
-                        <Plus /> Create a new Issue
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2 sm:items-center items-center">
+                    <Button
+                      type="button"
+                      variant={'outline'}
+                      onClick={() => {
+                        handleStepTwo();
+                      }}
+                    >
+                      {matches.length > 0 ? (
+                        <>
+                          <Ellipsis /> No one of these matches
+                        </>
+                      ) : (
+                        <>
+                          <Plus /> Create a new Issue
+                        </>
+                      )}
+                    </Button>
+                    <span className="text-muted-foreground text-sm text-center">
+                      or
+                    </span>
+                    <Button
+                      type="button"
+                      className="w-fit"
+                      variant={'outline'}
+                      onClick={() => {
+                        handleReTry();
+                      }}
+                    >
+                      <Repeat /> Try a different question
+                    </Button>
+                  </div>
                 </motion.h1>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {matches?.map((match, index) => {
                     // @ts-ignore
                     const {
@@ -442,7 +478,23 @@ export default function SupportTicketUI() {
                       project,
                       assignee,
                     }: ExtractedIssueData = match?.metadata || {};
-                    return (
+                    const children = (
+                      <JiraTicket
+                        title={summary}
+                        ticketId={match.id}
+                        createdAt={createdAt}
+                        description={description}
+                        issueType={issuetype}
+                        priority={priority}
+                        projectName={project}
+                        commentCount={commentCount}
+                        deleted={deleted}
+                        deletedAt={deletedAt}
+                        assignee={assignee}
+                        status={status}
+                      />
+                    );
+                    const button = (
                       <motion.button
                         key={index}
                         initial={{ opacity: 0, x: 15 }}
@@ -454,26 +506,32 @@ export default function SupportTicketUI() {
                           type: 'spring',
                           delay: index * 0.1,
                         }}
-                        onClick={() => {
-                          handleStepTwo(match);
-                        }}
+                        onClick={
+                          deleted ? undefined : () => handleStepTwo(match)
+                        }
                       >
-                        <JiraTicket
-                          title={summary}
-                          ticketId={match.id}
-                          createdAt={createdAt}
-                          description={description}
-                          issueType={issuetype}
-                          priority={priority}
-                          projectName={project}
-                          commentCount={commentCount}
-                          deleted={deleted}
-                          deletedAt={deletedAt}
-                          assignee={assignee}
-                          status={status}
-                        />
+                        {children}
                       </motion.button>
                     );
+                    if (deleted && deletedAt) {
+                      return (
+                        <Modal
+                          key={index}
+                          trigger={button}
+                          headerIcon={<TriangleAlert />}
+                          variant={'default'}
+                          args={match}
+                          title="This ticket is currently deleted"
+                          subtitle=""
+                          description="Would you like to create a new ticket with the same details than the deleted one?
+                        "
+                          onConfirm={handleReCreateTicket}
+                          confirmText="Confirm"
+                          confirmIcon={<CheckCheck />}
+                        />
+                      );
+                    }
+                    return button;
                   })}
                 </div>
               </>
@@ -486,10 +544,7 @@ export default function SupportTicketUI() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Dot />{' '}
-                  {stepThreeTitle(
-                    selectedMatch?.metadata?.summary,
-                    requestType
-                  )}
+                  {stepThreeTitle(selectedMatch?.metadata?.summary, issueType)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -498,7 +553,7 @@ export default function SupportTicketUI() {
                   base={{
                     id: selectedMatch?.id,
                     ...selectedMatch?.metadata,
-                    requestType,
+                    issueType,
                   }}
                   completeFn={createOrUpdateTicket}
                   lang="en"
@@ -534,9 +589,10 @@ export default function SupportTicketUI() {
 
 const stepThreeTitle = (
   title: RecordMetadataValue | undefined,
-  type: 'feature' | 'bug' | ''
+  type: JiraIssueType | ''
 ) => {
-  if (type == 'feature' && !title) return 'Create Request';
-  if (type == 'feature' && title) return 'Update Request';
+  if (type == 'Task' && !title) return 'Create Request';
+  if (type == 'Task' && title) return 'Update Request';
+  if (type == 'Bug' && !title) return 'Create Bug';
   return 'Update Bug';
 };
