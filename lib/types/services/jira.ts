@@ -6,7 +6,10 @@ export type JiraIssueType =
   | 'Story'
   | 'Epic'
   | 'Feature'
-  | 'Improvement';
+  | 'Improvement'
+  | 'Documentation'
+  | 'Product';
+
 export type JiraIssueStatusType =
   | 'To Do'
   | 'In Progress'

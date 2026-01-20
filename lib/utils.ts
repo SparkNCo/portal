@@ -15,13 +15,18 @@ export const extractOpenAIContent = (data: {
   try {
     const message = data?.data?.choices[0]?.message;
     if (!message) return null;
-    if (message.content) {
-      return JSON.parse(message?.content);
-    } else if (message.function_call?.arguments) {
-      return JSON.parse(message.function_call.arguments);
+
+    const content = message.content?.trim();
+
+    if (!content) return null;
+
+    // Validate if the content is a JSON object
+    if (content.startsWith('{') || content.startsWith('[')) {
+      return JSON.parse(content);
     }
 
-    return null;
+    // If it's not JSON, return the plain text
+    return content;
   } catch (error) {
     console.error('Error parsing OpenAI response:', error);
     return null;

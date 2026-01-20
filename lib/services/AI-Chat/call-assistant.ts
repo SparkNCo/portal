@@ -1,10 +1,14 @@
 'use server';
 
 import { supabase } from '@/lib/supabase/client';
-import { generateClientAssistantPrompt } from '../openai/generate-prompts';
+import {
+  generateClientAssistantPrompt,
+  generateProductPrompt,
+} from '../openai/generate-prompts';
 import { getGPTDefaultValues } from '../openai/get-default-values';
 import create_feature_output from '@/response-formats/create-feature-output.json';
 import report_bug_output from '@/response-formats/report-bug-output.json';
+import product_output from '@/response-formats/product-output.json';
 import {
   extractOpenAIContent,
   extractOpenAIEmbeddingContent,
@@ -23,6 +27,7 @@ export async function callAssistantFn(formData: FormData): Promise<{
   matches?: any[] | null;
   success: string | null;
   type: JiraIssueType | null;
+  answer?: string | null;
 }> {
   const {
     query,
@@ -60,7 +65,7 @@ export async function callAssistantFn(formData: FormData): Promise<{
   }
   const response = await invokeOpenAI(body);
   // Call OpenAI to analyze the user's request and determine issue type/details
-
+  console.log(response);
   if (!response) {
     return {
       success: null,
@@ -69,9 +74,15 @@ export async function callAssistantFn(formData: FormData): Promise<{
         'There was an error processing your request. Please try again later.',
     };
   }
-
-  const embedding = await handleEmbedding(response.description);
-  // Generate vector embedding of the issue description for semantic search
+  let stringToEmbed: string = '';
+  if (response.type == 'Product') {
+    stringToEmbed = `${response.title}`;
+  } else {
+    stringToEmbed = `${response.title}. ${response.description}`;
+  }
+  console.log(stringToEmbed);
+  const embedding = await handleEmbedding(stringToEmbed);
+  // Generate vector embedding of the issue description and title for semantic search
 
   if (!embedding) {
     return {
@@ -81,10 +92,13 @@ export async function callAssistantFn(formData: FormData): Promise<{
         'There was an error processing your request. Please try again later.',
     };
   }
-
-  const matches = await queryPinecone(embedding, response.type);
+  let matches = null;
+  if (response.type !== 'Product') {
+    matches = await queryPinecone(embedding, response.type, 1);
+  } else {
+    matches = await queryPinecone(embedding, response.type);
+  }
   // Search Pinecone vector database for similar existing issues
-
   if (!matches) {
     return {
       success: null,
@@ -93,11 +107,32 @@ export async function callAssistantFn(formData: FormData): Promise<{
         'There was an error processing your request. Please try again later.',
     };
   }
-  return {
+  const returnObject = {
     success: getTitleMessage(response?.type),
     error: null,
-    matches,
     type: response?.type,
+  };
+  if (response.type == 'Product') {
+    const { systemPrompt, userPrompt } = generateProductPrompt({
+      input: query,
+      information: JSON.stringify(matches[0].metadata),
+    });
+    const body = getGPTDefaultValues({
+      messages: [{ role: 'system', content: systemPrompt }],
+      functions,
+      prompt: userPrompt,
+    });
+    const answer = await invokeOpenAIProduct(body);
+    console.log(answer);
+
+    return {
+      ...returnObject,
+      answer: answer,
+    };
+  }
+  return {
+    ...returnObject,
+    matches,
   };
 }
 
@@ -122,7 +157,7 @@ function parseFormData(formData: FormData) {
 async function invokeOpenAI(body: any): Promise<{
   title: string;
   description: string;
-  priority: string;
+  priority?: string;
   type: JiraIssueType;
 } | null> {
   const { data, error: openaiError } = await supabase.functions.invoke(
@@ -138,16 +173,32 @@ async function invokeOpenAI(body: any): Promise<{
   return extractOpenAIContent(data);
 }
 
-async function queryPinecone(embedding: number[], issuetype: JiraIssueType) {
+async function invokeOpenAIProduct(body: any): Promise<string> {
+  const { data, error: openaiError } = await supabase.functions.invoke(
+    'openai',
+    { body }
+  );
+  return extractOpenAIContent(data);
+}
+
+async function queryPinecone(
+  embedding: number[],
+  issuetype: JiraIssueType,
+  topK?: number
+) {
   const { data: pineconeResponse, error: pineconeEmbeddingError } =
     await supabase.functions.invoke('pinecone', {
       body: getPineconeDefaultValues({
         endpoint: 'query',
         index: 'portal',
         vector: embedding,
-        filter: {
-          issuetype: issuetype,
-        },
+        ...(topK && { topK: topK }),
+        filter:
+          issuetype !== 'Product'
+            ? {
+                issuetype: issuetype,
+              }
+            : undefined,
       }),
     });
   // Query Pinecone through Supabase Edge Function to find similar issues
@@ -160,13 +211,15 @@ async function queryPinecone(embedding: number[], issuetype: JiraIssueType) {
 }
 
 const generateFunctionsArray = () => {
-  return [create_feature_output, report_bug_output];
+  return [create_feature_output, report_bug_output, product_output];
 };
 
-const getTitleMessage = (type: string) => {
+const getTitleMessage = (type: JiraIssueType) => {
   switch (type) {
-    case 'bug':
+    case 'Bug':
       return 'Is your bug similar to one of these?';
+    case 'Product':
+      return 'Here you have the information that you are looking for:';
     default:
       return 'Does your request matches one of these?';
   }

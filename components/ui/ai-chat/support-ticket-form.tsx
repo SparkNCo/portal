@@ -22,6 +22,9 @@ import {
   Repeat,
   CheckCheck,
   TriangleAlert,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
 } from 'lucide-react';
 import {
   Command,
@@ -34,7 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useFormStatus } from 'react-dom';
 import { callAssistantFn } from '@/lib/services/AI-Chat/call-assistant';
-import { Card, CardContent, CardHeader, CardTitle } from '../card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../card';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/utils/helpers';
 import {
@@ -53,6 +56,7 @@ import { createOrUpdateTicket } from '@/lib/services/AI-Chat/create-update-ticke
 import { ExtractedIssueData, JiraIssueType } from '@/lib/types/services/jira';
 import { Modal } from '../reusable-modal';
 import { deletePineconeRecords } from '@/lib/services/pinecone/delete-pinecone-records';
+import { ChatInterface, ChatMessage } from './chat-interface';
 const options = [
   {
     icon: LightbulbIcon,
@@ -146,6 +150,9 @@ export default function SupportTicketUI() {
   const [layout, setLayout] = React.useState<LayoutType>(feature_layout);
   const [issueType, setIssueType] = React.useState<JiraIssueType>('Task');
   const [title, setTitle] = React.useState('');
+
+  const [userMessages, setUserMessages] = React.useState<ChatMessage[]>([]);
+  const [systemMessages, setSystemMessages] = React.useState<ChatMessage[]>([]);
   // Handle click outside
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -186,11 +193,20 @@ export default function SupportTicketUI() {
     setStep(1);
     setSelectedMatch(null);
     setTitle('');
+    setQuery('');
+    setSelectedOption('');
     setMatches([]);
   };
   const handleStepOne = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setOpen(false);
+    setUserMessages([
+      {
+        id: crypto.randomUUID(),
+        date: new Date(),
+        message: query,
+      },
+    ]);
     const formData = new FormData(e.currentTarget);
 
     try {
@@ -200,6 +216,23 @@ export default function SupportTicketUI() {
         return;
       }
       if (
+        response?.type == 'Product' &&
+        response?.success &&
+        response?.type &&
+        response?.answer
+      ) {
+        setSystemMessages([
+          {
+            id: crypto.randomUUID(),
+            date: new Date(),
+            message: response?.answer,
+          },
+        ]);
+        setTitle(response?.success);
+        setIssueType(response?.type);
+        setStep(2);
+        return;
+      } else if (
         response?.matches &&
         response?.matches?.length > 0 &&
         response?.success &&
@@ -222,9 +255,6 @@ export default function SupportTicketUI() {
             : setLayout(feature_layout);
         }
       }
-      // Reset form fields
-      setQuery('');
-      setSelectedOption('');
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       toast.error(errorMessage);
@@ -265,6 +295,7 @@ export default function SupportTicketUI() {
       toast.error(errorMessage);
     }
   };
+
   return (
     <div className="grid gap-8 w-full md:py-0 py-8">
       {step === 1 && (
@@ -415,7 +446,7 @@ export default function SupportTicketUI() {
       <AnimatePresence>
         {step == 2 && (
           <>
-            {matches && (
+            {matches && issueType != 'Product' && (
               <>
                 <motion.h1
                   key="title"
@@ -538,6 +569,63 @@ export default function SupportTicketUI() {
                   })}
                 </div>
               </>
+            )}
+            {issueType == 'Product' && (
+              <div className="flex flex-col gap-4 items-center justify-center w-full">
+                <Card className="w-full max-w-2xl">
+                  <CardHeader>
+                    <CardTitle>Portal Assistant</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ChatInterface
+                      systemMessages={systemMessages}
+                      userMessages={userMessages}
+                      height="h-[400px]"
+                      avatarSrc={{
+                        system: '/placeholder.svg?height=40&width=40',
+                        user: '/placeholder.svg?height=40&width=40',
+                      }}
+                    />
+                  </CardContent>
+                  <CardFooter className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        handleReTry();
+                      }}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Try with a different question
+                    </Button>
+
+                    <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {}}
+                        // handleFeedback(false)
+
+                        // disabled={feedbackGiven}
+                      >
+                        <ThumbsDown className="mr-2 h-4 w-4" />
+                        Not useful
+                      </Button>
+                      <Button
+                        variant="default"
+                        className="flex-1"
+                        onClick={() => {}}
+                        // handleFeedback(true)
+
+                        // disabled={feedbackGiven}
+                      >
+                        <ThumbsUp className="mr-2 h-4 w-4" />
+                        Useful
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              </div>
             )}
           </>
         )}

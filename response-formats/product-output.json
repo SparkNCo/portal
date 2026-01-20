@@ -1,0 +1,18 @@
+{
+  "name": "product-output",
+  "description": "Generate a product output object for the product explanation.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Assign a title for the product/ticket that the user is looking for by using the user's input."
+      },
+      "description": {
+        "type": "string",
+        "description": "Provide a brief but detailed description of the product/ticket that the user is looking for based on the user's input."
+      }
+    },
+    "required": ["title", "description"]
+  }
+}
