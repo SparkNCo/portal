@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useRef } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 const priorityTasks = [
   {
@@ -49,21 +49,21 @@ const priorityTasks = [
     status: "waiting",
     dueDate: "Jan 18",
   },
-]
+];
 
 const priorityColors = {
   urgent: "bg-destructive/20 text-destructive border-destructive/30",
   high: "bg-warning/20 text-warning border-warning/30",
   medium: "bg-accent/20 text-accent border-accent/30",
-}
+};
 
 const statusColors = {
   "needs-input": "bg-chart-1/20 text-chart-1",
   waiting: "bg-muted text-muted-foreground",
-}
+};
 
 export function PriorityTasks() {
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <Card className="bg-card border-border h-full flex flex-col">
@@ -79,7 +79,19 @@ export function PriorityTasks() {
       <CardContent className="flex-1 overflow-hidden">
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto h-full items-center pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          className="
+    grid
+    grid-rows-2
+    grid-flow-col
+    auto-cols-[280px]
+    gap-4
+    overflow-x-auto
+    h-full
+    pb-2
+    scrollbar-thin
+    scrollbar-thumb-border
+    scrollbar-track-transparent
+  "
         >
           {priorityTasks.map((task) => (
             <div
@@ -87,22 +99,38 @@ export function PriorityTasks() {
               className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-mono text-muted-foreground">{task.id}</span>
-                <Badge variant="outline" className={priorityColors[task.priority as keyof typeof priorityColors]}>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {task.id}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={
+                    priorityColors[task.priority as keyof typeof priorityColors]
+                  }
+                >
                   {task.priority}
                 </Badge>
               </div>
-              <p className="text-sm font-medium text-card-foreground mb-3 line-clamp-2">{task.title}</p>
+              <p className="text-sm font-medium text-card-foreground mb-3 line-clamp-2">
+                {task.title}
+              </p>
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className={statusColors[task.status as keyof typeof statusColors]}>
+                <Badge
+                  variant="secondary"
+                  className={
+                    statusColors[task.status as keyof typeof statusColors]
+                  }
+                >
                   {task.status.replace("-", " ")}
                 </Badge>
-                <span className="text-xs text-muted-foreground">{task.dueDate}</span>
+                <span className="text-xs text-muted-foreground">
+                  {task.dueDate}
+                </span>
               </div>
             </div>
           ))}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

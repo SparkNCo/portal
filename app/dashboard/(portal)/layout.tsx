@@ -9,7 +9,7 @@ export default function PortalLayout({
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="pl-60">{children}</main>
+      <main className="pl-40">{children}</main>
     </div>
   )
 }
