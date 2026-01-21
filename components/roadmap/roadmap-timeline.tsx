@@ -1,94 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Map, ChevronLeft, ChevronRight, Calendar, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const INITIAL_YEAR = new Date().getFullYear();
-function useQuarterNavigator() {
-  const [quarter, setQuarter] = useState(1);
-  const [year, setYear] = useState(INITIAL_YEAR);
-
-  const next = () => {
-    setQuarter((prev) => {
-      if (prev === 4) {
-        setYear((y) => year + 1);
-        return 1;
-      }
-      return prev + 1;
-    });
-  };
-
-  const prev = () => {
-    setQuarter((prev) => {
-      if (prev === 1) {
-        setYear((y) => year - 1);
-        return 4;
-      }
-      return prev - 1;
-    });
-  };
-
-  return { quarter, year, next, prev };
-}
-
-const epics = [
-  {
-    id: "epic-1",
-    name: "Authentication & User Management",
-    status: "completed",
-    startWeek: 0,
-    duration: 3,
-    progress: 100,
-  },
-  {
-    id: "epic-2",
-    name: "Dashboard & Analytics",
-    status: "in-progress",
-    startWeek: 2,
-    duration: 4,
-    progress: 65,
-  },
-  {
-    id: "epic-3",
-    name: "API Integration Layer",
-    status: "in-progress",
-    startWeek: 4,
-    duration: 3,
-    progress: 40,
-  },
-  {
-    id: "epic-4",
-    name: "Payment Processing",
-    status: "planned",
-    startWeek: 6,
-    duration: 3,
-    progress: 0,
-  },
-  {
-    id: "epic-5",
-    name: "Reporting & Export",
-    status: "planned",
-    startWeek: 8,
-    duration: 2,
-    progress: 0,
-  },
-];
-
-const weeks = [
-  "Week 1",
-  "Week 2",
-  "Week 3",
-  "Week 4",
-  "Week 5",
-  "Week 6",
-  "Week 7",
-  "Week 8",
-  "Week 9",
-  "Week 10",
+const monthsGrid = [
+  "Month 1",
+  "Month 2",
+  "Month 3",
+  "Month 4",
+  "Month 5",
+  "Month 6",
+  "Month 7",
+  "Month 8",
+  "Month 9",
+  "Month 10",
+  "Month 11",
+  "Month 12",
 ];
 
 const months = [
@@ -106,18 +37,34 @@ const months = [
   "December",
 ];
 
-
 const statusColors = {
   completed: "bg-success/20 border-success/40 text-success",
   "in-progress": "bg-chart-1/20 border-chart-1/40 text-chart-1",
   planned: "bg-muted border-border text-muted-foreground",
+  overdue: "bg-warning/20 border-border text-warning",
 };
 
 const barColors = {
   completed: "bg-success",
   "in-progress": "bg-chart-1",
   planned: "bg-muted-foreground/30",
+  overdue: "bg-warning/70 border-border text-warning",
 };
+
+function calculateProgress(
+  issues?: {
+    completedAt?: string | null;
+    canceledAt?: string | null;
+  }[],
+) {
+  if (!issues || issues.length === 0) return 0;
+
+  const completed = issues.filter(
+    (issue) => issue.completedAt || issue.canceledAt,
+  ).length;
+
+  return Math.round((completed / issues.length) * 100);
+}
 
 export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
   const [milestonesData, setMilestonesData] = useState(projectMilestones);
@@ -139,7 +86,10 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
     return { year, next, prev };
   }
 
-  const [currentWeek] = useState(4);
+  const now = new Date();
+
+  const [currentMonth] = useState(now.getMonth()); // 0–11
+  const [currentYear] = useState(now.getFullYear());
   const { year, next, prev } = useYearNavigator();
 
   return (
@@ -196,59 +146,75 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
             <div className="flex border-b border-border pb-2 mb-4">
               <div className="w-56 shrink-0" />
               <div className="flex-1 grid grid-cols-12 gap-1">
-                {months.map((month, i) => (
-                  <div
-                    key={month}
-                    className={cn(
-                      "text-xs text-center py-1 rounded",
-                      i === currentWeek
-                        ? "bg-accent/20 text-accent font-medium"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {month}
-                  </div>
-                ))}
+                {months.map((month, i) => {
+                  const isCurrentMonth =
+                    i === currentMonth && year === currentYear;
+
+                  return (
+                    <div
+                      key={month}
+                      className={cn(
+                        "text-xs text-center py-1 rounded transition-colors",
+                        isCurrentMonth
+                          ? "bg-accent/20 text-accent font-medium"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {month.slice(0, 3)}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Current week indicator line */}
             <div className="relative">
-              <div
-                className="absolute top-0 bottom-0 w-px bg-accent z-10"
-                style={{
-                  left: `calc(14rem + ${(currentWeek / 10) * 100}% + ${currentWeek * 0.4}rem)`,
-                }}
-              />
-
               {/* Epics */}
               <div className="space-y-3">
-                {epics.map((epic) => (
-                  <div key={epic.id} className="flex items-center gap-4">
+                {milestonesData.map((data) => (
+                  <div key={data?.id} className="flex items-center gap-4">
                     <div className="w-52 shrink-0">
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
                           className={
                             statusColors[
-                              epic.status as keyof typeof statusColors
+                              data?.status as keyof typeof statusColors
                             ]
                           }
                         >
-                          {epic.status.replace("-", " ")}
+                          {data?.status.replace("-", " ")}
                         </Badge>
                       </div>
                       <p className="text-sm font-medium text-card-foreground mt-1 truncate">
-                        {epic.name}
+                        {data?.name}
                       </p>
                     </div>
-                    <div className="flex-1 grid grid-cols-10 gap-1 items-center">
-                      {weeks.map((_, i) => {
+                    {/* Weeks Grid Color */}
+                    <div className="flex-1 grid grid-cols-12 gap-1 items-center">
+                      {monthsGrid.map((_, i) => {
+                        if (!data?.createdAt || !data?.targetDate) return null;
+
+                        const startDate = new Date(data.createdAt);
+                        const endDate = new Date(data.targetDate);
+
+                        const startYear = startDate.getFullYear();
+                        const endYear = endDate.getFullYear();
+
+                        // If the selected year is completely outside the range → render empty
+                        if (year < startYear || year > endYear) return null;
+
+                        // Clamp months based on the selected year
+                        const startMonthIndex =
+                          year === startYear ? startDate.getMonth() : 0;
+
+                        const endMonthIndex =
+                          year === endYear ? endDate.getMonth() : 11;
+
                         const isInRange =
-                          i >= epic.startWeek &&
-                          i < epic.startWeek + epic.duration;
-                        const isStart = i === epic.startWeek;
-                        const isEnd = i === epic.startWeek + epic.duration - 1;
+                          i >= startMonthIndex && i <= endMonthIndex;
+                        const isStart = i === startMonthIndex;
+                        const isEnd = i === endMonthIndex;
 
                         return (
                           <div key={i} className="h-8 relative">
@@ -257,16 +223,18 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
                                 className={cn(
                                   "absolute inset-y-1 inset-x-0",
                                   barColors[
-                                    epic.status as keyof typeof barColors
+                                    data.status as keyof typeof barColors
                                   ],
                                   isStart && "rounded-l-md",
                                   isEnd && "rounded-r-md",
                                 )}
                               >
-                                {epic.status === "in-progress" && (
+                                {data.status === "in-progress" && isStart && (
                                   <div
                                     className="absolute inset-y-0 left-0 bg-chart-1 opacity-50 rounded-l-md"
-                                    style={{ width: `${epic.progress}%` }}
+                                    style={{
+                                      width: `${data.progress ?? 100}%`,
+                                    }}
                                   />
                                 )}
                               </div>
@@ -277,7 +245,7 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
                     </div>
                     <div className="w-12 text-right">
                       <span className="text-xs text-muted-foreground">
-                        {epic.progress}%
+                        {calculateProgress(data?.issues?.nodes)}%
                       </span>
                     </div>
                   </div>

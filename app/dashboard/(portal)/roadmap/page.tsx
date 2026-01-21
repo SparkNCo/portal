@@ -14,8 +14,6 @@ export default function RoadmapPage() {
   const [roadMapData, setRoadMapData] = useState([]);
 
   const getRoadMapData = async () => {
-    console.log("triggered");
-
     const res = await fetch(`/api/linear/roadmap?initiativeId=${initiativeId}`);
     const issues = await res.json();
     console.log("roadmap", issues);

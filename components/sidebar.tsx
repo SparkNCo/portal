@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -33,6 +33,9 @@ const developerNavItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const params = searchParams.toString();
+
   const [portalType, setPortalType] = useState<"roadmap" | "developer">(
     pathname.startsWith("/developer") ? "developer" : "roadmap",
   );
@@ -64,12 +67,16 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href));
+            pathname === item.href || pathname.startsWith(item.href + "/");
+
+          const hrefWithParams = params
+            ? `${item.href}?${params}`
+            : item.href;
+
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={hrefWithParams}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
