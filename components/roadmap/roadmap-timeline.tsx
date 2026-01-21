@@ -1,11 +1,39 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Map, ChevronLeft, ChevronRight, Calendar } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Map, ChevronLeft, ChevronRight, Calendar, Box } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const INITIAL_YEAR = new Date().getFullYear();
+function useQuarterNavigator() {
+  const [quarter, setQuarter] = useState(1);
+  const [year, setYear] = useState(INITIAL_YEAR);
+
+  const next = () => {
+    setQuarter((prev) => {
+      if (prev === 4) {
+        setYear((y) => year + 1);
+        return 1;
+      }
+      return prev + 1;
+    });
+  };
+
+  const prev = () => {
+    setQuarter((prev) => {
+      if (prev === 1) {
+        setYear((y) => year - 1);
+        return 4;
+      }
+      return prev - 1;
+    });
+  };
+
+  return { quarter, year, next, prev };
+}
 
 const epics = [
   {
@@ -48,61 +76,137 @@ const epics = [
     duration: 2,
     progress: 0,
   },
-]
+];
 
-const weeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7", "Week 8", "Week 9", "Week 10"]
+const weeks = [
+  "Week 1",
+  "Week 2",
+  "Week 3",
+  "Week 4",
+  "Week 5",
+  "Week 6",
+  "Week 7",
+  "Week 8",
+  "Week 9",
+  "Week 10",
+];
+
+const months = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 
 const statusColors = {
   completed: "bg-success/20 border-success/40 text-success",
   "in-progress": "bg-chart-1/20 border-chart-1/40 text-chart-1",
   planned: "bg-muted border-border text-muted-foreground",
-}
+};
 
 const barColors = {
   completed: "bg-success",
   "in-progress": "bg-chart-1",
   planned: "bg-muted-foreground/30",
-}
+};
 
-export function RoadmapTimeline() {
-  const [currentWeek] = useState(4)
+export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
+  const [milestonesData, setMilestonesData] = useState(projectMilestones);
+
+  useEffect(() => {
+    if (projectMilestones.length !== 0 && milestonesData.length === 0) {
+      setMilestonesData(projectMilestones);
+    }
+  }, [projectMilestones]);
+
+  const INITIAL_YEAR = new Date().getFullYear();
+
+  function useYearNavigator() {
+    const [year, setYear] = useState(INITIAL_YEAR);
+
+    const next = () => setYear((y) => y + 1);
+    const prev = () => setYear((y) => y - 1);
+
+    return { year, next, prev };
+  }
+
+  const [currentWeek] = useState(4);
+  const { year, next, prev } = useYearNavigator();
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Map className="h-4 w-4 text-accent" />
-          Project Timeline
+          {`${projectName}`} Timeline{" "}
+        </CardTitle>
+        <CardTitle
+          className="text-base font-semibold flex items-center gap-2"
+          onClick={() =>
+            console.log({
+              milesStonesData: milestonesData,
+            })
+          }
+        >
+          Ver ProjectMilestones !!!!
         </CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={prev}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center gap-1 bg-transparent">
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1 bg-transparent"
+          >
             <Calendar className="h-3 w-3" />
-            Q1 2025
+            {year}
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={next}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
+
       <CardContent>
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
             {/* Week headers */}
             <div className="flex border-b border-border pb-2 mb-4">
               <div className="w-56 shrink-0" />
-              <div className="flex-1 grid grid-cols-10 gap-1">
-                {weeks.map((week, i) => (
+              <div className="flex-1 grid grid-cols-12 gap-1">
+                {months.map((month, i) => (
                   <div
-                    key={week}
+                    key={month}
                     className={cn(
                       "text-xs text-center py-1 rounded",
-                      i === currentWeek ? "bg-accent/20 text-accent font-medium" : "text-muted-foreground",
+                      i === currentWeek
+                        ? "bg-accent/20 text-accent font-medium"
+                        : "text-muted-foreground",
                     )}
                   >
-                    {week}
+                    {month}
                   </div>
                 ))}
               </div>
@@ -112,7 +216,9 @@ export function RoadmapTimeline() {
             <div className="relative">
               <div
                 className="absolute top-0 bottom-0 w-px bg-accent z-10"
-                style={{ left: `calc(14rem + ${(currentWeek / 10) * 100}% + ${currentWeek * 0.4}rem)` }}
+                style={{
+                  left: `calc(14rem + ${(currentWeek / 10) * 100}% + ${currentWeek * 0.4}rem)`,
+                }}
               />
 
               {/* Epics */}
@@ -121,17 +227,28 @@ export function RoadmapTimeline() {
                   <div key={epic.id} className="flex items-center gap-4">
                     <div className="w-52 shrink-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={statusColors[epic.status as keyof typeof statusColors]}>
+                        <Badge
+                          variant="outline"
+                          className={
+                            statusColors[
+                              epic.status as keyof typeof statusColors
+                            ]
+                          }
+                        >
                           {epic.status.replace("-", " ")}
                         </Badge>
                       </div>
-                      <p className="text-sm font-medium text-card-foreground mt-1 truncate">{epic.name}</p>
+                      <p className="text-sm font-medium text-card-foreground mt-1 truncate">
+                        {epic.name}
+                      </p>
                     </div>
                     <div className="flex-1 grid grid-cols-10 gap-1 items-center">
                       {weeks.map((_, i) => {
-                        const isInRange = i >= epic.startWeek && i < epic.startWeek + epic.duration
-                        const isStart = i === epic.startWeek
-                        const isEnd = i === epic.startWeek + epic.duration - 1
+                        const isInRange =
+                          i >= epic.startWeek &&
+                          i < epic.startWeek + epic.duration;
+                        const isStart = i === epic.startWeek;
+                        const isEnd = i === epic.startWeek + epic.duration - 1;
 
                         return (
                           <div key={i} className="h-8 relative">
@@ -139,7 +256,9 @@ export function RoadmapTimeline() {
                               <div
                                 className={cn(
                                   "absolute inset-y-1 inset-x-0",
-                                  barColors[epic.status as keyof typeof barColors],
+                                  barColors[
+                                    epic.status as keyof typeof barColors
+                                  ],
                                   isStart && "rounded-l-md",
                                   isEnd && "rounded-r-md",
                                 )}
@@ -153,11 +272,13 @@ export function RoadmapTimeline() {
                               </div>
                             )}
                           </div>
-                        )
+                        );
                       })}
                     </div>
                     <div className="w-12 text-right">
-                      <span className="text-xs text-muted-foreground">{epic.progress}%</span>
+                      <span className="text-xs text-muted-foreground">
+                        {epic.progress}%
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -183,5 +304,5 @@ export function RoadmapTimeline() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
