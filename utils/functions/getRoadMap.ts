@@ -1,3 +1,4 @@
+import { redis } from "@/lib/redis/redis";
 import { linearClient } from "../linear/LinearClient";
 
 type RoadmapParams = {
@@ -5,6 +6,15 @@ type RoadmapParams = {
 };
 
 export async function getRoadMap({ initiativeId }: RoadmapParams) {
+  const cacheKey = `roadmap:${initiativeId}`;
+
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    console.log("returning CACHE");
+
+    return cached;
+  }
+
   const query = `
     query Projects($initiativeId: String!) {
       initiative(id: $initiativeId) {
@@ -64,10 +74,17 @@ export async function getRoadMap({ initiativeId }: RoadmapParams) {
       }
     }
   `;
-
   const variables = { initiativeId };
 
+  // 3️⃣ Fetch from Linear
   const response = await linearClient.client.request(query, variables);
 
-  return response.initiative;
+  const data = response.initiative;
+
+  // 4️⃣ Save to cache
+  await redis.set(cacheKey, data, { ex: 120 }); // 2 minutes
+  console.log("returning DATA");
+
+  // 5️⃣ Return data
+  return data;
 }

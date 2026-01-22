@@ -2,15 +2,11 @@
 
 import { getIssues } from "@/utils/functions/getIssue";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const projectId = searchParams.get("projectId");
   try {
-    const issues = await getIssues({
-      project: {
-        id: {
-          eq: "0b7fdd82-8bba-4587-856f-b50ab96b2e58",
-        },
-      },
-    });
+    const issues = await getIssues({ projectId: projectId });
 
     return Response.json(issues);
   } catch (error) {

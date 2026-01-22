@@ -1,17 +1,28 @@
+import { redis } from "@/lib/redis/redis";
 import { linearClient } from "../linear/LinearClient";
 
-export async function getIssues() {
+type IssuesParams = {
+  projectId: string;
+};
+
+export async function getIssues({ projectId }: IssuesParams) {
+  const cacheKey = `linear:issues:${projectId}`;
+
+  // 1️⃣ Check cache first
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // 2️⃣ Fetch from Linear
   const issuesConnection = await linearClient.issues({
     first: 100,
     filter: {
       project: {
         id: {
-          in: [
-            "cc38bd89-8742-4db8-a30f-745a648ce09d",
-          ],
+          in: [projectId],
         },
       },
-      // Same as your Postman query
       state: {
         name: {
           in: null,
@@ -20,11 +31,12 @@ export async function getIssues() {
     },
   });
 
-  return Promise.all(
+  const issues = await Promise.all(
     issuesConnection.nodes.map(async (issue) => {
       const cycle = issue.cycle ? await issue.cycle : null;
       const assignee = issue.assignee ? await issue.assignee : null;
       const creator = issue.creator ? await issue.creator : null;
+      const state = issue.state ? await issue.state : null;
 
       const labels = issue.labels
         ? (await issue.labels({ last: 4 })).nodes.map((l) => l.name)
@@ -43,7 +55,7 @@ export async function getIssues() {
                 resolvedAt: c.resolvedAt,
                 user: user?.displayName ?? null,
               };
-            })
+            }),
           )
         : [];
 
@@ -57,6 +69,7 @@ export async function getIssues() {
       return {
         title: issue.title,
         url: issue.url,
+        id: issue.id,
         updatedAt: issue.updatedAt,
         description: issue.description,
         activitySummary: issue.activitySummary
@@ -71,7 +84,6 @@ export async function getIssues() {
         priorityLabel: issue.priorityLabel,
         prioritySortOrder: issue.prioritySortOrder,
         number: issue.number,
-
         cycle: cycle
           ? {
               startsAt: cycle.startsAt,
@@ -81,14 +93,17 @@ export async function getIssues() {
               isFuture: cycle.isFuture,
             }
           : null,
-
         assignee: assignee?.displayName ?? null,
         creator: creator?.displayName ?? null,
         labels,
         comments,
         documents,
-        state: issue.state?.name ?? null,
+        state: state ? { name: state.name } : null,
       };
-    })
+    }),
   );
+
+  await redis.set(cacheKey, issues, { ex: 120 });
+
+  return issues;
 }

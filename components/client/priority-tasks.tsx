@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 const priorityTasks = [
   {
@@ -52,80 +52,126 @@ const priorityTasks = [
 ];
 
 const priorityColors = {
-  urgent: "bg-destructive/20 text-destructive border-destructive/30",
-  high: "bg-warning/20 text-warning border-warning/30",
-  medium: "bg-accent/20 text-accent border-accent/30",
+  Urgent: "bg-destructive/20 text-destructive border-destructive/30",
+  High: "bg-warning/20 text-warning border-warning/30",
+  Medium: "bg-accent/20 text-accent border-accent/30",
+  Low: "bg-muted/50 text-muted-foreground border-muted",
 };
 
 const statusColors = {
   "needs-input": "bg-chart-1/20 text-chart-1",
+  Backlog: "bg-muted/50 text-muted-foreground",
+  Todo: "bg-slate-500/20 text-slate-600",
+  "In Progress": "bg-warning/20 text-warning",
+  "In Review": "bg-blue-500/20 text-blue-600",
+  Canceled: "bg-destructive/20 text-destructive",
   waiting: "bg-muted text-muted-foreground",
+  Done: "bg-success/20 text-success",
 };
 
-export function PriorityTasks() {
+export function PriorityTasks({ issuesData }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <Card className="bg-card border-border h-full flex flex-col">
+    <Card className="bg-card border-border h-full flex flex-col max-w-[50rem] py-4">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           Priority Tasks
         </CardTitle>
-        <Button variant="ghost" size="sm" className="text-muted-foreground">
-          View all <ArrowRight className="ml-1 h-3 w-3" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Collapse" : "View all"}
+          <ArrowRight
+            className={`ml-1 h-3 w-3 transition-transform ${
+              expanded ? "rotate-90" : ""
+            }`}
+          />
         </Button>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
         <div
           ref={scrollRef}
-          className="
+          className={`
     grid
-    grid-rows-2
-    grid-flow-col
-    auto-cols-[280px]
     gap-4
-    overflow-x-auto
-    h-full
     pb-2
     scrollbar-thin
     scrollbar-thumb-border
     scrollbar-track-transparent
-  "
+
+    ${
+      expanded
+        ? `
+          grid-flow-row
+          grid-cols-[repeat(auto-fill,minmax(280px,1fr))]
+          auto-rows-auto
+          overflow-visible
+          h-auto
+        `
+        : `
+          grid-rows-2
+          grid-flow-col
+          auto-cols-[280px]
+          overflow-x-auto
+          h-full
+        `
+    }
+  `}
         >
-          {priorityTasks.map((task) => (
+          {issuesData.map((issue) => (
             <div
-              key={task.id}
-              className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
+              key={issue.id}
+              className="flex-shrink-0 w-[280px] even:mb-4 rounded-lg border border-border bg-secondary/30 p-4 hover:bg-secondary/50 transition-colors cursor-pointer "
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-mono text-muted-foreground">
-                  {task.id}
+                  {issue.branchName.slice(0, 7).toUpperCase()}
                 </span>
                 <Badge
                   variant="outline"
                   className={
-                    priorityColors[task.priority as keyof typeof priorityColors]
+                    priorityColors[
+                      issue.priorityLabel as keyof typeof priorityColors
+                    ]
                   }
                 >
-                  {task.priority}
+                  {issue.priorityLabel}
                 </Badge>
               </div>
               <p className="text-sm font-medium text-card-foreground mb-3 line-clamp-2">
-                {task.title}
+                {issue.title}
               </p>
               <div className="flex items-center justify-between">
                 <Badge
                   variant="secondary"
                   className={
-                    statusColors[task.status as keyof typeof statusColors]
+                    statusColors[
+                      issue?.state?.name as keyof typeof statusColors
+                    ]
                   }
                 >
-                  {task.status.replace("-", " ")}
+                  {issue?.state?.name}
+                </Badge>
+                {/* <Badge
+                  variant="secondary"
+                  className={
+                    statusColors[task.assignee as keyof typeof statusColors]
+                  }
+                >
+                  {task.assignee.replace("-", " ")}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
                   {task.dueDate}
-                </span>
+                </span> */}
+                {/* <span className="text-xs text-muted-foreground">
+                  {task.description}
+                </span> */}
               </div>
             </div>
           ))}
