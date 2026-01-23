@@ -6,7 +6,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   try {
-    const issues = await getIssues({ projectId: projectId });
+    const issues = await getIssues({
+      projectId: projectId,
+    });
 
     return Response.json(issues);
   } catch (error) {

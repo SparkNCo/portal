@@ -190,7 +190,6 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
                         {data?.name}
                       </p>
                     </div>
-                    {/* Weeks Grid Color */}
                     <div className="flex-1 grid grid-cols-12 gap-1 items-center">
                       {monthsGrid.map((_, i) => {
                         if (!data?.createdAt || !data?.targetDate) return null;
@@ -229,25 +228,25 @@ export function RoadmapTimeline({ projectName, projectMilestones = [] }) {
                                   isEnd && "rounded-r-md",
                                 )}
                               >
-                                {data.status === "in-progress" && isStart && (
+                                {/* {data.status === "in-progress" && isStart && (
                                   <div
                                     className="absolute inset-y-0 left-0 bg-chart-1 opacity-50 rounded-l-md"
                                     style={{
                                       width: `${data.progress ?? 100}%`,
                                     }}
                                   />
-                                )}
+                                )} */}
                               </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                    <div className="w-12 text-right">
+                    {/* <div className="w-12 text-right">
                       <span className="text-xs text-muted-foreground">
                         {calculateProgress(data?.issues?.nodes)}%
                       </span>
-                    </div>
+                    </div> */}
                   </div>
                 ))}
               </div>

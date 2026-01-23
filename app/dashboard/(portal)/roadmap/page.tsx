@@ -3,70 +3,86 @@ import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { CardTitle } from "@/components/ui/card";
 import { LoadingDataPanel } from "@/components/loader";
+import { useQuery } from "@tanstack/react-query";
 
 export default function RoadmapPage() {
   const searchParams = useSearchParams();
-  const initiativeId = searchParams.get("id");
   const router = useRouter();
 
-  const [loading, setLoadings] = useState(true);
-  const [roadMapData, setRoadMapData] = useState([]);
+  const initiativeId = searchParams.get("id");
 
-  const getRoadMapData = async () => {
-    const res = await fetch(`/api/linear/roadmap?initiativeId=${initiativeId}`);
-    const issues = await res.json();
+  const {
+    data: roadmap,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["roadmap", initiativeId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/linear/roadmap?initiativeId=${initiativeId}`,
+      );
+      if (!res.ok) throw new Error("Failed to fetch roadmap");
+      return res.json();
+    },
+    enabled: !!initiativeId,
+    staleTime: 10_000,
+  });
 
-    if (issues?.projects?.nodes?.length > 0) {
-      const projectId = issues.projects.nodes[1]?.id;
-
-      setRoadMapData(issues.projects.nodes[1]);
-
-      // 👇 update URL without navigation
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("project", projectId);
-
-      router.replace(`?${params.toString()}`, { scroll: false });
-    }
-
-    setLoadings(false);
-  };
-
+  // 🔁 Sync projectId into URL once data is available
   useEffect(() => {
-    getRoadMapData();
-  }, []);
+    if (!roadmap?.projects?.nodes?.length) return;
+
+    const projectId = roadmap.projects.nodes[1]?.id;
+    if (!projectId) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.get("project") === projectId) return;
+
+    params.set("project", projectId);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [roadmap, router, searchParams]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Roadmap" subtitle="Project timeline and progress" />
+        <LoadingDataPanel />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Roadmap" subtitle="Project timeline and progress" />
+        <p className="p-6 text-destructive">Failed to load roadmap</p>
+      </div>
+    );
+  }
+
+  const project = roadmap?.projects?.nodes?.[1];
 
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
 
-      {loading ? (
-        <LoadingDataPanel />
-      ) : (
-        <div className="p-6 space-y-6">
-          <CardTitle
-            className="text-base font-semibold flex items-center gap-2"
-            onClick={() => console.log(roadMapData)}
-          >
-            Ver roadMapData
-          </CardTitle>
-          <RoadmapTimeline
-            projectName={roadMapData?.name}
-            projectMilestones={roadMapData?.projectMilestones?.nodes}
-          />
+      <div className="p-6 space-y-6">
+        <RoadmapTimeline
+          projectName={project?.name}
+          projectMilestones={project?.projectMilestones?.nodes}
+        />
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <VelocityMetrics />
-            <SoftwareKPIs
-              targetDate={roadMapData?.targetDate}
-              progress={roadMapData?.progress}
-            />
-          </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <VelocityMetrics />
+          <SoftwareKPIs
+            targetDate={project?.targetDate}
+            progress={project?.progress}
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 }

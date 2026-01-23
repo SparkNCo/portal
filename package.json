@@ -22,6 +22,7 @@
     "@supabase/functions-js": "^2.4.4",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@tanstack/react-query": "^5.90.19",
     "@upstash/redis": "^1.36.1",
     "autoprefixer": "10.4.20",
     "axios": "^1.7.9",
@@ -43,6 +44,7 @@
     "swr": "^2.3.8",
     "uuid": "^11.1.0",
     "v4": "^0.0.1",
+    "zod": "^4.3.6",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

@@ -5,16 +5,12 @@ type IssuesParams = {
   projectId: string;
 };
 
-export async function getIssues({ projectId }: IssuesParams) {
-  const cacheKey = `linear:issues:${projectId}`;
+async function refreshIssuesCache(projectId: string) {
+  const fresh = await fetchFreshIssues(projectId);
+  await redis.set(`linear:issues:${projectId}`, fresh, { ex: 120 });
+}
 
-  // 1️⃣ Check cache first
-  const cached = await redis.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  // 2️⃣ Fetch from Linear
+async function fetchFreshIssues(projectId: string) {
   const issuesConnection = await linearClient.issues({
     first: 100,
     filter: {
@@ -30,8 +26,7 @@ export async function getIssues({ projectId }: IssuesParams) {
       },
     },
   });
-
-  const issues = await Promise.all(
+  return Promise.all(
     issuesConnection.nodes.map(async (issue) => {
       const cycle = issue.cycle ? await issue.cycle : null;
       const assignee = issue.assignee ? await issue.assignee : null;
@@ -102,8 +97,21 @@ export async function getIssues({ projectId }: IssuesParams) {
       };
     }),
   );
+}
 
-  await redis.set(cacheKey, issues, { ex: 120 });
+export async function getIssues({ projectId }: IssuesParams) {
+  const cacheKey = `linear:issues:${projectId}`;
 
-  return issues;
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    refreshIssuesCache(projectId).catch(console.error);
+
+    return cached;
+  }
+
+  const fresh = await fetchFreshIssues(projectId);
+  await redis.set(cacheKey, fresh, { ex: 120 });
+
+  return fresh;
 }
