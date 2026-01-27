@@ -48,7 +48,9 @@ const barColors = {
   completed: "bg-success",
   "in-progress": "bg-chart-1",
   planned: "bg-muted-foreground/30",
-  overdue: "bg-warning/70 border-border text-warning",
+  overdue: "bg-warning/70",
+  unstarted: "bg-warning/70",
+  next: "bg-warning/70",
 };
 
 function calculateProgress(

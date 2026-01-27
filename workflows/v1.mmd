@@ -1,0 +1,55 @@
+---
+config:
+  layout: elk
+---
+flowchart LR
+    L["Login"] --> n8["Diamond"]
+    A["Dashboard Page"] --> TM["Tasks Component"] & WR["Workflow Component"] & VS["Status Component"] & CT["Create Ticket Component"]
+    TM --> TM1["View Tasks in Decending Priority"]
+    WR --> WR1["Open Product Workflow Map"]
+    CT3{"Request Type"} -- Bug --> F1["Bug Form"]
+    CT3 -- Feature --> F2["Feature Form"]
+    CT3 -- Data --> F3["Data Request Form"]
+    CT3 -- "Non-Functional" --> F4["Non-Functional Form"]
+    CT4["Search Input. Find Similar Linear Tickets"] --> CT5{"User Choice"}
+    CT5 -- Comment --> CT6["Comment on Existing Ticket"]
+    CT5 -- Create New --> CT7["Ticket Type Classifier, Create New Ticket"]
+    R["Roadmap Page"] --> VR["Roadmap Component"] & KPI["Software KPIs Compeonent"] & VP["Velocity &amp; Performance Component"]
+    VR --> VR1["Get Linear Project Status. Show Milestones, Progress &amp; Timelines"]
+    KPI2["Date Range Filter"] --> KPI3["Calculated Stats from Linear Data"]
+    C["Chat Page"] --> CTOP["Create Topic"] & BM["Book Meeting"]
+    CTOP --> CTOP1["AI Chat Created"]
+    CTOP3{"Escalate?"} -- Yes --> CTOP4["Developer Takes Over"]
+    BM --> BM1["Cal.com Booking"]
+    D["Documents Page"] --> VD["View Documents Component"] & UD["Upload Document Component"]
+    VD --> VD1["Filter by Tag"]
+    VD1 --> VD2["Download Document"] & VD3["Edit Tags"]
+    UD --> UD1["Upload and Tag Document, Capture User"]
+    S["Settings Page"] --> AS["Staffing Component"] & B["Billing Component"]
+    AS --> AS1["Multi-select Roles"]
+    AS1 --> AS2["Developers"] & AS3["Testers"] & AS4["Designers"]
+    AS5["Set Requested Count"] --> AS6["Book Call.com"]
+    B --> B1["View and Download Past Stripe Invoices"] & B2["Change Billing Method"] & n7["View Outstanding Balance and Next Payment"]
+    TM2["Select Task to View Details"] --> n4["Task Type"]
+    WR1 --> WR3["View Versions"]
+    TM1 --> TM2
+    n4 -- Workflow Change --> WR3
+    WR3 --> n5["Ticket Approved?"]
+    n5 --> n2["Add Comment for Dev"] & n6["Change Approved"]
+    n4 -- Other Change --> n5
+    CT7 --> CT3
+    CT --> CT4
+    KPI --> KPI2
+    VP --> KPI2
+    CTOP1 --> CTOP3
+    CTOP3 -- No --> CTOP1
+    AS2 --> AS5
+    AS3 --> AS5
+    AS4 --> AS5
+    n8 --> n9["Client"] & n11["Developer"]
+    n9 --> S & D & R & C & A
+    n11 --> R & C & D
+
+    n8@{ shape: diam}
+    n4@{ shape: diam}
+    n5@{ shape: diam}

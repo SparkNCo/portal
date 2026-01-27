@@ -11,6 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 async function fetchIssues(projectId: string) {
+  console.log("projectId", projectId);
+
   const res = await fetch(`/api/linear/issues?projectId=${projectId}`);
   if (!res.ok) throw new Error("Failed to fetch issues");
   return res.json();
@@ -43,19 +45,18 @@ export function useIssues(projectId: string | null) {
 export default function ClientDashboard() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get("project");
+  const projects = searchParams.get("projects");
 
-  const { data, isLoading, isFetching } = useIssues(projectId);
+  const { data, isLoading, isFetching } = useIssues(projects);
 
   if (isLoading) return <LoadingDataPanel />;
-
-
 
   return (
     <div className="min-h-screen">
       <Header title="Client Dashboard" subtitle="Welcome back, John" />
       <CardTitle
         className="text-base font-semibold flex items-center gap-2"
-        onClick={() => console.log({ data, isLoading, isFetching })}
+        onClick={() => console.log({ projects: projects })}
       >
         Ver data
         {isFetching && (

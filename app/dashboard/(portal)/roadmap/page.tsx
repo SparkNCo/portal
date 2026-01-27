@@ -3,7 +3,7 @@ import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
@@ -11,7 +11,6 @@ import { useQuery } from "@tanstack/react-query";
 export default function RoadmapPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-
   const initiativeId = searchParams.get("id");
 
   const {
@@ -30,18 +29,38 @@ export default function RoadmapPage() {
     enabled: !!initiativeId,
     staleTime: 10_000,
   });
+  const [allMilestones, setAllMilestones] = useState<any[]>([]);
 
-  // 🔁 Sync projectId into URL once data is available
+  useEffect(() => {
+    if (!roadmap?.projects?.nodes) return;
+
+    const milestones = roadmap.projects.nodes.flatMap(
+      (project: any) => project.projectMilestones?.nodes ?? [],
+    );
+
+    setAllMilestones(milestones);
+  }, [roadmap]);
+
   useEffect(() => {
     if (!roadmap?.projects?.nodes?.length) return;
+    console.log("ids", roadmap.projects.nodes);
 
-    const projectId = roadmap.projects.nodes[1]?.id;
-    if (!projectId) return;
+    const projectIds = roadmap.projects.nodes
+      .map((p: any) => p.id)
+      .filter(Boolean);
+
+    if (!projectIds.length) return;
 
     const params = new URLSearchParams(searchParams.toString());
-    if (params.get("project") === projectId) return;
 
-    params.set("project", projectId);
+    // prevent infinite loop
+    const existing = params.get("projects");
+    const next = projectIds.join("--");
+
+    if (existing === next) return;
+
+    params.set("projects", next);
+
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [roadmap, router, searchParams]);
 
@@ -63,17 +82,28 @@ export default function RoadmapPage() {
     );
   }
 
-  const project = roadmap?.projects?.nodes?.[1];
+  const project = roadmap?.projects?.nodes?.[2];
+
+  const ver = () => {
+    console.log({
+      allMilestones: allMilestones,
+    });
+  };
 
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
 
+      <div
+        onClick={() => {
+          ver();
+        }}
+      >
+        {" "}
+        VER Roadmap{" "}
+      </div>
       <div className="p-6 space-y-6">
-        <RoadmapTimeline
-          projectName={project?.name}
-          projectMilestones={project?.projectMilestones?.nodes}
-        />
+        <RoadmapTimeline projectMilestones={allMilestones} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />

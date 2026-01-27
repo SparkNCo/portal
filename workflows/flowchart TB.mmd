@@ -1,0 +1,28 @@
+flowchart TB
+    FE(["Frontend<br/>TanStack Query"]) -->|HTTP request| API["Backend API Route"]
+
+    API --> ZOD["Zod validate request"]
+    ZOD -->|valid| CACHE{"Upstash cache hit?"}
+    ZOD -->|invalid| ERR["Return 400 error"]
+
+    %% CACHE HIT
+    CACHE -->|Yes| CACHED["Return cached data"]
+    CACHED --> FE
+
+    %% BACKGROUND REFRESH
+    CACHED --> BG["Trigger background refresh"]
+    BG --> LINEAR["Fetch data from Linear API"]
+    LINEAR --> MAP["Map and normalize data"]
+    MAP --> ZOD_RES["Zod validate response"]
+    ZOD_RES -->|valid| UPDATE["Update Upstash cache"]
+    ZOD_RES -->|invalid| LOG["Log error"]
+
+    %% CACHE MISS
+    CACHE -->|No| LINEAR
+    SAVE --> FE
+
+    %% TANSTACK QUERY POLLING
+    FE -.->|refetch after first data arrives | API
+
+
+    style B stroke-width:4px,stroke-dasharray: 0

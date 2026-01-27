@@ -6,17 +6,20 @@ type IssuesParams = {
 };
 
 async function refreshIssuesCache(projectId: string) {
-  const fresh = await fetchFreshIssues(projectId);
+  const projectsArray = projectId ? projectId.split("--") : [];
+  console.log("projectsArray", projectsArray);
+
+  const fresh = await fetchFreshIssues(projectsArray);
   await redis.set(`linear:issues:${projectId}`, fresh, { ex: 120 });
 }
 
-async function fetchFreshIssues(projectId: string) {
+async function fetchFreshIssues(projectId: string[]) {
   const issuesConnection = await linearClient.issues({
     first: 100,
     filter: {
       project: {
         id: {
-          in: [projectId],
+          in: projectId,
         },
       },
       state: {
@@ -101,8 +104,10 @@ async function fetchFreshIssues(projectId: string) {
 
 export async function getIssues({ projectId }: IssuesParams) {
   const cacheKey = `linear:issues:${projectId}`;
+  console.log("HOLAAAAAAAAAAAAAA");
 
   const cached = await redis.get(cacheKey);
+  const projectsArray = projectId ? projectId.split("--") : [];
 
   if (cached) {
     refreshIssuesCache(projectId).catch(console.error);
@@ -110,7 +115,7 @@ export async function getIssues({ projectId }: IssuesParams) {
     return cached;
   }
 
-  const fresh = await fetchFreshIssues(projectId);
+  const fresh = await fetchFreshIssues(projectsArray);
   await redis.set(cacheKey, fresh, { ex: 120 });
 
   return fresh;
