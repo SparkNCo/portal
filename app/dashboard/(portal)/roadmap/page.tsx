@@ -34,33 +34,29 @@ export default function RoadmapPage() {
   useEffect(() => {
     if (!roadmap?.projects?.nodes) return;
 
-    const milestones = roadmap.projects.nodes.flatMap(
-      (project: any) => project.projectMilestones?.nodes ?? [],
-    );
+    const milestones = roadmap.projects.nodes.flatMap((project: any) => {
+      const projectName = project.name;
+
+      return (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
+        ...milestone,
+        projectName, 
+      }));
+    });
 
     setAllMilestones(milestones);
   }, [roadmap]);
 
   useEffect(() => {
     if (!roadmap?.projects?.nodes?.length) return;
-    console.log("ids", roadmap.projects.nodes);
-
     const projectIds = roadmap.projects.nodes
       .map((p: any) => p.id)
       .filter(Boolean);
-
     if (!projectIds.length) return;
-
     const params = new URLSearchParams(searchParams.toString());
-
-    // prevent infinite loop
     const existing = params.get("projects");
     const next = projectIds.join("--");
-
     if (existing === next) return;
-
     params.set("projects", next);
-
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [roadmap, router, searchParams]);
 
@@ -86,7 +82,7 @@ export default function RoadmapPage() {
 
   const ver = () => {
     console.log({
-      allMilestones: allMilestones,
+      allMilestones: roadmap,
     });
   };
 
