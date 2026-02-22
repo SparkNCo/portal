@@ -1,0 +1,5 @@
+export const COMETCHAT_CONSTANTS = {
+  APP_ID: process.env.NEXT_PUBLIC_COMET_APP_ID,
+  REGION: process.env.NEXT_PUBLIC_COMET_REGION,
+  AUTH_KEY: process.env.NEXT_PUBLIC_COMET_AUTH_KEY,
+};

@@ -1,0 +1,21 @@
+# supabase config
+
+[functions.health]
+enabled = true
+verify_jwt = true
+
+[functions.roadmap]
+enabled = true
+verify_jwt = true
+
+[functions.issues]
+enabled = true
+verify_jwt = true
+
+[functions.features]
+enabled = true
+verify_jwt = true
+
+[functions.stripe]
+enabled = true
+verify_jwt = true

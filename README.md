@@ -1,104 +1,263 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# Spark Stack
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+This repository is a full-stack production template designed for teams using:
+	•	Next.js for the UI
+	•	Supabase Functions for backend services
+	•	Prisma + PostgreSQL for data
+	•	Zod → OpenAPI for API contracts and docs
+	•	Upstash Redis for server-side caching
+	•	Resend + react-email for transactional email
+	•	PostHog for analytics and logging
+	•	Playwright for E2E testing
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+Important
+Architecture and boundaries are enforced by convention and by AI.md.
+Read that file before making changes.
 
-## Features
+⸻
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Middleware
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+## Prerequisites
 
-## Demo
+You’ll need:
+	•	Node.js 18+
+	•	npm or pnpm
+	•	Git
+	•	Accounts for:
+	•	Supabase
+	•	Vercel
+	•	Upstash
+	•	Resend
+	•	PostHog
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+⸻
 
-## Deploy to Vercel
+## Environment variables
 
-Vercel deployment will guide you through creating a Supabase account and project.
+Copy the example file:
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+cp .env.example .env.local
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+Typical variables:
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+DATABASE_URL=postgresql://...
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-## Clone and run locally
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+RESEND_API_KEY=
 
-2. Create a Next.js app using the Supabase Starter template npx command
+POSTHOG_KEY=
+POSTHOG_HOST=https://app.posthog.com
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+Rule: Secrets are never committed.
+.env.example documents required variables only.
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+⸻
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+## Running the project locally
 
-3. Use `cd` to change into the app's directory
+Install dependencies
 
-   ```bash
-   cd with-supabase-app
-   ```
+npm install
 
-4. Rename `.env.example` to `.env.local` and update the following:
+Run the UI (Next.js)
 
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=[INSERT SUPABASE PROJECT API ANON KEY]
-   ```
+npm run dev
 
-   Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` can be found in [your Supabase project's API settings](https://app.supabase.com/project/_/settings/api)
+	•	App runs at http://localhost:3000
+	•	UI code lives in app/ and components/
 
-5. You can now run the Next.js local development server:
+Run Supabase functions locally
 
-   ```bash
-   npm run dev
-   ```
+supabase start
+supabase functions serve
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+Functions will be available under:
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+http://localhost:54321/functions/v1/<service>
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+Example:
 
-## Feedback and issues
+/functions/v1/health
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
 
-## More Supabase examples
+⸻
 
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+## Deploying the UI (Vercel)
+	1.	Push the repo to GitHub
+	2.	In Vercel:
+	•	Import the repository
+	•	Framework preset: Next.js
+	3.	Set environment variables in Vercel:
+	•	Same values as .env.local
+	4.	Deploy
+
+Vercel will:
+	•	Build the UI
+	•	Host static + server components
+	•	Handle preview deployments automatically
+
+Only UI code is deployed to Vercel.
+Backend logic lives in Supabase Functions.
+
+⸻
+
+## Deploying backend functions (Supabase)
+
+Login & link project
+
+supabase login
+supabase link --project-ref <your-project-ref>
+
+Deploy all functions
+
+supabase functions deploy
+
+Or deploy a single service:
+
+supabase functions deploy users
+
+Each folder under functions/ is a service boundary.
+
+⸻
+
+## Database schema & migrations (Prisma)
+
+Generate Prisma client
+
+npx prisma generate
+
+Create a migration
+
+npx prisma migrate dev --name init
+
+This will:
+	•	Update prisma/migrations/
+	•	Keep schema changes versioned
+
+Deploy migrations (production)
+
+npx prisma migrate deploy
+
+Rule:
+Prisma is only used inside functions/**.
+UI code never talks to the database directly.
+
+⸻
+
+## Zod → OpenAPI docs
+
+How it works
+	•	Public API schemas are written in Zod
+	•	Zod schemas include OpenAPI metadata
+	•	Prisma-generated Zod schemas are internal only
+	•	OpenAPI generation is centralized
+
+Files involved
+
+functions/**/schemas/   → public API contracts
+lib/openapi/registry.ts
+lib/openapi/document.ts
+
+Generating OpenAPI docs
+
+Typically done via a script:
+
+npm run openapi:generate
+
+This produces:
+
+docs/openapi.json
+
+You can then:
+	•	Open it in Swagger UI
+	•	Import into Postman
+	•	Use it for client generation
+
+⸻
+
+## Email system (Resend + react-email)
+
+Structure
+
+functions/email/
+  index.ts
+  templates/
+    welcome-email.tsx
+
+Rules
+	•	Email templates are React components
+	•	Emails are sent only from backend functions
+	•	UI never sends email directly
+
+This keeps secrets safe and audit-friendly.
+
+⸻
+
+## Caching (Upstash Redis)
+
+Redis is used for:
+	•	Read-heavy endpoints
+	•	Expensive external calls
+	•	Rate-limiting or deduplication
+
+Rules
+	•	Redis client lives in lib/redis.ts
+	•	Redis is only imported in functions
+	•	Never used in React components
+
+⸻
+
+## Analytics & logging (PostHog)
+
+PostHog is used for:
+	•	Client-side analytics
+	•	Server-side event logging
+	•	Lightweight observability
+
+Usage
+	•	Client initialization in app/providers.tsx
+	•	Server usage via lib/posthog.ts
+
+This allows:
+	•	Full funnel tracking
+	•	Debugging production behavior
+	•	Privacy-aware analytics
+
+⸻
+
+## Testing (Playwright)
+
+Structure
+
+tests/
+  e2e/
+  helpers/
+  fixtures/
+
+Run tests
+
+npx playwright test
+
+Tests:
+	•	Hit real HTTP endpoints
+	•	Validate deployed or local services
+	•	Avoid mocking internal implementation details
+
+⸻
+
+## Diagrams & documentation
+
+Mermaid diagrams
+	•	System-level: workflows/
+	•	Service-level: functions/<service>/diagrams/
+
+These diagrams are:
+	•	Part of the source of truth
+	•	Required for non-trivial features
+	•	AI-readable and human-readable
+
