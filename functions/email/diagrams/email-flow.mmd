@@ -1,0 +1,15 @@
+graph TD
+    A[Email Trigger] --> B[Select Template]
+    B --> C[Render Template]
+    C --> D[Prepare Email Data]
+    D --> E[Send via Email Service]
+    E --> F{Success?}
+    F -->|Yes| G[Log Success]
+    F -->|No| H[Retry Logic]
+    H --> I{Max Retries?}
+    I -->|No| E
+    I -->|Yes| J[Log Failure]
+    
+    style A fill:#e1f5ff
+    style G fill:#d4edda
+    style J fill:#f8d7da

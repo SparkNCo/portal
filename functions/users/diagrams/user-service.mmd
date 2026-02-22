@@ -1,0 +1,15 @@
+graph TD
+    A[Create User Request] --> B[Validate Input]
+    B --> C{Valid?}
+    C -->|No| D[Return 400 Error]
+    C -->|Yes| E[Check if User Exists]
+    E --> F{Exists?}
+    F -->|Yes| G[Return 409 Conflict]
+    F -->|No| H[Create User in Database]
+    H --> I[Send Welcome Email]
+    I --> J[Return User Object]
+    
+    style A fill:#e1f5ff
+    style J fill:#d4edda
+    style D fill:#f8d7da
+    style G fill:#f8d7da

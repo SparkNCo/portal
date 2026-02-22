@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": [
+      "https://deno.land/x/supabase_edge_runtime@1.70.0/types/global.d.ts"
+    ]
+  }
+}

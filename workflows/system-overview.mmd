@@ -1,0 +1,40 @@
+graph TB
+    subgraph "Frontend"
+        A[Next.js App]
+        B[UI Components]
+        C[Layout Components]
+    end
+    
+    subgraph "API Layer"
+        D[Health Endpoint]
+        E[User Service]
+        F[Email Service]
+    end
+    
+    subgraph "Data Layer"
+        G[PostgreSQL/Prisma]
+        H[Redis Cache]
+        I[Supabase]
+    end
+    
+    subgraph "External Services"
+        J[Email Provider]
+        K[PostHog Analytics]
+    end
+    
+    A --> D
+    A --> E
+    A --> F
+    B --> A
+    C --> A
+    
+    E --> G
+    E --> H
+    E --> I
+    F --> J
+    A --> K
+    
+    style A fill:#e1f5ff
+    style G fill:#fff4e6
+    style H fill:#fff4e6
+    style I fill:#fff4e6

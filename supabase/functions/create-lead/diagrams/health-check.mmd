@@ -1,0 +1,12 @@
+graph TD
+    A[Client Request] --> B[Health Check Endpoint]
+    B --> C{Check Database}
+    C --> D{Check Redis}
+    D --> E{Check External Services}
+    E --> F[Return Status]
+    F --> G[200 OK]
+    F --> H[503 Service Unavailable]
+    
+    style A fill:#e1f5ff
+    style G fill:#d4edda
+    style H fill:#f8d7da
