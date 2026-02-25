@@ -1,15 +1,12 @@
-'use client';
-import DynamicForm from '@/components/ui/form/custom-form';
-import React from 'react';
-import sign_in_layout from '@/layouts/sign-in.json';
-import { supabase } from '@/lib/supabase/client';
-import { Proposal } from '@/lib/types/db/proposals';
-import { ProposalFeature } from '@/lib/types/db/proposal_features';
-import { LayoutType } from '@/lib/types/utils/form';
-import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
-import { Drawer } from '../drawer';
-import { Button } from '../button';
-import { Edit, Settings } from 'lucide-react';
+"use client";
+import DynamicForm from "@/components/ui/form/custom-form";
+import { Proposal } from "@/lib/types/db/proposals";
+import { ProposalFeature } from "@/lib/types/db/proposal_features";
+import { LayoutType } from "@/lib/types/utils/form";
+import { ErrorSuccessResponseMessage } from "@/lib/types/utils/functions-return-type";
+import { Drawer } from "../drawer";
+import { Edit, Settings } from "lucide-react";
+import { Button } from "@/components/components/ui/button";
 
 type Props = {
   proposal: Proposal;

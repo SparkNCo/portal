@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 
-export default function AIGroupChat({ user }) {
-  const AI_UID = process.env.NEXT_PUBLIC_COMET_AI_UID as string;
+type AIGroupChatProps = {
+  user: CometChat.User;
+};
 
+export default function AIGroupChat({ user }: AIGroupChatProps) {
+  const AI_UID = process.env.NEXT_PUBLIC_COMET_AI_UID as string;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -103,7 +106,7 @@ export default function AIGroupChat({ user }) {
 
       textMessage.setMetadata({
         sessionId: groupId,
-        senderUid: user?.uid,
+        senderUid: user.getUid(),
         type: "ai-group-session",
       });
 

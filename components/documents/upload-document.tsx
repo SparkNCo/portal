@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -206,7 +206,7 @@ export function UploadDocument() {
           </div>
         )}
 
-      {/*   <Button
+        {/*   <Button
           className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
           disabled={uploadedFiles.length === 0}
         >

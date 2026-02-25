@@ -3,12 +3,12 @@
 import { Header } from "@/components/headerDashboard";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { PriorityTasks } from "@/components/client/priority-tasks";
-import { CreateIssue } from "@/components/shared/create-issue";
 import { CardTitle } from "@/components/ui/card";
 import { useSearchParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { CreateIssue } from "@/components/shared/create-issue";
 
 async function fetchIssues(projectId: string) {
   const res = await fetch(
@@ -54,16 +54,6 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen">
       <Header title="Client Dashboard" subtitle="Welcome back, John" />
-      <CardTitle
-        className="text-base font-semibold flex items-center gap-2"
-        onClick={() => console.log({ projects: projects })}
-      >
-        Ver data
-        {isFetching && (
-          <span className="text-xs text-muted-foreground ml-2">Updating…</span>
-        )}
-      </CardTitle>
-
       {isLoading ? (
         <LoadingDataPanel />
       ) : (

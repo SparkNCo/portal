@@ -1,6 +1,6 @@
-"use client"
+/* "use client"
 import React, { useState } from "react";
-import Chat from "./Chat";
+import Chat from "./CometChat/Chat";
 
 export default function CometHome() {
   let [libraryImported, setLibraryImported] = useState(false);
@@ -12,3 +12,4 @@ export default function CometHome() {
 
   return libraryImported ? <Chat /> : <p>Loading....</p>;
 }
+ */

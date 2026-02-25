@@ -1,5 +1,5 @@
 "use client";
-import { AuthGate } from "@/components/components/auth-gate";
+import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/sidebar";
 import ConsentProvider from "@/lib/posthog/ConsentProvider";
 import type React from "react";

@@ -1,4 +1,4 @@
-import { emailReg, phoneReg } from '@/utils/regex';
+import { emailReg, phoneReg } from '@/components/ui/form/utils/regex';
 import dayjs from 'dayjs';
 
 export const validateMaxValue = (value: number, max: number): string | null => {

@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Users, Plus, Mail, Clock } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Users, Plus, Mail, Clock } from "lucide-react";
+import { Button } from "../components/ui/button";
 
 const teamMembers = [
   {
@@ -38,13 +38,13 @@ const teamMembers = [
     avatar: "TW",
     skills: ["Testing", "Automation"],
   },
-]
+];
 
 const statusColors = {
   active: "bg-success/20 text-success",
   pending: "bg-warning/20 text-warning",
   inactive: "bg-muted text-muted-foreground",
-}
+};
 
 export function StaffingSection() {
   return (
@@ -54,7 +54,10 @@ export function StaffingSection() {
           <Users className="h-4 w-4 text-accent" />
           Team Members
         </CardTitle>
-        <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
+        <Button
+          size="sm"
+          className="bg-accent text-accent-foreground hover:bg-accent/90"
+        >
           <Plus className="h-4 w-4 mr-1" />
           Request Change
         </Button>
@@ -72,15 +75,25 @@ export function StaffingSection() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-card-foreground">{member.name}</p>
-                    <Badge variant="secondary" className={statusColors[member.status as keyof typeof statusColors]}>
+                    <p className="text-sm font-medium text-card-foreground">
+                      {member.name}
+                    </p>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        statusColors[member.status as keyof typeof statusColors]
+                      }
+                    >
                       {member.status}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{member.role}</p>
                   <div className="flex items-center gap-1 mt-1">
                     {member.skills.map((skill) => (
-                      <span key={skill} className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                      <span
+                        key={skill}
+                        className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground"
+                      >
                         {skill}
                       </span>
                     ))}
@@ -110,5 +123,5 @@ export function StaffingSection() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

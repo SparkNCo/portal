@@ -7,10 +7,6 @@ import { PendingBalancePanel } from "./billing-panels/pending-balance";
 import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 
-/* ----------------------------------
-   API
------------------------------------*/
-
 export async function fetchBillingData() {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?email=santiaguero@gmail.com`,
@@ -22,10 +18,6 @@ export async function fetchBillingData() {
 
   return res.json();
 }
-
-/* ----------------------------------
-   Helpers
------------------------------------*/
 
 function calculateInvoicesBalance(invoices: any[] = []) {
   let totalOutstanding = 0;
@@ -51,14 +43,14 @@ function calculateInvoicesBalance(invoices: any[] = []) {
   };
 }
 
-/* ----------------------------------
-   Component
------------------------------------*/
-
-export function BillingSection({ billingData }: { billingData: any }) {
+export function BillingSection({
+  billingData,
+  isLoading,
+}: {
+  billingData: any;
+  isLoading: boolean;
+}) {
   const queryClient = useQueryClient();
-
-  /* ---------------- Mutation ---------------- */
 
   const updatePaymentMethodMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -104,22 +96,14 @@ export function BillingSection({ billingData }: { billingData: any }) {
     <div className="space-y-6">
       {billingData?.subscription?.id ? (
         <div className="space-y-6">
-          {/* Top panels */}
           <div className="grid gap-4 md:grid-cols-2">
             <PendingBalancePanel balance={balance} />
-
-            <NextPaymentPanel billingData={billingData} />
+            <NextPaymentPanel
+              billingData={billingData}
+              isLoading={isLoading}
+            />{" "}
           </div>
-
-          {/* Debug */}
-          <div onClick={() => console.log(billingData)}>
-            VER INVOICES
-          </div>
-
-          {/* Invoices list */}
           <InvoicesPanel invoices={invoices} />
-
-          {/* Payment method */}
           <PaymentMethodPanel
             paymentMethod={billingData?.paymentMethod}
             onUpdatePaymentMethod={handleUpdatePaymentMethod}

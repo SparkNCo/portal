@@ -1,8 +1,28 @@
 import { Box } from "lucide-react";
-import { Button } from "../ui/button";
+import { Button } from "@/components/components/ui/button";
 import { MilestoneRow, ProjectSummaryBar } from "./ProjectSummaryBar";
+import { Milestone } from "./roadmap-timeline";
 
-export function getProjectRange(milestones: any[]) {
+export interface ProjectRange {
+  start: Date;
+  end: Date;
+}
+
+interface ProjectRowProps {
+  projectName: string;
+  milestones: Milestone[];
+  year: number;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+interface ProjectHeaderProps {
+  projectName: string;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+export function getProjectRange(milestones: Milestone[]): ProjectRange | null {
   const dates = milestones.flatMap((m) =>
     m.createdAt && m.targetDate
       ? [new Date(m.createdAt), new Date(m.targetDate)]
@@ -17,34 +37,26 @@ export function getProjectRange(milestones: any[]) {
   };
 }
 
+/* =========================
+   Components
+========================= */
+
 export function ProjectRow({
   projectName,
   milestones,
   year,
   expanded,
   onToggle,
-}) {
+}: ProjectRowProps) {
   const projectRange = getProjectRange(milestones);
 
   return (
-    //className="border-4 border-red-500"
-    <div className="mb-6 space-y-3 ">
+    <div className="mb-6 space-y-3">
       <ProjectHeader
         projectName={projectName}
         expanded={expanded}
         onToggle={onToggle}
       />
-      <div
-        onClick={() =>
-          console.log({
-            milestones,
-            start: projectRange?.start.getMonth(),
-            end: projectRange?.end.getMonth(),
-          })
-        }
-      >
-        VER CONVER
-      </div>
 
       {!expanded && projectRange && (
         <ProjectSummaryBar
@@ -56,13 +68,21 @@ export function ProjectRow({
 
       {expanded &&
         milestones.map((m) => (
-          <MilestoneRow key={m.id + m.createdAt} data={m} year={year} />
+          <MilestoneRow
+            key={m?.projectName + m?.progress}
+            data={m}
+            year={year}
+          />
         ))}
     </div>
   );
 }
 
-function ProjectHeader({ projectName, expanded, onToggle }) {
+function ProjectHeader({
+  projectName,
+  expanded,
+  onToggle,
+}: ProjectHeaderProps) {
   return (
     <div className="flex justify-between items-center">
       <div className="flex items-center gap-2">

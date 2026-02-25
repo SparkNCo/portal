@@ -77,8 +77,8 @@ export default function UnifiedChatInput({
       CometChat.addMessageListener(
         listenerId,
         new CometChat.MessageListener({
-          onTextMessageReceived: (msg) => {
-            if (msg.sender.uid === ADMIN_UID) {
+          onTextMessageReceived: (msg: CometChat.TextMessage) => {
+            if (msg.getSender()?.getUid() === ADMIN_UID) {
               setMessages((prev) => [...prev, msg]);
             }
           },
@@ -143,8 +143,7 @@ export default function UnifiedChatInput({
       <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-transparent">
         {messages.map((msg, i) => {
           const isAI =
-            msg.sender?.uid === "AI" ||
-            msg.sender?.uid === ADMIN_UID;
+            msg.sender?.uid === "AI" || msg.sender?.uid === ADMIN_UID;
 
           return (
             <div
@@ -173,9 +172,7 @@ export default function UnifiedChatInput({
         <input
           className="flex-1 border rounded-lg px-3 py-2"
           placeholder={
-            type === "ai"
-              ? "Ask the AI something..."
-              : "Talk with support..."
+            type === "ai" ? "Ask the AI something..." : "Talk with support..."
           }
           value={message}
           onChange={(e) => setMessage(e.target.value)}

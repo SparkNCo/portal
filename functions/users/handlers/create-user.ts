@@ -1,4 +1,4 @@
-import { CreateUserInput } from "../schemas/create-user.input";
+/* import { CreateUserInput } from "../schemas/create-user.input";
 import { prisma } from "@/lib/prisma";
 
 export async function createUser(req: Request) {
@@ -9,4 +9,4 @@ export async function createUser(req: Request) {
   });
 
   return Response.json(user);
-}
+} */

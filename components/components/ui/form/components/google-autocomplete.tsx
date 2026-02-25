@@ -4,29 +4,38 @@ import {
   FormikTouched,
   FormikValues,
   useFormikContext,
-} from 'formik';
-import React, { useState } from 'react';
+} from "formik";
+import React, { useState } from "react";
 
 import {
-  GoogleMap,
   useJsApiLoader,
-  StandaloneSearchBox,
-  Libraries,
   Autocomplete,
-} from '@react-google-maps/api';
-import { DynamicFieldType } from '@/lib/types/utils/form';
-import { FormLabelComponent } from './form-label';
-import { Input } from '../../input';
-import { ErrorMessage } from './error-message';
-type PlaceResult = google.maps.places.PlaceResult;
-const VALIDCOUNTRIES = ['CA', 'US'];
+  Libraries,
+} from "@react-google-maps/api";
+
+import { DynamicFieldType } from "@/lib/types/utils/form";
+import { FormLabelComponent } from "./form-label";
+import { Input } from "../../input";
+import { ErrorMessage } from "./error-message";
+
+const VALIDCOUNTRIES = ["CA", "US"];
+
 const INCONSISTENT_STATES: string[][] = [
-  ['Buenos Aires', 'Provincia de Buenos Aires'],
+  ["Buenos Aires", "Provincia de Buenos Aires"],
 ];
-const LIBRARIES: Libraries = ['places'];
+
+const LIBRARIES: Libraries = ["places"];
+
+type Props = Partial<DynamicFieldType> & {
+  countries?: string[];
+  values: FormikValues;
+  validationRules?: any;
+  errors: FormikErrors<any>;
+  touched: FormikTouched<any>;
+};
 
 const GoogleAutoCompleteInput = ({
-  name,
+  name = "",
   label,
   icon,
   type,
@@ -42,138 +51,139 @@ const GoogleAutoCompleteInput = ({
   errors,
   validationRules,
   touched,
-}: Partial<DynamicFieldType> & {
-  countries?: string[];
-  values: FormikValues;
-  validationRules: any;
-  errors: FormikErrors<any>;
-  touched: FormikTouched<any>;
-}) => {
+}: Props) => {
   const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
+    id: "google-map-script",
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY as string,
     libraries: LIBRARIES,
-    region: 'AR',
+    region: "AR",
   });
 
-  //-----------
-  const [address, setAddress] = useState<google.maps.places.Autocomplete>();
+  const [address, setAddress] =
+    useState<google.maps.places.Autocomplete | null>(null);
 
-  const { setFieldValue }: any = useFormikContext();
-  const onLoad = (address: google.maps.places.Autocomplete) => {
-    setAddress(address);
+  const { setFieldValue } = useFormikContext<FormikValues>();
+
+  const onLoad = (autocomplete: google.maps.places.Autocomplete) => {
+    setAddress(autocomplete);
   };
-  const handleSelect = async () => {
+
+  const handleSelect = () => {
     if (!address) return;
+
     const place = address.getPlace();
-    console.log(place);
-    if (!place) return;
-    const full_address = place.address_components
-      ?.reduce((acc: string, result: any) => {
-        switch (result.types[0]) {
-          case 'route':
-            acc += result.long_name + ', ';
-            break;
-          case 'street_number':
-            acc += result.long_name + ' ';
-            break;
-          case 'administrative_area_level_2':
-            acc += result.long_name + ', ';
-            break;
-          case 'administrative_area_level_1':
-            acc += result.long_name;
-            break;
-          case 'postal_code':
-          case 'country':
+    if (!place || !place.address_components) return;
+
+    // Build full address
+    const fullAddress = place.address_components
+      .reduce((acc: string, result: google.maps.GeocoderAddressComponent) => {
+        const type = result.types?.[0];
+        if (!type) return acc;
+
+        const value = result.long_name ?? "";
+
+        switch (type) {
+          case "route":
+            return acc + value + ", ";
+          case "street_number":
+            return acc + value + " ";
+          case "administrative_area_level_2":
+            return acc + value + ", ";
+          case "administrative_area_level_1":
+            return acc + value;
+          default:
             return acc;
         }
-        return acc;
-      }, '')
+      }, "")
       .trim()
-      .replace(/,\s*$/, ''); // Remueve coma final si existe
-    setFieldValue('address', full_address);
-    place.address_components?.forEach((component) => {
-      let componentType = component.types[0];
-      let longNameValue = component.long_name;
-      let shortNameValue = component.short_name;
+      .replace(/,\s*$/, "");
+
+    setFieldValue("address", fullAddress);
+
+    // Map components
+    place.address_components.forEach((component) => {
+      const componentType = component.types?.[0];
+      if (!componentType) return;
+
+      let longNameValue = component.long_name ?? "";
+      const shortNameValue = component.short_name ?? "";
+
       switch (componentType) {
-        case 'country':
-          let country = longNameValue;
-          // if (!VALIDCOUNTRIES.includes(shortNameValue)) {
-          //   country = 'INTERNATIONAL';
-          // }
-          setFieldValue('country', shortNameValue);
+        case "country":
+          setFieldValue("country", shortNameValue);
           break;
-        case 'administrative_area_level_1':
-          INCONSISTENT_STATES.forEach(([suggestion, actual_state]) => {
+
+        case "administrative_area_level_1":
+          INCONSISTENT_STATES.forEach(([suggestion, actualState]) => {
             if (suggestion === longNameValue) {
-              longNameValue = actual_state;
+              //   longNameValue = actualState;
             }
           });
-          setFieldValue('province', longNameValue);
+          setFieldValue("province", longNameValue);
           break;
-        case 'administrative_area_level_2':
-          setFieldValue('city', longNameValue);
+
+        case "administrative_area_level_2":
+          setFieldValue("city", longNameValue);
           break;
-        case 'postal_code':
-          setFieldValue('postal', longNameValue);
+
+        case "postal_code":
+          setFieldValue("postal", longNameValue);
           break;
-        case 'street_number':
-          setFieldValue('street_number', longNameValue);
+
+        case "street_number":
+          setFieldValue("street_number", longNameValue);
           break;
-        case 'route':
-          setFieldValue('street_name', longNameValue);
+
+        case "route":
+          setFieldValue("street_name", longNameValue);
           break;
+
         default:
-          return;
+          break;
       }
     });
   };
 
+  if (!isLoaded) return null;
+
   return (
     <div>
-      {isLoaded && (
-        <>
-          <FormLabelComponent
-            label={label || ''}
-            id={name || ''}
-            required={required}
-          />
-          <Autocomplete
-            options={{
-              componentRestrictions: { country: 'AR' },
-            }}
-            onPlaceChanged={handleSelect}
-            onLoad={onLoad}
-          >
-            <Field name={name} validate={validationRules}>
-              {({ field, meta, form }: any) => (
-                <Input
-                  {...field}
-                  id={name}
-                  name={name}
-                  icon={icon}
-                  type={type}
-                  required={required}
-                  min={min}
-                  value={values[name || ''] || initial || ''}
-                  max={max}
-                  disabled={disabled}
-                  readOnly={readonly}
-                  placeholder={(placeholder && placeholder) || label}
-                  onWheel={(e) => {
-                    e?.preventDefault();
-                    field.onBlur(e);
-                    form.setFieldTouched(name, true);
-                  }}
-                  variant={variant || 'outline'}
-                />
-              )}
-            </Field>
-          </Autocomplete>
-          <ErrorMessage errors={errors} id={name || ''} touched={touched} />
-        </>
-      )}
+      <FormLabelComponent label={label ?? ""} id={name} required={required} />
+
+      <Autocomplete
+        options={{
+          componentRestrictions: { country: "AR" },
+        }}
+        onPlaceChanged={handleSelect}
+        onLoad={onLoad}
+      >
+        <Field name={name} validate={validationRules}>
+          {({ field, meta, form }: any) => (
+            <Input
+              {...field}
+              id={name}
+              name={name}
+              icon={icon}
+              type={type}
+              required={required}
+              min={min}
+              max={max}
+              disabled={disabled}
+              readOnly={readonly}
+              placeholder={placeholder ?? label}
+              value={(values?.[name] as string) ?? initial ?? ""}
+              onWheel={(e) => {
+                e.preventDefault();
+                field.onBlur(e);
+                form.setFieldTouched(name, true);
+              }}
+              variant={variant ?? "outline"}
+            />
+          )}
+        </Field>
+      </Autocomplete>
+
+      <ErrorMessage errors={errors} id={name} touched={touched} />
     </div>
   );
 };

@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
+import type { Dispatch, SetStateAction } from "react";
+
+type ChatMode = "response" | "ai" | "staff";
+type Conversation = any;
+
+type ChatSideBarProps = {
+  user: CometChat.User | null;
+
+  setConversationId: Dispatch<SetStateAction<string | null>>;
+  setMode: Dispatch<SetStateAction<ChatMode>>;
+  setActiveUID: Dispatch<SetStateAction<string | null>>;
+  setResponseConversation: Dispatch<SetStateAction<Conversation | null>>;
+};
 
 export default function ChatSideBar({
   user,
-  setUser,
-  conversations,
   setConversationId,
   setMode,
   setActiveUID,
-  notification,
-  setNotification,
-  responseConversation,
   setResponseConversation,
-}) {
+}: ChatSideBarProps) {
   const [conversationsAPI, setConversationsAPI] = useState<any[]>([]);
 
   useEffect(() => {
@@ -42,16 +50,6 @@ export default function ChatSideBar({
 
   return (
     <div className="w-80 border-r flex flex-col bg-black">
-      <div
-        onClick={() =>
-          console.log({
-            conversationsAPI,
-          })
-        }
-      >
-        VER CONVER
-      </div>
-
       <div className="p-4 font-bold border-b">Conversations</div>
       <div className="flex-1 overflow-y-auto">
         {conversationsAPI.map((conv, i) => {

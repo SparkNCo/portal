@@ -70,7 +70,7 @@ export async function getClientData(req: Request) {
 
     const invoices = await stripe.invoices.list({
       customer: customer_id,
-      limit: 10,
+      limit: 100,
     });
 
     const paymentMethods = await stripe.paymentMethods.list({

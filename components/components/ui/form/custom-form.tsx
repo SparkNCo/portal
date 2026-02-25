@@ -21,9 +21,9 @@ import { DynamicField } from '../form/dynamic-field';
 import { DynamicFieldType, LayoutType } from '@/lib/types/utils/form';
 import { getInitialValues } from './utils/functions';
 import { toast } from 'sonner';
-import { getURL } from '@/utils/helpers';
 import ProgressStepper from './components/stepper';
 import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
+import { getURL } from './utils/helpers';
 type Props = {
   layout: LayoutType;
   lang: 'fr' | 'en';

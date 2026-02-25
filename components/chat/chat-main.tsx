@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input"
 import { Sparkles, Send, Video, Phone, Paperclip, MoreVertical } from "lucide-react"
 import { CometChat } from "@cometchat/chat-sdk-javascript";

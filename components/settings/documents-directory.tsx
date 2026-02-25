@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { FileText, Download, ExternalLink, Calendar } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Download, ExternalLink, Calendar } from "lucide-react";
+import { Button } from "@/components/components/ui/button";
 
 const documents = [
   {
@@ -38,13 +38,13 @@ const documents = [
     status: "draft",
     size: "0.8 MB",
   },
-]
+];
 
 const statusColors = {
   signed: "bg-success/20 text-success",
   pending: "bg-warning/20 text-warning",
   draft: "bg-muted text-muted-foreground",
-}
+};
 
 export function DocumentsDirectory() {
   return (
@@ -67,7 +67,9 @@ export function DocumentsDirectory() {
                   <FileText className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-card-foreground">{doc.name}</p>
+                  <p className="text-sm font-medium text-card-foreground">
+                    {doc.name}
+                  </p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{doc.type}</span>
                     <span>•</span>
@@ -79,7 +81,12 @@ export function DocumentsDirectory() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className={statusColors[doc.status as keyof typeof statusColors]}>
+                <Badge
+                  variant="secondary"
+                  className={
+                    statusColors[doc.status as keyof typeof statusColors]
+                  }
+                >
                   {doc.status}
                 </Badge>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -94,5 +101,5 @@ export function DocumentsDirectory() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
