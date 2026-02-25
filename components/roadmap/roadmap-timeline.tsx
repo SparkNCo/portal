@@ -5,7 +5,41 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
 
-export function RoadmapTimeline({ projectMilestones = [] }) {
+export type MilestoneStatus =
+  | "completed"
+  | "in-progress"
+  | "planned"
+  | "overdue"
+  | "unstarted"
+  | "next";
+
+export type Milestone = {
+  createdAt: string;
+  currentProgress: {
+    scopeCount: number;
+    scopeEstimate: number;
+    unstartedEstimate: number;
+    unstartedIssueCount: number;
+  };
+  description: string | null;
+  issues: {
+    nodes: any[];
+  };
+  name: string;
+  progress: number;
+  progressHistory: any[];
+  projectName: string;
+  status: MilestoneStatus;
+  targetDate: string;
+};
+
+type RoadmapTimelineProps = {
+  projectMilestones?: Milestone[];
+};
+
+export function RoadmapTimeline({
+  projectMilestones = [],
+}: RoadmapTimelineProps) {
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
@@ -14,7 +48,7 @@ export function RoadmapTimeline({ projectMilestones = [] }) {
   const [year, setYear] = useState(INITIAL_YEAR);
 
   const groupedMilestones = useMemo(() => {
-    return projectMilestones.reduce((acc: Record<string, any[]>, m: any) => {
+    return projectMilestones.reduce((acc: Record<string, Milestone[]>, m) => {
       const key = m.projectName ?? "Unknown Project";
       acc[key] ??= [];
       acc[key].push(m);
@@ -32,7 +66,7 @@ export function RoadmapTimeline({ projectMilestones = [] }) {
       />
 
       <CardContent>
-        <TimelineMonthsHeader year={year} /> 
+        <TimelineMonthsHeader year={year} />
         {Object.entries(groupedMilestones).map(([projectName, milestones]) => (
           <ProjectRow
             key={projectName}

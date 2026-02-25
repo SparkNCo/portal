@@ -54,7 +54,7 @@ export function SettingsTabs() {
       <div>
         {activeTab === "documents" && <DocumentsDirectory />}
         {activeTab === "billing" && (
-          <BillingSection billingData={billingData} />
+          <BillingSection billingData={billingData} isLoading={isLoading} />
         )}
         {activeTab === "staffing" && <StaffingSection />}
       </div>

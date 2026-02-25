@@ -1,40 +1,56 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bug, Lightbulb, FileText, Sparkles, Send } from "lucide-react"
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Bug, Lightbulb, FileText, Sparkles, Send } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "../components/ui/input";
 
 const issueTypes = {
   bug: { icon: Bug, label: "Bug", color: "bg-destructive/20 text-destructive" },
-  feature: { icon: Lightbulb, label: "Feature", color: "bg-chart-2/20 text-chart-2" },
-  report: { icon: FileText, label: "Report", color: "bg-chart-1/20 text-chart-1" },
-}
+  feature: {
+    icon: Lightbulb,
+    label: "Feature",
+    color: "bg-chart-2/20 text-chart-2",
+  },
+  report: {
+    icon: FileText,
+    label: "Report",
+    color: "bg-chart-1/20 text-chart-1",
+  },
+};
 
 const similarTickets = [
   { id: "LIN-201", title: "Login page not loading on Safari", type: "bug" },
   { id: "LIN-189", title: "Authentication timeout issues", type: "bug" },
   { id: "LIN-167", title: "Session expires too quickly", type: "bug" },
-]
+];
 
 export function CreateIssue() {
-  const [description, setDescription] = useState("")
-  const [detectedType, setDetectedType] = useState<keyof typeof issueTypes | null>(null)
-  const [showSimilar, setShowSimilar] = useState(false)
-  const [showFields, setShowFields] = useState(false)
-  const [priority, setPriority] = useState("")
-  const [assignee, setAssignee] = useState("")
+  const [description, setDescription] = useState("");
+  const [detectedType, setDetectedType] = useState<
+    keyof typeof issueTypes | null
+  >(null);
+  const [showSimilar, setShowSimilar] = useState(false);
+  const [showFields, setShowFields] = useState(false);
+  const [priority, setPriority] = useState("");
+  const [assignee, setAssignee] = useState("");
 
   const handleDescriptionChange = (value: string) => {
-    setDescription(value)
-    const lowerValue = value.toLowerCase()
+    setDescription(value);
+    const lowerValue = value.toLowerCase();
 
     // Auto-detect issue type
     if (
@@ -45,33 +61,37 @@ export function CreateIssue() {
       lowerValue.includes("issue") ||
       lowerValue.includes("problem")
     ) {
-      setDetectedType("bug")
-      setShowSimilar(true)
+      setDetectedType("bug");
+      setShowSimilar(true);
     } else if (
       lowerValue.includes("feature") ||
       lowerValue.includes("add") ||
       lowerValue.includes("new") ||
       lowerValue.includes("implement")
     ) {
-      setDetectedType("feature")
-      setShowSimilar(false)
-    } else if (lowerValue.includes("report") || lowerValue.includes("analytics") || lowerValue.includes("data")) {
-      setDetectedType("report")
-      setShowSimilar(false)
+      setDetectedType("feature");
+      setShowSimilar(false);
+    } else if (
+      lowerValue.includes("report") ||
+      lowerValue.includes("analytics") ||
+      lowerValue.includes("data")
+    ) {
+      setDetectedType("report");
+      setShowSimilar(false);
     } else {
-      setDetectedType(null)
-      setShowSimilar(false)
+      setDetectedType(null);
+      setShowSimilar(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && description.trim()) {
-      e.preventDefault()
-      setShowFields(true)
+      e.preventDefault();
+      setShowFields(true);
     }
-  }
+  };
 
-  const TypeIcon = detectedType ? issueTypes[detectedType].icon : Sparkles
+  const TypeIcon = detectedType ? issueTypes[detectedType].icon : Sparkles;
 
   return (
     <Card className="bg-card border-border">
@@ -108,8 +128,12 @@ export function CreateIssue() {
                     key={ticket.id}
                     className="flex items-center gap-2 text-sm p-2 rounded bg-background/50 hover:bg-background transition-colors cursor-pointer"
                   >
-                    <span className="font-mono text-xs text-muted-foreground">{ticket.id}</span>
-                    <span className="text-card-foreground truncate flex-1">{ticket.title}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {ticket.id}
+                    </span>
+                    <span className="text-card-foreground truncate flex-1">
+                      {ticket.title}
+                    </span>
                     <Bug className="h-3 w-3 text-destructive" />
                   </div>
                 ))}
@@ -121,11 +145,17 @@ export function CreateIssue() {
             <div className="space-y-4 animate-in fade-in-50 slide-in-from-top-2 pt-2">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="priority" className="text-sm text-muted-foreground">
+                  <Label
+                    htmlFor="priority"
+                    className="text-sm text-muted-foreground"
+                  >
                     Priority
                   </Label>
                   <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger id="priority" className="bg-secondary border-0">
+                    <SelectTrigger
+                      id="priority"
+                      className="bg-secondary border-0"
+                    >
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -139,11 +169,17 @@ export function CreateIssue() {
 
                 {detectedType === "bug" && (
                   <div className="space-y-2">
-                    <Label htmlFor="severity" className="text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="severity"
+                      className="text-sm text-muted-foreground"
+                    >
                       Severity
                     </Label>
                     <Select>
-                      <SelectTrigger id="severity" className="bg-secondary border-0">
+                      <SelectTrigger
+                        id="severity"
+                        className="bg-secondary border-0"
+                      >
                         <SelectValue placeholder="Select severity" />
                       </SelectTrigger>
                       <SelectContent>
@@ -157,16 +193,24 @@ export function CreateIssue() {
 
                 {detectedType === "feature" && (
                   <div className="space-y-2">
-                    <Label htmlFor="effort" className="text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="effort"
+                      className="text-sm text-muted-foreground"
+                    >
                       Estimated Effort
                     </Label>
                     <Select>
-                      <SelectTrigger id="effort" className="bg-secondary border-0">
+                      <SelectTrigger
+                        id="effort"
+                        className="bg-secondary border-0"
+                      >
                         <SelectValue placeholder="Select effort" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="small">Small (1-2 days)</SelectItem>
-                        <SelectItem value="medium">Medium (3-5 days)</SelectItem>
+                        <SelectItem value="medium">
+                          Medium (3-5 days)
+                        </SelectItem>
                         <SelectItem value="large">Large (1-2 weeks)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -175,11 +219,17 @@ export function CreateIssue() {
 
                 {detectedType === "report" && (
                   <div className="space-y-2">
-                    <Label htmlFor="frequency" className="text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="frequency"
+                      className="text-sm text-muted-foreground"
+                    >
                       Report Frequency
                     </Label>
                     <Select>
-                      <SelectTrigger id="frequency" className="bg-secondary border-0">
+                      <SelectTrigger
+                        id="frequency"
+                        className="bg-secondary border-0"
+                      >
                         <SelectValue placeholder="Select frequency" />
                       </SelectTrigger>
                       <SelectContent>
@@ -194,7 +244,10 @@ export function CreateIssue() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="assignee" className="text-sm text-muted-foreground">
+                <Label
+                  htmlFor="assignee"
+                  className="text-sm text-muted-foreground"
+                >
                   Assign to
                 </Label>
                 <Input
@@ -215,5 +268,5 @@ export function CreateIssue() {
         </Button>
       </CardContent>
     </Card>
-  )
+  );
 }

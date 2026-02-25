@@ -1,4 +1,4 @@
-import { registry } from './registry';
+/* import { registry } from './registry';
 
 export const openApiDocument = {
   openapi: '3.0.0',
@@ -12,3 +12,4 @@ export const openApiDocument = {
     schemas: registry.getSchemas(),
   },
 };
+ */

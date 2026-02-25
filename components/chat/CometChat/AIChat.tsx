@@ -18,7 +18,7 @@ export const AIAssistantChatDemo = () => {
         <CometChatAIAssistantChat
             user={agent}
             showCloseButton={true}
-            setStreamingSpeed={30}
+           // setStreamingSpeed={30}
         />
     )
 }

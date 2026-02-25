@@ -35,7 +35,7 @@ export default function RoadmapPage() {
       return res.json();
     },
     enabled: Boolean(initiativeId),
-   // staleTime: 10_000,
+    // staleTime: 10_000,
   });
 
   const [allMilestones, setAllMilestones] = useState<any[]>([]);
@@ -43,14 +43,18 @@ export default function RoadmapPage() {
   useEffect(() => {
     if (!roadmap?.initiative?.projects?.nodes) return;
 
-    const milestones = roadmap.initiative.projects.nodes.flatMap((project: any) => {
-      const projectName = project.name;
+    const milestones = roadmap.initiative.projects.nodes.flatMap(
+      (project: any) => {
+        const projectName = project.name;
 
-      return (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
-        ...milestone,
-        projectName,
-      }));
-    });
+        return (project.projectMilestones?.nodes ?? []).map(
+          (milestone: any) => ({
+            ...milestone,
+            projectName,
+          }),
+        );
+      },
+    );
 
     setAllMilestones(milestones);
   }, [roadmap]);
@@ -93,16 +97,13 @@ export default function RoadmapPage() {
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
       <div className="p-6 space-y-6">
-        <div onClick={() => console.log({ roadmap, allMilestones })}>
-          VER ROADMAP DATA
-        </div>
         <RoadmapTimeline projectMilestones={allMilestones} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
           <SoftwareKPIs
-            targetDate={project?.targetDate}
-            progress={project?.progress}
+            /* targetDate={project?.targetDate}
+            progress={project?.progress} */
           />
         </div>
       </div>

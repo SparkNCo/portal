@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditCard, Download } from "lucide-react";
 
@@ -9,6 +9,7 @@ const statusColors = {
   void: "bg-gray-100 text-gray-800",
   uncollectible: "bg-red-100 text-red-800",
 };
+
 
 type Invoice = {
   id: string;

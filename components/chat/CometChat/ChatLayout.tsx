@@ -1,18 +1,18 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Chat from "./Chat";
 import ChatSideBar from "./ChatSideBar";
+import { CometChat } from "@cometchat/chat-sdk-javascript";
 
 export default function ChatLayout() {
   const [libraryImported, setLibraryImported] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<CometChat.User | null>(null);
   const [responseConversation, setResponseConversation] = useState<{} | null>(
     null,
   );
   const [mode, setMode] = useState<"ai" | "staff" | "response">("ai");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [activeUID, setActiveUID] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<any[]>([]);
 
   const [notification, setNotification] = useState<{
     type: "ai" | "staff";
@@ -27,18 +27,13 @@ export default function ChatLayout() {
   }, []);
 
   return libraryImported ? (
-    <div className="border-4 border-red-900 flex flex-row w-full">
+    <div className="flex flex-row w-full">
       {/* Sidebar */}
       <ChatSideBar
         user={user}
-        setUser={setUser}
-        conversations={conversations}
         setConversationId={setConversationId}
         setMode={setMode}
         setActiveUID={setActiveUID}
-        notification={notification}
-        setNotification={setNotification}
-        responseConversation={responseConversation}
         setResponseConversation={setResponseConversation}
       />
 
@@ -52,8 +47,6 @@ export default function ChatLayout() {
         setConversationId={setConversationId}
         activeUID={activeUID}
         setActiveUID={setActiveUID}
-        conversations={conversations}
-        setConversations={setConversations}
         notification={notification}
         setNotification={setNotification}
         responseConversation={responseConversation}

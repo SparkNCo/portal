@@ -6,8 +6,30 @@ import { COMETCHAT_CONSTANTS } from "./constants";
 
 import AIChatInput from "./AIChatInput";
 import StaffChatInput from "./StaffChatInput";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/components/ui/button";
 import ConversationChat from "./ConversationChat";
+import type { Dispatch, SetStateAction } from "react";
+type ChatMode = "response" | "ai" | "staff";
+type Conversation = any; // temporal
+type ChatProps = {
+  user: CometChat.User | null;
+  setUser: Dispatch<SetStateAction<CometChat.User | null>>;
+
+  mode: ChatMode;
+  setMode: Dispatch<SetStateAction<ChatMode>>;
+
+  conversationId: string | null;
+  setConversationId: Dispatch<SetStateAction<string | null>>;
+
+  activeUID: string | null;
+  setActiveUID: Dispatch<SetStateAction<string | null>>;
+
+  notification: any;
+  setNotification: Dispatch<SetStateAction<any>>;
+
+  responseConversation: Conversation | null;
+  setResponseConversation: Dispatch<SetStateAction<Conversation | null>>;
+};
 
 export default function Chat({
   user,
@@ -22,7 +44,7 @@ export default function Chat({
   setNotification,
   responseConversation,
   setResponseConversation,
-}) {
+}: ChatProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,16 +101,18 @@ export default function Chat({
     CometChat.addMessageListener(
       listenerID,
       new CometChat.MessageListener({
-        onTextMessageReceived: (msg) => {
+        onTextMessageReceived: (msg: CometChat.TextMessage) => {
           console.log("📩 Incoming:", msg);
-          const convId = msg.rawMessage.conversationId;
+
+          const convId = msg.getConversationId();
           setConversationId(convId);
-          if (msg.sender.name && mode !== "response") {
+
+          if (msg.getSender()?.getName() && mode !== "response") {
             setNotification({
               type: "staff",
-              text: msg.text,
-              from: msg.sender.name,
-              uid: msg.sender.uid,
+              text: msg.getText(),
+              from: msg.getSender()?.getName() ?? "",
+              uid: msg.getSender()?.getUid() ?? "",
             });
           }
         },
@@ -125,7 +149,7 @@ export default function Chat({
             <button
               className="absolute top-1 right-1 text-xs opacity-70 hover:opacity-100"
               onClick={(e) => {
-                e.stopPropagation(); 
+                e.stopPropagation();
                 setNotification(null);
               }}
             >
@@ -138,23 +162,17 @@ export default function Chat({
         </div>
       )}
 
-
       {conversationId && mode === "response" && (
-        <ConversationChat
-          user={user}
-          conversationId={conversationId}
-          notification={responseConversation}
-          activeUID={activeUID}
-        />
+        <ConversationChat user={user} notification={responseConversation} />
       )}
       {mode === "ai" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
-          <AIChatInput user={user} receiverUID={activeUID} />
+          <AIChatInput user={user!} />{" "}
         </div>
       )}
       {mode === "staff" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
-          <StaffChatInput user={user} receiverUID={activeUID} />
+          <StaffChatInput />
         </div>
       )}
       <Button

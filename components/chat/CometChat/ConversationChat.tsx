@@ -61,9 +61,10 @@ export default function ConversationChat({ user, notification }: Props) {
     CometChat.addMessageListener(
       listenerID,
       new CometChat.MessageListener({
-        onTextMessageReceived: (msg) => {
+        onTextMessageReceived: (msg: CometChat.TextMessage) => {
           const isThisChat =
-            msg.sender.uid === staffUID || msg.receiverId === staffUID;
+            msg.getSender()?.getUid() === staffUID ||
+            msg.getReceiverId() === staffUID;
 
           if (!isThisChat) return;
 
@@ -188,16 +189,6 @@ export default function ConversationChat({ user, notification }: Props) {
       <div className="p-3 border-b font-semibold">
         Chat with {notification.from}
       </div>
-      <div
-        onClick={() =>
-          console.log({
-            messages,
-          })
-        }
-      >
-        VER CONVER
-      </div>
-
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {messages.map((msg, i) => {

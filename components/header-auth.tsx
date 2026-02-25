@@ -1,13 +1,14 @@
 import { signOutAction } from "@/app/actions";
-import { hasEnvVars } from "@/utils/supabase/check-env-vars";
 import Link from "next/link";
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { createClient } from "@/utils/supabase/server";
+import { Button } from "./components/ui/button";
+import { supabase } from "@/lib/supabase-client";
+
+const hasEnvVars =
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export default async function AuthButton() {
-  const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();

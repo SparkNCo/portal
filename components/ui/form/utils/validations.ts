@@ -1,5 +1,5 @@
-import { emailReg, phoneReg } from '@/utils/regex';
 import dayjs from 'dayjs';
+import { emailReg, phoneReg } from './regex';
 
 export const validateMaxValue = (value: number, max: number): string | null => {
   if (!max) return null;

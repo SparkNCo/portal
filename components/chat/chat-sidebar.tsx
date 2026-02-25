@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input"
 import { Sparkles, MessageSquare, Users, Search, Plus, Calendar } from "lucide-react"
 

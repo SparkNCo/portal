@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 
-export default function StaffChatInput({ user, receiverUID }) {
+export default function StaffChatInput() {
   const ADMIN_UID = process.env.NEXT_PUBLIC_COMET_ADMIN_UID as string;
 
   const [message, setMessage] = useState("");
@@ -17,11 +17,9 @@ export default function StaffChatInput({ user, receiverUID }) {
     CometChat.addMessageListener(
       listenerId,
       new CometChat.MessageListener({
-        onTextMessageReceived: (msg) => {
-          console.log("📩 Staff message:", msg);
-
+        onTextMessageReceived: (msg: CometChat.TextMessage) => {
           // Only accept messages from admin
-          if (msg.sender.uid === ADMIN_UID) {
+          if (msg.getSender()?.getUid() === ADMIN_UID) {
             setMessages((prev) => [...prev, msg]);
           }
         },

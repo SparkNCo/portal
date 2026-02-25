@@ -2,7 +2,6 @@
 import * as React from 'react';
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 import {
   Popover,
@@ -28,6 +27,7 @@ import {
 } from '../../command';
 import { FormLabelComponent } from './form-label';
 import { ErrorMessage } from './error-message';
+import { Button } from '@/components/components/ui/button';
 
 interface MultiSelectInputProps {
   field: DynamicFieldType;

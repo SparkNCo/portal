@@ -121,7 +121,7 @@ export function Sidebar() {
   };
 
   if (!user) {
-    return null; // or skeleton
+    return null;
   }
 
   return (
@@ -132,12 +132,10 @@ export function Sidebar() {
           Agency Portal
         </span>
       </div>
-      <div onClick={() => console.log({ user })}>VER CONVER</div>
-
       <div className="p-3">
         <button
           onClick={() =>
-            setPortalType(portalType === "roadmap" ? "developer" : "roadmap")
+            setPortalType(portalType === "developer" ? "client" : "developer")
           }
           className="flex w-full items-center justify-between rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/80 transition-colors"
         >

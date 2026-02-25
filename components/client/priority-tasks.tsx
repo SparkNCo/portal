@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/components/ui/button";
 import { useRef, useState } from "react";
 
 const priorityTasks = [
@@ -69,7 +69,29 @@ const statusColors = {
   Done: "bg-success/20 text-success",
 };
 
-export function PriorityTasks({ issuesData }) {
+export type Issue = {
+  id: string;
+  branchName: string;
+  priorityLabel: "Urgent" | "High" | "Medium" | "Low";
+  title: string;
+  state?: {
+    name:
+      | "needs-input"
+      | "Backlog"
+      | "Todo"
+      | "In Progress"
+      | "In Review"
+      | "Canceled"
+      | "waiting"
+      | "Done";
+  };
+};
+
+export type PriorityTasksProps = {
+  issuesData: Issue[];
+};
+
+export function PriorityTasks({ issuesData }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
 

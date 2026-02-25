@@ -1,7 +1,7 @@
-'use client';
-import React from 'react';
+"use client";
+import React from "react";
 
-import { Formik } from 'formik';
+import { Formik } from "formik";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,22 +11,27 @@ import {
   LoaderCircle,
   Send,
   SendIcon,
-} from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '../button';
-import { SubmitButton } from '@/components/submit-button';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Progress } from '../progress';
-import { DynamicField } from '../form/dynamic-field';
-import { DynamicFieldType, LayoutType } from '@/lib/types/utils/form';
-import { getInitialValues } from './utils/functions';
-import { toast } from 'sonner';
-import { getURL } from '@/utils/helpers';
-import ProgressStepper from './components/stepper';
-import { ErrorSuccessResponseMessage } from '@/lib/types/utils/functions-return-type';
+} from "lucide-react";
+import Link from "next/link";
+import { SubmitButton } from "@/components/submit-button";
+import { AnimatePresence, motion } from "framer-motion";
+import { Progress } from "../progress";
+import { DynamicField } from "../form/dynamic-field";
+import { DynamicFieldType, LayoutType } from "@/lib/types/utils/form";
+import { getInitialValues } from "./utils/functions";
+import { toast } from "sonner";
+import ProgressStepper from "./components/stepper";
+import { getURL } from "@/components/components/ui/form/utils/helpers";
+import { Button } from "@/components/components/ui/button";
+
+export type ErrorSuccessResponseMessage = {
+  error: string | null;
+  success: string | null;
+};
+
 type Props = {
   layout: LayoutType;
-  lang: 'fr' | 'en';
+  lang: "fr" | "en";
   saveFn?: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
   completeFn: (formData: FormData) => Promise<ErrorSuccessResponseMessage>;
   base: any;
@@ -40,14 +45,14 @@ type Props = {
 
 export default function DynamicForm({
   layout,
-  lang = 'en',
+  lang = "en",
   saveFn,
   showStepper = true,
   completeFn,
   base,
   view,
   submitButtonIcon = <Send className="w-4 h-4" />,
-  submitButton = 'Submit',
+  submitButton = "Submit",
   afterCompleteFn,
 }: Props) {
   const [page, setPage] = React.useState(0);
@@ -66,7 +71,7 @@ export default function DynamicForm({
   };
   return (
     <div
-      key={'formPage' + page}
+      key={"formPage" + page}
       className={`w-full flex-col flex items-center justify-center z-[10] `}
     >
       {showStepper && layout.length > 1 && (
@@ -76,7 +81,7 @@ export default function DynamicForm({
         ({ title, fields }, i: number) =>
           page == i && (
             <Formik
-              key={'formikPage' + i}
+              key={"formikPage" + i}
               initialValues={getInitialValues(layout, values)}
               enableReinitialize={false}
               onSubmit={async (newValues, actions) => {
@@ -87,8 +92,8 @@ export default function DynamicForm({
                 }));
                 const updatedValues = { ...values, ...newValues };
                 const formData = new FormData();
-                formData.append('values', JSON.stringify(updatedValues));
-                formData.append('page', page.toString());
+                formData.append("values", JSON.stringify(updatedValues));
+                formData.append("page", page.toString());
                 try {
                   if (saveFn) {
                     const { error, success } = await saveFn(formData);
@@ -116,7 +121,7 @@ export default function DynamicForm({
                     setPage((p) => p + 1);
                   }
                 } catch (error: any) {
-                  toast.error('Error', {
+                  toast.error("Error", {
                     description: error?.message,
                   });
                   return;
@@ -128,7 +133,7 @@ export default function DynamicForm({
             >
               {({ handleSubmit, values, errors, touched }) => (
                 <form
-                  key={'formPage' + i}
+                  key={"formPage" + i}
                   className={` w-full basis-full flex max-w-[660px] flex-col  z-10 gap-y-4 `}
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -142,11 +147,11 @@ export default function DynamicForm({
                   )}
                   <AnimatePresence mode="popLayout">
                     <motion.div
-                      key={'formFields' + i}
+                      key={"formFields" + i}
                       initial={{ opacity: 0, x: 15 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -15 }}
-                      transition={{ duration: 0.4, type: 'spring' }}
+                      transition={{ duration: 0.4, type: "spring" }}
                       className="flex flex-col gap-2"
                     >
                       {fields?.map(
@@ -159,30 +164,30 @@ export default function DynamicForm({
                               values={values}
                             />
                           );
-                        }
+                        },
                       )}
                     </motion.div>
                   </AnimatePresence>
 
-                  {view == 'signin' && (
+                  {view == "signin" && (
                     <>
                       <Link
                         className=" text-xs text-end text-blue-500"
-                        href={getURL('/sign-in/forgot-password')}
+                        href={getURL("/sign-in/forgot-password")}
                       >
                         Forgot your password?
                       </Link>
                     </>
                   )}
                   {!Array.isArray(fields[0]) &&
-                    fields[0]?.type != 'welcome_message' && (
+                    fields[0]?.type != "welcome_message" && (
                       <AnimatePresence mode="popLayout">
                         <motion.div
                           key={page}
                           initial={{ opacity: 0, x: 15 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -15 }}
-                          transition={{ duration: 0.4, type: 'spring' }}
+                          transition={{ duration: 0.4, type: "spring" }}
                           className="flex gap-4"
                         >
                           {!complete && i > 0 && (
@@ -203,12 +208,12 @@ export default function DynamicForm({
                             {!isLoading && (
                               <>
                                 {i == layout.length - 1
-                                  ? lang == 'en'
+                                  ? lang == "en"
                                     ? submitButton
-                                    : 'Soumettre'
-                                  : lang == 'en'
-                                    ? 'Next'
-                                    : 'Suivant'}
+                                    : "Soumettre"
+                                  : lang == "en"
+                                    ? "Next"
+                                    : "Suivant"}
 
                                 {i == layout.length - 1 ? (
                                   submitButtonIcon
@@ -220,7 +225,7 @@ export default function DynamicForm({
                             {isLoading && (
                               <>
                                 <LoaderCircle className="w-4 h-4 animate-spin" />
-                                <p>{lang == 'en' ? 'Wait...' : 'Chargement'}</p>
+                                <p>{lang == "en" ? "Wait..." : "Chargement"}</p>
                               </>
                             )}
                           </SubmitButton>
@@ -230,7 +235,7 @@ export default function DynamicForm({
                 </form>
               )}
             </Formik>
-          )
+          ),
       )}
     </div>
   );

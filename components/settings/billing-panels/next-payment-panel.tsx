@@ -2,7 +2,30 @@ import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
 
-function formatDateFromUnix(seconds?: number) {
+/* =========================
+   Types
+========================= */
+
+interface UpcomingInvoice {
+  nextPaymentAttempt?: number; // unix timestamp (seconds)
+  amountDue?: number; // cents
+  currency?: string;
+}
+
+interface BillingData {
+  upcomingInvoice?: UpcomingInvoice | null;
+}
+
+interface NextPaymentPanelProps {
+  billingData?: BillingData | null;
+  isLoading: boolean;
+}
+
+/* =========================
+   Helpers
+========================= */
+
+function formatDateFromUnix(seconds?: number): string {
   if (!seconds) return "—";
 
   return new Date(seconds * 1000).toLocaleDateString("en-US", {
@@ -12,7 +35,7 @@ function formatDateFromUnix(seconds?: number) {
   });
 }
 
-function formatAmountFromCents(cents?: number, currency?: string) {
+function formatAmountFromCents(cents?: number, currency?: string): string {
   if (cents == null) return "—";
 
   return new Intl.NumberFormat("en-US", {
@@ -21,18 +44,33 @@ function formatAmountFromCents(cents?: number, currency?: string) {
   }).format(cents / 100);
 }
 
-export function NextPaymentPanel({ billingData }) {
+/* =========================
+   Component
+========================= */
+
+export function NextPaymentPanel({
+  billingData,
+  isLoading,
+}: NextPaymentPanelProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <LoadingDataPanel />
+      </Card>
+    );
+  }
+
+  const upcomingInvoice = billingData?.upcomingInvoice;
+
   return (
     <Card>
-      {billingData?.upcomingInvoice ? (
+      {upcomingInvoice ? (
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Next Invoice Date</p>
               <p className="text-2xl font-bold">
-                {formatDateFromUnix(
-                  billingData.upcomingInvoice.nextPaymentAttempt,
-                )}
+                {formatDateFromUnix(upcomingInvoice.nextPaymentAttempt)}
               </p>
             </div>
 
@@ -43,14 +81,18 @@ export function NextPaymentPanel({ billingData }) {
 
           <p className="text-xs text-muted-foreground mt-2">
             {formatAmountFromCents(
-              billingData.upcomingInvoice.amountDue,
-              billingData.upcomingInvoice.currency,
+              upcomingInvoice.amountDue,
+              upcomingInvoice.currency,
             )}{" "}
             estimated
           </p>
         </CardContent>
       ) : (
-        <LoadingDataPanel />
+        <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground">
+            No upcoming invoice scheduled.
+          </p>
+        </CardContent>
       )}
     </Card>
   );
