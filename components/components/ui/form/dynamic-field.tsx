@@ -1,5 +1,4 @@
 import { Field, useFormikContext } from 'formik';
-
 import React from 'react';
 import {
   Select,
@@ -15,7 +14,6 @@ import { DynamicFieldProps } from '@/lib/types/utils/form';
 import { ColsFields } from './components/col-fields';
 import {
   getSelectOptions,
-  getTags,
   getValidationRule,
   itsHidden,
   requiredFields,
@@ -28,7 +26,6 @@ import { HelpTooltip } from '../help-tooltip';
 import { iconMap } from './components/icon-map';
 import { ErrorMessage } from './components/error-message';
 import './styles.css';
-import { Textarea } from '../textarea';
 import { TextAreaInput } from './components/textarea';
 import { MultiSelectInput } from './components/multi-select';
 
@@ -50,6 +47,7 @@ export function DynamicField({
       />
     );
   }
+
   const {
     name,
     type,
@@ -70,21 +68,22 @@ export function DynamicField({
     multiple,
     description,
     selectOptionsTitle,
-    tags,
   } = field;
-  if (hide) {
-    const hidden = itsHidden(field, values);
-    if (hidden) {
-      if (name in values) {
-        if (field.type == 'select' && options) {
-          values[name] = options[0];
-        } else {
-          values[name] = initial || '';
-        }
+
+  // -----------------------------
+  // Visibility Handling (SAFE)
+  // -----------------------------
+  if (hide && itsHidden(field, values)) {
+    if (name in values) {
+      if (type === 'select' && options?.length) {
+        setFieldValue(name, options[0]);
+      } else {
+        setFieldValue(name, initial ?? '');
       }
-      return;
     }
+    return null;
   }
+
   const fieldType = switchFieldType(field, values);
 
   const validationRule = getValidationRule(field);
@@ -103,16 +102,24 @@ export function DynamicField({
         countries: [{ value: 'AR', label: 'Argentina' }],
       },
     });
-  }, [values[name]]);
+  }, [values[name], options, disabled, name, values]);
+
+  const currentValue = values[name] ?? initial ?? '';
+
+  // =====================================================
+  // RENDER TYPES
+  // =====================================================
+
   switch (fieldType) {
     case 'subtitle':
       return (
         <p
-          className={`text-base mb-4 border-l-2 py-2 pl-2 border-foreground  ${className}`}
+          className={`text-base mb-4 border-l-2 py-2 pl-2 border-foreground ${className}`}
         >
           {label}
         </p>
       );
+
     case 'textarea':
       return (
         <TextAreaInput
@@ -126,7 +133,7 @@ export function DynamicField({
 
     case 'address_autocomplete':
       return (
-        <div key={name} className={className || 'basis-full'}>
+        <div className={className || 'basis-full'}>
           <GoogleAutoCompleteInput
             {...field}
             values={values}
@@ -138,7 +145,11 @@ export function DynamicField({
         </div>
       );
 
-    case 'select':
+    case 'select': {
+      const selectedOption = opt?.find(
+        (o) => o.value === currentValue
+      );
+
       return (
         <div className={className}>
           <FormLabelComponent
@@ -148,66 +159,57 @@ export function DynamicField({
             description={description}
             required={required}
           />
-          <Field
-            as={Select}
-            validate={validationRules}
-            name={name}
-            id={name}
-            required={required}
-            value={values[name] || initial}
-            placeholder={placeholder || label}
-            readOnly={readonly}
-            disabled={isDisabled}
+
+          <Select
+            value={currentValue}
+            disabled={isDisabled || readonly}
             onValueChange={(value: string | string[]) => {
               if (multiple) {
-                setFieldValue(name, Array.isArray(value) ? value : [value]);
+                setFieldValue(
+                  name,
+                  Array.isArray(value) ? value : [value]
+                );
               } else {
                 setFieldValue(name, value);
               }
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder={placeholder || label}>
-                {/* {multiple
-                  ? (values[name] || [])
-                      .map(
-                        (val: string) => opt.find((o) => o.value === val)?.label
-                      )
-                      .join(', ')
-                  : opt.find((o) => o.value === values[name])?.label ||
-                    placeholder ||
-                    label} */}
-                {(() => {
-                  const selectedOption = opt.find(
-                    (o) => o.value === values[name]
-                  );
-
-                  return selectedOption ? (
-                    <p className="flex items-center justify-between w-full gap-4">
-                      {selectedOption?.icon && iconMap[selectedOption.icon]}
-                      <span>{selectedOption.label}</span>
-                    </p>
-                  ) : (
-                    <span>{placeholder || label}</span>
-                  );
-                })()}
+              <SelectValue placeholder={placeholder ?? label}>
+                {selectedOption ? (
+                  <div className="flex items-center justify-between w-full gap-4">
+                    {selectedOption.icon &&
+                      iconMap[selectedOption.icon]}
+                    <span>{selectedOption.label}</span>
+                  </div>
+                ) : (
+                  <span>{placeholder ?? label}</span>
+                )}
               </SelectValue>
             </SelectTrigger>
+
             {!readonly && (
               <SelectContent className="max-h-[200px]">
                 <SelectGroup>
                   {selectOptionsTitle && (
-                    <SelectLabel>{selectOptionsTitle}</SelectLabel>
+                    <SelectLabel>
+                      {selectOptionsTitle}
+                    </SelectLabel>
                   )}
+
                   {opt?.map((option) => (
                     <SelectItem
-                      className="cursor-pointer w-full"
                       key={option.value}
-                      disabled={option.isDisabled}
                       value={option.value}
+                      disabled={option.isDisabled}
+                      className="cursor-pointer w-full"
                     >
                       <div className="flex items-center justify-between w-full gap-4">
-                        {option.icon && <span>{iconMap[option.icon]}</span>}
+                        {option.icon && (
+                          <span>
+                            {iconMap[option.icon]}
+                          </span>
+                        )}
                         <span>{option.label}</span>
                         {option.info && (
                           <HelpTooltip icon={iconMap['help']}>
@@ -220,10 +222,17 @@ export function DynamicField({
                 </SelectGroup>
               </SelectContent>
             )}
-          </Field>
-          <ErrorMessage errors={errors} id={name} touched={touched} />
+          </Select>
+
+          <ErrorMessage
+            errors={errors}
+            id={name}
+            touched={touched}
+          />
         </div>
       );
+    }
+
     case 'multiselect':
       return (
         <MultiSelectInput
@@ -238,39 +247,44 @@ export function DynamicField({
 
     default:
       return (
-        <div key={name} className={className}>
+        <div className={className}>
           <FormLabelComponent
             help={help}
             label={label}
             id={name}
             required={required}
           />
+
           <Field name={name} validate={validationRules}>
-            {({ field, meta, form }: any) => (
+            {({ field: formikField, form }: any) => (
               <Input
-                {...field}
+                {...formikField}
                 id={name}
                 name={name}
                 icon={icon}
                 type={fieldType}
                 required={required}
                 min={min}
-                value={values[name] || initial || ''}
                 max={max}
                 disabled={disabled}
                 readOnly={readonly}
-                placeholder={(placeholder && placeholder) || label}
+                placeholder={placeholder ?? label}
+                value={currentValue}
+                variant={variant ?? 'outline'}
                 onWheel={(e) => {
-                  e?.preventDefault();
-                  field.onBlur(e);
+                  e.preventDefault();
+                  formikField.onBlur(e);
                   form.setFieldTouched(name, true);
                 }}
-                variant={variant || 'outline'}
               />
             )}
           </Field>
 
-          <ErrorMessage errors={errors} id={name} touched={touched} />
+          <ErrorMessage
+            errors={errors}
+            id={name}
+            touched={touched}
+          />
         </div>
       );
   }
