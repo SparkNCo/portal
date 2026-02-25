@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+/* import { PrismaClient } from "@prisma/client";
 console.log(process.env.DATABASE_URL);
 
 const globalForPrisma = globalThis as unknown as {
@@ -20,3 +20,4 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+ */
