@@ -68,7 +68,7 @@ export async function createRequirements(req: Request): Promise<Response> {
       );
     }
 
-    if (lead_id && discovery_state) {
+    if (lead_id) {
       const { error: leadError } = await supabase
         .from("leads")
         .update({

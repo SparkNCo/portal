@@ -1,19 +1,11 @@
 // @ts-nocheck
 
 import { supabase } from "../client.ts";
+import { corsHeaders } from "../utils/headers.ts";
 import { stripe } from "./client.ts";
 import { balanceSchema, getClientDataQuerySchema, invoiceSchema, paymentMethodSchema, subscriptionSchema } from "./zod.ts";
 
-// 🔹 Consistent CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
 export async function getClientData(req: Request) {
-  // ✅ Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -86,7 +78,6 @@ export async function getClientData(req: Request) {
       limit: 5,
     });
 
-    // 🔹 STEP 3: Build response
     const response = {
       subscription: subscriptionSchema.parse({
         id: subscription.id,

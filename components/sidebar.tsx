@@ -19,16 +19,16 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase-client";
 
 const clientNavItems = [
-  { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
+  { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "chat", label: "Chat", icon: MessageSquare },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
 const developerNavItems = [
-  { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
+  { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "developer", label: "Developer", icon: Code2 },
   { href: "chat", label: "Chat", icon: MessageSquare },
   { href: "documents", label: "Documents", icon: FileText },
@@ -147,24 +147,25 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item) => {
           const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+            pathname === `/dashboard/${item.href}` ||
+            pathname.startsWith(`/dashboard/${item.href}/`);
 
           const hrefWithParams = params ? `${item.href}?${params}` : item.href;
 
           return (
-            <Link
-              key={item.href}
-              href={hrefWithParams}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
+              <Link
+                key={item.href}
+                href={hrefWithParams}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
           );
         })}
       </nav>
@@ -180,9 +181,6 @@ export function Sidebar() {
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {user.email}
             </p>
-            {/*   <p className="text-xs text-muted-foreground truncate">
-              Authenticated
-            </p> */}
           </div>
         </div>
 

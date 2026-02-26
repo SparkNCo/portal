@@ -8,8 +8,8 @@ const statusColors = {
   open: "bg-yellow-100 text-yellow-800",
   void: "bg-gray-100 text-gray-800",
   uncollectible: "bg-red-100 text-red-800",
+  failed: "bg-red-100 text-red-800",
 };
-
 
 type Invoice = {
   id: string;

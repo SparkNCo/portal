@@ -18,7 +18,7 @@ export default function LoginPage() {
     });
 
     if (!error) {
-      router.push("/dashboard/roadmap?id=f12c1e4fa44b");
+      router.push("/dashboard/client?id=f12c1e4fa44b");
     }
   };
 

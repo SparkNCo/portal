@@ -1,20 +1,16 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { corsHeaders } from "../utils/headers.ts";
 import { stripe } from "./client.ts";
 import { paymentMethodBodySchema, portalSessionSchema } from "./zod.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 export async function createCustomerPortal(req: Request) {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
-
   try {
     const body = await req.json();
     const parseResult = paymentMethodBodySchema.safeParse(body);
@@ -59,9 +55,9 @@ export async function createCustomerPortal(req: Request) {
   } catch (err) {
     console.error("Stripe portal error:", err);
 
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: corsHeaders },
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 }
