@@ -22,12 +22,12 @@ serve(async (req) => {
     return getClientData(req);
   }
 
-  if (
-    req.method === "POST" &&
-    url.pathname === "/stripe/create-subscription-product"
-  ) {
-    return createSubscriptionProduct(req);
-  }
+  // if (
+  //   req.method === "POST" &&
+  //   url.pathname === "/stripe/create-subscription-product"
+  // ) {
+  //   return createSubscriptionProduct(req);
+  // }
 
   if (req.method === "POST" && url.pathname === "/stripe/send-payment-link") {
     return sendPaymentLink(req);
@@ -38,6 +38,7 @@ serve(async (req) => {
   }
 
   if (
+    // updatePaymentMethod
     req.method === "POST" &&
     url.pathname === "/stripe/create-customer-portal"
   ) {

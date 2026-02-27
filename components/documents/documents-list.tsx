@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
+import { useAuth } from "../AuthContext";
+import { useSearchParams } from "next/navigation";
 
 /* -----------------------------
    Helpers
@@ -40,9 +42,9 @@ function getFileExtension(name: string) {
    API
 --------------------------------*/
 
-async function fetchDocuments(userId: string) {
+async function fetchDocuments(initiativeId: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${userId}`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?initiative_id=${initiativeId}`,
   );
 
   if (!res.ok) {
@@ -59,14 +61,14 @@ async function fetchDocuments(userId: string) {
 export function DocumentsList() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-
+  const searchParams = useSearchParams();
+  const initiativeId = searchParams.get("id");
   // ⬇️ replace this with your real user id source
-  const userId = "db01891c-5e11-40a7-96f4-3edd475e0aae";
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", userId],
-    queryFn: () => fetchDocuments(userId),
-    enabled: !!userId,
+    queryKey: ["documents", initiativeId],
+    queryFn: () => fetchDocuments(initiativeId),
+    enabled: !!initiativeId,
   });
 
   const documents = useMemo(() => {

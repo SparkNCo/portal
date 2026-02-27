@@ -3,7 +3,6 @@
 import { Header } from "@/components/headerDashboard";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { PriorityTasks } from "@/components/client/priority-tasks";
-import { CardTitle } from "@/components/ui/card";
 import { useSearchParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";

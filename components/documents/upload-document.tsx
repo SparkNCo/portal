@@ -8,6 +8,8 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../AuthContext";
+import { useSearchParams } from "next/navigation";
 
 /* -----------------------------
    Types
@@ -19,18 +21,27 @@ interface UploadedFile {
   status: "uploading" | "complete" | "error";
 }
 
-/* -----------------------------
-   Upload mutation
---------------------------------*/
-
 function useUploadFile() {
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({
+      file,
+      userId,
+      email,
+      initiativeId,
+    }: {
+      file: File;
+      userId: string;
+      email: string;
+      initiativeId: string | null;
+    }) => {
       const formData = new FormData();
+
       formData.append("file", file);
       formData.append("bucket", "documents_bucket");
       formData.append("path", `uploads/${Date.now()}-${file.name}`);
-      formData.append("user_id", `db01891c-5e11-40a7-96f4-3edd475e0aae`);
+      formData.append("user_id", userId);
+      formData.append("email", email);
+      formData.append("initiative_id", initiativeId ?? "");
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "POST",
@@ -54,7 +65,9 @@ export function UploadDocument() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initiativeId = searchParams.get("id");
   const uploadMutation = useUploadFile();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -94,22 +107,30 @@ export function UploadDocument() {
       ]);
       console.log("hola", file);
 
-      uploadMutation.mutate(file, {
-        onSuccess: () => {
-          setUploadedFiles((prev) =>
-            prev.map((f) =>
-              f.name === file.name ? { ...f, status: "complete" } : f,
-            ),
-          );
+      uploadMutation.mutate(
+        {
+          file,
+          userId: user!.id,
+          email: user!.email!,
+          initiativeId: initiativeId,
         },
-        onError: () => {
-          setUploadedFiles((prev) =>
-            prev.map((f) =>
-              f.name === file.name ? { ...f, status: "error" } : f,
-            ),
-          );
+        {
+          onSuccess: () => {
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.name === file.name ? { ...f, status: "complete" } : f,
+              ),
+            );
+          },
+          onError: () => {
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.name === file.name ? { ...f, status: "error" } : f,
+              ),
+            );
+          },
         },
-      });
+      );
     });
   };
 

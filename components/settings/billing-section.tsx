@@ -6,9 +6,13 @@ import { InvoicesPanel } from "./billing-panels/invoices-panel";
 import { PendingBalancePanel } from "./billing-panels/pending-balance";
 import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
+import { useAuth } from "../AuthContext";
 
-export async function fetchBillingData() {
+export async function fetchBillingData({ user }: { user: any }) {
+  console.log("USER", user);
+
   const res = await fetch(
+    //  `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?email=${user?.email}`,
     `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?email=santiaguero@gmail.com`,
   );
 
@@ -51,6 +55,7 @@ export function BillingSection({
   isLoading: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const updatePaymentMethodMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -81,7 +86,7 @@ export function BillingSection({
   });
 
   const handleUpdatePaymentMethod = () => {
-    updatePaymentMethodMutation.mutate("santiaguero@gmail.com");
+    updatePaymentMethodMutation.mutate(`${user?.email}`);
   };
 
   /* ---------------- Balance calc ---------------- */

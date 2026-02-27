@@ -49,7 +49,9 @@ export const UploadStorageInputSchema = z.object({
   file: z.instanceof(File),
   bucket: z.string().min(1),
   path: z.string().min(1),
-  owner_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  email: z.string(),
+  initiative_id: z.string(),
   category: z.string().min(1),
 });
 
