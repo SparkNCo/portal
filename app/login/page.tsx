@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -18,7 +16,7 @@ export default function LoginPage() {
     });
 
     if (!error) {
-      router.push("/dashboard/client?id=f12c1e4fa44b");
+     // router.push("/dashboard/client?id=f12c1e4fa44b");
     }
   };
 

@@ -55,9 +55,6 @@ export function Sidebar() {
 
   const [user, setUser] = useState<AppUser | null>(null);
 
-  /* -------------------------
-     Load session
-  --------------------------*/
   useEffect(() => {
     const initUser = async () => {
       const { data } = await supabase.auth.getUser();

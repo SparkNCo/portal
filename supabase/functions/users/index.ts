@@ -3,7 +3,6 @@ import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 Deno.serve(async (req) => {
-  // 🔥 CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders,
@@ -12,11 +11,7 @@ Deno.serve(async (req) => {
 
   try {
     const { searchParams } = new URL(req.url);
-
-    console.log("LLAMA FETCHUSER");
-
     const email = searchParams.get("email");
-    console.log("email", email);
 
     if (!email) {
       return new Response(
@@ -61,7 +56,7 @@ const fetchUser = async (email: string) => {
     .from("users")
     .select("*")
     .eq("email", email)
-    .maybeSingle(); // mejor que single
+    .maybeSingle(); 
 
   if (error) {
     throw new Error(error.message);

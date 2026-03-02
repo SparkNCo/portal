@@ -63,11 +63,10 @@ export function DocumentsList() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
-  // ⬇️ replace this with your real user id source
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["documents", initiativeId],
-    queryFn: () => fetchDocuments(initiativeId),
+    queryFn: () => fetchDocuments(initiativeId!),
     enabled: !!initiativeId,
   });
 
