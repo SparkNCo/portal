@@ -97,15 +97,6 @@ export default function RoadmapPage() {
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
-      <div onClick={() => console.log({ roadmap })}>VER roadmap</div>
-
-      <div
-        className="text-foreground"
-        onClick={() => console.log({ allMilestones })}
-      >
-        VER allMilestones
-      </div>
-
       <div className="p-6 space-y-6">
         <RoadmapTimeline projectMilestones={allMilestones} />
 
