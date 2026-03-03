@@ -117,7 +117,7 @@ export function WelcomeProposalTemplateHtml({
               </td>
             </tr>
 
-            <!-- Divider -->
+           <!-- Divider -->
             <tr>
               <td style="padding:26px 0;">
                 <hr style="border:none;border-top:1px solid #eaeaea;" />
@@ -125,17 +125,24 @@ export function WelcomeProposalTemplateHtml({
             </tr>
 
             <tr>
-            <td align="center" style="padding:26px 0;">
-              <a href="https://www.youtube.com/watch?v=Fi3_BjVzpqk" target="_blank">
-                <img
-                  src="https://ozybsusoollnomaaxkcy.supabase.co/storage/v1/object/public/assets/embedThumbnailMail.png"
-                  alt="Watch our introduction video"
-                  width="100%"
-                  style="max-width:420px;border-radius:6px;display:block;"
-                />
-              </a>
-            </td>
-          </tr>
+              <td style="font-size:14px;line-height:24px;color:#000;padding-bottom:12px;text-align:center;">
+                Spark &amp; Co has you covered for the full software development life cycle. 
+                Here's a useful resource to learn more about what that entails.
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:26px 0;">
+                <a href="https://www.youtube.com/watch?v=Fi3_BjVzpqk" target="_blank">
+                  <img
+                    src="https://ozybsusoollnomaaxkcy.supabase.co/storage/v1/object/public/assets/embedThumbnailMail.png"
+                    alt="Watch our introduction video"
+                    width="100%"
+                    style="max-width:420px;border-radius:6px;display:block;"
+                  />
+                </a>
+              </td>
+            </tr>
 
  
           </table>
