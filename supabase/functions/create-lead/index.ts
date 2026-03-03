@@ -74,33 +74,33 @@ Deno.serve(async (req) => {
     /* -------------------------------------------------
      * 1. Scheduling (hardcoded for now)
      * ------------------------------------------------- */
-    const bookingPayload = {
-      eventTypeId: 4270039,
-      start: body?.selectedTime.start,
-      attendee: {
-        name: body?.name,
-        email: body?.email,
-        timeZone: "America/Toronto",
-        language: "en",
-      },
+    // const bookingPayload = {
+    //   eventTypeId: 4270039,
+    //   start: body?.selectedTime.start,
+    //   attendee: {
+    //     name: body?.name,
+    //     email: body?.email,
+    //     timeZone: "America/Toronto",
+    //     language: "en",
+    //   },
 
-      metadata: {},
-    };
+    //   metadata: {},
+    // };
 
-    const bookingRes = await fetch("https://api.cal.com/v2/bookings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("CAL_KEY")}`,
-        "cal-api-version": "2024-08-13",
-      },
-      body: JSON.stringify(bookingPayload),
-    });
+    // const bookingRes = await fetch("https://api.cal.com/v2/bookings", {
+    //   method: "POST",
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     Authorization: `Bearer ${Deno.env.get("CAL_KEY")}`,
+    //     "cal-api-version": "2024-08-13",
+    //   },
+    //   body: JSON.stringify(bookingPayload),
+    // });
 
-    const bookingData = await bookingRes.json();
-    const schedulingUrl = bookingData?.data?.meetingUrl ?? body.scheduling_url;
+    // const bookingData = await bookingRes.json();
+    // const schedulingUrl = bookingData?.data?.meetingUrl ?? body.scheduling_url;
     //* Change to bookingRes commented on top for real booking
-    //*   const schedulingUrl = "https://cal.com/kabir-malkani-glnivq/15min";
+    const schedulingUrl = "https://cal.com/kabir-malkani-glnivq/15min";
 
     /* -------------------------------------------------
      * 2. Insert lead into Supabase
@@ -149,12 +149,20 @@ Deno.serve(async (req) => {
 
       const redirectUrl = body.redirect_url || "https://buildwithspark.co";
 
+      const formattedCallTime = new Date(
+        body?.selectedTime.start,
+      ).toLocaleString("en-US", {
+        dateStyle: "full",
+        timeStyle: "short",
+      });
+
       await sendWelcomeMail({
         email: data.email,
         name: data.name,
         leadId: lead.lead_id,
         schedulingUrl,
         proposalLink: `${redirectUrl}/proposal?mode=features&passcode=${proposalData.passcode}`,
+        callTime: formattedCallTime,
       });
 
       await supabase
