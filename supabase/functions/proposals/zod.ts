@@ -16,43 +16,38 @@ const LeadSchema = z.object({
 export const ProposalSchema = z.object({
   proposal_id: z.string().uuid(),
   lead_id: z.string().uuid().nullable(),
-
   creator_email: z.string().email().nullable(),
   passcode: z.string(),
-
   stage: z.string().nullable(),
   signature_url: z.string().nullable(),
   signed_at: z.string().nullable(),
-
   created_at: z.string(),
   updated_at: z.string().nullable(),
-
   client_name: z.string().nullable(),
   provider_name: z.string().nullable(),
   proposal_title: z.string().nullable(),
   proposal_date: z.string().nullable(),
   valid_until: z.string().nullable(),
-
-  executive_summary: z.string().nullable(),
-  problem_context: z.string().nullable(),
-  solution_overview: z.string().nullable(),
-  acceptance_completion_criteria: z.string().nullable(),
-  total_duration: z.string().nullable(),
-
-  objectives: z.unknown().nullable(),
-  scope_of_work: z.unknown().nullable(),
+  summary: z.unknown().nullable(),
+  problem_and_context: z.unknown().nullable(),
+  solution_overview: z.unknown().nullable(),
+  objectives_and_success_criteria: z.unknown().nullable(),
+  pricing_and_commercial: z.unknown().nullable(),
+  timeline_and_milestones: z.unknown().nullable(),
   deliverables: z.unknown().nullable(),
-  assumptions_dependencies: z.unknown().nullable(),
-  client_responsibilities: z.unknown().nullable(),
-  timeline_milestones: z.unknown().nullable(),
-  team_communication: z.unknown().nullable(),
-  technology_architecture: z.unknown().nullable(),
-  change_management: z.unknown().nullable(),
-  pricing_commercial_terms: z.unknown().nullable(),
-  risk_responsibility_boundaries: z.unknown().nullable(),
+  assumptions_and_dependencies: z.unknown().nullable(),
+  risk_and_responsabilities: z.unknown().nullable(),
+  change_management_process: z.unknown().nullable(),
   next_steps: z.unknown().nullable(),
+  assurance_and_quality: z.unknown().nullable(),
+  history_and_case_studies: z.unknown().nullable(),
+  technology_and_architecture: z.unknown().nullable(),
+  team_and_communication: z.unknown().nullable(),
+  disclaimer: z.unknown().nullable(),
   signatures: z.unknown().nullable(),
+  summary_items: z.unknown().nullable(),
 });
+
 export const SignProposalSchema = z.object({
   proposalId: z.string().min(1),
   signatureBase64: z
@@ -87,42 +82,45 @@ export const ProposalWithLeadSchema = z.object({
   passcode: z.string(),
   stage: z.string().nullable(),
 
-  // Cover page
+  /* ---------------- COVER PAGE ---------------- */
+
   client_name: z.string().nullable(),
   provider_name: z.string().nullable(),
   proposal_title: z.string().nullable(),
   proposal_date: z.string().nullable(),
   valid_until: z.string().nullable(),
 
-  // Narrative
-  executive_summary: z.string().nullable(),
-  problem_context: z.string().nullable(),
-  solution_overview: z.string().nullable(),
-  acceptance_completion_criteria: z.string().nullable(),
-  total_duration: z.string().nullable(),
+  /* ---------------- SECTIONS ---------------- */
 
-  // JSONB sections
-  objectives: z.unknown().nullable(),
-  scope_of_work: z.unknown().nullable(),
+  summary: z.unknown().nullable(),
+  problem_and_context: z.unknown().nullable(),
+  solution_overview: z.unknown().nullable(),
+
+  objectives_and_success_criteria: z.unknown().nullable(),
   deliverables: z.unknown().nullable(),
-  assumptions_dependencies: z.unknown().nullable(),
-  client_responsibilities: z.unknown().nullable(),
-  timeline_milestones: z.unknown().nullable(),
-  team_communication: z.unknown().nullable(),
-  technology_architecture: z.unknown().nullable(),
-  change_management: z.unknown().nullable(),
-  pricing_commercial_terms: z.unknown().nullable(),
-  risk_responsibility_boundaries: z.unknown().nullable(),
+  assumptions_and_dependencies: z.unknown().nullable(),
+  team_and_communication: z.unknown().nullable(),
+  technology_and_architecture: z.unknown().nullable(),
+  change_management_process: z.unknown().nullable(),
+  pricing_and_commercial: z.unknown().nullable(),
+  risk_and_responsabilities: z.unknown().nullable(),
+  assurance_and_quality: z.unknown().nullable(),
+  history_and_case_studies: z.unknown().nullable(),
+  timeline_and_milestones: z.unknown().nullable(),
   next_steps: z.unknown().nullable(),
-  signatures: z.unknown().nullable(),
 
-  // Signing / audit
+  /* ---------------- SIGNING ---------------- */
+
   signature_url: z.string().nullable(),
   signed_at: z.string().nullable(),
+
+  /* ---------------- AUDIT ---------------- */
+
   created_at: z.string(),
   updated_at: z.string().nullable(),
 
-  // Lead join
+  /* ---------------- LEAD JOIN ---------------- */
+
   lead: z
     .object({
       description: z.string().nullable(),

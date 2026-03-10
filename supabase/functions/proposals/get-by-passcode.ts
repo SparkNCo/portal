@@ -34,52 +34,53 @@ export async function getByPasscode(req: Request): Promise<Response> {
       .from("proposals")
       .select(
         `
-        proposal_id,
-        lead_id,
-        creator_email,
-        passcode,
-        stage,
+    proposal_id,
+    lead_id,
+    creator_email,
+    passcode,
+    stage,
 
-        client_name,
-        provider_name,
-        proposal_title,
-        proposal_date,
-        valid_until,
+    client_name,
+    provider_name,
+    proposal_title,
+    proposal_date,
+    valid_until,
 
-        executive_summary,
-        problem_context,
-        solution_overview,
-        acceptance_completion_criteria,
-        total_duration,
+    summary,
+    problem_and_context,
+    solution_overview,
 
-        objectives,
-        scope_of_work,
-        deliverables,
-        assumptions_dependencies,
-        client_responsibilities,
-        timeline_milestones,
-        team_communication,
-        technology_architecture,
-        change_management,
-        pricing_commercial_terms,
-        risk_responsibility_boundaries,
-        next_steps,
-        signatures,
+    objectives_and_success_criteria,
+    deliverables,
+    assumptions_and_dependencies,
+    team_and_communication,
+    technology_and_architecture,
+    change_management_process,
+    pricing_and_commercial,
+    risk_and_responsabilities,
+    assurance_and_quality,
+    history_and_case_studies,
+    timeline_and_milestones,
+    next_steps,
 
-        signature_url,
-        signed_at,
-        created_at,
-        updated_at,
+    disclaimer,
+    summary_items,
+    signatures,
 
-        lead:lead_id (
-          description,
-          formatted_date,
-          estimateTime_min,
-          estimateTime_max,
-          budget_min,
-          budget_max
-        )
-      `,
+    signature_url,
+    signed_at,
+    created_at,
+    updated_at,
+
+    lead:lead_id (
+      description,
+      formatted_date,
+      estimateTime_min,
+      estimateTime_max,
+      budget_min,
+      budget_max
+    )
+  `,
       )
       .eq("passcode", passcode)
       .maybeSingle();

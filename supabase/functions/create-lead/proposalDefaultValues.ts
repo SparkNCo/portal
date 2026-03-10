@@ -1,62 +1,19 @@
-type SummaryItem = {
-  title: string;
-  content: string;
-};
+// @ts-nocheck
+import {
+  Assumption,
+  CostBreakdownItem,
+  Deliverable,
+  Dependency,
+  Milestones,
+  PaymentMilestone,
+  ScopeList,
+  ScopeSection,
+  StackItem,
+  SummaryItem,
+  TeamMember,
+  TotalInvestment,
+} from "./defaultValuesInterfaces.ts";
 
-interface ScopeSection {
-  title: string;
-  bullets: string[];
-}
-
-interface ScopeList {
-  title: string;
-  items: string[];
-}
-
-interface Deliverable {
-  title: string;
-  items: string[];
-}
-
-interface Dependency {
-  week: string;
-  description: string;
-}
-interface Milestones {
-  phase: string;
-  duration: string;
-  tasks: string[];
-}
-type TeamMember = {
-  name: string;
-  role: string;
-  description: string;
-  commitment: string;
-};
-
-type StackItem = {
-  label: string;
-  value: string;
-};
-interface Assumption {
-  title: string;
-  description: string;
-}
-
-interface PaymentMilestone {
-  milestone: string;
-  percentage: string;
-  amount: string;
-  trigger: string;
-}
-interface TotalInvestment {
-  amount: string;
-  note: string;
-}
-interface CostBreakdownItem {
-  label: string;
-  amount: string;
-}
 export type StackSection = {
   title: string;
   items: StackItem[];
