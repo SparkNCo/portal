@@ -14,6 +14,11 @@ export const Disclaimer: object[] = [
     type: "subtitle",
     content: "Similar Cases",
   },
+  {
+    type: "text",
+    content:
+      "Founded in 2018, Spark & Co is a boutique software development agency specializing in enterprise digital transformation. Our team of 45+ engineers has delivered over 120 successful projects across manufacturing, healthcare, and financial services sectors. We maintain a 98% client satisfaction rate and 87% of our clients engage us for additional projects.",
+  },
 ];
 
 export const TimelIneAndMileStones = [
@@ -117,9 +122,9 @@ export const NextSteps = [
 export const AssuranceAndQuality = [
   {
     type: "list",
-    title: "Assurance & Quality",
+    title: "Risk Mitigation",
     content: {
-      subtype: "numbered",
+      subtype: "checked",
       items: [
         "Weekly security vulnerability scans throughout development",
         "Automated backup systems with 99.999% durability guarantee",
@@ -239,7 +244,7 @@ export const HistoryAndCaseStudies = [
     content: "Similar Cases",
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Cases",
     title: "TechManufacturing Inc.",
     content: [
@@ -259,7 +264,7 @@ export const HistoryAndCaseStudies = [
     ],
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Cases",
     title: "TechManufacturing Inc.",
     content: [
@@ -279,7 +284,7 @@ export const HistoryAndCaseStudies = [
     ],
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Reference",
     content: [
       {
@@ -292,7 +297,7 @@ export const HistoryAndCaseStudies = [
     ],
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Reference",
     content: [
       {
@@ -312,7 +317,7 @@ export const TecnologhyAndArchitecture = [
     content: "Technology Stack",
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Technology",
     title: "AWS (EC2, RDS, S3, CloudFront)",
     content: [
@@ -324,7 +329,7 @@ export const TecnologhyAndArchitecture = [
     ],
   },
   {
-    type: "Card",
+    type: "card",
     subtype: "Technology",
     title: "Node.js + TypeScript",
     content: [
@@ -341,72 +346,25 @@ export const TeamAndCommunication = [
     type: "subtitle",
     content: "Team Members",
   },
+
   {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
+    type: "grid",
+    columns: 2,
     content: [
       {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
+        type: "card",
+        subtype: "Team",
+        title: "Team Member",
+        content: [
+          {
+            Purpose: "Role",
+            Motive: "Allocation",
+          },
+        ],
       },
     ],
   },
-  {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
-    content: [
-      {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
-      },
-    ],
-  },
-  {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
-    content: [
-      {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
-      },
-    ],
-  },
-  {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
-    content: [
-      {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
-      },
-    ],
-  },
-  {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
-    content: [
-      {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
-      },
-    ],
-  },
-  {
-    type: "Card",
-    subtype: "Team",
-    title: "Sarah Chen",
-    content: [
-      {
-        Purpose: "Project Manager",
-        Motive: "25% (10 hrs/week)",
-      },
-    ],
-  },
+
   {
     type: "subtitle",
     content: "Project Governance (RACI Matrix)",
@@ -430,50 +388,8 @@ export const TeamAndCommunication = [
           "Client Stakeholders",
           "Development Team",
         ],
-        [
-          "Project Planning & Strategy",
-          "Project Manager",
-          "Solution Architect",
-          "Client Stakeholders",
-          "Development Team",
-        ],
-        [
-          "Project Planning & Strategy",
-          "Project Manager",
-          "Solution Architect",
-          "Client Stakeholders",
-          "Development Team",
-        ],
-      ],
-      footer: ["Total Investment", "$185,000"],
-    },
-  },
-  {
-    type: "subtitle",
-    content: "Communication Channels",
-  },
-
-  {
-    type: "list",
-    content: {
-      subtype: "numbered",
-      items: [
-        "Review this proposal thoroughly and discuss any questions with your team",
-        "Sign the Master Service Agreement if not already in place",
-        "Accept this proposal using the button below or schedule a call to discuss",
-        "Provide initial system access and credentials",
-        "Schedule project kickoff meeting for week of March 11, 2026",
       ],
     },
-  },
-  {
-    type: "subtitle",
-    content: "Meeting Cadence",
-  },
-  {
-    type: "text",
-    content:
-      "Bi-weekly sprint reviews (2 hours), weekly status calls (30 minutes), and monthly steering committee meetings with executive stakeholders",
   },
 ];
 

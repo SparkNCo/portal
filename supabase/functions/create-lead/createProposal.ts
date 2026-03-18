@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { proposalMockData } from "./proposalMockData.ts";
 import { supabase } from "../client.ts";
 import { CreateProposalInputSchema } from "./zod.ts";
-import { ProposalSchema } from "../proposals/zod.ts";
+import { CreateProposalSchema, ProposalSchema } from "../proposals/zod.ts";
 
 export const createProposal = async (
   input: z.infer<typeof CreateProposalInputSchema>,
@@ -103,7 +103,7 @@ export const createProposal = async (
   console.log("[createProposal] Created proposal:", proposal);
   // ✅ Validate returned shape
 
-  const parsedProposal = ProposalSchema.safeParse(proposal);
+  const parsedProposal = CreateProposalSchema.safeParse(proposal);
 
   if (!parsedProposal.success) {
     console.error(

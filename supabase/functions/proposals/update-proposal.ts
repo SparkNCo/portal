@@ -7,7 +7,6 @@ import { corsHeaders } from "../utils/headers.ts";
 export async function updateProposal(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-
     const parsed = UpdateProposalBodySchema.safeParse(body);
 
     if (!parsed.success) {
