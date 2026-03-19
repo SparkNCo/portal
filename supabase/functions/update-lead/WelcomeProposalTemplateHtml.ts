@@ -8,7 +8,6 @@ type WelcomeProposalTemplateProps = {
 
 export function WelcomeProposalTemplateHtml({
   name,
-  schedulingUrl,
   proposalLink,
   callTime,
 }: WelcomeProposalTemplateProps) {

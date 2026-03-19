@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { createProposal } from "./createProposal.ts";
-import { sendWelcomeMail } from "./sendWelcomeEmail.ts";
 import { supabase } from "../client.ts";
 import { CreateSubmissionSchema } from "./zod.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { sendWelcomeMail } from "./sendWelcomeEmail.ts";
 
 /* -------------------------------------------------
  * 1. (Optional) Cal.com booking
@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
         scheduling_url: schedulingUrl,
         booking_status: "confirmed",
         email_sent: false,
+        build_scale: data.build_scale,
       })
       .select()
       .single();

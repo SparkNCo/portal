@@ -13,17 +13,11 @@ Deno.serve(async (req) => {
 
   try {
     const { searchParams } = new URL(req.url);
-
     const rawId = searchParams.get("url");
     const contentType = searchParams.get("contentType");
-
-    console.log("🔍 Params:", { rawId, contentType });
-
     const url = rawId ? decodeURIComponent(rawId) : null;
 
-    // -------- GET --------
     if (req.method === "GET") {
-      // ❗ Validación correcta
       if (!url && !contentType) {
         return new Response(
           JSON.stringify({ error: "Provide url or contentType" }),
@@ -36,8 +30,6 @@ Deno.serve(async (req) => {
           },
         );
       }
-
-      // ❗ Evitar ambigüedad
       if (url && contentType) {
         return new Response(
           JSON.stringify({ error: "Use either url OR contentType" }),
@@ -51,7 +43,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // 👉 Fetch por url
       if (url) {
         const post = await getPostByURL(url);
 
@@ -63,7 +54,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // 👉 Fetch por contentType
       if (contentType) {
         const posts = await getAllPosts({ contentType });
 
@@ -76,7 +66,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // -------- PATCH --------
     if (req.method === "PATCH") {
       if (!url) {
         return new Response(
@@ -92,12 +81,9 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json();
-
       const { title, author, tags, slide_two, slide_three, slide_three_title } =
         body;
-
       const updateData: Record<string, any> = {};
-
       if (title !== undefined) updateData.title = title;
       if (author !== undefined) updateData.author = author;
       if (tags !== undefined) updateData.tags = tags;

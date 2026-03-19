@@ -99,7 +99,6 @@ export const createProposal = async (
     throw new Error("Failed to create proposal");
   }
 
-
   console.log("[createProposal] Created proposal:", proposal);
   // ✅ Validate returned shape
 
