@@ -9,8 +9,6 @@ import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 
 export default function RoadmapPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const params = useParams();
   const slug = params.slug as string;
 

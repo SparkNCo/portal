@@ -74,33 +74,33 @@ Deno.serve(async (req) => {
     /* -------------------------------------------------
      * 1. Scheduling (hardcoded for now)
      * ------------------------------------------------- */
-    // const bookingPayload = {
-    //   eventTypeId: 4270039,
-    //   start: body?.selectedTime.start,
-    //   attendee: {
-    //     name: body?.name,
-    //     email: body?.email,
-    //     timeZone: "America/Toronto",
-    //     language: "en",
-    //   },
+    const bookingPayload = {
+      eventTypeId: 4270039,
+      start: body?.selectedTime.start,
+      attendee: {
+        name: body?.name,
+        email: body?.email,
+        timeZone: "America/Toronto",
+        language: "en",
+      },
 
-    //   metadata: {},
-    // };
+      metadata: {},
+    };
 
-    // const bookingRes = await fetch("https://api.cal.com/v2/bookings", {
-    //   method: "POST",
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     Authorization: `Bearer ${Deno.env.get("CAL_KEY")}`,
-    //     "cal-api-version": "2024-08-13",
-    //   },
-    //   body: JSON.stringify(bookingPayload),
-    // });
+    const bookingRes = await fetch("https://api.cal.com/v2/bookings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("CAL_KEY")}`,
+        "cal-api-version": "2024-08-13",
+      },
+      body: JSON.stringify(bookingPayload),
+    });
 
     // const bookingData = await bookingRes.json();
     // const schedulingUrl = bookingData?.data?.meetingUrl ?? body.scheduling_url;
     //* Change to bookingRes commented on top for real booking
-    const schedulingUrl = "https://cal.com/kabir-malkani-glnivq/15min";
+    //  const schedulingUrl = "https://cal.com/kabir-malkani-glnivq/15min";
 
     /* -------------------------------------------------
      * 2. Insert lead into Supabase
@@ -108,8 +108,7 @@ Deno.serve(async (req) => {
 
     const { data: lead, error: leadError } = await supabase
       .from("leads")
-      .insert({
-        lead_id: leadId,
+      .update({
         first_name: data.name,
         email: data.email,
         company: data.companyName,
@@ -125,6 +124,7 @@ Deno.serve(async (req) => {
         email_sent: false,
         build_scale: data.build_scale,
       })
+      .eq("email", data.email)
       .select()
       .single();
 

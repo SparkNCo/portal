@@ -1,7 +1,6 @@
 // @ts-nocheck
-
 import { corsHeaders } from "../utils/headers.ts";
-import { getCustomerData } from "./getCustomerData.ts";
+import { createAssignment } from "./createAssignment.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -10,13 +9,14 @@ Deno.serve(async (req) => {
       headers: corsHeaders,
     });
   }
+
   try {
     const url = new URL(req.url);
     const { pathname } = url;
-
-    if (req.method === "GET") {
-      return getCustomerData(req);
+    if (req.method === "POST") {
+      return createAssignment(req);
     }
+
     return new Response(JSON.stringify({ error: "Route not found" }), {
       status: 404,
       headers: {
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
-    console.error("[Customer API Error]", error);
+    console.error("[Assignment API Error]", error);
 
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

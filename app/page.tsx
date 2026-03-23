@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -23,7 +23,9 @@ export default function LoginPage() {
     queryKey: ["customer", sessionEmail],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/login?email=${sessionEmail}`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(
+          sessionEmail!,
+        )}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -37,15 +39,29 @@ export default function LoginPage() {
         throw new Error("Failed to fetch customer");
       }
 
-      return res.json();
+      const data = await res.json();
+
+      // ✅ log backend response
+      console.log("Backend response:", data);
+
+      return data;
     },
-    enabled: Boolean(sessionEmail),
+    enabled: !!sessionEmail,
   });
 
-  if (customer) {
-    // router.push(`/${customer.linear_slug}/dashboard`);
-    router.push(`/${customer.linear_name}/dashboard/client`);
-  }
+  // ✅ handle side effects properly
+  useEffect(() => {
+    if (customer) {
+      console.log("Customer from query:", customer);
+
+      // 🚫 navigation disabled for now
+      router.push(`/${customer.linear_name}/dashboard/client`);
+    }
+
+    if (customerError) {
+      console.error("Customer error:", customerError);
+    }
+  }, [customer, customerError]);
 
   const login = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -74,7 +90,8 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    setSessionEmail(user.email);
+
+    setSessionEmail(user.email); // 🔥 triggers React Query
     setLoading(false);
   };
 
