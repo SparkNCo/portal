@@ -22,6 +22,11 @@ const STATUS_COLORS: Record<string, string> = {
   "Not Started": "hsl(var(--muted))",
   Todo: "hsl(var(--muted))",
   Canceled: "hsl(var(--muted))",
+  QA: "hsl(210, 70%, 35%)",              
+  Development: "hsl(30, 100%, 35%)",     
+  UAT: "hsl(180, 60%, 30%)",              
+  Backlog: "hsl(0, 0%, 30%)",            
+  Planning: "hsl(50, 90%, 35%)",         
 };
 
 type TooltipProps = {
@@ -87,8 +92,9 @@ export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
               cy="50%"
               innerRadius={40}
               outerRadius={60}
-              paddingAngle={2}
+              paddingAngle={0}
               dataKey="value"
+              stroke="none"
             >
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
