@@ -6,7 +6,7 @@ import { corsHeaders } from "../utils/headers.ts";
 export const createAssignment = async (req: Request) => {
   try {
     const body = await req.json();
-    const { user_id, customer_id } = body;
+    const { user_id, customer_id, role, allocation } = body;
 
     if (!user_id || !customer_id) {
       return new Response(
@@ -20,6 +20,10 @@ export const createAssignment = async (req: Request) => {
         },
       );
     }
+
+    // 🧠 Defaults
+    const finalRole = role || "developer";
+    const finalAllocation = allocation ?? 40;
 
     // 🔍 Check if already exists
     const { data: existing } = await supabase
@@ -46,6 +50,9 @@ export const createAssignment = async (req: Request) => {
         {
           user_id,
           customer_id,
+          role: finalRole,
+          allocation: finalAllocation,
+          joined: new Date().toISOString(),
         },
       ])
       .select()

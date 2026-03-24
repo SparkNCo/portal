@@ -118,7 +118,7 @@ export default function LoginForm({
           </label>
           <input
             id="email"
-            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary text-background"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -135,7 +135,7 @@ export default function LoginForm({
           <input
             id="password"
             type="password"
-            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary "
+            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary text-background"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

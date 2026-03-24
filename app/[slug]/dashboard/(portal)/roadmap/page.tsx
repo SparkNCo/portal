@@ -4,7 +4,7 @@ import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter, useParams } from "next/navigation";
+import {  useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 

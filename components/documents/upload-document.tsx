@@ -10,10 +10,7 @@ import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
 import { useSearchParams } from "next/navigation";
-
-/* -----------------------------
-   Types
---------------------------------*/
+import { useUser } from "context/UserContext";
 
 interface UploadedFile {
   name: string;
@@ -22,6 +19,8 @@ interface UploadedFile {
 }
 
 function useUploadFile() {
+  const { user, profile, loading } = useUser();
+
   return useMutation({
     mutationFn: async ({
       file,
@@ -39,7 +38,7 @@ function useUploadFile() {
       formData.append("file", file);
       formData.append("bucket", "documents_bucket");
       formData.append("path", `uploads/${Date.now()}-${file.name}`);
-      formData.append("user_id", userId);
+      formData.append("user_id", user?.id);
       formData.append("email", email);
       formData.append("initiative_id", initiativeId ?? "");
 
@@ -226,13 +225,6 @@ export function UploadDocument() {
             ))}
           </div>
         )}
-
-        {/*   <Button
-          className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-          disabled={uploadedFiles.length === 0}
-        >
-          Submit Documents
-        </Button> */}
       </CardContent>
     </Card>
   );

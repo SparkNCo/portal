@@ -12,7 +12,6 @@ import {
   Settings,
 } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
@@ -22,6 +21,9 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useUpdateDocument } from "./update-document-entry";
+import { useUser } from "context/UserContext";
+import { Share2 } from "lucide-react";
+import { ShareDocumentModal } from "./ShareDocumentModal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -40,11 +42,46 @@ const categoryColors: Record<string, string> = {
 
 const CATEGORIES = ["Reports", "Technical", "Design"];
 
-export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
+export function DocumentRow({
+  filteredDocs,
+  userId,
+}: {
+  filteredDocs: any[];
+  userId: string | undefined;
+}) {
   const updateMutation = useUpdateDocument();
+  const { user, profile, loading } = useUser();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [emails, setEmails] = useState<string>("");
+  const handleDownload = async (doc: any) => {
+    try {
+      setDownloadingId(doc.id);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}`,
+      );
+
+      const { url } = await res.json();
+
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className="space-y-2">
+      <ShareDocumentModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        document={selectedDoc}
+        id={userId}
+      />
+
       {filteredDocs.map((doc) => {
         const FormatIcon =
           formatIcons[doc.format as keyof typeof formatIcons] || File;
@@ -105,7 +142,7 @@ export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
                       )}
                       onClick={() =>
                         updateMutation.mutate({
-                          id: doc.id,
+                          id: user.id,
                           category,
                         })
                       }
@@ -125,13 +162,32 @@ export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
                 <ExternalLink className="h-4 w-4" />
               </Button>
 
+              {doc.permission === "write" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    setSelectedDoc(doc);
+                    setIsShareOpen(true);
+                  }}
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => window.open(doc.link)}
+                onClick={() => handleDownload(doc)}
               >
-                <Download className="h-4 w-4" />
+                <Download
+                  className={cn(
+                    "h-4 w-4",
+                    downloadingId === doc.id && "animate-pulse",
+                  )}
+                />{" "}
               </Button>
             </div>
           </div>

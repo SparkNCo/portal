@@ -13,13 +13,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../AuthContext";
 
 const tabs = [
-  { id: "documents", label: "Documents", icon: FileText },
-  { id: "billing", label: "Billing", icon: CreditCard },
+  // { id: "documents", label: "Documents", icon: FileText },
   { id: "staffing", label: "Staffing", icon: Users },
+  { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
 export function SettingsTabs() {
-  const [activeTab, setActiveTab] = useState("documents");
+  const [activeTab, setActiveTab] = useState("staffing");
   const { user } = useAuth();
 
   const {

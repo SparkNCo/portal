@@ -57,8 +57,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await res.json();
 
-        console.log("Context profile:", data); // 👈 debug
-
         setProfile(data);
       } catch (err) {
         console.error("Context fetch error:", err);

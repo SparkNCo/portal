@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useAuth } from "../AuthContext";
 import { useSearchParams } from "next/navigation";
+import { useUser } from "context/UserContext";
+import { permission } from "node:process";
 
 /* -----------------------------
    Helpers
@@ -38,14 +40,11 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-/* -----------------------------
-   API
---------------------------------*/
-
-async function fetchDocuments(initiativeId: string) {
+async function fetchDocuments(id: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?initiative_id=${initiativeId}`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${id}`,
   );
+  console.log("documents", res);
 
   if (!res.ok) {
     throw new Error("Failed to fetch documents");
@@ -54,20 +53,17 @@ async function fetchDocuments(initiativeId: string) {
   return res.json();
 }
 
-/* -----------------------------
-   Component
---------------------------------*/
-
 export function DocumentsList() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
+  const { user, profile, loading } = useUser();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["documents", initiativeId],
-    queryFn: () => fetchDocuments(initiativeId!),
-    enabled: !!initiativeId,
+    queryFn: () => fetchDocuments(profile?.id!),
+    enabled: !!profile?.id,
   });
 
   const documents = useMemo(() => {
@@ -80,6 +76,7 @@ export function DocumentsList() {
       date: new Date(doc.created_at).toLocaleDateString(),
       size: doc.size,
       link: doc.link,
+      permission: doc.permission,
       format: getFileExtension(doc.file_name),
     }));
   }, [data]);
@@ -156,7 +153,7 @@ export function DocumentsList() {
           </div>
         )}
 
-        <DocumentRow filteredDocs={filteredDocs} />
+        <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
       </CardContent>
     </Card>
   );
