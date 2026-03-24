@@ -83,12 +83,24 @@ export function StaffingSection({ customerId }: { customerId: string }) {
         <Button
           size="sm"
           className="bg-accent text-accent-foreground hover:bg-accent/90"
-          onClick={() =>
-            window.open(
-              `https://cal.com/your-username?notes=Customer:${customerId}`,
-              "_blank",
-            )
-          }
+          onClick={() => {
+            const calLink = new URL(
+              "https://cal.com/kabir-malkani-glnivq/15min",
+            );
+
+            if (customerId) {
+              calLink.searchParams.set("notes", `Customer ID: ${customerId}`);
+            }
+
+            const firstEmail = assignments[0]?.users?.email;
+            calLink.searchParams.set(
+              "attendee_email",
+              firstEmail || user?.email || "",
+            );
+
+            // Open booking page in a new tab
+            window.open(calLink.toString(), "_blank");
+          }}
         >
           <Plus className="h-4 w-4 mr-1" />
           Request Change
