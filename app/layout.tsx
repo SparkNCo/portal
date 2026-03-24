@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={geistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
+      <body className="bg-background text-foreground min-h-screen">
         <script
           type="text/javascript"
           src="https://unpkg.com/@cometchat/chat-sdk-javascript/CometChat.js"
@@ -41,21 +41,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="min-h-screen flex flex-col items-center">
-            <div className="flex-1 w-full flex flex-col items-center">
-              <Providers>
-                <UserProvider>
-                  <div className="flex flex-col container p-5 w-full">
-                    {children}
-                  </div>
-                </UserProvider>
-              </Providers>
+          <Providers>
+            <UserProvider>
+              <main className="flex flex-col min-h-screen w-full">
+                {children}
+              </main>
 
               <Suspense>
                 <Toaster expand={false} closeButton />
               </Suspense>
-            </div>
-          </main>
+            </UserProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
