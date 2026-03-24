@@ -22,7 +22,6 @@ export default function AdminUsersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
 
-  // ✅ Fetch ALL users
   const {
     data: users = [],
     isLoading: usersLoading,
