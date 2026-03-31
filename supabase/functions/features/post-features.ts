@@ -174,22 +174,21 @@ export async function createRequirements(req: Request): Promise<Response> {
         description,
       });
 
-      const updated = await updateProposalStage(lead_id);
-
       /* -----------------------------
          3. Send admin emails
       ------------------------------ */
-      if (updated) {
-        const passcode = await getProposalPasscode(lead_id);
+      await updateProposalStage(lead_id);
+      // if (updated) {
+      //   const passcode = await getProposalPasscode(lead_id);
 
-        if (passcode) {
-          await sendAdminsEmail(passcode);
-        } else {
-          console.warn(
-            "[createRequirements] ⚠️ No passcode found, skipping email",
-          );
-        }
-      }
+      //   if (passcode) {
+      //     await sendAdminsEmail(passcode);
+      //   } else {
+      //     console.warn(
+      //       "[createRequirements] ⚠️ No passcode found, skipping email",
+      //     );
+      //   }
+      // }
     } else {
       console.log(
         "[createRequirements] ℹ️ No lead_id provided, skipping updates",

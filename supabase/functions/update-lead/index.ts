@@ -4,6 +4,7 @@ import { supabase } from "../client.ts";
 import { CreateSubmissionSchema } from "./zod.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { sendWelcomeMail } from "./sendWelcomeEmail.ts";
+import { sendAdminsEmail } from "../features/sendAdminsEmail.ts";
 
 Deno.serve(async (req) => {
   console.log("🔥 Incoming request:", req.method, req.url);
@@ -160,6 +161,8 @@ Deno.serve(async (req) => {
       });
 
       console.log("✅ Email sent");
+
+      await sendAdminsEmail(proposalData.passcode);
 
       await supabase
         .from("leads")

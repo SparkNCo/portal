@@ -74,8 +74,6 @@ export default function ClientDashboard() {
         onApproved={() => setShowPoliciesModal(false)}
       />
 
-      <div onClick={() => console.log({ policiesStatus })}>VER CONVER</div>
-
       <Header
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.name ?? "User"}`}

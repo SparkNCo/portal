@@ -1,32 +1,13 @@
 // update-proposal.ts
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { UpdateProposalBodySchema } from "./zod.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 export async function updateProposal(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    const parsed = UpdateProposalBodySchema.safeParse(body);
 
-    if (!parsed.success) {
-      console.error("Zod validation error:", parsed.error);
-    }
-
-    if (!parsed.success) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid request body",
-          details: parsed.error.flatten(),
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    const { passcode, updates } = parsed.data;
+    const { passcode, updates } = body;
 
     const { lead, ...proposalUpdates } = updates;
 

@@ -1,34 +1,18 @@
 // @ts-nocheck
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { supabase } from "../client.ts";
-import { ProposalSchema, ProposalWithLeadSchema, QuerySchema } from "./zod.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 export async function getByPasscode(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
+    const passcode = url.searchParams.get("passcode");
 
-    const parsedQuery = QuerySchema.safeParse({
-      passcode: url.searchParams.get("passcode"),
-    });
-
-    if (!parsedQuery.success) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid query params",
-          details: parsedQuery.error.flatten(),
-        }),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          },
-        },
-      );
+    if (!passcode) {
+      return new Response(JSON.stringify({ error: "Missing passcode" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
-
-    const { passcode } = parsedQuery.data;
 
     const { data: proposal, error } = await supabase
       .from("proposals")
@@ -74,6 +58,7 @@ export async function getByPasscode(req: Request): Promise<Response> {
 
     lead:lead_id (
       description,
+      discovery_state,
       formatted_date,
       estimateTime_min,
       estimateTime_max,
@@ -89,51 +74,46 @@ export async function getByPasscode(req: Request): Promise<Response> {
       console.error("[getByPasscode] Supabase error:", error);
       return new Response(JSON.stringify({ error: "Internal server error" }), {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders,
-        },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
     if (!proposal) {
       return new Response(JSON.stringify({ error: "Proposal not found" }), {
         status: 404,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders,
-        },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    // ✅ Validate DB response
-    const parsedProposal = ProposalWithLeadSchema.safeParse(proposal);
+    const { data: features, error: featuresError } = await supabase
+      .from("requirements")
+      .select(
+        `
+        id,
+        proposal_id,
+        submission_id,
+        feature_name,
+        description,
+        purpose,
+        integration_text,
+        tech_constraints,
+        created_at
+      `,
+      )
+      .eq("submission_id", passcode)
+      .order("created_at", { ascending: true });
 
-    if (!parsedProposal.success) {
-      console.error(
-        "[getByPasscode] Invalid proposal shape:",
-        parsedProposal.error,
-      );
-
-      return new Response(
-        JSON.stringify({ error: "Invalid data returned from database" }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          },
-        },
-      );
+    if (featuresError) {
+      console.error("[getByPasscode] Features fetch error:", featuresError);
     }
 
-    return new Response(JSON.stringify({ data: parsedProposal.data }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
+    return new Response(
+      JSON.stringify({ data: { ...proposal, features: features ?? [] } }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       },
-    });
+    );
   } catch (err) {
     console.error("[getByPasscode] Unexpected error:", err);
 
