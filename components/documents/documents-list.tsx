@@ -15,10 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
-import { useAuth } from "../AuthContext";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
-import { permission } from "node:process";
 
 /* -----------------------------
    Helpers

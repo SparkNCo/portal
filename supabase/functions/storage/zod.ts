@@ -45,6 +45,27 @@ export const UpdateStorageEntryResponseSchema = z.object({
   document: DocumentSchema,
 });
 
+export const UpdateDocumentCategorySchema = z.object({
+  user_id: z.string().uuid(),
+  document_id: z.number(),
+  category: z.string().min(1),
+});
+
+export const UpdateDocumentCategoryResponseSchema = z.object({
+  success: z.literal(true),
+  document: DocumentSchema,
+});
+
+export const DeleteDocumentSchema = z.object({
+  user_id: z.string().uuid(),
+  document_id: z.number(),
+});
+
+export const DeleteDocumentResponseSchema = z.object({
+  success: z.literal(true),
+  document_id: z.number(),
+});
+
 export const UploadStorageInputSchema = z.object({
   file: z.instanceof(File),
   bucket: z.string().min(1),

@@ -55,6 +55,7 @@ export function StaffingSection({ customerId }: { customerId: string }) {
     name: item.users?.email || "Unknown",
     role: item.role,
     hours: item.allocation,
+    joined: item.joined,
     status: "active",
     avatar: item.users?.name
       ? item.users.name
@@ -135,7 +136,15 @@ export function StaffingSection({ customerId }: { customerId: string }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex flex-row items-center gap-4">
+                {member.joined && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <p className="text-xs text-muted-foreground">Joined</p>
+                    <p className="text-sm text-background-foreground">
+                      {new Date(member.joined).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
                 <div className="text-right">
                   <div className="flex items-center gap-1 text-sm text-background-foreground">
                     <Clock className="h-3 w-3" />
