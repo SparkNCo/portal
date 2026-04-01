@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { FileText, CreditCard, Users } from "lucide-react";
+import { CreditCard, Users } from "lucide-react";
 import { DocumentsDirectory } from "@/components/settings/documents-directory";
 import {
   BillingSection,
@@ -13,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../AuthContext";
 
 const tabs = [
-  // { id: "documents", label: "Documents", icon: FileText },
   { id: "staffing", label: "Staffing", icon: Users },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];

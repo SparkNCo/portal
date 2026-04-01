@@ -13,7 +13,7 @@ export function useShareDocument() {
     }: {
       document_id: number;
       emails: string[];
-      user_id: string;
+      user_id: string | undefined;
     }) => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/share`,
@@ -48,7 +48,7 @@ export function ShareDocumentModal({
   isOpen: boolean;
   onClose: () => void;
   document: any;
-  id: string;
+  id: string | undefined;
 }) {
   const [emails, setEmails] = useState("");
   const shareMutation = useShareDocument();

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 
-export default function Footer({ mode }) {
+export default function Footer({ mode }: { mode: string }) {
   return (
     <footer
       className={clsx(
