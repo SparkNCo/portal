@@ -1,7 +1,10 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { UploadStorageInputSchema, UploadStorageResponseSchema } from "./zod.ts";
+import {
+  UploadStorageInputSchema,
+  UploadStorageResponseSchema,
+} from "./zod.ts";
 
 export async function uploadStorageData(req: Request) {
   try {
@@ -11,7 +14,9 @@ export async function uploadStorageData(req: Request) {
       file: formData.get("file"),
       bucket: formData.get("bucket"),
       path: formData.get("path"),
-      owner_id: formData.get("user_id"),
+      email: formData.get("email"),
+      user_id: formData.get("user_id"),
+      initiative_id: formData.get("initiative_id"),
       category: formData.get("category") ?? "document",
     };
 
@@ -33,12 +38,34 @@ export async function uploadStorageData(req: Request) {
       );
     }
 
-    const { file, bucket, path, owner_id, category } = parsedInput.data;
+    const { file, bucket, path, user_id, email, initiative_id, category } =
+      parsedInput.data;
 
-    /* -----------------------------
-       Upload to Storage
-    --------------------------------*/
+    /**
+     * ---------------------------------------
+     * ✅ 1. Get user from DB
+     * ---------------------------------------
+     */
+    const { data: matchedUser, error: supabaseUserError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .single();
 
+    if (supabaseUserError || !matchedUser) {
+      return new Response(JSON.stringify({ error: "User not found" }), {
+        status: 404,
+        headers: corsHeaders,
+      });
+    }
+
+    const owner_id = matchedUser.id;
+
+    /**
+     * ---------------------------------------
+     * ✅ 2. Upload file to storage
+     * ---------------------------------------
+     */
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(path, file, {
@@ -48,29 +75,29 @@ export async function uploadStorageData(req: Request) {
 
     if (uploadError) {
       console.error("[Storage Upload Error]", uploadError);
+
       return new Response(JSON.stringify({ error: uploadError.message }), {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: corsHeaders,
       });
     }
 
-    /* -----------------------------
-       Get public URL
-    --------------------------------*/
-
+    /**
+     * ---------------------------------------
+     * ✅ 3. Get public URL
+     * ---------------------------------------
+     */
     const { data: publicUrlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
 
     const fileUrl = publicUrlData.publicUrl;
 
-    /* -----------------------------
-       Insert into Document table
-    --------------------------------*/
-
+    /**
+     * ---------------------------------------
+     * ✅ 4. Insert Document
+     * ---------------------------------------
+     */
     const { data: document, error: dbError } = await supabase
       .from("Document")
       .insert({
@@ -78,6 +105,7 @@ export async function uploadStorageData(req: Request) {
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
         category,
         owner_id,
+        initiative_id,
         file_name: file.name,
       })
       .select()
@@ -85,15 +113,46 @@ export async function uploadStorageData(req: Request) {
 
     if (dbError) {
       console.error("[Document Insert Error]", dbError);
+
       return new Response(JSON.stringify({ error: dbError.message }), {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: corsHeaders,
       });
     }
 
+    /**
+     * ---------------------------------------
+     * ✅ 5. 🔥 INSERT PERMISSION (NEW)
+     * ---------------------------------------
+     */
+    const { error: permissionError } = await supabase
+      .from("document_permissions")
+      .insert({
+        user_id: owner_id,
+        document_id: document.id,
+        permission: "write",
+      });
+
+    if (permissionError) {
+      console.error("[Permission Insert Error]", permissionError);
+
+      // Optional rollback (recommended)
+      await supabase.from("Document").delete().eq("id", document.id);
+
+      return new Response(
+        JSON.stringify({ error: "Failed to assign permissions" }),
+        {
+          status: 500,
+          headers: corsHeaders,
+        },
+      );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 6. Response
+     * ---------------------------------------
+     */
     const responsePayload = {
       success: true,
       storage: {
@@ -108,19 +167,13 @@ export async function uploadStorageData(req: Request) {
     const parsedOutput = UploadStorageResponseSchema.safeParse(responsePayload);
 
     if (!parsedOutput.success) {
-      console.error(
-        "[Upload Response Validation Error]",
-        parsedOutput.error.flatten(),
-      );
-
       return new Response(
-        JSON.stringify({ error: "Invalid response format" }),
+        JSON.stringify({
+          error: "Invalid response format",
+        }),
         {
           status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
+          headers: corsHeaders,
         },
       );
     }
@@ -133,12 +186,10 @@ export async function uploadStorageData(req: Request) {
     });
   } catch (error) {
     console.error("[uploadStorageData]", error);
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: corsHeaders,
     });
   }
 }

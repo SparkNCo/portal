@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { resend } from "../create-lead/sendWelcomeEmail.ts";
+import { resend } from "../update-lead/sendWelcomeEmail.ts";
 import { stripe } from "./client.ts";
 import { Resend } from "https://esm.sh/resend@3.2.0";
 import { SubscriptionEmailTemplateHtml } from "../utils/stripeLinkTemplate.ts";

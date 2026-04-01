@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase-client";
+import { AuthContext } from "./AuthContext";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -25,7 +26,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (loading) {
-    return null; 
+    return null;
   }
 
   if (!user) {
@@ -48,5 +49,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>
+  );
 }

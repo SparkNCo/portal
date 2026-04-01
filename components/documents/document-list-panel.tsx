@@ -10,9 +10,9 @@ import {
   File,
   Calendar,
   Settings,
+  Trash2,
 } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
@@ -21,7 +21,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useUpdateDocument } from "./update-document-entry";
+import { useDeleteDocument, useUpdateDocument } from "./update-document-entry";
+import { useUser } from "context/UserContext";
+import { Share2 } from "lucide-react";
+import { ShareDocumentModal } from "./ShareDocumentModal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -40,11 +43,47 @@ const categoryColors: Record<string, string> = {
 
 const CATEGORIES = ["Reports", "Technical", "Design"];
 
-export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
+export function DocumentRow({
+  filteredDocs,
+  userId,
+}: {
+  filteredDocs: any[];
+  userId: string | undefined;
+}) {
   const updateMutation = useUpdateDocument();
+  const deleteMutation = useDeleteDocument();
+  const { user, profile, loading } = useUser();
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [emails, setEmails] = useState<string>("");
+  const handleDownload = async (doc: any) => {
+    try {
+      setDownloadingId(doc.id);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}`,
+      );
+
+      const { url } = await res.json();
+
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className="space-y-2">
+      <ShareDocumentModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        document={selectedDoc}
+        id={userId}
+      />
+
       {filteredDocs.map((doc) => {
         const FormatIcon =
           formatIcons[doc.format as keyof typeof formatIcons] || File;
@@ -86,35 +125,40 @@ export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
             {/* Actions */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {/* Category settings */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
 
-                <PopoverContent className="w-40 p-1">
-                  {CATEGORIES.map((category) => (
-                    <Button
-                      key={category}
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        "w-full justify-start text-sm",
-                        doc.category === category && "bg-secondary font-medium",
-                      )}
-                      onClick={() =>
-                        updateMutation.mutate({
-                          id: doc.id,
-                          category,
-                        })
-                      }
-                    >
-                      {category}
+              {doc.permission === "write" && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Settings className="h-4 w-4" />
                     </Button>
-                  ))}
-                </PopoverContent>
-              </Popover>
+                  </PopoverTrigger>
+
+                  <PopoverContent className="w-40 p-1">
+                    {CATEGORIES.map((category) => (
+                      <Button
+                        key={category}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          doc.category === category &&
+                            "bg-secondary font-medium",
+                        )}
+                        onClick={() =>
+                          updateMutation.mutate({
+                            user_id: user.id,
+                            category,
+                            document_id: doc.id,
+                          })
+                        }
+                      >
+                        {category}
+                      </Button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
 
               <Button
                 variant="ghost"
@@ -125,14 +169,50 @@ export function DocumentRow({ filteredDocs }: { filteredDocs: any[] }) {
                 <ExternalLink className="h-4 w-4" />
               </Button>
 
+              {doc.permission === "write" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    setSelectedDoc(doc);
+                    setIsShareOpen(true);
+                  }}
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => window.open(doc.link)}
+                onClick={() => handleDownload(doc)}
               >
-                <Download className="h-4 w-4" />
+                <Download
+                  className={cn(
+                    "h-4 w-4",
+                    downloadingId === doc.id && "animate-pulse",
+                  )}
+                />{" "}
               </Button>
+
+              {doc.permission === "write" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() =>
+                    deleteMutation.mutate({
+                      document_id: doc.id,
+                      user_id: user.id,
+                    })
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         );

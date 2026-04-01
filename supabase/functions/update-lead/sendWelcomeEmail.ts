@@ -10,6 +10,7 @@ type SendWelcomeMailParams = {
   leadId: string;
   schedulingUrl: string;
   proposalLink: string;
+  callTime: string;
 };
 
 export async function sendWelcomeMail({
@@ -18,14 +19,17 @@ export async function sendWelcomeMail({
   leadId,
   schedulingUrl,
   proposalLink,
+  callTime,
 }: SendWelcomeMailParams) {
   console.log("Sending welcome email to:", email, leadId, name);
+  console.log("callTime in sendWelcomeMail:", callTime);
 
   const html = WelcomeProposalTemplateHtml({
     name,
     leadId,
     schedulingUrl,
     proposalLink,
+    callTime,
   });
 
   const response = await resend.emails.send({
@@ -34,6 +38,7 @@ export async function sendWelcomeMail({
     subject: "Your project proposal is ready 🚀",
     html,
   });
+  console.log("response from resend:", response);
 
   return response;
 }

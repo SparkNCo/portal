@@ -5,7 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/lib/tanstack/providers";
-import DeployButton from "@/components/deploy-button";
+import { UserProvider } from "../context/UserContext";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={geistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
+      <body className="bg-background text-foreground min-h-screen">
         <script
           type="text/javascript"
           src="https://unpkg.com/@cometchat/chat-sdk-javascript/CometChat.js"
@@ -41,27 +41,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="min-h-screen flex flex-col items-center">
-            <div className="flex-1 w-full flex flex-col items-center">
-              <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-                <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
-                  <div className="flex gap-5 items-center font-semibold">
-                    <Link href="/">Next.js Supabase Starter</Link>
-                    <DeployButton />
-                  </div>
-                  {/* {!hasEnvVars ? <EnvVarWarning /> : <HeaderAuth />} */}
-                </div>
-              </nav>
-              <Providers>
-                <div className="flex flex-col container p-5 w-full">
-                  {children}
-                </div>
-              </Providers>
+          <Providers>
+            <UserProvider>
+              <main className="flex flex-col min-h-screen w-full">
+                {children}
+              </main>
+
               <Suspense>
                 <Toaster expand={false} closeButton />
               </Suspense>
-            </div>
-          </main>
+            </UserProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>

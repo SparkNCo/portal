@@ -1,7 +1,11 @@
 // @ts-nocheck
 
 import { corsHeaders } from "../utils/headers.ts";
+import { downloadDocument } from "./downloadDocument.ts";
 import { getStorageData } from "./fetch-storage-data.ts";
+import { shareDocument } from "./shareDocument.ts";
+import { deleteDocument } from "./delete-document.ts";
+import { updateDocumentCategory } from "./update-document-category.ts";
 import { updateStorageEntry } from "./update-storage-entry.ts";
 import { uploadStorageData } from "./upload-storage-data.ts";
 
@@ -21,13 +25,24 @@ Deno.serve(async (req) => {
     if (req.method === "GET" && pathname === "/storage") {
       return await getStorageData(req);
     }
-
+    if (req.method === "GET" && pathname === "/storage/download") {
+      return await downloadDocument(req);
+    }
     // 🔹 POST /storage
     if (req.method === "POST" && pathname === "/storage") {
       return await uploadStorageData(req);
     }
+    if (req.method === "POST" && pathname === "/storage/share") {
+      return await shareDocument(req);
+    }
     if (req.method === "PATCH" && pathname === "/storage") {
       return await updateStorageEntry(req);
+    }
+    if (req.method === "PUT" && pathname === "/storage") {
+      return await updateDocumentCategory(req);
+    }
+    if (req.method === "DELETE" && pathname === "/storage") {
+      return await deleteDocument(req);
     }
 
     // ❌ Not found

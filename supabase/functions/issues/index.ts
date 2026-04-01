@@ -1,10 +1,35 @@
 // @ts-nocheck
+import { supabase } from "../client.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { ISSUES_QUERY } from "./query.ts";
-import {
-  GetIssuesQuerySchema,
-  IssuesResponseSchema,
-} from "./zod.ts";
+import { IssuesResponseSchema } from "./zod.ts";
+
+async function getCustomerBySlug(slug: string) {
+  const { data, error } = await supabase
+    .from("customers")
+    .select(
+      `
+      linear_projects,
+      linear_initiative_id,
+      linear_slug,
+      proposal_id,
+      stripe_customer_id
+    `,
+    )
+    .eq("linear_name", slug)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase error:", error);
+    throw new Error("Customer not found");
+  }
+
+  if (!data) {
+    throw new Error("Customer not found");
+  }
+
+  return data;
+}
 
 async function fetchIssues(projectIds: string[]) {
   const filter = {
@@ -25,6 +50,7 @@ async function fetchIssues(projectIds: string[]) {
   });
 
   const json = await res.json();
+  console.log("Linear API response:", json);
 
   if (json.errors) {
     throw new Error(JSON.stringify(json.errors));
@@ -51,30 +77,29 @@ Deno.serve(async (req) => {
 
   try {
     const { searchParams } = new URL(req.url);
-    const parseResult = GetIssuesQuerySchema.safeParse({
-      projectIds: searchParams.get("projectIds"),
-    });
 
-    if (!parseResult.success) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid query params",
-          details: parseResult.error.flatten(),
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
+    const rawSlug = searchParams.get("slug");
+    const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
+
+    if (!slug) {
+      return new Response(JSON.stringify({ error: "Missing slug" }), {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
         },
-      );
+      });
+    }
+    const customer = await getCustomerBySlug(slug);
+
+    if (!customer.linear_projects?.length) {
+      throw new Error("No Linear projects configured");
     }
 
-    const { projectIds } = parseResult.data;
-    const projectIdsArray = projectIds.split("--");
+    const projectIds = customer.linear_projects;
 
-    const issues = await fetchIssues(projectIdsArray);
+    // 3️⃣ Fetch issues from Linear
+    const issues = await fetchIssues(projectIds);
 
     return new Response(JSON.stringify(issues), {
       headers: {
@@ -84,6 +109,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("[Linear API Error]", error);
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {

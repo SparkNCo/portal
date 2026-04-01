@@ -1,22 +1,29 @@
+import { Button } from "@/components/components/ui/button";
 import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent } from "@/components/ui/card";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
 
 /* =========================
    Types
 ========================= */
 
-interface UpcomingInvoice {
-  nextPaymentAttempt?: number; // unix timestamp (seconds)
-  amountDue?: number; // cents
+export interface UpcomingInvoice {
+  nextPaymentAttempt?: number;
+  amountDue?: number;
   currency?: string;
 }
 
-interface BillingData {
-  upcomingInvoice?: UpcomingInvoice | null;
+export interface Subscription {
+  status?: string; // active | past_due | canceled | unpaid | trialing
 }
 
-interface NextPaymentPanelProps {
+export interface BillingData {
+  upcomingInvoice?: UpcomingInvoice | null;
+  subscription?: Subscription | null;
+}
+
+export interface NextPaymentPanelProps {
   billingData?: BillingData | null;
   isLoading: boolean;
 }
@@ -44,10 +51,6 @@ function formatAmountFromCents(cents?: number, currency?: string): string {
   }).format(cents / 100);
 }
 
-/* =========================
-   Component
-========================= */
-
 export function NextPaymentPanel({
   billingData,
   isLoading,
@@ -61,10 +64,58 @@ export function NextPaymentPanel({
   }
 
   const upcomingInvoice = billingData?.upcomingInvoice;
+  const subscriptionStatus = billingData?.subscription?.status;
+
+  const isCanceled = subscriptionStatus === "canceled";
+  const queryClient = useQueryClient();
+
+  const updatePaymentMethodMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/create-customer-portal`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        },
+      );
+
+      if (!res.ok) {
+        throw new Error("Failed to create Stripe portal session");
+      }
+
+      return res.json() as Promise<{ url: string }>;
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.open(data.url, "_blank");
+      }
+      queryClient.invalidateQueries({ queryKey: ["billing"] });
+    },
+  });
+
+  const handleReestablish = async () => {
+    updatePaymentMethodMutation.mutate("santiaguero@gmail.com");
+  };
 
   return (
     <Card>
-      {upcomingInvoice ? (
+      {/* ===============================
+         Subscription Canceled State
+      =============================== */}
+      {isCanceled && (
+        <CardContent className="pt-6 space-y-4">
+          <p className="text-sm font-medium text-red-600">
+            Your subscription is currently canceled.
+          </p>
+          <Button onClick={handleReestablish}>Renew Subscription</Button>
+        </CardContent>
+      )}
+
+      {/* ===============================
+         Active Subscription State
+      =============================== */}
+      {!isCanceled && upcomingInvoice ? (
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
@@ -87,7 +138,12 @@ export function NextPaymentPanel({
             estimated
           </p>
         </CardContent>
-      ) : (
+      ) : null}
+
+      {/* ===============================
+         No Upcoming Invoice (Active but none)
+      =============================== */}
+      {!isCanceled && !upcomingInvoice && (
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">
             No upcoming invoice scheduled.

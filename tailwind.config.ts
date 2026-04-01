@@ -18,6 +18,13 @@ const config = {
       },
     },
     extend: {
+      fontSize: {
+        heading1: ["40px", { lineHeight: "auto" }],
+        heading2: ["24px", { lineHeight: "32px" }],
+        largeBody: ["32px", { lineHeight: "auto" }],
+        body: ["18px", { lineHeight: "auto" }],
+        smalltext: ["16px", { lineHeight: "auto" }],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -27,6 +34,10 @@ const config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+        },
+        donut: {
+          DEFAULT: "hsl(var(--donut))",
+          foreground: "hsl(var(--donut-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",

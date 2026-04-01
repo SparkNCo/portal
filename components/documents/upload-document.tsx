@@ -8,10 +8,9 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-/* -----------------------------
-   Types
---------------------------------*/
+import { useAuth } from "../AuthContext";
+import { useSearchParams } from "next/navigation";
+import { useUser } from "context/UserContext";
 
 interface UploadedFile {
   name: string;
@@ -19,18 +18,29 @@ interface UploadedFile {
   status: "uploading" | "complete" | "error";
 }
 
-/* -----------------------------
-   Upload mutation
---------------------------------*/
-
 function useUploadFile() {
+  const { user, profile, loading } = useUser();
+
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({
+      file,
+      userId,
+      email,
+      initiativeId,
+    }: {
+      file: File;
+      userId: string;
+      email: string;
+      initiativeId: string | null;
+    }) => {
       const formData = new FormData();
+
       formData.append("file", file);
       formData.append("bucket", "documents_bucket");
       formData.append("path", `uploads/${Date.now()}-${file.name}`);
-      formData.append("user_id", `db01891c-5e11-40a7-96f4-3edd475e0aae`);
+      formData.append("user_id", user?.id);
+      formData.append("email", email);
+      formData.append("initiative_id", initiativeId ?? "");
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "POST",
@@ -54,7 +64,9 @@ export function UploadDocument() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const initiativeId = searchParams.get("id");
   const uploadMutation = useUploadFile();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -94,22 +106,30 @@ export function UploadDocument() {
       ]);
       console.log("hola", file);
 
-      uploadMutation.mutate(file, {
-        onSuccess: () => {
-          setUploadedFiles((prev) =>
-            prev.map((f) =>
-              f.name === file.name ? { ...f, status: "complete" } : f,
-            ),
-          );
+      uploadMutation.mutate(
+        {
+          file,
+          userId: user!.id,
+          email: user!.email!,
+          initiativeId: initiativeId,
         },
-        onError: () => {
-          setUploadedFiles((prev) =>
-            prev.map((f) =>
-              f.name === file.name ? { ...f, status: "error" } : f,
-            ),
-          );
+        {
+          onSuccess: () => {
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.name === file.name ? { ...f, status: "complete" } : f,
+              ),
+            );
+          },
+          onError: () => {
+            setUploadedFiles((prev) =>
+              prev.map((f) =>
+                f.name === file.name ? { ...f, status: "error" } : f,
+              ),
+            );
+          },
         },
-      });
+      );
     });
   };
 
@@ -118,7 +138,7 @@ export function UploadDocument() {
   };
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Upload className="h-4 w-4 text-accent" />
@@ -142,7 +162,7 @@ export function UploadDocument() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-3">
             <Upload className="h-6 w-6 text-accent" />
           </div>
-          <p className="text-sm font-medium text-card-foreground text-center">
+          <p className="text-sm font-medium text-background-foreground text-center">
             Drag and drop files here, or click to browse
           </p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -173,7 +193,7 @@ export function UploadDocument() {
                 <div className="flex items-center gap-2">
                   <File className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-card-foreground truncate max-w-[150px]">
+                    <p className="text-sm text-background-foreground truncate max-w-[150px]">
                       {file.name}
                     </p>
                     <p className="text-xs text-muted-foreground">{file.size}</p>
@@ -205,13 +225,6 @@ export function UploadDocument() {
             ))}
           </div>
         )}
-
-        {/*   <Button
-          className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-          disabled={uploadedFiles.length === 0}
-        >
-          Submit Documents
-        </Button> */}
       </CardContent>
     </Card>
   );

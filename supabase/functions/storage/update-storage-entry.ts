@@ -29,8 +29,45 @@ export async function updateStorageEntry(req: Request) {
       );
     }
 
-    const { id, ...updates } = parsedBody.data;
+    const { id, user_id, ...updates } = parsedBody.data;
 
+    /**
+     * ---------------------------------------
+     * 🔒 1. CHECK PERMISSIONS
+     * ---------------------------------------
+     */
+    const { data: permissionData, error: permissionError } = await supabase
+      .from("document_permissions")
+      .select("permission")
+      .eq("user_id", user_id)
+      .eq("document_id", id)
+      .single();
+
+    if (permissionError || !permissionData) {
+      return new Response(
+        JSON.stringify({ error: "No permission for this document" }),
+        {
+          status: 403,
+          headers: corsHeaders,
+        },
+      );
+    }
+
+    if (permissionData.permission !== "write") {
+      return new Response(
+        JSON.stringify({ error: "Write permission required" }),
+        {
+          status: 403,
+          headers: corsHeaders,
+        },
+      );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 2. UPDATE DOCUMENT
+     * ---------------------------------------
+     */
     const { data, error } = await supabase
       .from("Document")
       .update(updates)
@@ -49,6 +86,11 @@ export async function updateStorageEntry(req: Request) {
       });
     }
 
+    /**
+     * ---------------------------------------
+     * ✅ 3. RESPONSE
+     * ---------------------------------------
+     */
     const responsePayload = {
       success: true,
       document: data,

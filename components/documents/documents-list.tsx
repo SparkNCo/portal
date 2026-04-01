@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
+import { useSearchParams } from "next/navigation";
+import { useUser } from "context/UserContext";
 
 /* -----------------------------
    Helpers
@@ -36,14 +38,11 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-/* -----------------------------
-   API
---------------------------------*/
-
-async function fetchDocuments(userId: string) {
+async function fetchDocuments(id: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${userId}`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${id}`,
   );
+  console.log("documents", res);
 
   if (!res.ok) {
     throw new Error("Failed to fetch documents");
@@ -52,21 +51,17 @@ async function fetchDocuments(userId: string) {
   return res.json();
 }
 
-/* -----------------------------
-   Component
---------------------------------*/
-
 export function DocumentsList() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // ⬇️ replace this with your real user id source
-  const userId = "db01891c-5e11-40a7-96f4-3edd475e0aae";
+  const searchParams = useSearchParams();
+  const initiativeId = searchParams.get("id");
+  const { user, profile, loading } = useUser();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", userId],
-    queryFn: () => fetchDocuments(userId),
-    enabled: !!userId,
+    queryKey: ["documents", initiativeId],
+    queryFn: () => fetchDocuments(profile?.id!),
+    enabled: !!profile?.id,
   });
 
   const documents = useMemo(() => {
@@ -79,6 +74,7 @@ export function DocumentsList() {
       date: new Date(doc.created_at).toLocaleDateString(),
       size: doc.size,
       link: doc.link,
+      permission: doc.permission,
       format: getFileExtension(doc.file_name),
     }));
   }, [data]);
@@ -95,7 +91,7 @@ export function DocumentsList() {
   });
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -155,7 +151,7 @@ export function DocumentsList() {
           </div>
         )}
 
-        <DocumentRow filteredDocs={filteredDocs} />
+        <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
       </CardContent>
     </Card>
   );

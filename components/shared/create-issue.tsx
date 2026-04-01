@@ -94,7 +94,7 @@ export function CreateIssue() {
   const TypeIcon = detectedType ? issueTypes[detectedType].icon : Sparkles;
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardContent className="pt-6 space-y-4">
         <div className="space-y-3">
           <div className="relative">
@@ -131,7 +131,7 @@ export function CreateIssue() {
                     <span className="font-mono text-xs text-muted-foreground">
                       {ticket.id}
                     </span>
-                    <span className="text-card-foreground truncate flex-1">
+                    <span className="text-background-foreground truncate flex-1">
                       {ticket.title}
                     </span>
                     <Bug className="h-3 w-3 text-destructive" />

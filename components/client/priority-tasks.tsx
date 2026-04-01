@@ -96,7 +96,7 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <Card className="bg-card border-border h-full flex flex-col max-w-[50rem] py-4">
+    <Card className="bg-background border-border h-full flex flex-col max-w-[50rem] py-4">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
@@ -166,7 +166,7 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
                   {issue.priorityLabel}
                 </Badge>
               </div>
-              <p className="text-sm font-medium text-card-foreground mb-3 line-clamp-2">
+              <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
                 {issue.title}
               </p>
               <div className="flex items-center justify-between">

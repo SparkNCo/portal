@@ -10,15 +10,17 @@ import {
 } from "@/components/settings/billing-section";
 import { StaffingSection } from "@/components/settings/staffing-section";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "../AuthContext";
 
 const tabs = [
-  { id: "documents", label: "Documents", icon: FileText },
-  { id: "billing", label: "Billing", icon: CreditCard },
+  // { id: "documents", label: "Documents", icon: FileText },
   { id: "staffing", label: "Staffing", icon: Users },
+  { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
 export function SettingsTabs() {
-  const [activeTab, setActiveTab] = useState("documents");
+  const [activeTab, setActiveTab] = useState("staffing");
+  const { user } = useAuth();
 
   const {
     data: billingData,
@@ -26,8 +28,9 @@ export function SettingsTabs() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["billing"],
-    queryFn: fetchBillingData,
+    queryKey: ["billing", user?.email],
+    queryFn: () => fetchBillingData({ user }),
+    enabled: !!user?.email,
     staleTime: 1000 * 30,
   });
 

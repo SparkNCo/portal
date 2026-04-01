@@ -70,7 +70,7 @@ export default function RoadmapPage() {
     const next = projectIds.join("--");
     if (existing === next) return;
     params.set("projects", next);
-    router.replace(`?${params.toString()}`, { scroll: false });
+    //   router.replace(`?${params.toString()}`, { scroll: false });
   }, [roadmap, router, searchParams]);
 
   if (isLoading) {
@@ -102,7 +102,7 @@ export default function RoadmapPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
           <SoftwareKPIs
-            /* targetDate={project?.targetDate}
+          /* targetDate={project?.targetDate}
             progress={project?.progress} */
           />
         </div>

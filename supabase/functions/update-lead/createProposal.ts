@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { proposalMockData } from "./proposalMockData.ts";
 import { supabase } from "../client.ts";
 import { CreateProposalInputSchema } from "./zod.ts";
-import { ProposalSchema } from "../proposals/zod.ts";
+import { CreateProposalSchema, ProposalSchema } from "../proposals/zod.ts";
 
 export const createProposal = async (
   input: z.infer<typeof CreateProposalInputSchema>,
@@ -50,36 +50,42 @@ export const createProposal = async (
       proposal_date: cover["Date"],
       valid_until: cover["Proposal Valid Until"],
 
-      // Narrative sections
-      executive_summary: proposalMockData["Executive Summary"],
-      problem_context: proposalMockData["Problem & Context"],
+      // JSONB proposal sections
+      summary: proposalMockData["Executive Summary"],
+
+      problem_and_context: proposalMockData["Problem & Context"],
+
       solution_overview: proposalMockData["Solution Overview"],
-      acceptance_completion_criteria:
-        proposalMockData["Acceptance & Completion Criteria"],
 
-      // Timeline summary
-      total_duration: timeline["Total Duration"],
+      objectives_and_success_criteria:
+        proposalMockData["Objectives & Success Criteria"],
 
-      // JSONB structured sections
-      objectives: proposalMockData["Objectives & Success Criteria"],
-      scope_of_work: proposalMockData["Scope of Work"],
+      pricing_and_commercial: proposalMockData["Pricing & Commercial Terms"],
+
+      timeline_and_milestones: proposalMockData["Timeline & Milestones"],
+
       deliverables: proposalMockData["Deliverables"],
-      assumptions_dependencies:
+
+      assumptions_and_dependencies:
         proposalMockData["Assumptions & Dependencies"],
-      client_responsibilities:
-        proposalMockData["Client Responsibilities"],
-      timeline_milestones: timeline["Milestones"],
-      team_communication: proposalMockData["Team & Communication"],
-      technology_architecture:
-        proposalMockData["Technology & Architecture"],
-      change_management:
-        proposalMockData["Change Management Process"],
-      pricing_commercial_terms:
-        proposalMockData["Pricing & Commercial Terms"],
-      risk_responsibility_boundaries:
+
+      change_management_process: proposalMockData["Change Management Process"],
+
+      risk_and_responsabilities:
         proposalMockData["Risk & Responsibility Boundaries"],
+
       next_steps: proposalMockData["Next Steps"],
-      signatures: proposalMockData["Signatures"],
+
+      disclaimer: proposalMockData["Disclaimer"],
+
+      assurance_and_quality: proposalMockData["AssuranceAndQuality"],
+
+      history_and_case_studies: proposalMockData["HistoryAndCaseStudies"],
+
+      technology_and_architecture:
+        proposalMockData["Technology & Architecture"],
+
+      team_and_communication: proposalMockData["Team & Communication"],
 
       // Signing
       signature_url: null,
@@ -93,8 +99,10 @@ export const createProposal = async (
     throw new Error("Failed to create proposal");
   }
 
+  console.log("[createProposal] Created proposal:", proposal);
   // ✅ Validate returned shape
-  const parsedProposal = ProposalSchema.safeParse(proposal);
+
+  const parsedProposal = CreateProposalSchema.safeParse(proposal);
 
   if (!parsedProposal.success) {
     console.error(

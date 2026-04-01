@@ -3,7 +3,6 @@
 import { Header } from "@/components/headerDashboard";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { PriorityTasks } from "@/components/client/priority-tasks";
-import { CardTitle } from "@/components/ui/card";
 import { useSearchParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
@@ -26,7 +25,7 @@ export function useIssues(projectId: string | null) {
     queryKey: ["linear-issues", projectId],
     queryFn: () => fetchIssues(projectId!),
     enabled: !!projectId,
-   // staleTime: 3_000,
+    // staleTime: 3_000,
   });
 
   useEffect(() => {
@@ -45,8 +44,9 @@ export function useIssues(projectId: string | null) {
 
 export default function ClientDashboard() {
   const searchParams = useSearchParams();
-  const projects = searchParams.get("projects");
-
+  //const projects = searchParams.get("projects");
+  const projects =
+    "36c538b0-e1ca-4ad2-95a8-8d1f53b36d2c--cc38bd89-8742-4db8-a30f-745a648ce09d";
   const { data, isLoading, isFetching } = useIssues(projects);
 
   if (isLoading) return <LoadingDataPanel />;
