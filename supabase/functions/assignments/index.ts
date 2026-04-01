@@ -2,6 +2,7 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { createAssignment } from "./createAssignment.ts";
 import { getAssignmentsByCustomer } from "./getAssignmentsByCustomer.ts";
+import { getAssignmentsByDeveloper } from "./getAssignmentsByDeveloper.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +21,10 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === "GET") {
+      const url = new URL(req.url);
+      if (url.searchParams.has("developer")) {
+        return getAssignmentsByDeveloper(req);
+      }
       return getAssignmentsByCustomer(req);
     }
 

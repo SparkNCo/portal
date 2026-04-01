@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
+import { UserPlus } from "lucide-react";
 
 type Props = {
   onClose: () => void;
@@ -33,73 +36,67 @@ export default function AddClientModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) {
-        throw new Error("Failed to create client");
-      }
+      if (!res.ok) throw new Error("Failed to create client");
 
       return res.json();
     },
     onSuccess: () => {
-      // 🔥 refresh users (and later customers if you add query)
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onClose();
     },
   });
 
-  const handleSubmit = () => {
-    if (!email || !stripeId || !linearId) return;
-    mutate();
-  };
+  const inputClass =
+    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded space-y-4 w-80">
-        <h2 className="text-lg font-semibold">Add Client</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-96 bg-background border-border shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <UserPlus className="h-4 w-4 text-accent" />
+            Add Client
+          </CardTitle>
+        </CardHeader>
 
-        {/* Email */}
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="Client email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <CardContent className="space-y-4">
+          <input
+            className={inputClass}
+            placeholder="Client email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className={inputClass}
+            placeholder="Stripe Customer ID"
+            value={stripeId}
+            onChange={(e) => setStripeId(e.target.value)}
+          />
+          <input
+            className={inputClass}
+            placeholder="Linear Initiative ID"
+            value={linearId}
+            onChange={(e) => setLinearId(e.target.value)}
+          />
 
-        {/* Stripe ID */}
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="Stripe Customer ID"
-          value={stripeId}
-          onChange={(e) => setStripeId(e.target.value)}
-        />
+          {error && (
+            <p className="text-sm text-destructive">{(error as Error).message}</p>
+          )}
 
-        {/* Linear Initiative ID */}
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="Linear Initiative ID"
-          value={linearId}
-          onChange={(e) => setLinearId(e.target.value)}
-        />
-
-        {/* Error */}
-        {error && (
-          <p className="text-sm text-red-500">{(error as Error).message}</p>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2">
-          <button className="border px-3 py-1 rounded" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button
-            className="bg-black text-white px-3 py-1 rounded"
-            onClick={handleSubmit}
-            disabled={isPending || !email || !stripeId || !linearId}
-          >
-            {isPending ? "Creating..." : "Create"}
-          </button>
-        </div>
-      </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isPending || !email || !stripeId || !linearId}
+              onClick={() => mutate()}
+            >
+              {isPending ? "Creating..." : "Create"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

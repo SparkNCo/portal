@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
+import { UserCheck } from "lucide-react";
 
 type User = {
   id: string;
@@ -41,9 +44,7 @@ export default function AssignCustomerModal({
         },
       );
 
-      if (!res.ok) {
-        throw new Error("Failed to assign user");
-      }
+      if (!res.ok) throw new Error("Failed to assign user");
 
       return res.json();
     },
@@ -54,38 +55,43 @@ export default function AssignCustomerModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded space-y-4 w-80">
-        <h2 className="text-lg font-semibold">Assign Developer</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <Card className="w-96 bg-background border-border shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-accent" />
+            Assign Developer
+          </CardTitle>
+        </CardHeader>
 
-        <select
-          className="w-full border p-2 rounded"
-          value={selectedCustomer}
-          onChange={(e) => setSelectedCustomer(e.target.value)}
-        >
-          <option value="">Select Customer</option>
-
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.email}
-            </option>
-          ))}
-        </select>
-
-        <div className="flex justify-end gap-2">
-          <button className="border px-3 py-1 rounded" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button
-            className="bg-black text-white px-3 py-1 rounded"
-            onClick={() => mutate()}
-            disabled={!selectedCustomer || isPending}
+        <CardContent className="space-y-4">
+          <select
+            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            value={selectedCustomer}
+            onChange={(e) => setSelectedCustomer(e.target.value)}
           >
-            {isPending ? "Assigning..." : "Assign"}
-          </button>
-        </div>
-      </div>
+            <option value="">Select Customer</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.email}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!selectedCustomer || isPending}
+              onClick={() => mutate()}
+            >
+              {isPending ? "Assigning..." : "Assign"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
