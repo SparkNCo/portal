@@ -76,7 +76,7 @@ export default function ClientDashboard() {
 
       <Header
         title="Client Dashboard"
-        subtitle={`Welcome back, ${profile?.name ?? "User"}`}
+        subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
 
       <div className="p-4 md:p-6 space-y-6">

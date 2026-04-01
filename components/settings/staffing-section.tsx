@@ -13,7 +13,8 @@ const statusColors = {
   inactive: "bg-muted text-muted-foreground",
 };
 
-export function StaffingSection({ customerId }: { customerId: string }) {
+//export function StaffingSection({ customerId }: { customerId: string }) {
+export function StaffingSection() {
   const { user, profile, loading } = useUser();
 
   const {
@@ -88,9 +89,9 @@ export function StaffingSection({ customerId }: { customerId: string }) {
               "https://cal.com/kabir-malkani-glnivq/15min",
             );
 
-            if (customerId) {
+            /*             if (customerId) {
               calLink.searchParams.set("notes", `Customer ID: ${customerId}`);
-            }
+            } */
 
             const firstEmail = assignments[0]?.users?.email;
             calLink.searchParams.set(

@@ -35,7 +35,7 @@ export function PolicyApprovalModal({
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["policies-status", userId]);
+      queryClient.invalidateQueries({ queryKey: ["policies-status", userId] });
       onApproved?.();
     },
   });
