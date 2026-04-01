@@ -93,7 +93,7 @@ export function DocumentsList() {
   });
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="text-base font-semibold flex items-center gap-2">

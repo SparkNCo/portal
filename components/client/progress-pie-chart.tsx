@@ -22,11 +22,11 @@ const STATUS_COLORS: Record<string, string> = {
   "Not Started": "hsl(var(--muted))",
   Todo: "hsl(var(--muted))",
   Canceled: "hsl(var(--muted))",
-  QA: "hsl(210, 70%, 35%)",              
-  Development: "hsl(30, 100%, 35%)",     
-  UAT: "hsl(180, 60%, 30%)",              
-  Backlog: "hsl(0, 0%, 30%)",            
-  Planning: "hsl(50, 90%, 35%)",         
+  QA: "hsl(210, 70%, 35%)",
+  Development: "hsl(30, 100%, 35%)",
+  UAT: "hsl(180, 60%, 30%)",
+  Backlog: "hsl(0, 0%, 30%)",
+  Planning: "hsl(50, 90%, 35%)",
 };
 
 type TooltipProps = {
@@ -75,9 +75,9 @@ export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
     TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;
 
   return (
-    <Card className="bg-card border-border flex flex-col h-fit">
+    <Card className="bg-background border-border flex flex-col h-fit text-foreground ">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2 ">
+        <CardTitle className="text-body font-semibold flex items-center gap-2 ">
           <TrendingUp className="h-4 w-4 text-chart-1" />
           Project Stats
         </CardTitle>
@@ -121,7 +121,7 @@ export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
                   {item.name}
                 </span>
               </div>
-              <span className="font-medium text-card-foreground text-xs">
+              <span className="font-medium text-background-foreground text-xs">
                 {item.value}
               </span>
             </div>
@@ -132,7 +132,7 @@ export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Total Tasks</span>
-            <span className="text-base font-bold text-card-foreground">
+            <span className="text-base font-bold text-background-foreground">
               {TOTAL_TASKS}
             </span>
           </div>

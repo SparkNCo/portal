@@ -78,7 +78,7 @@ export function ShareDocumentModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-card p-4 rounded-lg w-96 space-y-3">
+      <div className="bg-background p-4 rounded-lg w-96 space-y-3">
         <h2 className="text-sm font-semibold">Share Document</h2>
 
         <p className="text-xs text-muted-foreground">

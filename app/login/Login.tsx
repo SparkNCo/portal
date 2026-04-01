@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { SparkButton } from "@/components/ui/spark-button";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -94,11 +95,11 @@ export default function LoginForm({
     <div className="flex h-screen w-full items-center justify-center bg-background">
       <form
         onSubmit={login}
-        className="flex flex-col items-center w-[500px] h-[600px] p-8 bg-white rounded-lg shadow-lg space-y-6 relative"
+        className="flex flex-col items-center w-[500px] h-[600px] p-8 bg-card shadow-lg space-y-6 relative"
       >
         {/* Public image at the top */}
         <img
-          src="/nbarIcon2.png"
+          src="/Icon2.svg"
           alt="spark/co"
           className="w-36 h-36 object-contain mb-2"
         />
@@ -109,7 +110,7 @@ export default function LoginForm({
         </h1>
 
         {/* Username */}
-        <div className="w-[85%] flex flex-col">
+        <div className="w-[85%] flex flex-col  ">
           <label
             htmlFor="email"
             className="text-sm font-medium mb-1 text-background"
@@ -118,7 +119,7 @@ export default function LoginForm({
           </label>
           <input
             id="email"
-            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary text-background"
+            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 bg-foreground text-background selection:bg-primary selection:text-background"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -135,7 +136,7 @@ export default function LoginForm({
           <input
             id="password"
             type="password"
-            className="rounded border-none p-2 bg-primary focus:outline-black focus:outline-2 focus:outline-offset-2 focus:outline-primary text-background"
+            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 bg-foreground text-background selection:bg-primary selection:text-background"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -153,13 +154,13 @@ export default function LoginForm({
         </a>
 
         {/* Login button */}
-        <button
+        <SparkButton
           type="submit"
           disabled={loading || customerLoading}
-          className="w-[85%] rounded bg-background text-foreground p-2 disabled:opacity-50 mt-4"
+          className="w-[85%] mt-4"
         >
           {loading ? "Logging in..." : "Login"}
-        </button>
+        </SparkButton>
       </form>
     </div>
   );

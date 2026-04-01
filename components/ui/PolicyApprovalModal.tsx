@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "../components/ui/button";
+import { SparkButton } from "@/components/ui/spark-button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface PolicyApprovalModalProps {
@@ -44,21 +44,22 @@ export function PolicyApprovalModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-lg">
+      <div className="bg-background rounded-lg p-6 max-w-md w-full shadow-lg">
         <h2 className="text-lg font-semibold mb-4">Developer Policies</h2>
         <p className="mb-4">
           Please review and agree to the policies before continuing:
         </p>
-        <a
-          href={notionUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-accent underline mb-6 block"
+        <SparkButton
+          variant="inverted"
+          className="w-full mb-6"
+          onClick={() => window.open(notionUrl, "_blank", "noopener,noreferrer")}
         >
           View Policies
-        </a>
+        </SparkButton>
         <div className="flex justify-end">
-          <Button
+          <SparkButton
+            variant="primary"
+            className="w-full"
             onClick={() => {
               setLoading(true);
               approvePolicies();
@@ -66,7 +67,7 @@ export function PolicyApprovalModal({
             disabled={loading}
           >
             {loading ? "Approving..." : "I Agree"}
-          </Button>
+          </SparkButton>
         </div>
       </div>
     </div>

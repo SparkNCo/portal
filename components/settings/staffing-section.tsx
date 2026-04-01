@@ -71,13 +71,12 @@ export function StaffingSection({ customerId }: { customerId: string }) {
   );
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Users className="h-4 w-4 text-accent" />
           Team Members
         </CardTitle>
-        <div onClick={() => console.log({ assignments })}>VER assignments</div>
 
         {/* 🔥 cal.com button */}
         <Button
@@ -120,7 +119,7 @@ export function StaffingSection({ customerId }: { customerId: string }) {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-card-foreground">
+                    <p className="text-sm font-medium text-background-foreground">
                       {member.name}
                     </p>
                     <Badge
@@ -138,7 +137,7 @@ export function StaffingSection({ customerId }: { customerId: string }) {
 
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="flex items-center gap-1 text-sm text-card-foreground">
+                  <div className="flex items-center gap-1 text-sm text-background-foreground">
                     <Clock className="h-3 w-3" />
                     {member.hours}h/week
                   </div>
@@ -154,7 +153,7 @@ export function StaffingSection({ customerId }: { customerId: string }) {
         <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Total Weekly Hours</span>
-            <span className="font-medium text-card-foreground">
+            <span className="font-medium text-background-foreground">
               {totalHours} hours
             </span>
           </div>

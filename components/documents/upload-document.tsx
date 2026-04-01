@@ -138,7 +138,7 @@ export function UploadDocument() {
   };
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Upload className="h-4 w-4 text-accent" />
@@ -162,7 +162,7 @@ export function UploadDocument() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-3">
             <Upload className="h-6 w-6 text-accent" />
           </div>
-          <p className="text-sm font-medium text-card-foreground text-center">
+          <p className="text-sm font-medium text-background-foreground text-center">
             Drag and drop files here, or click to browse
           </p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -193,7 +193,7 @@ export function UploadDocument() {
                 <div className="flex items-center gap-2">
                   <File className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-card-foreground truncate max-w-[150px]">
+                    <p className="text-sm text-background-foreground truncate max-w-[150px]">
                       {file.name}
                     </p>
                     <p className="text-xs text-muted-foreground">{file.size}</p>
