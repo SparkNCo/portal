@@ -2,43 +2,52 @@
 
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { ApprovePolicySchema, ApprovePolicyResponseSchema } from "./zod.ts";
 
 export const approvePolicy = async (req: Request) => {
   try {
     const body = await req.json();
-    const { userId, notionUrls = [] } = body;
 
-    if (!userId) {
-      return new Response(JSON.stringify({ error: "userId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const parsedBody = ApprovePolicySchema.safeParse(body);
+
+    if (!parsedBody.success) {
+      return new Response(
+        JSON.stringify({
+          error: "Invalid request body",
+          details: parsedBody.error.flatten(),
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    // 1️⃣ Mark user as approved
+    const { userId, notionUrl } = parsedBody.data;
+
+    // 1️⃣ Mark user as approved and save the policy URL
     const { data, error } = await supabase
       .from("users")
-      .update({ policies_approved: true })
+      .update({ policies_approved: true, policy_notion_url: notionUrl ?? null })
       .eq("id", userId)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
 
-    // 2️⃣ Optional: download PDFs from Notion and store in Supabase
-    // for (const url of notionUrls) {
-    //   const pdfBuffer = await downloadNotionPdf(url);
-    //   if (pdfBuffer) {
-    //     await supabase.storage
-    //       .from("policies-pdfs")
-    //       .upload(`${userId}/${encodeURIComponent(url)}.pdf`, pdfBuffer, {
-    //         contentType: "application/pdf",
-    //         upsert: true,
-    //       });
-    //   }
-    // }
+    const responsePayload = { success: true, user: data };
 
-    return new Response(JSON.stringify({ success: true, user: data }), {
+    const parsedOutput = ApprovePolicyResponseSchema.safeParse(responsePayload);
+
+    if (!parsedOutput.success) {
+      console.error("[Approve Policy Response Validation Error]", parsedOutput.error.flatten());
+      return new Response(JSON.stringify({ error: "Invalid response format" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify(parsedOutput.data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

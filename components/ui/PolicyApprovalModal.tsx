@@ -28,7 +28,7 @@ export function PolicyApprovalModal({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ userId, notionUrl }),
         },
       );
       if (!res.ok) throw new Error("Failed to approve policies");
@@ -52,7 +52,9 @@ export function PolicyApprovalModal({
         <SparkButton
           variant="inverted"
           className="w-full mb-6"
-          onClick={() => window.open(notionUrl, "_blank", "noopener,noreferrer")}
+          onClick={() =>
+            window.open(notionUrl, "_blank", "noopener,noreferrer")
+          }
         >
           View Policies
         </SparkButton>
