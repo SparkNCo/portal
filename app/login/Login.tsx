@@ -99,7 +99,7 @@ export default function LoginForm({
       >
         {/* Public image at the top */}
         <img
-          src="/Icon2.svg"
+          src="/icon2.svg"
           alt="spark/co"
           className="w-36 h-36 object-contain mb-2"
         />
