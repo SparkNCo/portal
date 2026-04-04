@@ -91,6 +91,7 @@ export async function getPostByURL(urlParam: string, contentType = "igPost") {
     title: fields.title || null,
     author: fields.author || null,
     url: fields.url || null,
+    content: fields.content || null,
 
     // 📝 post content
     caption: fields.caption || null,
