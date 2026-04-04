@@ -20,19 +20,7 @@ Deno.serve(async (req) => {
     if (req.method === "GET") {
       if (!url && !contentType) {
         return new Response(
-          JSON.stringify({ error: "Provide url or contentType" }),
-          {
-            status: 400,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-            },
-          },
-        );
-      }
-      if (url && contentType) {
-        return new Response(
-          JSON.stringify({ error: "Use either url OR contentType" }),
+          JSON.stringify({ error: "Provide contentType, or url with contentType" }),
           {
             status: 400,
             headers: {
@@ -43,8 +31,23 @@ Deno.serve(async (req) => {
         );
       }
 
-      if (url) {
-        const post = await getPostByURL(url);
+      if (url && !contentType) {
+        return new Response(
+          JSON.stringify({
+            error: "contentType is required when searching by url",
+          }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+      }
+
+      if (url && contentType) {
+        const post = await getPostByURL(url, contentType);
 
         return new Response(JSON.stringify(post), {
           headers: {

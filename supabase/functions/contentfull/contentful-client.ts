@@ -66,8 +66,8 @@ export async function getAllPosts({ contentType } = {}) {
   });
 }
 
-export async function getPostByURL(urlParam: string) {
-  const url = `https://preview.contentful.com/spaces/${SPACE_ID}/environments/master/entries?access_token=${PREVIEW_TOKEN}&content_type=igPost&fields.url=${encodeURIComponent(urlParam)}&include=2`;
+export async function getPostByURL(urlParam: string, contentType = "igPost") {
+  const url = `https://preview.contentful.com/spaces/${SPACE_ID}/environments/master/entries?access_token=${PREVIEW_TOKEN}&content_type=${encodeURIComponent(contentType)}&fields.url=${encodeURIComponent(urlParam)}&include=2`;
 
   console.log("🌐 GET POST BY URL:", url);
 
