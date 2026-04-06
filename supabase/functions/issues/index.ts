@@ -85,7 +85,10 @@ Deno.serve(async (req) => {
 
     const rawStatuses = searchParams.get("ticket_statuses");
     const ticketStatuses = rawStatuses
-      ? rawStatuses.split(",").map((s) => decodeURIComponent(s.trim())).filter(Boolean)
+      ? rawStatuses
+          .split(",")
+          .map((s) => decodeURIComponent(s.trim()))
+          .filter(Boolean)
       : undefined;
 
     if (!slug) {
