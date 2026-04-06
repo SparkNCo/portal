@@ -12,8 +12,12 @@ import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 
 // 🔹 Fetch issues for dashboard
-export async function fetchIssues(slug: string) {
-  const params = new URLSearchParams({ slug });
+export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
+  const statuses = [...new Set(["UAT", "Business Review", ...ticketStatuses])];
+  const params = new URLSearchParams({
+    slug,
+    ticket_statuses: statuses.join(","),
+  });
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/issues?${params.toString()}`,
   );

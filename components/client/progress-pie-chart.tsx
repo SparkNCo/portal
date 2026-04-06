@@ -23,6 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
   Todo: "hsl(var(--muted))",
   Canceled: "hsl(var(--muted))",
   QA: "hsl(210, 70%, 35%)",
+  "Business Review": "hsl(30, 100%, 35%)",
   Development: "hsl(30, 100%, 35%)",
   UAT: "hsl(180, 60%, 30%)",
   Backlog: "hsl(0, 0%, 30%)",

@@ -31,10 +31,12 @@ async function getCustomerBySlug(slug: string) {
   return data;
 }
 
-async function fetchIssues(projectIds: string[]) {
+async function fetchIssues(projectIds: string[], ticketStatuses?: string[]) {
   const filter = {
     project: { id: { in: projectIds } },
-    state: { name: { in: null } },
+    ...(ticketStatuses?.length
+      ? { state: { name: { in: ticketStatuses } } }
+      : {}),
   };
 
   const res = await fetch(LINEAR_GRAPHQL, {
@@ -81,6 +83,11 @@ Deno.serve(async (req) => {
     const rawSlug = searchParams.get("slug");
     const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
 
+    const rawStatuses = searchParams.get("ticket_statuses");
+    const ticketStatuses = rawStatuses
+      ? rawStatuses.split(",").map((s) => decodeURIComponent(s.trim())).filter(Boolean)
+      : undefined;
+
     if (!slug) {
       return new Response(JSON.stringify({ error: "Missing slug" }), {
         status: 400,
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
     const projectIds = customer.linear_projects;
 
     // 3️⃣ Fetch issues from Linear
-    const issues = await fetchIssues(projectIds);
+    const issues = await fetchIssues(projectIds, ticketStatuses);
 
     return new Response(JSON.stringify(issues), {
       headers: {
