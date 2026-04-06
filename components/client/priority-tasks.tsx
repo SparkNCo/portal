@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Send } from "lucide-react";
+import { AlertTriangle, ArrowRight, Send, ChevronsRight } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useRef, useState } from "react";
 
@@ -89,17 +89,65 @@ export type PriorityTasksProps = {
   issuesData: Issue[];
 };
 
+const STATE_TRANSITIONS: Partial<Record<string, string>> = {
+  "Business Review": "UAT",
+  UAT: "Done",
+};
+
 function IssueCard({ issue }: { issue: Issue }) {
   const [cardExpanded, setCardExpanded] = useState(false);
   const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
+
+  const nextState = currentStateName
+    ? STATE_TRANSITIONS[currentStateName]
+    : undefined;
+
+  async function handleAdvanceState() {
+    if (!nextState || advancing) return;
+    setAdvancing(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
+      }
+    } finally {
+      setAdvancing(false);
+    }
+  }
 
   const latestComment = issue.comments?.nodes?.at(-1);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!comment.trim()) return;
-    console.log({ issueId: issue.id, body: comment.trim() });
-    setComment("");
+    if (!comment.trim() || submitting) return;
+
+    setSubmitting(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
+      });
+      setComment("");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -176,6 +224,20 @@ function IssueCard({ issue }: { issue: Issue }) {
             )}
           </div>
 
+          {/* Advance state */}
+          {nextState && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={advancing}
+              onClick={handleAdvanceState}
+            >
+              <ChevronsRight className="h-3 w-3 mr-1" />
+              {advancing ? "Updating…" : `Move to ${nextState}`}
+            </Button>
+          )}
+
           {/* Comment input */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <textarea
@@ -193,7 +255,7 @@ function IssueCard({ issue }: { issue: Issue }) {
               type="submit"
               size="sm"
               className="self-end"
-              disabled={!comment.trim()}
+              disabled={!comment.trim() || submitting}
             >
               <Send className="h-3 w-3 mr-1" />
               Send

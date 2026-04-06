@@ -1,131 +1,35 @@
 // @ts-nocheck
-import { supabase } from "../client.ts";
-import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { ISSUES_QUERY } from "./query.ts";
-import { IssuesResponseSchema } from "./zod.ts";
-
-async function getCustomerBySlug(slug: string) {
-  const { data, error } = await supabase
-    .from("customers")
-    .select(
-      `
-      linear_projects,
-      linear_initiative_id,
-      linear_slug,
-      proposal_id,
-      stripe_customer_id
-    `,
-    )
-    .eq("linear_name", slug)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Supabase error:", error);
-    throw new Error("Customer not found");
-  }
-
-  if (!data) {
-    throw new Error("Customer not found");
-  }
-
-  return data;
-}
-
-async function fetchIssues(projectIds: string[], ticketStatuses?: string[]) {
-  const filter = {
-    project: { id: { in: projectIds } },
-    ...(ticketStatuses?.length
-      ? { state: { name: { in: ticketStatuses } } }
-      : {}),
-  };
-
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({
-      query: ISSUES_QUERY,
-      variables: { filter },
-    }),
-  });
-
-  const json = await res.json();
-  console.log("Linear API response:", json);
-
-  if (json.errors) {
-    throw new Error(JSON.stringify(json.errors));
-  }
-
-  const parsed = IssuesResponseSchema.safeParse(json);
-
-  if (!parsed.success) {
-    console.error("Invalid Linear response", parsed.error.format());
-    throw new Error("Invalid response from Linear API");
-  }
-
-  return parsed.data.data.issues.nodes;
-}
+import { corsHeaders } from "../utils/headers.ts";
+import { handleGetIssues } from "./fetchIssues.ts";
+import { handleAddComment, handleUpdateState } from "./updateIsste.ts";
 
 Deno.serve(async (req) => {
-  // ✅ CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    const { searchParams } = new URL(req.url);
+    let res: Response;
 
-    const rawSlug = searchParams.get("slug");
-    const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
-
-    const rawStatuses = searchParams.get("ticket_statuses");
-    const ticketStatuses = rawStatuses
-      ? rawStatuses
-          .split(",")
-          .map((s) => decodeURIComponent(s.trim()))
-          .filter(Boolean)
-      : undefined;
-
-    if (!slug) {
-      return new Response(JSON.stringify({ error: "Missing slug" }), {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      });
-    }
-    const customer = await getCustomerBySlug(slug);
-
-    if (!customer.linear_projects?.length) {
-      throw new Error("No Linear projects configured");
+    if (req.method === "GET") {
+      res = await handleGetIssues(req);
+    } else if (req.method === "POST") {
+      res = await handleAddComment(req);
+    } else if (req.method === "PATCH") {
+      res = await handleUpdateState(req);
+    } else {
+      res = Response.json({ error: "Method not allowed" }, { status: 405 });
     }
 
-    const projectIds = customer.linear_projects;
-
-    // 3️⃣ Fetch issues from Linear
-    const issues = await fetchIssues(projectIds, ticketStatuses);
-
-    return new Response(JSON.stringify(issues), {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+    return new Response(res.body, {
+      status: res.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[Linear API Error]", error);
-
+    console.error("[Issues API Error]", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
