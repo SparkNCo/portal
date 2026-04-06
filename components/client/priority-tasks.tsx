@@ -96,8 +96,8 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <Card className="bg-background border-border h-full flex flex-col max-w-[50rem] py-4">
-      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
+    <Card className="bg-background border-border h-full flex flex-col md:max-w-[50rem] lg:max-w-[100%]">
+      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           Priority Tasks
@@ -137,7 +137,7 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
           h-auto
         `
         : `
-          grid-rows-2
+          grid-rows-[1fr_1fr]
           grid-flow-col
           auto-cols-[280px]
           overflow-x-auto
@@ -149,7 +149,7 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
           {issuesData.map((issue) => (
             <div
               key={issue.id}
-              className="flex-shrink-0 w-[280px] even:mb-4 rounded-lg border border-border bg-secondary/30 p-4 hover:bg-secondary/50 transition-colors cursor-pointer "
+              className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-mono text-muted-foreground">

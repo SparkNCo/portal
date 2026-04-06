@@ -39,7 +39,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </p>
 
           <Link
-            href="/dashboard/roadmap?id=db853ded0f7b"
+            href="/"
             className="block w-full rounded-md bg-primary px-4 py-2 text-primary-foreground"
           >
             Login / Sign up

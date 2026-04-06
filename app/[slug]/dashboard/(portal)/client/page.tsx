@@ -80,9 +80,13 @@ export default function ClientDashboard() {
       />
 
       <div className="p-4 md:p-6 space-y-6">
-        <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-[300px_1fr] lg:grid-cols-[320px_1fr]">
-          <ProgressPieChart issuesData={issuesData ?? []} />
-          <PriorityTasks issuesData={issuesData ?? []} />
+        <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
+          <div className="w-full md:w-1/4 flex flex-col">
+            <ProgressPieChart issuesData={issuesData ?? []} />
+          </div>
+          <div className="w-full md:w-3/4 flex flex-col">
+            <PriorityTasks issuesData={issuesData ?? []} />
+          </div>
         </div>
 
         <CreateIssue />

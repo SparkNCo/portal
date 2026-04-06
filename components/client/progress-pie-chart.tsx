@@ -75,7 +75,7 @@ export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
     TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;
 
   return (
-    <Card className="bg-background border-border flex flex-col h-fit text-foreground ">
+    <Card className="bg-background border-border flex flex-col h-full text-foreground">
       <CardHeader>
         <CardTitle className="text-body font-semibold flex items-center gap-2 ">
           <TrendingUp className="h-4 w-4 text-chart-1" />
