@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase-client";
 
 type Profile = {
@@ -75,15 +75,18 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     // 🔥 listen to login/logout automatically
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       loadUser();
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const value = useMemo(() => ({ user, profile, loading }), [user, profile, loading]);
+
   return (
-    <UserContext.Provider value={{ user, profile, loading }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

@@ -7,12 +7,12 @@ import {
   LayoutDashboard,
   Code2,
   Map,
-  MessageSquare,
   Settings,
   FileText,
   ChevronDown,
   Building2,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
@@ -81,6 +81,7 @@ export function Sidebar() {
       }
 
       const dbUser = await res.json();
+      console.log("Fetched user from DB", { dbUser });
 
       // 🔥 Combinar usuarios
       const mergedUser: AppUser = {
@@ -114,7 +115,7 @@ export function Sidebar() {
   --------------------------*/
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
   };
 
   if (!user) {
@@ -141,6 +142,7 @@ export function Sidebar() {
         </button>
       </div>
 
+
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item) => {
           const isActive =
@@ -165,6 +167,21 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {user.supabase?.role === "admin" && (
+          <Link
+            href={params ? `admin?${params}` : "admin"}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/dashboard/admin" ||
+                pathname.startsWith("/dashboard/admin/")
+                ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Admin
+          </Link>
+        )}
       </nav>
 
       <div className="border-t border-sidebar-border p-3 space-y-2">

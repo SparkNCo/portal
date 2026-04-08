@@ -8,13 +8,13 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     console.log("[Request URL]:", req.url);
 
     const url = new URL(req.url);
-    const customer_id = url.searchParams.get("customer_id");
+    const customer_id = url.searchParams.get("customer");
     console.log("[customer_id]:", customer_id);
 
     if (!customer_id) {
-      console.warn("[GetAssignments] Missing customer_id");
+      console.warn("[GetAssignments] Missing customer param");
       return new Response(
-        JSON.stringify({ error: "customer_id is required" }),
+        JSON.stringify({ error: "customer is required" }),
         {
           status: 400,
           headers: {
@@ -31,14 +31,12 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .from("assignments")
       .select(
         `
-        id,
-        role,
         allocation,
         joined,
-        user_id,
         users!fk_user (
           id,
-          email
+          email,
+          role
         )
       `,
       )
@@ -49,12 +47,20 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       throw new Error(error.message);
     }
 
+    const users = (data ?? [])
+      .filter((row: any) => row.users)
+      .map((row: any) => ({
+        ...row.users,
+        allocation: row.allocation,
+        joined: row.joined,
+      }));
+
     console.log("[GetAssignments] Query success");
-    console.log("[Row count]:", data?.length);
-    console.log("[Sample row]:", data?.[0]);
+    console.log("[Row count]:", users.length);
+    console.log("[Sample row]:", users?.[0]);
     console.log("=== [GetAssignments] END ===");
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify(users), {
       status: 200,
       headers: {
         ...corsHeaders,
