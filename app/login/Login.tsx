@@ -20,6 +20,13 @@ export default function LoginForm({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState("");
+
   const {
     data: customer,
     isLoading: customerLoading,
@@ -91,8 +98,111 @@ export default function LoginForm({
     setLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetError("");
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email: resetEmail }),
+        },
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to send reset email");
+      }
+
+      setResetSent(true);
+    } catch (err: any) {
+      setResetError(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const closeForgotModal = () => {
+    setShowForgotModal(false);
+    setResetEmail("");
+    setResetSent(false);
+    setResetError("");
+  };
+
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
+      {/* Forgot password modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl space-y-4">
+            {resetSent ? (
+              <>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Check your inbox
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  A password reset link has been sent to{" "}
+                  <span className="font-medium text-foreground">
+                    {resetEmail}
+                  </span>
+                  .
+                </p>
+                <SparkButton className="w-full" onClick={closeForgotModal}>
+                  Close
+                </SparkButton>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Reset your password
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Enter your email and we'll send you a reset link.
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <input
+                    type="email"
+                    placeholder="your@email.com"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  {resetError && (
+                    <p className="text-xs text-red-500">{resetError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={closeForgotModal}
+                      className="flex-1 rounded border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <SparkButton
+                      type="submit"
+                      disabled={resetLoading}
+                      variant="primary"
+                      className="flex-1"
+                    >
+                      {resetLoading ? "Sending..." : "Send link"}
+                    </SparkButton>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={login}
         className="flex flex-col items-center w-[500px] h-[600px] p-8 bg-card shadow-lg space-y-6 relative"
@@ -146,12 +256,13 @@ export default function LoginForm({
         {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
 
         {/* Forgot password */}
-        <a
-          href="#"
+        <button
+          type="button"
+          onClick={() => setShowForgotModal(true)}
           className="self-end mr-[7.5%] text-sm font-semibold hover:underline text-background"
         >
           Forgot your password?
-        </a>
+        </button>
 
         {/* Login button */}
         <SparkButton
