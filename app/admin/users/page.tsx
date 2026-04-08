@@ -34,34 +34,65 @@ function getInitials(email: string) {
 }
 
 export default function AdminUsersPage() {
-  const { user, profile, loading } = useUser();
+  const { profile, loading } = useUser();
   const queryClient = useQueryClient();
 
   const [showAddDevModal, setShowAddDevModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [expandedUser, setExpandedUser] = useState<User | null>(null);
 
-  const { data: userAssignments, isLoading: assignmentsLoading } = useQuery({
-    queryKey: ["user-assignments", expandedUserId],
-    enabled: !!expandedUserId,
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${expandedUserId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
+  const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
+    useQuery({
+      queryKey: ["developer-assignments", expandedUser?.id],
+      enabled: !!expandedUser?.id && expandedUser.role === "developer",
+      queryFn: async () => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${expandedUser!.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+              apikey: process.env.NEXT_PUBLIC_APIKEY!,
+              "Content-Type": "application/json",
+            },
           },
-        },
-      );
-      const data = await res.json();
-      console.log("[user assignments]", data);
-      return data;
-    },
-  });
+        );
+        const data = await res.json();
+        console.log("[developer assignments]", data);
+        return data;
+      },
+    });
+
+  const { data: customerAssignments, isLoading: customerAssignmentsLoading } =
+    useQuery({
+      queryKey: ["customer-assignments", expandedUser?.id],
+      enabled: !!expandedUser?.id && expandedUser.role === "customer",
+      queryFn: async () => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer=${expandedUser!.id}&user_id=${expandedUser!.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+              apikey: process.env.NEXT_PUBLIC_APIKEY!,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        const data = await res.json();
+        console.log("[customer assignments]", data);
+        return data;
+      },
+    });
+
+  const userAssignments =
+    expandedUser?.role === "customer"
+      ? customerAssignments
+      : developerAssignments;
+  const assignmentsLoading =
+    expandedUser?.role === "customer"
+      ? customerAssignmentsLoading
+      : developerAssignmentsLoading;
 
   const {
     data: users = [],
@@ -204,7 +235,7 @@ export default function AdminUsersPage() {
 
           <div className="space-y-2">
             {users.map((u: User) => {
-              const isExpanded = expandedUserId === u.id;
+              const isExpanded = expandedUser?.id === u.id;
 
               return (
                 <div
@@ -252,9 +283,7 @@ export default function AdminUsersPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() =>
-                          setExpandedUserId(isExpanded ? null : u.id)
-                        }
+                        onClick={() => setExpandedUser(isExpanded ? null : u)}
                       >
                         {isExpanded ? (
                           <ChevronUp className="h-4 w-4" />
@@ -278,39 +307,78 @@ export default function AdminUsersPage() {
                           No assignments found
                         </p>
                       )}
+
                       {!assignmentsLoading && userAssignments?.length > 0 && (
                         <div className="space-y-2">
-                          {userAssignments.map((a: any) => (
-                            <div
-                              key={a.id}
-                              className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                                  {a.customer_email?.slice(0, 2).toUpperCase()}
+                          {expandedUser?.role === "customer"
+                            ? userAssignments.map((a: any) => (
+                                <div
+                                  key={a.id}
+                                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                      {a.email?.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-card-foreground">
+                                        {a.email}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground capitalize">
+                                        {a.role}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    {a.joined && (
+                                      <span>
+                                        Joined{" "}
+                                        {new Date(a.joined).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                    {a.allocation && (
+                                      <span className="font-medium text-foreground">
+                                        {a.allocation}h/week
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-medium text-card-foreground">
-                                    {a.customer_email}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground capitalize">
-                                    Customer
-                                  </p>
+                              ))
+                            : userAssignments.map((a: any) => (
+                                <div
+                                  key={a.id}
+                                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                      {a.customer_email
+                                        ?.slice(0, 2)
+                                        .toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-card-foreground">
+                                        {a.customer_email}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground capitalize">
+                                        Customer
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    {a.joined && (
+                                      <span>
+                                        Joined{" "}
+                                        {new Date(
+                                          a.joined,
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                    <span className="font-medium text-foreground">
+                                      {a.allocation}h/week
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                {a.joined && (
-                                  <span>
-                                    Joined{" "}
-                                    {new Date(a.joined).toLocaleDateString()}
-                                  </span>
-                                )}
-                                <span className="font-medium text-foreground">
-                                  {a.allocation}h/week
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                              ))}
                         </div>
                       )}
                     </div>
