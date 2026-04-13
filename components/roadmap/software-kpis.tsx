@@ -1,83 +1,47 @@
 "use client"
 
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Bug, TrendingUp, AlertTriangle, Clock, CheckCircle2, Server, MessageSquare } from "lucide-react"
+import { Activity, TrendingUp } from "lucide-react"
 
-const kpis = [
-  {
-    label: "Code Coverage",
-    value: "87%",
-    change: "+5%",
-    icon: Activity,
-    status: "good",
-  },
-  {
-    label: "Defect Rate",
-    value: "2.3%",
-    change: "-0.4%",
-    icon: Bug,
-    status: "good",
-  },
-  {
-    label: "Backlog Length",
-    value: "47",
-    change: "-8",
-    icon: TrendingUp,
-    status: "good",
-  },
-  {
-    label: "Escaped Defects per Sprint",
-    value: "1.2",
-    change: "-0.3",
-    icon: AlertTriangle,
-    status: "excellent",
-  },
-  {
-    label: "Sprint Completion %",
-    value: "92%",
-    change: "+7%",
-    icon: CheckCircle2,
-    status: "excellent",
-  },
-  {
-    label: "Uptime",
-    value: "99.8%",
-    change: "+0.1%",
-    icon: Server,
-    status: "excellent",
-  },
-  {
-    label: "MTTR",
-    value: "2.4h",
-    change: "-0.6h",
-    icon: Clock,
-    status: "good",
-  },
-  {
-    label: "Time to Response",
-    value: "8m",
-    change: "-2m",
-    icon: MessageSquare,
-    status: "excellent",
-  },
-  {
-    label: "Time to Resolution",
-    value: "4.2h",
-    change: "-1.1h",
-    icon: Clock,
-    status: "good",
-  },
-]
+interface Metric {
+  id: string
+  customer_id: string
+  metric_id: string
+  source: string
+  value: string
+  period_start: string
+  period_end: string
+  benchmark: { target: number; unit: string }[]
+  date_collected: { date: string }[]
+}
 
-const statusColors = {
-  excellent: "bg-success/20 text-success border-success/30",
-  good: "bg-chart-1/20 text-chart-1 border-chart-1/30",
-  "needs-attention": "bg-warning/20 text-warning border-warning/30",
+async function fetchMetrics(): Promise<Metric[]> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/metrics`)
+  if (!res.ok) throw new Error("Failed to fetch metrics")
+  const json = await res.json()
+  return json.data
+}
+
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "N/A"
+  const d = new Date(dateStr)
+  if (Number.isNaN(d.getTime())) return "N/A"
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
 }
 
 export function SoftwareKPIs() {
+  const { data: metrics, isLoading, isError } = useQuery({
+    queryKey: ["metrics"],
+    queryFn: fetchMetrics,
+  })
+
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-accent" />
@@ -85,21 +49,38 @@ export function SoftwareKPIs() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-4">
-          {kpis.map((kpi) => (
-            <div
-              key={kpi.label}
-              className={`rounded-lg border p-4 ${statusColors[kpi.status as keyof typeof statusColors]}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <kpi.icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{kpi.change}</span>
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Loading metrics...</p>
+        )}
+        {isError && (
+          <p className="text-sm text-destructive">Failed to load metrics.</p>
+        )}
+        {metrics?.length === 0 && (
+          <p className="text-sm text-muted-foreground">No metrics available.</p>
+        )}
+        {metrics && metrics.length > 0 && (
+          <div className="grid grid-cols-3 gap-4">
+            {metrics.map((metric) => (
+              <div
+                key={metric.id ?? metric.metric_id}
+                className="rounded-lg border p-4 bg-chart-1/20 text-chart-1 border-chart-1/30"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Activity className="h-5 w-5" />
+                </div>
+                <p className="text-2xl font-bold text-card-foreground mb-1">
+                  {metric.value ?? "N/A"}
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {metric.source ?? "N/A"}
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  {formatDate(metric.period_start)} – {formatDate(metric.period_end)}
+                </p>
               </div>
-              <p className="text-2xl font-bold text-card-foreground mb-1">{kpi.value}</p>
-              <p className="text-xs text-muted-foreground">{kpi.label}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

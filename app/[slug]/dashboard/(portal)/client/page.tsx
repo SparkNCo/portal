@@ -10,6 +10,8 @@ import { useState, useEffect } from "react";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
+import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
+import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
@@ -94,6 +96,14 @@ export default function ClientDashboard() {
         </div>
 
         <CreateIssue />
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <VelocityMetrics />
+          <SoftwareKPIs
+          /* targetDate={project?.targetDate}
+            progress={project?.progress} */
+          />
+        </div>
       </div>
     </div>
   );
