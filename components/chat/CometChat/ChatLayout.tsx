@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Chat from "./Chat";
-import ChatSideBar from "./ChatSideBar";
+// import ChatSideBar from "./ChatSideBar";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 
 export default function ChatLayout() {
@@ -29,13 +29,13 @@ export default function ChatLayout() {
   return libraryImported ? (
     <div className="flex flex-row w-full">
       {/* Sidebar */}
-      <ChatSideBar
+      {/* <ChatSideBar
         user={user}
         setConversationId={setConversationId}
         setMode={setMode}
         setActiveUID={setActiveUID}
         setResponseConversation={setResponseConversation}
-      />
+      /> */}
 
       {/* Chat Window */}
       <Chat

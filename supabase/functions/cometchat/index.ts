@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
           category: "message",
           type: "text",
           data: {
-            text: "Random Text",
+            text: aiText,
           },
           sender: AI_UID,
         }),

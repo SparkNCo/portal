@@ -11,7 +11,7 @@ const tools = [
 
 export function ToolShortcuts() {
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Zap className="h-4 w-4 text-accent" />

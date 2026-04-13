@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
+import { supabase } from "@/lib/supabase-client";
 
 import AIChatInput from "./AIChatInput";
 import StaffChatInput from "./StaffChatInput";
@@ -69,7 +70,8 @@ export default function Chat({
         setLoading(false);
         return;
       }
-      const UID = "UID";
+      const { data } = await supabase.auth.getUser();
+      const UID = data.user?.id ?? "UID";
       const logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
       console.log("✅ Login successful", logged);
       setUser(logged);

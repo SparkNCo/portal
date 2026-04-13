@@ -1,121 +1,102 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 
 type AIGroupChatProps = {
   user: CometChat.User;
 };
 
-export default function AIGroupChat({ user }: AIGroupChatProps) {
-  const AI_UID = process.env.NEXT_PUBLIC_COMET_AI_UID as string;
+type ChatMessage = {
+  id: string;
+  uid: string;
+  text: string;
+};
+
+export default function AIGroupChat({ user: _ }: AIGroupChatProps) {
+  // const AI_UID = process.env.NEXT_PUBLIC_COMET_AI_UID as string;
+  const AI_UID = "e17fda15-1881-4375-a818-21fb97a507ce";
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
-  const [groupId, setGroupId] = useState<string>("");
+  const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    const createAIGroup = async () => {
-      const GUID = "ai-group-" + crypto.randomUUID();
-      setGroupId(GUID);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-      try {
-        const group = new CometChat.Group(
-          GUID,
-          "AI Session",
-          CometChat.GROUP_TYPE.PUBLIC,
-        );
-
-        await CometChat.createGroup(group);
-        // 2️⃣ Add AI bot
-
-        let membersList = [
-          new CometChat.GroupMember(
-            AI_UID,
-            CometChat.GROUP_MEMBER_SCOPE.PARTICIPANT,
-          ),
-        ];
-
-        await CometChat.addMembersToGroup(GUID, membersList, []).then(
-          (response) => {
-            console.log("response", response);
-          },
-          (error) => {
-            console.log("Something went wrong", error);
-          },
-        );
-
-        console.log("🤖 AI joined group");
-      } catch (err) {
-        console.error("Group creation error:", err);
-      }
-    };
-
-    createAIGroup();
-  }, []);
-
-  // 🤖 AI streaming listener
+  // 🤖 Listen for all incoming messages and log them
   useEffect(() => {
-    const listenerId = "ai-group-listener";
-    let streamingText = "";
+    const listenerId = "ai-direct-listener";
 
-    CometChat.addAIAssistantListener(listenerId, {
-      onAIAssistantEventReceived: (event) => {
-        const delta = event?.data?.delta;
-        if (!delta) return;
+    CometChat.addMessageListener(
+      listenerId,
+      new CometChat.MessageListener({
+        onTextMessageReceived: (msg: CometChat.TextMessage) => {
+          const senderUID = msg.getSender()?.getUid();
+          const text = msg.getText();
+          console.log("📩 [TextMessage received]", {
+            senderUID,
+            text,
+            messageId: msg.getId(),
+            receiverType: msg.getReceiverType(),
+            raw: msg,
+          });
 
-        streamingText += delta;
-
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-
-          if (last?.sender?.uid === "AI") {
-            const updated = [...prev];
-            updated[updated.length - 1].text = streamingText;
-            return updated;
+          if (senderUID !== AI_UID) {
+            console.log("⏭️ Ignoring message from:", senderUID);
+            return;
           }
 
-          return [
+          console.log("✅ AI reply received:", text);
+          setMessages((prev) => [
             ...prev,
-            {
-              sender: { uid: "AI" },
-              text: streamingText,
-            },
-          ];
-        });
-      },
-    });
+            { id: String(msg.getId()), uid: AI_UID, text },
+          ]);
+        },
+        onCustomMessageReceived: (msg: CometChat.CustomMessage) => {
+          console.log("📦 [CustomMessage received]", {
+            senderUID: msg.getSender()?.getUid(),
+            type: msg.getType(),
+            data: msg.getData(),
+            raw: msg,
+          });
+        },
+      }),
+    );
+
+    console.log("👂 Message listener registered:", listenerId);
 
     return () => {
-      CometChat.removeAIAssistantListener(listenerId);
+      CometChat.removeMessageListener(listenerId);
+      console.log("🔇 Message listener removed:", listenerId);
     };
   }, []);
 
-  // 📤 Send message to group
+  // 📤 Send message directly to AI_UID
   const sendMessage = async () => {
-    if (!message.trim() || !groupId) return;
-
+    if (!message.trim()) return;
     setLoading(true);
 
     try {
       const textMessage = new CometChat.TextMessage(
-        groupId,
+        AI_UID,
         message,
-        CometChat.RECEIVER_TYPE.GROUP,
+        CometChat.RECEIVER_TYPE.USER,
       );
 
-      textMessage.setMetadata({
-        sessionId: groupId,
-        senderUid: user.getUid(),
-        type: "ai-group-session",
-      });
+      const sent = await CometChat.sendMessage(textMessage) as CometChat.TextMessage;
+      const sentText = sent.getText();
+      console.log("📤 Message sent:", { text: sentText, raw: sent });
 
-      const sent = await CometChat.sendMessage(textMessage);
-
-      setMessages((prev) => [...prev, sent]);
+      setMessages((prev) => [
+        ...prev,
+        { id: String(sent.getId()), uid: sent.getSender()?.getUid() ?? "me", text: sentText },
+      ]);
       setMessage("");
     } catch (err) {
-      console.error("Send message error:", err);
+      console.error("❌ Send message error:", err);
     } finally {
       setLoading(false);
     }
@@ -125,12 +106,11 @@ export default function AIGroupChat({ user }: AIGroupChatProps) {
     <div className="flex flex-col w-full max-w-2xl mx-auto border rounded-xl h-[500px]">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {messages.map((msg, i) => {
-          const isAI = msg.sender?.uid === "AI";
-
+        {messages.map((msg) => {
+          const isAI = msg.uid === AI_UID;
           return (
             <div
-              key={i}
+              key={msg.id}
               className={`p-2 rounded-lg max-w-[70%] text-white ${
                 isAI ? "bg-blue-600" : "bg-green-600 ml-auto"
               }`}
@@ -139,6 +119,7 @@ export default function AIGroupChat({ user }: AIGroupChatProps) {
             </div>
           );
         })}
+        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -150,13 +131,12 @@ export default function AIGroupChat({ user }: AIGroupChatProps) {
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         />
-
         <button
           onClick={sendMessage}
           disabled={loading}
           className="bg-black text-white px-4 rounded-lg"
         >
-          Send
+          {loading ? "..." : "Send"}
         </button>
       </div>
     </div>
