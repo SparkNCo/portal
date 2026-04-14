@@ -28,6 +28,8 @@ query Projects($initiativeId: String!) {
                   isActive
                   isPast
                   isFuture
+                  id
+                  name
                 }
                 assignee {
                   displayName

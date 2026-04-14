@@ -91,8 +91,6 @@ export default function RoadmapPage() {
     );
   }
 
-  const project = roadmap?.projects?.nodes?.[2];
-
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />

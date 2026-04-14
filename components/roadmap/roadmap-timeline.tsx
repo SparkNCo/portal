@@ -58,7 +58,7 @@ export function RoadmapTimeline({
 
   return (
     // className="border-4 border-red-500"
-    <Card>
+    <Card className="overflow-hidden bg-background  ">
       <TimelineHeader
         year={year}
         onPrev={() => setYear((y) => y - 1)}
