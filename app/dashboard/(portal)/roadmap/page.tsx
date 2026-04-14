@@ -6,6 +6,7 @@ import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
+import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { useQuery } from "@tanstack/react-query";
 
 export default function RoadmapPage() {
@@ -104,6 +105,7 @@ export default function RoadmapPage() {
             progress={project?.progress} */
           />
         </div>
+
       </div>
     </div>
   );

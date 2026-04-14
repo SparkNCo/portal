@@ -12,6 +12,7 @@ import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
+import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
@@ -79,12 +80,10 @@ export default function ClientDashboard() {
         notionUrl={notionUrl}
         onApproved={() => setShowPoliciesModal(false)}
       />
-
       <Header
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
-
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
           <div className="w-full md:w-1/4 flex flex-col">
@@ -104,7 +103,8 @@ export default function ClientDashboard() {
             progress={project?.progress} */
           />
         </div>
-      </div>
+      </div>{" "}
+      <MetricsPanel />
     </div>
   );
 }

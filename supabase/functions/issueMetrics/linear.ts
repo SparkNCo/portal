@@ -3,6 +3,8 @@ import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import {
   PROJECTS_LIGHT_QUERY,
   ISSUES_BY_MILESTONE_QUERY,
+  CYCLES_BY_TEAM_QUERY,
+  GET_PROJECT_QUERY,
 } from "./queries.ts";
 
 async function linearFetch(query: string, variables: any) {
@@ -29,17 +31,44 @@ export async function fetchProjectsAndMilestones(initiativeId: string) {
   return data.initiative;
 }
 
+export async function fetchCyclesForProjects(
+  projectTeams: { projectId: string; teamId: string }[],
+) {
+  return Promise.all(
+    projectTeams.map(async ({ projectId, teamId }) => {
+      const data = await linearFetch(CYCLES_BY_TEAM_QUERY, { teamId });
+      console.log("all good cycles:", teamId, data);
+
+      return { projectId, cycles: data.cycles.nodes };
+    }),
+  );
+}
+
 export async function fetchIssuesForMilestones(milestoneIds: string[]) {
   return Promise.all(
     milestoneIds.map(async (milestoneId) => {
-      const data = await linearFetch(ISSUES_BY_MILESTONE_QUERY, { milestoneId });
+      const data = await linearFetch(ISSUES_BY_MILESTONE_QUERY, {
+        milestoneId,
+      });
+      console.log("all good milestones", milestoneId, data);
       return { milestoneId, issues: data.issues.nodes };
     }),
   );
 }
 
+export async function fetchProjectDetails(projectIds: string[]) {
+  return Promise.all(
+    projectIds.map(async (projectId) => {
+      const data = await linearFetch(GET_PROJECT_QUERY, { projectId });
+      return data.project;
+    }),
+  );
+}
+
 export function mergeData(initiative: any, issuesByMilestone: any[]) {
-  const map = new Map(issuesByMilestone.map((item) => [item.milestoneId, item.issues]));
+  const map = new Map(
+    issuesByMilestone.map((item) => [item.milestoneId, item.issues]),
+  );
 
   for (const project of initiative.projects.nodes) {
     for (const milestone of project.projectMilestones.nodes) {

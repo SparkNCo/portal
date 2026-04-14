@@ -1,7 +1,18 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { getCustomerBySlug, upsertIssueMetrics, upsertCycleMetrics, getMetricsByProject } from "./db.ts";
-import { fetchProjectsAndMilestones, fetchIssuesForMilestones, mergeData } from "./linear.ts";
+import {
+  getCustomerBySlug,
+  upsertIssueMetrics,
+  upsertCycleMetrics,
+  getMetricsBySlug,
+} from "./db.ts";
+import {
+  fetchProjectsAndMilestones,
+  fetchIssuesForMilestones,
+  fetchCyclesForProjects,
+  fetchProjectDetails,
+  mergeData,
+} from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
 
 Deno.serve(async (req) => {
@@ -13,18 +24,27 @@ Deno.serve(async (req) => {
 
   if (req.method === "GET") {
     try {
-      const projectId = searchParams.get("project_id");
+      const slug = searchParams.get("slug");
 
-      if (!projectId) {
-        return new Response(JSON.stringify({ error: "Missing project_id" }), {
+      if (!slug) {
+        return new Response(JSON.stringify({ error: "Missing slug" }), {
           status: 400,
           headers: corsHeaders,
         });
       }
 
-      const data = await getMetricsByProject(projectId);
+      const customer = await getCustomerBySlug(slug);
+      console.log("linear_slug:", customer.linear_slug);
+      console.log("linear_projects:", customer.linear_projects);
 
-      return new Response(JSON.stringify(data), {
+      const linearProjects: string[] = customer.linear_projects ?? [];
+
+      const [metrics, projects] = await Promise.all([
+        getMetricsBySlug(linearProjects),
+        fetchProjectDetails(linearProjects),
+      ]);
+
+      return new Response(JSON.stringify({ ...metrics, projects }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {
@@ -53,16 +73,26 @@ Deno.serve(async (req) => {
 
     const initiative = await fetchProjectsAndMilestones(customer.linear_slug);
 
+    const projectTeams = initiative.projects.nodes.flatMap((p: any) =>
+      p.teams.nodes.map((t: any) => ({ projectId: p.id, teamId: t.id })),
+    );
+    console.log("ACA TOY projectTeams", projectTeams);
+
     const milestoneIds = initiative.projects.nodes.flatMap((p: any) =>
       p.projectMilestones.nodes.map((m: any) => m.id),
     );
+    console.log("ACA TOY 2 milestoneIds", milestoneIds);
 
-    const issuesByMilestone = await fetchIssuesForMilestones(milestoneIds);
+    const [issuesByMilestone, cyclesByProject] = await Promise.all([
+      fetchIssuesForMilestones(milestoneIds),
+      fetchCyclesForProjects(projectTeams),
+    ]);
+    console.log("ACA TOY 3 ", issuesByMilestone);
 
     const finalData = mergeData(initiative, issuesByMilestone);
 
     const metrics = buildIssueMetrics(finalData, customer.linear_slug);
-    const cycles = buildCycleMetrics(finalData, customer.linear_slug);
+    const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug);
 
     await Promise.all([
       upsertIssueMetrics(metrics),

@@ -33,10 +33,17 @@ export async function upsertCycleMetrics(cycles: any[]) {
   }
 }
 
-export async function getMetricsByProject(projectId: string) {
+export async function getMetricsBySlug(projectIds: string[]) {
   const [cycleResult, issueResult] = await Promise.all([
-    supabase.from("cycle_metrics").select("*").eq("project_id", projectId),
-    supabase.from("issue_metrics").select("*").eq("project_id", projectId),
+    supabase
+      .from("cycle_metrics")
+      .select("*")
+      .in("project_id", projectIds)
+      .order("number", { ascending: true }),
+    supabase
+      .from("issue_metrics")
+      .select("*")
+      .in("project_id", projectIds),
   ]);
 
   if (cycleResult.error) {

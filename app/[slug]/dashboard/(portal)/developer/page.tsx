@@ -1,8 +1,8 @@
-import { Header } from "@/components/headerDashboard"
-import { QuickLinks } from "@/components/developer/quick-links"
-import { ToolShortcuts } from "@/components/developer/tool-shortcuts"
-import { DevTasks } from "@/components/developer/dev-tasks"
-import { CreateIssue } from "@/components/shared/create-issue"
+import { Header } from "@/components/headerDashboard";
+import { QuickLinks } from "@/components/developer/quick-links";
+import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
+import { DevTasks } from "@/components/developer/dev-tasks";
+import { CreateIssue } from "@/components/shared/create-issue";
 
 export default function DeveloperDashboard() {
   return (
@@ -21,5 +21,5 @@ export default function DeveloperDashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }

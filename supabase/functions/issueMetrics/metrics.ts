@@ -40,34 +40,32 @@ export function buildIssueMetrics(initiative: any, customerId: string) {
   return Array.from(metricsMap.values());
 }
 
-export function buildCycleMetrics(initiative: any, customerId: string) {
-  const cycleMap = new Map();
+export function buildCycleMetrics(
+  cyclesByProject: { projectId: string; cycles: any[] }[],
+  customerId: string,
+) {
+  const result = [];
 
-  for (const project of initiative.projects.nodes) {
-    for (const milestone of project.projectMilestones.nodes) {
-      for (const issue of milestone.issues || []) {
-        const cycle = issue.cycle;
-        if (!cycle?.id) continue;
-
-        const key = `${project.id}-${cycle.id}`;
-        if (cycleMap.has(key)) continue;
-
-        cycleMap.set(key, {
-          customer_id: customerId,
-          project_id: project.id,
-          cycle_id: cycle.id,
-          name: cycle.name,
-          description: cycle.description ?? null,
-          completed_at: cycle.completedAt ?? null,
-          number: cycle.number,
-          scope_history: cycle.scopeHistory ?? [],
-          completed_scope_history: cycle.completedScopeHistory ?? [],
-          uncompleted_issues_upon_close:
-            cycle.uncompletedIssuesUponClose?.nodes ?? [],
-        });
-      }
+  for (const { projectId, cycles } of cyclesByProject) {
+    for (const cycle of cycles) {
+      result.push({
+        customer_id: customerId,
+        project_id: projectId,
+        cycle_id: cycle.id,
+        name: cycle.name,
+        description: cycle.description ?? null,
+        completed_at: cycle.completedAt ?? null,
+        starts_at: cycle.startsAt ?? null,
+        ends_at: cycle.endsAt ?? null,
+        is_active: cycle.isActive ?? false,
+        number: cycle.number,
+        scope_history: cycle.scopeHistory ?? [],
+        completed_scope_history: cycle.completedScopeHistory ?? [],
+        uncompleted_issues_upon_close:
+          cycle.uncompletedIssuesUponClose?.nodes ?? [],
+      });
     }
   }
 
-  return Array.from(cycleMap.values());
+  return result;
 }
