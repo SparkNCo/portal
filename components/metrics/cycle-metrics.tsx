@@ -4,11 +4,14 @@ import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +31,8 @@ interface CycleMetric {
   number: number;
   description: string | null;
   completed_at: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
   scope_history: number[];
   completed_scope_history: number[];
   uncompleted_issues_upon_close: any[];
@@ -37,12 +42,19 @@ interface CycleMetric {
 export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [lineFilter, setLineFilter] = useState<
+    "all" | "scope" | "done" | "uncompleted"
+  >("all");
 
   const filtered = useMemo(() => {
     return data.filter((c) => {
-      const d = new Date(c.created_at);
-      if (dateFrom && d < new Date(dateFrom)) return false;
-      if (dateTo && d > new Date(dateTo + "T23:59:59")) return false;
+      const start = c.starts_at ? new Date(c.starts_at) : null;
+      const end = c.ends_at ? new Date(c.ends_at) : null;
+      const from = dateFrom ? new Date(dateFrom) : null;
+      const to = dateTo ? new Date(dateTo + "T23:59:59") : null;
+      // cycle overlaps selected range: cycle_start <= to AND cycle_end >= from
+      if (from && end && end < from) return false;
+      if (to && start && start > to) return false;
       return true;
     });
   }, [data, dateFrom, dateTo]);
@@ -56,6 +68,39 @@ export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
       })),
     [filtered],
   );
+
+  const CYCLE_COLORS = [
+    "oklch(0.65 0.2 250)",
+    "oklch(0.7 0.18 140)",
+    "oklch(0.7 0.2 30)",
+    "oklch(0.65 0.2 320)",
+    "oklch(0.7 0.18 200)",
+    "oklch(0.65 0.2 60)",
+  ];
+
+  const lineChartData = useMemo(() => {
+    const maxLen = Math.max(
+      0,
+      ...filtered.flatMap((c) => [
+        c.scope_history.length,
+        c.completed_scope_history.length,
+      ]),
+    );
+    return Array.from({ length: maxLen }, (_, i) => {
+      const point: Record<string, number | string> = { index: i + 1 };
+      filtered.forEach((c) => {
+        const label = c.name ?? `Cycle ${c.number}`;
+        if (i < c.scope_history.length)
+          point[`${label} – Scope`] = c.scope_history[i] as number;
+        if (i < c.completed_scope_history.length)
+          point[`${label} – Done`] = c.completed_scope_history[i] as number;
+        // flat line showing uncompleted count across the full cycle duration
+        point[`${label} – Uncompleted`] =
+          c.uncompleted_issues_upon_close.length;
+      });
+      return point;
+    });
+  }, [filtered]);
 
   return (
     <div className="space-y-4">
@@ -96,8 +141,7 @@ export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
             Cycle Scope vs Completed
           </CardTitle>
         </CardHeader>
-
-        <div onClick={() => console.log({chartData})}>VER chartData</div>
+        <div onClick={() => console.log({data})}>VER data</div>
 
         <CardContent>
           {chartData.length === 0 ? (
@@ -145,6 +189,129 @@ export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
                     radius={[3, 3, 0, 0]}
                   />
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Scope & Completed history lines per cycle */}
+      <Card className="bg-background border-border">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-accent" />
+            Scope &amp; Completed History
+          </CardTitle>
+          <div className="flex gap-1 rounded-lg border border-border bg-muted p-1">
+            {(
+              [
+                ["all", "All"],
+                ["scope", "Scope"],
+                ["done", "Done"],
+                ["uncompleted", "Uncompleted"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setLineFilter(value)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  lineFilter === value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {lineChartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              No cycles in selected range
+            </p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineChartData}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="oklch(0.22 0 0)"
+                  />
+                  <XAxis
+                    dataKey="index"
+                    label={{
+                      value: "Day",
+                      position: "insideBottomRight",
+                      offset: -8,
+                      fontSize: 11,
+                      fill: "oklch(0.6 0 0)",
+                    }}
+                    tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "oklch(0.13 0 0)",
+                      border: "1px solid oklch(0.22 0 0)",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    labelStyle={{ color: "oklch(0.95 0 0)" }}
+                    labelFormatter={(v) => `Day ${v}`}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} iconType="line" />
+                  {filtered.map((c, i) => {
+                    const label = c.name ?? `Cycle ${c.number}`;
+                    const color = CYCLE_COLORS[i % CYCLE_COLORS.length];
+                    return [
+                      (lineFilter === "all" || lineFilter === "scope") && (
+                        <Line
+                          key={`${label}-scope`}
+                          type="monotone"
+                          dataKey={`${label} – Scope`}
+                          stroke={color}
+                          strokeWidth={2}
+                          dot={false}
+                          connectNulls
+                        />
+                      ),
+                      (lineFilter === "all" || lineFilter === "done") && (
+                        <Line
+                          key={`${label}-done`}
+                          type="monotone"
+                          dataKey={`${label} – Done`}
+                          stroke={color}
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                          dot={false}
+                          connectNulls
+                        />
+                      ),
+                      (lineFilter === "all" ||
+                        lineFilter === "uncompleted") && (
+                        <Line
+                          key={`${label}-uncompleted`}
+                          type="monotone"
+                          dataKey={`${label} – Uncompleted`}
+                          stroke={color}
+                          strokeWidth={2}
+                          strokeDasharray="1 4"
+                          dot={false}
+                          connectNulls
+                        />
+                      ),
+                    ];
+                  })}
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}

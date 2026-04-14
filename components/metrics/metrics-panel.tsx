@@ -84,16 +84,6 @@ export function MetricsPanel() {
             ))}
           </SelectContent>
         </Select>
-        <div className="text-foreground" onClick={() => console.log({ data })}>
-          VER data
-        </div>
-        <div
-          className="text-foreground"
-          onClick={() => console.log({ selectedProjectId })}
-        >
-          VER selectedProjectId
-        </div>
-
         <div className="flex gap-1 rounded-lg border border-border bg-muted p-1">
           {(["issues", "cycles"] as Tab[]).map((t) => (
             <button
@@ -110,8 +100,7 @@ export function MetricsPanel() {
           ))}
         </div>
       </div>
-
-      {tab === "issues" && <IssueMetricsView data={issueMetrics} />}
+{tab === "issues" && <IssueMetricsView data={issueMetrics} />}
       {tab === "cycles" && <CycleMetricsView data={cycleMetrics} />}
     </div>
   );
