@@ -57,19 +57,15 @@ export function MetricsPanel() {
 
   const projects: Project[] = data?.projects ?? [];
 
-  const issueMetrics =
-    selectedProjectId === "all"
-      ? (data?.issue_metrics ?? [])
-      : (data?.issue_metrics ?? []).filter(
-          (m: { project_id: string }) => m.project_id === selectedProjectId,
-        );
+  const issueMetrics = (data?.issue_metrics ?? []).filter(
+    (m: { project_id: string }) =>
+      selectedProjectId === "all" || m.project_id === selectedProjectId,
+  );
 
-  const cycleMetrics =
-    selectedProjectId === "all"
-      ? (data?.cycle_metrics ?? [])
-      : (data?.cycle_metrics ?? []).filter(
-          (m: { project_id: string }) => m.project_id === selectedProjectId,
-        );
+  const cycleMetrics = (data?.cycle_metrics ?? []).filter(
+    (m: { project_id: string }) =>
+      selectedProjectId === "all" || m.project_id === selectedProjectId,
+  );
 
   return (
     <div className="space-y-4 mb-20">
@@ -88,6 +84,15 @@ export function MetricsPanel() {
             ))}
           </SelectContent>
         </Select>
+        <div className="text-foreground" onClick={() => console.log({ data })}>
+          VER data
+        </div>
+        <div
+          className="text-foreground"
+          onClick={() => console.log({ selectedProjectId })}
+        >
+          VER selectedProjectId
+        </div>
 
         <div className="flex gap-1 rounded-lg border border-border bg-muted p-1">
           {(["issues", "cycles"] as Tab[]).map((t) => (

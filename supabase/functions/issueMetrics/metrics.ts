@@ -1,39 +1,37 @@
 // @ts-nocheck
 
-export function buildIssueMetrics(initiative: any, customerId: string) {
+export function buildIssueMetrics(projects: any[], customerId: string) {
   const metricsMap = new Map();
   const today = new Date().toISOString().split("T")[0];
 
-  for (const project of initiative.projects.nodes) {
-    for (const milestone of project.projectMilestones.nodes) {
-      for (const issue of milestone.issues || []) {
-        const cycleId = issue.cycle?.id || "no-cycle";
-        const status = issue.state?.name || "unknown";
-        const label = issue.labels?.nodes?.[0]?.name || "no-label";
+  for (const project of projects) {
+    for (const issue of project.issues?.nodes || []) {
+      const cycleId = issue.cycle?.id || "no-cycle";
+      const status = issue.state?.name || "unknown";
+      const label = issue.labels?.nodes?.[0]?.name || "no-label";
 
-        const key = `${project.id}-${status}-${label}-${cycleId}`;
+      const key = `${project.id}-${cycleId}-${today}`;
 
-        if (!metricsMap.has(key)) {
-          metricsMap.set(key, {
-            cycle_issue_id: key,
-            customer_id: customerId,
-            project_id: project.id,
-            status,
-            label,
-            date_collected: today,
-            count: 0,
-            points: 0,
-            cycle: cycleId,
-            titles: [],
-          });
-        }
-
-        const entry = metricsMap.get(key);
-
-        entry.count += 1;
-        entry.points += issue.estimate || 0;
-        if (issue.title) entry.titles.push(issue.title);
+      if (!metricsMap.has(key)) {
+        metricsMap.set(key, {
+          cycle_issue_id: key,
+          customer_id: customerId,
+          project_id: project.id,
+          status,
+          label,
+          date_collected: today,
+          count: 0,
+          points: 0,
+          cycle: cycleId,
+          titles: [],
+        });
       }
+
+      const entry = metricsMap.get(key);
+
+      entry.count += 1;
+      entry.points += issue.estimate || 0;
+      if (issue.title) entry.titles.push(issue.title);
     }
   }
 

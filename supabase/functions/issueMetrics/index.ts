@@ -6,13 +6,7 @@ import {
   upsertCycleMetrics,
   getMetricsBySlug,
 } from "./db.ts";
-import {
-  fetchProjectsAndMilestones,
-  fetchIssuesForMilestones,
-  fetchCyclesForProjects,
-  fetchProjectDetails,
-  mergeData,
-} from "./linear.ts";
+import { fetchProjectDetails } from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
 
 Deno.serve(async (req) => {
@@ -67,31 +61,22 @@ Deno.serve(async (req) => {
 
     const customer = await getCustomerBySlug(slug);
 
-    if (!customer.linear_initiative_id) {
-      throw new Error("No initiative configured");
-    }
+    const linearProjects: string[] = customer.linear_projects ?? [];
+    const projects = await fetchProjectDetails(linearProjects);
 
-    const initiative = await fetchProjectsAndMilestones(customer.linear_slug);
+    console.log("linear_slug:", customer.linear_slug);
 
-    const projectTeams = initiative.projects.nodes.flatMap((p: any) =>
-      p.teams.nodes.map((t: any) => ({ projectId: p.id, teamId: t.id })),
-    );
-    console.log("ACA TOY projectTeams", projectTeams);
+    const cyclesByProject = projects.map((project: any) => {
+      const cyclesMap = new Map();
+      for (const issue of project.issues?.nodes || []) {
+        if (issue.cycle?.id) {
+          cyclesMap.set(issue.cycle.id, issue.cycle);
+        }
+      }
+      return { projectId: project.id, cycles: Array.from(cyclesMap.values()) };
+    });
 
-    const milestoneIds = initiative.projects.nodes.flatMap((p: any) =>
-      p.projectMilestones.nodes.map((m: any) => m.id),
-    );
-    console.log("ACA TOY 2 milestoneIds", milestoneIds);
-
-    const [issuesByMilestone, cyclesByProject] = await Promise.all([
-      fetchIssuesForMilestones(milestoneIds),
-      fetchCyclesForProjects(projectTeams),
-    ]);
-    console.log("ACA TOY 3 ", issuesByMilestone);
-
-    const finalData = mergeData(initiative, issuesByMilestone);
-
-    const metrics = buildIssueMetrics(finalData, customer.linear_slug);
+    const metrics = buildIssueMetrics(projects, customer.linear_slug);
     const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug);
 
     await Promise.all([

@@ -34,11 +34,7 @@ interface CycleMetric {
   created_at: string;
 }
 
-export function CycleMetricsView({
-  data,
-}: {
-  readonly data: CycleMetric[];
-}) {
+export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -81,7 +77,10 @@ export function CycleMetricsView({
         />
         {(dateFrom || dateTo) && (
           <button
-            onClick={() => { setDateFrom(""); setDateTo(""); }}
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             Clear
@@ -97,6 +96,9 @@ export function CycleMetricsView({
             Cycle Scope vs Completed
           </CardTitle>
         </CardHeader>
+
+        <div onClick={() => console.log({chartData})}>VER chartData</div>
+
         <CardContent>
           {chartData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">

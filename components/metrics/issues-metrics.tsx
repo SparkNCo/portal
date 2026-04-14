@@ -60,12 +60,19 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
     [data],
   );
 
+  const today = new Date().toISOString().split("T")[0];
+
   const filtered = useMemo(
     () =>
       data.filter(
         (d) => selectedLabel === "all" || d.label === selectedLabel,
       ),
     [data, selectedLabel],
+  );
+
+  const todayRows = useMemo(
+    () => filtered.filter((d) => d.date_collected === today),
+    [filtered, today],
   );
 
   const uniqueStatuses = useMemo(
@@ -96,6 +103,8 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
   return (
     <div className="space-y-4">
       {/* Filters */}
+      <div onClick={() => console.log({issueMetrics})}>VER chartData</div>
+      
       <div className="flex flex-wrap gap-3">
         <Select value={selectedLabel} onValueChange={setSelectedLabel}>
           <SelectTrigger className="w-56">
@@ -201,7 +210,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {todayRows.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
@@ -211,7 +220,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((row) => (
+                  todayRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <Badge variant="outline">{row.status}</Badge>
