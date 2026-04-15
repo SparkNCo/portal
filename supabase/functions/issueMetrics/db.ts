@@ -21,6 +21,19 @@ export async function getCustomerBySlug(slug: string) {
   return data;
 }
 
+export async function getAllCustomers() {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("linear_projects, linear_slug")
+    .not("linear_projects", "is", null);
+
+  if (error) {
+    throw new Error(`Failed to fetch customers: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
 export async function upsertCycleMetrics(cycles: any[]) {
   if (!cycles.length) return;
 

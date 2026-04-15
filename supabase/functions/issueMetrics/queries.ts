@@ -46,3 +46,28 @@ query GetProject($projectId: String!) {
   }
 }
 `;
+
+export const GET_CYCLE_ISSUES_QUERY = `
+query GetCycleIssues($cycleId: String!) {
+  cycle(id: $cycleId) {
+    issues {
+      nodes {
+        id
+        title
+        estimate
+        state {
+          name
+        }
+        labels(first: 3) {
+          nodes {
+            name
+          }
+        }
+        project {
+          id
+        }
+      }
+    }
+  }
+}
+`;

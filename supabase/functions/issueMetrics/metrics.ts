@@ -1,37 +1,33 @@
 // @ts-nocheck
 
-export function buildIssueMetrics(projects: any[], customerId: string) {
+export function buildIssueMetrics(
+  cycleIssues: { cycleId: string; projectId: string; issues: any[] }[],
+  customerId: string,
+) {
   const metricsMap = new Map();
-  const today = new Date().toISOString().split("T")[0];
 
-  for (const project of projects) {
-    for (const issue of project.issues?.nodes || []) {
-      const cycleId = issue.cycle?.id || "no-cycle";
-      const status = issue.state?.name || "unknown";
-      const label = issue.labels?.nodes?.[0]?.name || "no-label";
-
-      const key = `${project.id}-${cycleId}-${today}`;
+  for (const { cycleId, projectId, issues } of cycleIssues) {
+    for (const issue of issues) {
+      const status = issue.state?.name ?? "unknown";
+      const label = issue.labels?.nodes?.[0]?.name ?? "no-label";
+      const key = `${projectId}-${cycleId}-${status}`;
 
       if (!metricsMap.has(key)) {
         metricsMap.set(key, {
           cycle_issue_id: key,
           customer_id: customerId,
-          project_id: project.id,
+          project_id: projectId,
+          cycle: cycleId,
           status,
           label,
-          date_collected: today,
           count: 0,
           points: 0,
-          cycle: cycleId,
-          titles: [],
         });
       }
 
       const entry = metricsMap.get(key);
-
       entry.count += 1;
-      entry.points += issue.estimate || 0;
-      if (issue.title) entry.titles.push(issue.title);
+      entry.points += issue.estimate ?? 0;
     }
   }
 

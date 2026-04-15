@@ -33,13 +33,14 @@ interface IssueMetric {
   id: string;
   cycle_issue_id: string;
   project_id: string;
+  customer_id: string;
   status: string;
   label: string;
-  date_collected: string;
+  created_at: string;
   count: number;
   points: number;
   cycle: string;
-  titles: string[];
+  title: string | null;
 }
 
 const LINE_COLORS = [
@@ -71,7 +72,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
   );
 
   const todayRows = useMemo(
-    () => filtered.filter((d) => d.date_collected === today),
+    () => filtered.filter((d) => d.created_at.split("T")[0] === today),
     [filtered, today],
   );
 
@@ -82,7 +83,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
 
   const uniqueDates = useMemo(
     () =>
-      Array.from(new Set(filtered.map((d) => d.date_collected))).sort(),
+      Array.from(new Set(filtered.map((d) => d.created_at.split("T")[0]))).sort(),
     [filtered],
   );
 
@@ -92,7 +93,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
         const row: Record<string, string | number> = { date };
         for (const status of uniqueStatuses) {
           row[status] = filtered
-            .filter((d) => d.date_collected === date && d.status === status)
+            .filter((d) => d.created_at.split("T")[0] === date && d.status === status)
             .reduce((sum, d) => sum + d[metric], 0);
         }
         return row;
@@ -206,7 +207,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
                   <TableHead>Count</TableHead>
                   <TableHead>Points</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Titles</TableHead>
+                  <TableHead>Title</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -230,18 +231,13 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
                       </TableCell>
                       <TableCell>{row.count}</TableCell>
                       <TableCell>{row.points}</TableCell>
-                      <TableCell>{row.date_collected}</TableCell>
+                      <TableCell>{row.created_at.split("T")[0]}</TableCell>
                       <TableCell className="max-w-xs">
-                        <ul className="text-xs space-y-0.5">
-                          {row.titles.map((t) => (
-                            <li
-                              key={t}
-                              className="truncate text-muted-foreground"
-                            >
-                              {t}
-                            </li>
-                          ))}
-                        </ul>
+                        {row.title && (
+                          <span className="text-xs text-muted-foreground truncate block">
+                            {row.title}
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

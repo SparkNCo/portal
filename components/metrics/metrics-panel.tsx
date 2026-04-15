@@ -100,7 +100,10 @@ export function MetricsPanel() {
           ))}
         </div>
       </div>
-{tab === "issues" && <IssueMetricsView data={issueMetrics} />}
+
+      <div onClick={() => console.log({ data })}>VER data</div>
+
+      {tab === "issues" && <IssueMetricsView data={issueMetrics} />}
       {tab === "cycles" && <CycleMetricsView data={cycleMetrics} />}
     </div>
   );
