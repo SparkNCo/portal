@@ -72,7 +72,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
   );
 
   const todayRows = useMemo(
-    () => filtered.filter((d) => d.created_at.split("T")[0] === today),
+    () => filtered.filter((d) => d.created_at.slice(0, 10) === today),
     [filtered, today],
   );
 
@@ -83,7 +83,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
 
   const uniqueDates = useMemo(
     () =>
-      Array.from(new Set(filtered.map((d) => d.created_at.split("T")[0]))).sort(),
+      Array.from(new Set(filtered.map((d) => d.created_at.slice(0, 10)))).sort(),
     [filtered],
   );
 
@@ -93,7 +93,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
         const row: Record<string, string | number> = { date };
         for (const status of uniqueStatuses) {
           row[status] = filtered
-            .filter((d) => d.created_at.split("T")[0] === date && d.status === status)
+            .filter((d) => d.created_at.slice(0, 10) === date && d.status === status)
             .reduce((sum, d) => sum + d[metric], 0);
         }
         return row;
@@ -231,7 +231,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
                       </TableCell>
                       <TableCell>{row.count}</TableCell>
                       <TableCell>{row.points}</TableCell>
-                      <TableCell>{row.created_at.split("T")[0]}</TableCell>
+                      <TableCell>{row.created_at.slice(0, 10)}</TableCell>
                       <TableCell className="max-w-xs">
                         {row.title && (
                           <span className="text-xs text-muted-foreground truncate block">
