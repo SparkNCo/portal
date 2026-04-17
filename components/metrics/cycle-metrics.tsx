@@ -141,7 +141,6 @@ export function CycleMetricsView({ data }: { readonly data: CycleMetric[] }) {
             Cycle Scope vs Completed
           </CardTitle>
         </CardHeader>
-        <div onClick={() => console.log({data})}>VER data</div>
 
         <CardContent>
           {chartData.length === 0 ? (

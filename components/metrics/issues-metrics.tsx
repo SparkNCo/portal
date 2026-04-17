@@ -104,7 +104,6 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div onClick={() => console.log({issueMetrics})}>VER chartData</div>
       
       <div className="flex flex-wrap gap-3">
         <Select value={selectedLabel} onValueChange={setSelectedLabel}>

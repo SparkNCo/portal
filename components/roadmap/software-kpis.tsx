@@ -1,51 +1,111 @@
-"use client"
+"use client";
 
-import { useQuery } from "@tanstack/react-query"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, TrendingUp } from "lucide-react"
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Activity,
+  Clock,
+  GitMerge,
+  AlertTriangle,
+  TrendingUp,
+} from "lucide-react";
 
-interface Metric {
-  id: string
-  customer_id: string
-  metric_id: string
-  source: string
-  value: string
-  period_start: string
-  period_end: string
-  benchmark: { target: number; unit: string }[]
-  date_collected: { date: string }[]
+interface DoraAverage {
+  value: number | null;
+  unit: string;
 }
 
-async function fetchMetrics(): Promise<Metric[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/metrics`)
-  if (!res.ok) throw new Error("Failed to fetch metrics")
-  const json = await res.json()
-  return json.data
+interface CfrDetails {
+  change_failure_rate: number;
+  failed_deployments: number;
+  total_non_fix_deployments: number;
+  repo: string;
+  unit: string;
 }
 
-function formatDate(dateStr: string | null | undefined) {
-  if (!dateStr) return "N/A"
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return "N/A"
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+interface DeployFreqDetails {
+  total_deployments: number;
+  deployments_last_30_days: number;
+  deployments_last_90_days: number;
+  repo: string;
 }
 
-export function SoftwareKPIs() {
-  const { data: metrics, isLoading, isError } = useQuery({
-    queryKey: ["metrics"],
-    queryFn: fetchMetrics,
-  })
+interface DoraMetric {
+  dorametrics_id: string;
+  customer_id: string;
+  averages: {
+    change_failure_rate: DoraAverage;
+    lead_time_for_changes: DoraAverage;
+    mean_time_to_restore: DoraAverage;
+    deploy_frequency: DoraAverage;
+  };
+  cfr_details: CfrDetails | null;
+  lead_time_details: Record<string, unknown> | null;
+  mttr_details: Record<string, unknown> | null;
+  deploy_freq_details: DeployFreqDetails | null;
+  created_at: string;
+}
+
+async function fetchDoraMetrics(linearName: string): Promise<DoraMetric[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/get-dora-metrics?linear_name=${encodeURIComponent(linearName)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+        apikey: process.env.NEXT_PUBLIC_APIKEY!,
+      },
+    },
+  );
+  if (!res.ok) throw new Error("Failed to fetch DORA metrics");
+  return res.json();
+}
+
+const KPI_CONFIG = [
+  {
+    key: "deploy_frequency" as const,
+    label: "Deploy Frequency",
+    icon: GitMerge,
+    color: "text-blue-400",
+    bg: "bg-blue-400/10 border-blue-400/20",
+  },
+  {
+    key: "lead_time_for_changes" as const,
+    label: "Lead Time",
+    icon: Clock,
+    color: "text-green-400",
+    bg: "bg-green-400/10 border-green-400/20",
+  },
+  {
+    key: "mean_time_to_restore" as const,
+    label: "MTTR",
+    icon: Activity,
+    color: "text-yellow-400",
+    bg: "bg-yellow-400/10 border-yellow-400/20",
+  },
+  {
+    key: "change_failure_rate" as const,
+    label: "Change Failure Rate",
+    icon: AlertTriangle,
+    color: "text-red-400",
+    bg: "bg-red-400/10 border-red-400/20",
+  },
+];
+
+export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["dora-metrics", linearName],
+    queryFn: () => fetchDoraMetrics(linearName),
+    enabled: Boolean(linearName),
+  });
+
+  const latest = data?.[0];
 
   return (
     <Card className="bg-background border-border">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-accent" />
-          Software KPIs
+          DORA Metrics
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -55,33 +115,57 @@ export function SoftwareKPIs() {
         {isError && (
           <p className="text-sm text-destructive">Failed to load metrics.</p>
         )}
-        {metrics?.length === 0 && (
+        {!isLoading && !isError && latest == null && (
           <p className="text-sm text-muted-foreground">No metrics available.</p>
         )}
-        {metrics && metrics.length > 0 && (
-          <div className="grid grid-cols-3 gap-4">
-            {metrics.map((metric) => (
-              <div
-                key={metric.id ?? metric.metric_id}
-                className="rounded-lg border p-4 bg-chart-1/20 text-chart-1 border-chart-1/30"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Activity className="h-5 w-5" />
+        {latest && (
+          <div className="grid grid-cols-2 gap-4">
+            {KPI_CONFIG.map(({ key, label, icon: Icon, color, bg }) => {
+              const metric = latest.averages[key];
+              const value = metric?.value ?? null;
+              const cfr =
+                key === "change_failure_rate" ? latest.cfr_details : null;
+              const deployFreq =
+                key === "deploy_frequency" ? latest.deploy_freq_details : null;
+              return (
+                <div key={key} className={`rounded-lg border p-4 ${bg}`}>
+                  <div className={`flex items-center gap-2 mb-2 ${color}`}>
+                    <Icon className="h-4 w-4" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </div>
+                  <p className="text-2xl font-bold text-card-foreground">
+                    {value !== null ? value.toFixed(1) : "N/A"}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      {metric?.unit ?? ""}
+                    </span>
+                  </p>
+                  {cfr && (
+                    <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Failed:{" "}
+                        <span className="text-card-foreground font-medium">
+                          {cfr.failed_deployments}
+                        </span>
+                        {" / "}
+                        Total:{" "}
+                        <span className="text-card-foreground font-medium">
+                          {cfr.total_non_fix_deployments}
+                        </span>
+                      </p>
+                      <p
+                        className="text-xs text-muted-foreground truncate"
+                        title={cfr.repo}
+                      >
+                        {cfr.repo}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <p className="text-2xl font-bold text-card-foreground mb-1">
-                  {metric.value ?? "N/A"}
-                </p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {metric.source ?? "N/A"}
-                </p>
-                <p className="text-xs text-muted-foreground/70">
-                  {formatDate(metric.period_start)} – {formatDate(metric.period_end)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

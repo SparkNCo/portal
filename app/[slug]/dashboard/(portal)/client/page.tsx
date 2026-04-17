@@ -97,11 +97,8 @@ export default function ClientDashboard() {
         <CreateIssue />
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <VelocityMetrics />
-          <SoftwareKPIs
-          /* targetDate={project?.targetDate}
-            progress={project?.progress} */
-          />
+          {/*     <VelocityMetrics />
+          <SoftwareKPIs /> */}
         </div>
       </div>{" "}
       <MetricsPanel />

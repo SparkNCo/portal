@@ -4,7 +4,7 @@ import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
-import {  useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 
@@ -90,19 +90,16 @@ export default function RoadmapPage() {
     );
   }
 
-
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
       <div className="p-6 space-y-6 ">
         <RoadmapTimeline projectMilestones={allMilestones} />
 
+
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
-          <SoftwareKPIs
-          /* targetDate={project?.targetDate}
-            progress={project?.progress} */
-          />
+          <SoftwareKPIs linearName={slug} />
         </div>
       </div>
     </div>
