@@ -1,6 +1,5 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
-import ChatLayout from "@/components/chat/CometChat/ChatLayout";
 
 export default function ChatPage() {
   return (

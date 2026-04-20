@@ -160,6 +160,22 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                       </p>
                     </div>
                   )}
+                  {deployFreq && (
+                    <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
+                      {/* <p className="text-xs text-muted-foreground">
+                        Last 30d:{" "}
+                        <span className="text-card-foreground font-medium">
+                          {deployFreq.deployments_last_30_days} deployments
+                        </span>
+                      </p> */}
+                      <p className="text-xs text-muted-foreground">
+                        Last 90d:{" "}
+                        <span className="text-card-foreground font-medium">
+                          {deployFreq.deployments_last_90_days} deployments
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

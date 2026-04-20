@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase-client";
 type Profile = {
   id: string;
   email: string;
-  role: "admin" | "developer";
+  role: "admin" | "developer" | "customer";
   // add more fields if needed
 };
 

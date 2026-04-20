@@ -1,84 +1,102 @@
-import { useEffect, useState } from "react";
-import { CometChat } from "@cometchat/chat-sdk-javascript";
-import type { Dispatch, SetStateAction } from "react";
+import type { Group } from "@cometchat/chat-sdk-javascript";
+import { Plus, MessageSquare } from "lucide-react";
 
-type ChatMode = "response" | "ai" | "staff";
-type Conversation = any;
+type Props = Readonly<{
+  groups: Group[];
+  selectedGroup: Group | null;
+  onSelectGroup: (group: Group) => void;
+  isCustomer: boolean;
+  onCreateChat: () => void;
+}>;
 
-type ChatSideBarProps = {
-  user: CometChat.User | null;
-
-  setConversationId: Dispatch<SetStateAction<string | null>>;
-  setMode: Dispatch<SetStateAction<ChatMode>>;
-  setActiveUID: Dispatch<SetStateAction<string | null>>;
-  setResponseConversation: Dispatch<SetStateAction<Conversation | null>>;
-};
+function GroupAvatar({ name }: Readonly<{ name: string }>) {
+  const initials = name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <div className="w-9 h-9 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
+      {initials}
+    </div>
+  );
+}
 
 export default function ChatSideBar({
-  user,
-  setConversationId,
-  setMode,
-  setActiveUID,
-  setResponseConversation,
-}: ChatSideBarProps) {
-  const [conversationsAPI, setConversationsAPI] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    loadConversations();
-  }, [user]);
-
-  const loadConversations = async () => {
-    try {
-      const limit = 50;
-
-      const conversationsRequest = new CometChat.ConversationsRequestBuilder()
-        .setLimit(limit)
-        .build();
-
-      const conversationList = await conversationsRequest.fetchNext();
-
-      // ✅ Save in global state
-      setConversationsAPI(conversationList);
-      console.log("📚 Conversations API response:");
-      console.log(conversationList);
-    } catch (error) {
-      console.error("❌ Error loading conversations:", error);
-    }
-  };
-
+  groups,
+  selectedGroup,
+  onSelectGroup,
+  isCustomer,
+  onCreateChat,
+}: Props) {
   return (
-    <div className="w-80 border-r flex flex-col bg-black">
-      <div className="p-4 font-bold border-b">Conversations</div>
+    <div className="w-72 border-r flex flex-col flex-shrink-0 bg-background">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-accent" />
+          <span className="font-semibold text-sm">Chats</span>
+        </div>
+        {isCustomer && (
+          <button
+            onClick={onCreateChat}
+            className="flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+          >
+            <Plus className="w-3 h-3" />
+            New
+          </button>
+        )}
+      </div>
+
       <div className="flex-1 overflow-y-auto">
-        {conversationsAPI.map((conv, i) => {
-          const otherUser = conv.conversationWith;
+        {groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
+            <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              {isCustomer
+                ? "No chats yet. Create one to get started."
+                : "No chats yet."}
+            </p>
+          </div>
+        ) : (
+          groups.map((group) => {
+            const isSelected = selectedGroup?.getGuid() === group.getGuid();
+            return (
+              <button
+                key={group.getGuid()}
+                onClick={() => onSelectGroup(group)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 border-b text-left cursor-pointer transition-colors ${
+                  isSelected
+                    ? "bg-accent/10 border-l-2 border-l-accent"
+                    : "hover:bg-secondary/40 border-l-2 border-l-transparent"
+                }`}
+              >
+                <GroupAvatar name={group.getName()} />
+                <div className="min-w-0">
+                  <div
+                    className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}
+                  >
+                    {group.getName()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {group.getMembersCount()} members
+                  </div>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
 
-          return (
-            <div
-              key={i}
-              onClick={() => {
-                setConversationId(conv.conversationId);
-                setMode("response");
-                setActiveUID(otherUser.guid || otherUser.uid);
-                setResponseConversation({
-                  type: "staff",
-                  text: conv.lastMessage.rawMessage.text,
-                  from: conv.conversationWith.name,
-                  uid: conv.conversationWith.uid,
-                });
-              }}
-              className="p-3 border-b cursor-pointer hover:bg-gray-200"
-            >
-              <div className="font-medium">{otherUser.name}</div>
-
-              <div className="text-xs opacity-70 truncate">
-                {conv.lastMessage?.text || "No messages"}
-              </div>
-            </div>
-          );
-        })}
+      {/* isCustomer && ( visible only to customers ) */}
+      <div className="p-3 border-t">
+        <button
+          onClick={onCreateChat}
+          className="flex items-center justify-center gap-2 w-full text-sm bg-accent text-accent-foreground px-3 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          New Chat
+        </button>
       </div>
     </div>
   );
