@@ -7,11 +7,14 @@ import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
+import DirectChat from "./DirectChat";
 
 const SUPPORT_UID = "60ecb62b-05fb-452f-b2fe-bf7bc84765c3";
 const AI_AGENT_UID = "e17fda15-1881-4375-a818-21fb97a507ce";
 
 type AssistantType = "support" | "ai";
+
+export type DirectChatEntry = { uid: string; title: string };
 
 export default function ChatLayout() {
   const { profile, loading: profileLoading } = useUser();
@@ -19,7 +22,13 @@ export default function ChatLayout() {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CometChat.User | null>(null);
   const [groups, setGroups] = useState<CometChat.Group[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<CometChat.Group | null>(null);
+  const [directChats, setDirectChats] = useState<DirectChatEntry[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<CometChat.Group | null>(
+    null,
+  );
+  const [selectedDirect, setSelectedDirect] = useState<DirectChatEntry | null>(
+    null,
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
   const [assistantType, setAssistantType] = useState<AssistantType>("support");
@@ -27,10 +36,15 @@ export default function ChatLayout() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (ready && groups.length === 0 && profile?.role === "customer") {
+    if (
+      ready &&
+      groups.length === 0 &&
+      directChats.length === 0 &&
+      profile?.role === "customer"
+    ) {
       setShowCreateModal(true);
     }
-  }, [ready, groups.length, profile?.role]);
+  }, [ready, groups.length, directChats.length, profile?.role]);
 
   useEffect(() => {
     if (profileLoading) return;
@@ -54,8 +68,15 @@ export default function ChatLayout() {
       if (!supaUser) throw new Error("Not logged in");
 
       let cometUser = await CometChat.getLoggedinUser();
+      if (cometUser && cometUser.getUid() !== supaUser.id) {
+        await CometChat.logout();
+        cometUser = null;
+      }
       if (!cometUser) {
-        cometUser = await CometChat.login(supaUser.id, COMETCHAT_CONSTANTS.AUTH_KEY);
+        cometUser = await CometChat.login(
+          supaUser.id,
+          COMETCHAT_CONSTANTS.AUTH_KEY,
+        );
       }
       setUser(cometUser);
 
@@ -83,7 +104,9 @@ export default function ChatLayout() {
     return list;
   };
 
-  const createGroup = async (title: string, assistant: AssistantType): Promise<CometChat.Group | null> => {
+  const createSupportGroup = async (
+    title: string,
+  ): Promise<CometChat.Group | null> => {
     if (!profile) return null;
     try {
       const res = await fetch(
@@ -99,18 +122,33 @@ export default function ChatLayout() {
       const assignments: any[] = await res.json();
 
       const guid = `customer_${profile.id}_${Date.now()}`;
-      const group = new CometChat.Group(guid, title, CometChat.GROUP_TYPE.PUBLIC, "");
+      const group = new CometChat.Group(
+        guid,
+        title,
+        CometChat.GROUP_TYPE.PUBLIC,
+        "",
+      );
 
       const assignedUids = new Set(
-        (assignments ?? []).filter((a) => a.user_id).map((a) => a.user_id as string),
+        (assignments ?? [])
+          .filter((a) => a.user_id)
+          .map((a) => a.user_id as string),
       );
-      assignedUids.add(assistant === "ai" ? AI_AGENT_UID : SUPPORT_UID);
+      assignedUids.add(SUPPORT_UID);
 
       const members = Array.from(assignedUids).map(
-        (uid) => new CometChat.GroupMember(uid, CometChat.GROUP_MEMBER_SCOPE.PARTICIPANT),
+        (uid) =>
+          new CometChat.GroupMember(
+            uid,
+            CometChat.GROUP_MEMBER_SCOPE.PARTICIPANT,
+          ),
       );
 
-      const response = await CometChat.createGroupWithMembers(group, members, []);
+      const response = await CometChat.createGroupWithMembers(
+        group,
+        members,
+        [],
+      );
       return (response as any).group ?? null;
     } catch (err) {
       console.error("Create group error:", err);
@@ -118,14 +156,27 @@ export default function ChatLayout() {
     }
   };
 
-  const handleCreateGroup = async () => {
+  const handleCreate = async () => {
     if (!createTitle.trim()) return;
     setCreating(true);
     try {
-      const created = await createGroup(createTitle.trim(), assistantType);
-      if (created) {
-        const list = await refreshGroups();
-        setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
+      if (assistantType === "ai") {
+        const entry: DirectChatEntry = {
+          uid: AI_AGENT_UID,
+          title: createTitle.trim(),
+        };
+        setDirectChats((prev) => [...prev, entry]);
+        setSelectedDirect(entry);
+        setSelectedGroup(null);
+      } else {
+        const created = await createSupportGroup(createTitle.trim());
+        if (created) {
+          const list = await refreshGroups();
+          setSelectedGroup(
+            list.find((g) => g.getGuid() === created.getGuid()) ?? created,
+          );
+          setSelectedDirect(null);
+        }
       }
       setShowCreateModal(false);
       setCreateTitle("");
@@ -133,6 +184,16 @@ export default function ChatLayout() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const selectGroup = (group: CometChat.Group) => {
+    setSelectedGroup(group);
+    setSelectedDirect(null);
+  };
+
+  const selectDirect = (entry: DirectChatEntry) => {
+    setSelectedDirect(entry);
+    setSelectedGroup(null);
   };
 
   if (profileLoading || !ready) {
@@ -144,13 +205,17 @@ export default function ChatLayout() {
   }
 
   const isCustomer = profile?.role === "customer";
+  const hasNoChats = groups.length === 0 && directChats.length === 0;
 
   return (
     <div className="flex flex-row w-full h-full">
       <ChatSideBar
         groups={groups}
+        directChats={directChats}
         selectedGroup={selectedGroup}
-        onSelectGroup={setSelectedGroup}
+        selectedDirect={selectedDirect}
+        onSelectGroup={selectGroup}
+        onSelectDirect={selectDirect}
         isCustomer={isCustomer}
         onCreateChat={() => setShowCreateModal(true)}
       />
@@ -158,9 +223,15 @@ export default function ChatLayout() {
       <div className="flex flex-1 overflow-hidden">
         {selectedGroup && user ? (
           <GroupChat user={user} group={selectedGroup} />
+        ) : selectedDirect && user ? (
+          <DirectChat
+            user={user}
+            receiverUID={selectedDirect.uid}
+            title={selectedDirect.title}
+          />
         ) : (
           <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
-            {groups.length === 0 ? "No chats yet." : "Select a chat to start messaging."}
+            {hasNoChats ? "No chats yet." : "Select a chat to start messaging."}
           </div>
         )}
       </div>
@@ -181,18 +252,20 @@ export default function ChatLayout() {
               placeholder="Chat title..."
               value={createTitle}
               onChange={(e) => setCreateTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
 
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Add to chat
+                Chat type
               </p>
               <div className="flex flex-col gap-2">
                 {(["support", "ai"] as const).map((type) => (
                   <label
                     key={type}
-                    aria-label={type === "support" ? "Support Developer" : "AI Agent"}
+                    aria-label={
+                      type === "support" ? "Support Developer" : "AI Agent"
+                    }
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       assistantType === type
                         ? "border-accent bg-accent/10"
@@ -213,8 +286,8 @@ export default function ChatLayout() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {type === "support"
-                          ? "Chat with a human developer"
-                          : "Chat with an AI assistant"}
+                          ? "Group chat with your assigned developer"
+                          : "Direct conversation with the AI assistant"}
                       </div>
                     </div>
                   </label>
@@ -235,7 +308,7 @@ export default function ChatLayout() {
                 Cancel
               </button>
               <button
-                onClick={handleCreateGroup}
+                onClick={handleCreate}
                 disabled={creating || !createTitle.trim()}
                 className="px-4 py-2 text-sm rounded-lg bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-40 transition-opacity font-medium"
               >
