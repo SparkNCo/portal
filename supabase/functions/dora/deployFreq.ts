@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { getCIStatus, fetchPRPage, isHotfix } from "./github.ts";
 
-async function fetchDeployments(repo: string, token: string, limit: number) {
+async function fetchDeployments(repo: string, token: string, limit: number, since?: Date) {
   const merges = [];
   let page = 1;
   const perPage = 20;
@@ -10,8 +10,10 @@ async function fetchDeployments(repo: string, token: string, limit: number) {
     const prs = await fetchPRPage(repo, token, page, perPage);
     if (!prs.length) break;
 
+    let done = false;
     for (const pr of prs) {
       if (!pr.merged_at) continue;
+      if (since && new Date(pr.merged_at) < since) continue;
       if (isHotfix(pr)) continue;
 
       const sha = pr.merge_commit_sha || pr.head?.sha;
@@ -30,10 +32,10 @@ async function fetchDeployments(repo: string, token: string, limit: number) {
         url: pr.html_url,
       });
 
-      if (merges.length >= limit) break;
+      if (merges.length >= limit) { done = true; break; }
     }
 
-    if (prs.length < perPage) break;
+    if (done || prs.length < perPage) break;
     page++;
   }
 
@@ -44,8 +46,9 @@ export async function handleDeployFreq(
   repo: string,
   token: string,
   limit: number,
+  since?: Date,
 ) {
-  const deployments = await fetchDeployments(repo, token, limit);
+  const deployments = await fetchDeployments(repo, token, limit, since);
 
   const now = new Date();
   const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

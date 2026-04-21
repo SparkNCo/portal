@@ -7,7 +7,7 @@ function isCFRHotfix(pr: any): boolean {
   return isHotfix(pr) || FIX_SPA_RE.test((pr.title ?? "").trim());
 }
 
-async function fetchMergedPRs(repo: string, token: string, limit: number) {
+async function fetchMergedPRs(repo: string, token: string, limit: number, since?: Date) {
   const raw: any[] = [];
   let page = 1;
   const perPage = 50;
@@ -16,20 +16,23 @@ async function fetchMergedPRs(repo: string, token: string, limit: number) {
     const prs = await fetchPRPage(repo, token, page, perPage);
     if (!prs.length) break;
 
+    let reachedCutoff = false;
     for (const pr of prs) {
-      if (pr.merged_at) raw.push(pr);
+      if (!pr.merged_at) continue;
+      if (since && new Date(pr.merged_at) < since) { reachedCutoff = true; continue; }
+      raw.push(pr);
       if (raw.length >= limit) break;
     }
 
-    if (prs.length < perPage || raw.length >= limit) break;
+    if (reachedCutoff || prs.length < perPage || raw.length >= limit) break;
     page++;
   }
 
   return raw;
 }
 
-export async function handleCFR(repo: string, token: string, limit: number) {
-  const raw = await fetchMergedPRs(repo, token, limit);
+export async function handleCFR(repo: string, token: string, limit: number, since?: Date) {
+  const raw = await fetchMergedPRs(repo, token, limit, since);
   const chronological = [...raw].reverse();
 
   let totalNonFix = 0;

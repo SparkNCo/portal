@@ -13,6 +13,8 @@ import {
 interface DoraAverage {
   value: number | null;
   unit: string;
+  last_30_days?: number;
+  last_90_days?: number;
 }
 
 interface CfrDetails {
@@ -126,7 +128,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
               const cfr =
                 key === "change_failure_rate" ? latest.cfr_details : null;
               const deployFreq =
-                key === "deploy_frequency" ? latest.deploy_freq_details : null;
+                key === "deploy_frequency" ? metric : null;
               return (
                 <div key={key} className={`rounded-lg border p-4 ${bg}`}>
                   <div className={`flex items-center gap-2 mb-2 ${color}`}>
@@ -162,16 +164,16 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                   )}
                   {deployFreq && (
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
-                      {/* <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Last 30d:{" "}
                         <span className="text-card-foreground font-medium">
-                          {deployFreq.deployments_last_30_days} deployments
+                          {deployFreq.last_30_days ?? "N/A"} deployments
                         </span>
-                      </p> */}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         Last 90d:{" "}
                         <span className="text-card-foreground font-medium">
-                          {deployFreq.deployments_last_90_days} deployments
+                          {deployFreq.last_90_days ?? "N/A"} deployments
                         </span>
                       </p>
                     </div>
