@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createCustomerFlow = async (body: any) => {
   const { email, stripe_customer_id, linear_slug } = body;
@@ -7,13 +8,20 @@ export const createCustomerFlow = async (body: any) => {
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
 
-  // 1. Create user in Supabase Auth and send invite email
+  // 1. Generate invite link without sending Supabase's default email
   const redirectTo = `http://localhost:3000/set-password?slug=${linear_slug}`;
-  const { data: authData, error: authError } =
-    await supabase.auth.admin.inviteUserByEmail(email, { redirectTo });
+  const { data: linkData, error: authError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
   if (authError) throw new Error(`Auth invite failed: ${authError.message}`);
 
-  const authUserId = authData.user.id;
+  const authUserId = linkData.user.id;
+  const inviteLink = linkData.properties.action_link;
+
+  // 2. Send custom invite email via Resend
+  await sendInviteCustomerMail(email, inviteLink);
 
   // 2. Create CUSTOMER row in users table, linked to the Auth user
   const { data: customerUser, error: customerError } = await supabase

@@ -16,7 +16,7 @@ async function getCustomerBySlug(slug: string) {
       stripe_customer_id
     `,
     )
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
     .maybeSingle();
 
   if (error) {
