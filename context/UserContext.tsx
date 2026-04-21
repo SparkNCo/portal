@@ -72,12 +72,21 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     loadUser();
 
-    // 🔥 listen to login/logout automatically
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
-      loadUser();
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "USER_UPDATED") {
+        loadUser();
+      }
+      // Ignore SIGNED_IN, TOKEN_REFRESHED, INITIAL_SESSION —
+      // initial loadUser() above already handles those, and SIGNED_IN
+      // fires spuriously on tab focus when Supabase validates the session.
     });
 
     return () => subscription.unsubscribe();

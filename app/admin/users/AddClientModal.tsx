@@ -13,7 +13,7 @@ type Props = {
 export default function AddClientModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
   const [stripeId, setStripeId] = useState("");
-  const [linearId, setLinearId] = useState("");
+  const [linearSlug, setLinearSlug] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -31,7 +31,7 @@ export default function AddClientModal({ onClose }: Props) {
           body: JSON.stringify({
             email,
             stripe_customer_id: stripeId,
-            linear_initiative_id: linearId,
+            linear_slug: linearSlug,
           }),
         },
       );
@@ -55,7 +55,7 @@ export default function AddClientModal({ onClose }: Props) {
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <UserPlus className="h-4 w-4 text-accent" />
-            Add Client
+            Add Customer
           </CardTitle>
         </CardHeader>
 
@@ -74,13 +74,15 @@ export default function AddClientModal({ onClose }: Props) {
           />
           <input
             className={inputClass}
-            placeholder="Linear Initiative ID"
-            value={linearId}
-            onChange={(e) => setLinearId(e.target.value)}
+            placeholder="Linear Slug"
+            value={linearSlug}
+            onChange={(e) => setLinearSlug(e.target.value)}
           />
 
           {error && (
-            <p className="text-sm text-destructive">{(error as Error).message}</p>
+            <p className="text-sm text-destructive">
+              {(error as Error).message}
+            </p>
           )}
 
           <div className="flex justify-end gap-2">
@@ -89,7 +91,7 @@ export default function AddClientModal({ onClose }: Props) {
             </Button>
             <Button
               size="sm"
-              disabled={isPending || !email || !stripeId || !linearId}
+              disabled={isPending || !email || !stripeId || !linearSlug}
               onClick={() => mutate()}
             >
               {isPending ? "Creating..." : "Create"}

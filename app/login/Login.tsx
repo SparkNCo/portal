@@ -60,7 +60,7 @@ export default function LoginForm({
   useEffect(() => {
     if (customer) {
       console.log("Customer from query:", customer);
-      router.push(`/${customer.linear_name}/dashboard/client`);
+      router.push(`/${customer.linear_slug}/dashboard/client`);
       onLoginSuccess(customer.email);
     }
 

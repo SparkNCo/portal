@@ -219,7 +219,7 @@ export default function AdminUsersPage() {
                 onClick={() => setShowAddCustomerModal(true)}
               >
                 <UserPlus className="h-4 w-4" />
-                Add Client
+                Add Customer
               </Button>
             </div>
           </div>
@@ -333,7 +333,9 @@ export default function AdminUsersPage() {
                                     {a.joined && (
                                       <span>
                                         Joined{" "}
-                                        {new Date(a.joined).toLocaleDateString()}
+                                        {new Date(
+                                          a.joined,
+                                        ).toLocaleDateString()}
                                       </span>
                                     )}
                                     {a.allocation && (
