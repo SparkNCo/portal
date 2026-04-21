@@ -112,7 +112,7 @@ async function saveDoraMetrics(customerId: string, result: Awaited<ReturnType<ty
   const { data: existing } = await supabase
     .from("dorametrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
-    .eq("customer_id", customerId)
+    .eq("user_id", customerId)
     .maybeSingle();
 
   if (existing?.last_called) {
@@ -124,10 +124,11 @@ async function saveDoraMetrics(customerId: string, result: Awaited<ReturnType<ty
   }
 
   const merged = mergeDoraMetrics(existing, result);
+  const payload = { ...merged, last_called: new Date().toISOString() };
 
-  const { error } = await supabase
-    .from("dorametrics")
-    .upsert({ customer_id: customerId, ...merged, last_called: new Date().toISOString() }, { onConflict: "customer_id" });
+  const { error } = existing
+    ? await supabase.from("dorametrics").update(payload).eq("user_id", customerId)
+    : await supabase.from("dorametrics").insert({ user_id: customerId, ...payload });
 
   if (error) throw new Error(`Failed to save dora metrics: ${error.message}`);
 }

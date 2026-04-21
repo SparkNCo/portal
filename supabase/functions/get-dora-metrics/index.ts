@@ -16,33 +16,44 @@ Deno.serve(async (req) => {
 
   try {
     const { searchParams } = new URL(req.url);
-    const linearName = decodeURIComponent(searchParams.get("linear_name") ?? "");
+    const linearName = decodeURIComponent(
+      searchParams.get("linear_name") ?? "",
+    );
 
     if (!linearName) {
-      return new Response(JSON.stringify({ error: "Missing linear_name param" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing linear_name param" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const { data: customer, error: customerError } = await supabase
-      .from("customers")
-      .select("customer_id")
-      .eq("linear_name", linearName)
+      .from("users")
+      .select("id")
+      .eq("linear_slug", linearName)
       .maybeSingle();
 
-    if (customerError) throw new Error(`Supabase error: ${customerError.message}`);
+    if (customerError)
+      throw new Error(`Supabase error: ${customerError.message}`);
     if (!customer) {
-      return new Response(JSON.stringify({ error: `No customer found for linear_name: ${linearName}` }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: `No customer found for linear_name: ${linearName}`,
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const { data, error } = await supabase
       .from("dorametrics")
       .select("*")
-      .eq("customer_id", customer.customer_id)
+      .eq("user_id", customer.id)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(`Supabase error: ${error.message}`);
