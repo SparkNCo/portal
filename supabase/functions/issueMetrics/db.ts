@@ -3,7 +3,7 @@ import { supabase } from "../client.ts";
 
 export async function getCustomerBySlug(slug: string) {
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select(
       `
       linear_projects,
@@ -11,7 +11,7 @@ export async function getCustomerBySlug(slug: string) {
       linear_slug
     `,
     )
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
     .maybeSingle();
 
   if (error || !data) {
@@ -53,10 +53,7 @@ export async function getMetricsBySlug(projectIds: string[]) {
       .select("*")
       .in("project_id", projectIds)
       .order("number", { ascending: true }),
-    supabase
-      .from("issue_metrics")
-      .select("*")
-      .in("project_id", projectIds),
+    supabase.from("issue_metrics").select("*").in("project_id", projectIds),
   ]);
 
   if (cycleResult.error) {

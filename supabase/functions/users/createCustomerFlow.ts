@@ -8,32 +8,63 @@ export const createCustomerFlow = async (body: any) => {
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
 
-  // 1. Generate invite link without sending Supabase's default email
   const redirectTo = `http://localhost:3000/set-password?slug=${linear_slug}`;
-  const { data: linkData, error: authError } = await supabase.auth.admin.generateLink({
+
+  // Try invite link first (new user path)
+  let linkData: any;
+  let authUserId: string;
+  let inviteLink: string;
+
+  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
     type: "invite",
     email,
     options: { redirectTo },
   });
-  if (authError) throw new Error(`Auth invite failed: ${authError.message}`);
 
-  const authUserId = linkData.user.id;
-  const inviteLink = linkData.properties.action_link;
+  if (inviteError) {
+    if (!inviteError.message.includes("already been registered")) {
+      throw new Error(`Auth invite failed: ${inviteError.message}`);
+    }
 
-  // 2. Send custom invite email via Resend
-  await sendInviteCustomerMail(email, inviteLink);
+    // User already exists in auth — find them and generate a recovery link instead
+    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
 
-  // 2. Create CUSTOMER row in users table, linked to the Auth user
-  const { data: customerUser, error: customerError } = await supabase
+    const existingAuthUser = listData.users.find((u: any) => u.email === email);
+    if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
+
+    authUserId = existingAuthUser.id;
+
+    const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+    if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
+
+    inviteLink = recoveryData.properties.action_link;
+  } else {
+    authUserId = inviteData.user.id;
+    inviteLink = inviteData.properties.action_link;
+  }
+
+  // Upsert users table — insert on new, update columns on existing
+  const { data: customerUser, error: upsertError } = await supabase
     .from("users")
-    .insert([{ id: authUserId, email, role: "customer", stripe_customer_id, linear_slug }])
+    .upsert(
+      [{ id: authUserId, email, role: "customer", stripe_customer_id, linear_slug }],
+      { onConflict: "id" }
+    )
     .select()
     .single();
 
-  if (customerError) {
-    await supabase.auth.admin.deleteUser(authUserId);
-    throw new Error(customerError.message);
+  if (upsertError) {
+    // Only clean up the auth user if we just created them (invite path)
+    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    throw new Error(upsertError.message);
   }
+
+  await sendInviteCustomerMail(email, inviteLink);
 
   return { customer: customerUser };
 };

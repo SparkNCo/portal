@@ -5,10 +5,12 @@ import { fetchCompletedIssues } from "./linear.ts";
 import { buildDoraMetrics } from "./metrics.ts";
 
 async function getCustomerBySlug(slug: string) {
+  console.log(`Fetching customer by slug: ${slug}`);
+
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select("linear_projects, linear_slug")
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
     .maybeSingle();
 
   if (error || !data) {
@@ -33,7 +35,10 @@ Deno.serve(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
-    const days = Math.min(Math.max(parseInt(searchParams.get("days") ?? "30", 10), 7), 90);
+    const days = Math.min(
+      Math.max(parseInt(searchParams.get("days") ?? "30", 10), 7),
+      90,
+    );
 
     if (!slug) {
       return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -52,7 +57,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const after = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const after = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     const projects = await fetchCompletedIssues(linearProjects, after);
     const metrics = buildDoraMetrics(projects, days);
