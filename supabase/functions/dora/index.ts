@@ -108,11 +108,11 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
   return { averages, cfr_details, lead_time_details, mttr_details, deploy_freq_details };
 }
 
-async function saveDoraMetrics(customerId: string, result: Awaited<ReturnType<typeof handleAll>>) {
+async function saveDoraMetrics(linearSlug: string, result: Awaited<ReturnType<typeof handleAll>>) {
   const { data: existing } = await supabase
     .from("dorametrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
-    .eq("user_id", customerId)
+    .eq("linear_slug", linearSlug)
     .maybeSingle();
 
   if (existing?.last_called) {
@@ -127,8 +127,8 @@ async function saveDoraMetrics(customerId: string, result: Awaited<ReturnType<ty
   const payload = { ...merged, last_called: new Date().toISOString() };
 
   const { error } = existing
-    ? await supabase.from("dorametrics").update(payload).eq("user_id", customerId)
-    : await supabase.from("dorametrics").insert({ user_id: customerId, ...payload });
+    ? await supabase.from("dorametrics").update(payload).eq("linear_slug", linearSlug)
+    : await supabase.from("dorametrics").insert({ linear_slug: linearSlug, ...payload });
 
   if (error) throw new Error(`Failed to save dora metrics: ${error.message}`);
 }
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     if (!token) throw new Error("Missing GHPERSONALTOKEN env var");
 
     const body = await req.json();
-    const { method, url: repoUrl, customer_id, limit: rawLimit } = body;
+    const { method, url: repoUrl, linear_slug, limit: rawLimit } = body;
 
     if (!repoUrl) {
       return new Response(JSON.stringify({ error: "Missing url param" }), {
@@ -158,8 +158,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!customer_id) {
-      return new Response(JSON.stringify({ error: "Missing customer_id param" }), {
+    if (!linear_slug) {
+      return new Response(JSON.stringify({ error: "Missing linear_slug param" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
 
     if (method === "all") {
       const result = await handleAll(repo, token, limit);
-      await saveDoraMetrics(customer_id, result);
+      await saveDoraMetrics(linear_slug, result);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -30,30 +30,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: customer, error: customerError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("linear_slug", linearName)
-      .maybeSingle();
-
-    if (customerError)
-      throw new Error(`Supabase error: ${customerError.message}`);
-    if (!customer) {
-      return new Response(
-        JSON.stringify({
-          error: `No customer found for linear_name: ${linearName}`,
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
     const { data, error } = await supabase
       .from("dorametrics")
       .select("*")
-      .eq("user_id", customer.id)
+      .eq("linear_slug", linearName)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(`Supabase error: ${error.message}`);
