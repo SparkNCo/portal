@@ -1,11 +1,11 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import {
-  getCustomerBySlug,
   getAllCustomers,
   upsertIssueMetrics,
   upsertCycleMetrics,
-  getMetricsBySlug,
+  getCycleMetricsByCustomerId,
+  getIssueMetricsByCustomerId,
 } from "./db.ts";
 import { fetchProjectDetails, fetchCycleIssues } from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
@@ -28,15 +28,12 @@ Deno.serve(async (req) => {
         });
       }
 
-      const customer = await getCustomerBySlug(slug);
-      const linearProjects: string[] = customer.linear_projects ?? [];
-
-      const [metrics, projects] = await Promise.all([
-        getMetricsBySlug(linearProjects),
-        fetchProjectDetails(linearProjects),
+      const [issue_metrics, cycle_metrics] = await Promise.all([
+        getIssueMetricsByCustomerId(slug),
+        getCycleMetricsByCustomerId(slug),
       ]);
 
-      return new Response(JSON.stringify({ ...metrics, projects }), {
+      return new Response(JSON.stringify({ issue_metrics, cycle_metrics }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {
@@ -63,7 +60,7 @@ Deno.serve(async (req) => {
             cyclesMap.set(issue.cycle.id, issue.cycle);
           }
         }
-        return { projectId: project.id, cycles: Array.from(cyclesMap.values()) };
+        return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
       });
 
       const activeCycleEntries: { cycleId: string; projectId: string }[] = [];
@@ -81,7 +78,7 @@ Deno.serve(async (req) => {
       );
 
       const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
-      const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug);
+      const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics);
 
       await Promise.all([
         upsertIssueMetrics(metrics),

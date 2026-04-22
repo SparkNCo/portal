@@ -35,16 +35,24 @@ export function buildIssueMetrics(
 }
 
 export function buildCycleMetrics(
-  cyclesByProject: { projectId: string; cycles: any[] }[],
+  cyclesByProject: { projectId: string; projectName: string; cycles: any[] }[],
   customerId: string,
+  issueMetrics: any[],
 ) {
+  const today = new Date().toISOString().split("T")[0];
   const result = [];
 
-  for (const { projectId, cycles } of cyclesByProject) {
+  for (const { projectId, projectName, cycles } of cyclesByProject) {
     for (const cycle of cycles) {
+      const snapshot: Record<string, any> = { date: today };
+      for (const im of issueMetrics.filter((m) => m.cycle === cycle.id)) {
+        snapshot[im.status] = (snapshot[im.status] ?? 0) + im.count;
+      }
+
       result.push({
         customer_id: customerId,
         project_id: projectId,
+        project_name: projectName,
         cycle_id: cycle.id,
         name: cycle.name,
         description: cycle.description ?? null,
@@ -55,8 +63,8 @@ export function buildCycleMetrics(
         number: cycle.number,
         scope_history: cycle.scopeHistory ?? [],
         completed_scope_history: cycle.completedScopeHistory ?? [],
-        uncompleted_issues_upon_close:
-          cycle.uncompletedIssuesUponClose?.nodes ?? [],
+        uncompleted_issues_upon_close: cycle.uncompletedIssuesUponClose?.nodes ?? [],
+        _snapshot: snapshot,
       });
     }
   }

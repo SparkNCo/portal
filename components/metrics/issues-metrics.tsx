@@ -43,6 +43,13 @@ interface IssueMetric {
   title: string | null;
 }
 
+interface CycleMetric {
+  cycle_id: string;
+  number: number;
+  name: string;
+  issues_averages: Record<string, number | string>[];
+}
+
 const LINE_COLORS = [
   "oklch(0.65 0.2 250)",
   "oklch(0.7 0.18 140)",
@@ -52,9 +59,42 @@ const LINE_COLORS = [
   "oklch(0.7 0.15 200)",
 ];
 
-export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
+export function IssueMetricsView({
+  data,
+  cycleMetrics = [],
+}: {
+  readonly data: IssueMetric[];
+  readonly cycleMetrics?: CycleMetric[];
+}) {
   const [selectedLabel, setSelectedLabel] = useState("all");
   const [metric, setMetric] = useState<"count" | "points">("count");
+  const [selectedCycleId, setSelectedCycleId] = useState("");
+
+  const cycles = useMemo(
+    () => [...cycleMetrics].sort((a, b) => a.number - b.number),
+    [cycleMetrics],
+  );
+
+  const activeCycleId = selectedCycleId || cycles[0]?.cycle_id || "";
+  const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
+
+  const chartData = useMemo(
+    () =>
+      [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
+        String(a.date).localeCompare(String(b.date)),
+      ),
+    [activeCycle],
+  );
+
+  const uniqueStatuses = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          chartData.flatMap((d) => Object.keys(d).filter((k) => k !== "date")),
+        ),
+      ).sort(),
+    [chartData],
+  );
 
   const uniqueLabels = useMemo(
     () => ["all", ...Array.from(new Set(data.map((d) => d.label)))],
@@ -65,9 +105,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
 
   const filtered = useMemo(
     () =>
-      data.filter(
-        (d) => selectedLabel === "all" || d.label === selectedLabel,
-      ),
+      data.filter((d) => selectedLabel === "all" || d.label === selectedLabel),
     [data, selectedLabel],
   );
 
@@ -76,36 +114,24 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
     [filtered, today],
   );
 
-  const uniqueStatuses = useMemo(
-    () => Array.from(new Set(filtered.map((d) => d.status))).sort(),
-    [filtered],
-  );
-
-  const uniqueDates = useMemo(
-    () =>
-      Array.from(new Set(filtered.map((d) => d.created_at.slice(0, 10)))).sort(),
-    [filtered],
-  );
-
-  const chartData = useMemo(
-    () =>
-      uniqueDates.map((date) => {
-        const row: Record<string, string | number> = { date };
-        for (const status of uniqueStatuses) {
-          row[status] = filtered
-            .filter((d) => d.created_at.slice(0, 10) === date && d.status === status)
-            .reduce((sum, d) => sum + d[metric], 0);
-        }
-        return row;
-      }),
-    [uniqueDates, uniqueStatuses, filtered, metric],
-  );
-
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      
       <div className="flex flex-wrap gap-3">
+        {cycles.length > 0 && (
+          <Select value={activeCycleId} onValueChange={setSelectedCycleId}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Cycle" />
+            </SelectTrigger>
+            <SelectContent>
+              {cycles.map((c) => (
+                <SelectItem key={c.cycle_id} value={c.cycle_id}>
+                  Cycle {c.number}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Select value={selectedLabel} onValueChange={setSelectedLabel}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Label" />
@@ -119,7 +145,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
           </SelectContent>
         </Select>
 
-        <Select
+       {/*  <Select
           value={metric}
           onValueChange={(v) => setMetric(v as "count" | "points")}
         >
@@ -130,7 +156,7 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
             <SelectItem value="count">By count</SelectItem>
             <SelectItem value="points">By points</SelectItem>
           </SelectContent>
-        </Select>
+        </Select> */}
       </div>
 
       {/* Chart */}
@@ -138,7 +164,8 @@ export function IssueMetricsView({ data }: { readonly data: IssueMetric[] }) {
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <BarChart2 className="h-4 w-4 text-accent" />
-            Issues — {metric === "count" ? "Count" : "Points"} by Status
+            Issues by Status
+            {activeCycle ? ` — Cycle #${activeCycle.number}` : ""}
           </CardTitle>
         </CardHeader>
         <CardContent>

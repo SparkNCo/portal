@@ -108,7 +108,7 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
   return { averages, cfr_details, lead_time_details, mttr_details, deploy_freq_details };
 }
 
-async function saveDoraMetrics(linearSlug: string, result: Awaited<ReturnType<typeof handleAll>>) {
+async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<ReturnType<typeof handleAll>>) {
   const { data: existing } = await supabase
     .from("dorametrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
@@ -124,7 +124,7 @@ async function saveDoraMetrics(linearSlug: string, result: Awaited<ReturnType<ty
   }
 
   const merged = mergeDoraMetrics(existing, result);
-  const payload = { ...merged, last_called: new Date().toISOString() };
+  const payload = { ...merged, url, last_called: new Date().toISOString() };
 
   const { error } = existing
     ? await supabase.from("dorametrics").update(payload).eq("linear_slug", linearSlug)
@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
 
     if (method === "all") {
       const result = await handleAll(repo, token, limit);
-      await saveDoraMetrics(linear_slug, result);
+      await saveDoraMetrics(linear_slug, repoUrl, result);
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

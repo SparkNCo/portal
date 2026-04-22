@@ -23,7 +23,7 @@ interface Project {
 export function MetricsPanel() {
   const { slug } = useParams<{ slug: string }>();
   const [tab, setTab] = useState<Tab>("issues");
-  const [selectedProjectId, setSelectedProjectId] = useState("all");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["metrics", slug],
@@ -55,28 +55,40 @@ export function MetricsPanel() {
     );
   }
 
-  const projects: Project[] = data?.projects ?? [];
+  const projects: Project[] = Array.from(
+    new Map(
+      (data?.cycle_metrics ?? [])
+        .filter(
+          (m: { project_id: string; project_name?: string }) => m.project_name,
+        )
+        .map((m: { project_id: string; project_name: string }) => [
+          m.project_id,
+          { id: m.project_id, name: m.project_name },
+        ]),
+    ).values(),
+  );
+
+  const activeProjectId = selectedProjectId || projects[0]?.id || "";
 
   const issueMetrics = (data?.issue_metrics ?? []).filter(
     (m: { project_id: string }) =>
-      selectedProjectId === "all" || m.project_id === selectedProjectId,
+      !activeProjectId || m.project_id === activeProjectId,
   );
 
   const cycleMetrics = (data?.cycle_metrics ?? []).filter(
     (m: { project_id: string }) =>
-      selectedProjectId === "all" || m.project_id === selectedProjectId,
+      !activeProjectId || m.project_id === activeProjectId,
   );
 
   return (
     <div className="space-y-4 mb-20">
       {/* Top bar: project filter + tab toggle */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+        <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
           <SelectTrigger className="w-52">
-            <SelectValue placeholder="All projects" />
+            <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
             {projects.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
@@ -101,7 +113,9 @@ export function MetricsPanel() {
         </div>
       </div>
 
-      {tab === "issues" && <IssueMetricsView data={issueMetrics} />}
+      {tab === "issues" && (
+        <IssueMetricsView data={issueMetrics} cycleMetrics={cycleMetrics} />
+      )}
       {tab === "cycles" && <CycleMetricsView data={cycleMetrics} />}
     </div>
   );
