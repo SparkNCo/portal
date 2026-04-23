@@ -10,9 +10,6 @@ import { useState, useEffect } from "react";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
-import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
-import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
-import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
@@ -101,7 +98,6 @@ export default function ClientDashboard() {
           <SoftwareKPIs /> */}
         </div>
       </div>{" "}
-      <MetricsPanel />
     </div>
   );
 }

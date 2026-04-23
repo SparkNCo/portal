@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
+import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 export default function RoadmapPage() {
   const params = useParams();
@@ -96,12 +97,12 @@ export default function RoadmapPage() {
       <div className="p-6 space-y-6 ">
         <RoadmapTimeline projectMilestones={allMilestones} />
 
-
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
           <SoftwareKPIs linearName={slug} />
         </div>
       </div>
+      <MetricsPanel />
     </div>
   );
 }

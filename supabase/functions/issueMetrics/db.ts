@@ -60,6 +60,42 @@ export async function upsertCycleMetrics(cycles: any[]) {
   if (error) {
     throw new Error(`Cycle upsert failed: ${error.message}`);
   }
+
+  // For newly inserted cycles, mark the previous cycle as inactive and append a final snapshot
+  const newCycles = cycles.filter((c) => !existingMap.has(c.cycle_id));
+  if (!newCycles.length) return;
+
+  const today = new Date().toISOString().split("T")[0];
+
+  await Promise.all(
+    newCycles.map(async (cycle) => {
+      const prevNumber = cycle.number - 1;
+      if (prevNumber < 1) return;
+
+      const { data: prevCycle } = await supabase
+        .from("cycle_metrics")
+        .select("cycle_id, issues_averages")
+        .eq("customer_id", cycle.customer_id)
+        .eq("project_id", cycle.project_id)
+        .eq("number", prevNumber)
+        .maybeSingle();
+
+      if (!prevCycle) return;
+
+      const updatePayload: any = { is_active: false };
+
+      const prevAverages: any[] = prevCycle.issues_averages ?? [];
+      if (prevAverages.length && !prevAverages.some((e) => e.date === today)) {
+        const lastSnapshot = prevAverages.at(-1);
+        updatePayload.issues_averages = [...prevAverages, { ...lastSnapshot, date: today }];
+      }
+
+      await supabase
+        .from("cycle_metrics")
+        .update(updatePayload)
+        .eq("cycle_id", prevCycle.cycle_id);
+    }),
+  );
 }
 
 export async function getMetricsBySlug(projectIds: string[]) {

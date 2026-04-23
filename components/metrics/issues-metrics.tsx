@@ -101,17 +101,10 @@ export function IssueMetricsView({
     [data],
   );
 
-  const today = new Date().toISOString().split("T")[0];
-
   const filtered = useMemo(
     () =>
       data.filter((d) => selectedLabel === "all" || d.label === selectedLabel),
     [data, selectedLabel],
-  );
-
-  const todayRows = useMemo(
-    () => filtered.filter((d) => d.created_at.slice(0, 10) === today),
-    [filtered, today],
   );
 
   return (
@@ -132,20 +125,7 @@ export function IssueMetricsView({
           </Select>
         )}
 
-        <Select value={selectedLabel} onValueChange={setSelectedLabel}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Label" />
-          </SelectTrigger>
-          <SelectContent>
-            {uniqueLabels.map((l) => (
-              <SelectItem key={l} value={l}>
-                {l === "all" ? "All labels" : l}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-       {/*  <Select
+        {/*  <Select
           value={metric}
           onValueChange={(v) => setMetric(v as "count" | "points")}
         >
@@ -221,6 +201,19 @@ export function IssueMetricsView({
         </CardContent>
       </Card>
 
+      <Select value={selectedLabel} onValueChange={setSelectedLabel}>
+        <SelectTrigger className="w-56">
+          <SelectValue placeholder="Label" />
+        </SelectTrigger>
+        <SelectContent>
+          {uniqueLabels.map((l) => (
+            <SelectItem key={l} value={l}>
+              {l === "all" ? "All labels" : l}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       {/* Table */}
       <Card className="bg-background border-border">
         <CardContent className="p-0">
@@ -237,7 +230,7 @@ export function IssueMetricsView({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {todayRows.length === 0 ? (
+                {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
@@ -247,7 +240,7 @@ export function IssueMetricsView({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  todayRows.map((row) => (
+                  filtered.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <Badge variant="outline">{row.status}</Badge>

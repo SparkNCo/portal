@@ -1,8 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { Resend } from "https://esm.sh/resend@3";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
+import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createUser = async (body: any) => {
   const {
@@ -21,10 +19,48 @@ export const createUser = async (body: any) => {
     throw new Error("Email is required");
   }
 
-  const { data, error } = await supabase
+  const redirectTo = "https://app.buildwithspark.co";
+
+  let authUserId: string;
+  let inviteLink: string;
+
+  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
+
+  if (inviteError) {
+    if (!inviteError.message.includes("already been registered")) {
+      throw new Error(`Auth invite failed: ${inviteError.message}`);
+    }
+
+    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
+
+    const existingAuthUser = listData.users.find((u: any) => u.email === email);
+    if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
+
+    authUserId = existingAuthUser.id;
+
+    const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+    if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
+
+    inviteLink = recoveryData.properties.action_link;
+  } else {
+    authUserId = inviteData.user.id;
+    inviteLink = inviteData.properties.action_link;
+  }
+
+  const { data, error: upsertError } = await supabase
     .from("users")
-    .insert([
-      {
+    .upsert(
+      [{
+        id: authUserId,
         email,
         role,
         customer_id,
@@ -34,35 +70,18 @@ export const createUser = async (body: any) => {
         initiative_ids,
         projects_slug,
         auth_id,
-      },
-    ])
+      }],
+      { onConflict: "id" },
+    )
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (upsertError) {
+    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    throw new Error(upsertError.message);
+  }
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-      <h2>Welcome to Spark & Co 🚀</h2>
-      <p>Your account has been created successfully.</p>
-      <p>You can now log in and access your portal:</p>
-      <p>
-        👉 <a href="https://app.buildwithspark.co" target="_blank">
-          Go to Spark & Co
-        </a>
-      </p>
-      <p style="margin-top:20px; font-size:12px; color:#666;">
-        This is an automated message.
-      </p>
-    </div>
-  `;
-
-  await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
-    to: email,
-    subject: "Your Spark & Co account is ready 🚀",
-    html,
-  });
+  await sendInviteCustomerMail(email, inviteLink);
 
   return data;
 };
