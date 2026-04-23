@@ -7,7 +7,7 @@ import {
   getCycleMetricsByCustomerId,
   getIssueMetricsByCustomerId,
 } from "./db.ts";
-import { fetchProjectDetails, fetchCycleIssues } from "./linear.ts";
+import { fetchProjectDetails, fetchCycleIssues, fetchCycleByNumber } from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
 
 Deno.serve(async (req) => {
@@ -34,6 +34,50 @@ Deno.serve(async (req) => {
       ]);
 
       return new Response(JSON.stringify({ issue_metrics, cycle_metrics }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
+  }
+
+  if (req.method === "PUT") {
+    try {
+      const { slug, project_id, cycle_number } = await req.json();
+
+      if (!slug || !project_id || cycle_number == null) {
+        return new Response(JSON.stringify({ error: "Missing slug, project_id or cycle_number" }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      const result = await fetchCycleByNumber(project_id, cycle_number);
+      if (!result) {
+        return new Response(JSON.stringify({ error: `Cycle #${cycle_number} not found in project ${project_id}` }), {
+          status: 404,
+          headers: corsHeaders,
+        });
+      }
+
+      const { project, cycle } = result;
+      const issues = await fetchCycleIssues(cycle.id);
+
+      const cyclesByProject = [{ projectId: project.id, projectName: project.name, cycles: [cycle] }];
+      const cycleIssues = [{ cycleId: cycle.id, projectId: project.id, issues }];
+
+      const metrics = buildIssueMetrics(cycleIssues, slug);
+      const cycles = buildCycleMetrics(cyclesByProject, slug, metrics);
+
+      await Promise.all([
+        upsertIssueMetrics(metrics),
+        upsertCycleMetrics(cycles),
+      ]);
+
+      return new Response(JSON.stringify({ ok: true, cycle_id: cycle.id, cycle_number: cycle.number }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (error) {

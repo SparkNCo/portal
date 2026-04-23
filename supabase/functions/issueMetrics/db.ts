@@ -40,16 +40,22 @@ export async function upsertCycleMetrics(cycles: any[]) {
   const cycleIds = cycles.map((c) => c.cycle_id);
   const { data: existing } = await supabase
     .from("cycle_metrics")
-    .select("cycle_id, issues_averages")
+    .select("cycle_id, customer_id, project_id, issues_averages")
     .in("cycle_id", cycleIds);
 
+  const compositeKey = (r: { customer_id: string; project_id: string; cycle_id: string }) =>
+    `${r.customer_id}|${r.project_id}|${r.cycle_id}`;
+
   const existingMap = new Map(
-    (existing ?? []).map((r) => [r.cycle_id, r.issues_averages ?? []]),
+    (existing ?? []).map((r) => [compositeKey(r), r.issues_averages ?? []]),
   );
 
   const payload = cycles.map(({ _snapshot, ...cycle }) => {
-    const prev: any[] = existingMap.get(cycle.cycle_id) ?? [];
-    const merged = [...prev.filter((e) => e.date !== _snapshot.date), _snapshot];
+    const prev: any[] = existingMap.get(compositeKey(cycle)) ?? [];
+    const merged = [
+      ...prev.filter((e) => e.date !== _snapshot.date),
+      _snapshot,
+    ];
     return { ...cycle, issues_averages: merged };
   });
 
@@ -62,7 +68,7 @@ export async function upsertCycleMetrics(cycles: any[]) {
   }
 
   // For newly inserted cycles, mark the previous cycle as inactive and append a final snapshot
-  const newCycles = cycles.filter((c) => !existingMap.has(c.cycle_id));
+  const newCycles = cycles.filter((c) => !existingMap.has(compositeKey(c)));
   if (!newCycles.length) return;
 
   const today = new Date().toISOString().split("T")[0];
@@ -87,7 +93,10 @@ export async function upsertCycleMetrics(cycles: any[]) {
       const prevAverages: any[] = prevCycle.issues_averages ?? [];
       if (prevAverages.length && !prevAverages.some((e) => e.date === today)) {
         const lastSnapshot = prevAverages.at(-1);
-        updatePayload.issues_averages = [...prevAverages, { ...lastSnapshot, date: today }];
+        updatePayload.issues_averages = [
+          ...prevAverages,
+          { ...lastSnapshot, date: today },
+        ];
       }
 
       await supabase
