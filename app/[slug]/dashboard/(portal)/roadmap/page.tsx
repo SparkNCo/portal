@@ -6,12 +6,14 @@ import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
 import { LoadingDataPanel } from "@/components/loader";
 import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useQuery } from "@tanstack/react-query";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
-  const slug = profile?.linear_slug ?? "";
+  const customerSlug = useCustomerSlug();
+  const slug = customerSlug ?? profile?.linear_slug ?? "";
 
   const {
     data: roadmap,

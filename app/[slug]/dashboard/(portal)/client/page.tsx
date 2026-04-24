@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
@@ -35,7 +36,8 @@ export async function fetchPoliciesStatus(userId: string) {
 
 export default function ClientDashboard() {
   const { profile } = useUser();
-  const slug = profile?.linear_slug ?? "";
+  const customerSlug = useCustomerSlug();
+  const slug = customerSlug ?? profile?.linear_slug ?? "";
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);

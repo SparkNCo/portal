@@ -13,6 +13,7 @@ import {
   LogOut,
   Shield,
   LayoutGrid,
+  ChevronLeft,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
@@ -43,6 +44,18 @@ export function Sidebar() {
   const params = searchParams.toString();
   const router = useRouter();
   const { profile } = useUser();
+
+  const selectedCustomer = searchParams.get("customer");
+  const selectedPanel = searchParams.get("panel") ?? "client";
+  const isViewingCustomer = profile?.role === "admin" && pathname.endsWith("/dashboards") && !!selectedCustomer;
+
+  const customerPanelItems = [
+    { href: "client",    label: "Dashboard", icon: LayoutDashboard },
+    { href: "roadmap",   label: "Roadmap",   icon: Map },
+    { href: "developer", label: "Developer", icon: Code2 },
+    { href: "documents", label: "Documents", icon: FileText },
+    { href: "settings",  label: "Settings",  icon: Settings },
+  ];
 
   const roleNavMap: Record<string, typeof clientNavItems> = {
     customer: clientNavItems,
@@ -77,29 +90,54 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === `/dashboard/${item.href}` ||
-            pathname.startsWith(`/dashboard/${item.href}/`);
-
-          const hrefWithParams = params ? `${item.href}?${params}` : item.href;
-
-          return (
+        {isViewingCustomer ? (
+          <>
             <Link
-              key={item.href}
-              href={hrefWithParams}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
+              href="dashboards"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <ChevronLeft className="h-3 w-3" />
+              All customers
             </Link>
-          );
-        })}
+            {customerPanelItems.map((item) => (
+              <Link
+                key={item.href}
+                href={`dashboards?customer=${selectedCustomer}&panel=${item.href}`}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  selectedPanel === item.href
+                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            ))}
+          </>
+        ) : (
+          navItems.map((item) => {
+            const isActive =
+              pathname === `/dashboard/${item.href}` ||
+              pathname.startsWith(`/dashboard/${item.href}/`);
+            const hrefWithParams = params ? `${item.href}?${params}` : item.href;
+            return (
+              <Link
+                key={item.href}
+                href={hrefWithParams}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })
+        )}
       </nav>
 
       <div className="border-t border-sidebar-border p-3 space-y-2">
