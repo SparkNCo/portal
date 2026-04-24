@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -50,6 +50,15 @@ interface CycleMetric {
   issues_averages: Record<string, number | string>[];
 }
 
+const STATUS_ORDER = [
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Done",
+];
+
 const LINE_COLORS = [
   "oklch(0.65 0.2 250)",
   "oklch(0.7 0.18 140)",
@@ -86,15 +95,17 @@ export function IssueMetricsView({
     [activeCycle],
   );
 
-  const uniqueStatuses = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          chartData.flatMap((d) => Object.keys(d).filter((k) => k !== "date")),
-        ),
-      ).sort(),
-    [chartData],
-  );
+  const uniqueStatuses = useMemo(() => {
+    const statuses = Array.from(
+      new Set(
+        chartData.flatMap((d) => Object.keys(d).filter((k) => k !== "date")),
+      ),
+    );
+    return statuses.sort(
+      (a, b) =>
+        (STATUS_ORDER.indexOf(a) ?? 99) - (STATUS_ORDER.indexOf(b) ?? 99),
+    );
+  }, [chartData]);
 
   const uniqueLabels = useMemo(
     () => ["all", ...Array.from(new Set(data.map((d) => d.label)))],
@@ -154,9 +165,9 @@ export function IssueMetricsView({
               No data
             </p>
           ) : (
-            <div className="h-64">
+            <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
+                <AreaChart data={chartData}>
                   <XAxis
                     dataKey="date"
                     tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
@@ -184,24 +195,26 @@ export function IssueMetricsView({
                     iconType="circle"
                   />
                   {uniqueStatuses.map((status, i) => (
-                    <Line
+                    <Area
                       key={status}
                       type="monotone"
                       dataKey={status}
+                      stackId="a"
                       stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                      fill={LINE_COLORS[i % LINE_COLORS.length]}
+                      fillOpacity={0.4}
                       strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
                     />
                   ))}
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
         </CardContent>
       </Card>
+      {/* Table */}
 
-      <Select value={selectedLabel} onValueChange={setSelectedLabel}>
+      {/* <Select value={selectedLabel} onValueChange={setSelectedLabel}>
         <SelectTrigger className="w-56">
           <SelectValue placeholder="Label" />
         </SelectTrigger>
@@ -214,7 +227,6 @@ export function IssueMetricsView({
         </SelectContent>
       </Select>
 
-      {/* Table */}
       <Card className="bg-background border-border">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -265,7 +277,7 @@ export function IssueMetricsView({
             </Table>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

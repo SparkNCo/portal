@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,9 @@ interface Project {
 }
 
 export function MetricsPanel() {
-  const { slug } = useParams<{ slug: string }>();
+  const { profile } = useUser();
+  const customerSlug = useCustomerSlug();
+  const slug = customerSlug ?? profile?.linear_slug ?? "";
   const [tab, setTab] = useState<Tab>("issues");
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
