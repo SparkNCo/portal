@@ -3,7 +3,6 @@
 import { Header } from "@/components/headerDashboard";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { PriorityTasks } from "@/components/client/priority-tasks";
-import { useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
@@ -36,8 +35,7 @@ export async function fetchPoliciesStatus(userId: string) {
 
 export default function ClientDashboard() {
   const { profile } = useUser();
-  const params = useParams();
-  const slug = params.slug as string;
+  const slug = profile?.linear_slug ?? "";
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -92,6 +90,7 @@ export default function ClientDashboard() {
         </div>
 
         <CreateIssue />
+        <div onClick={() => console.log({ profile })}>VER profile</div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/*     <VelocityMetrics />

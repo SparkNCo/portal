@@ -7,7 +7,8 @@ type Profile = {
   id: string;
   email: string;
   role: "admin" | "developer" | "customer";
-  // add more fields if needed
+  linear_slug?: string;
+  userName?: string;
 };
 
 type UserContextType = {

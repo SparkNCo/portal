@@ -4,14 +4,14 @@ import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
+import { useUser } from "context/UserContext";
 import { useQuery } from "@tanstack/react-query";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 export default function RoadmapPage() {
-  const params = useParams();
-  const slug = params.slug as string;
+  const { profile } = useUser();
+  const slug = profile?.linear_slug ?? "";
 
   const {
     data: roadmap,

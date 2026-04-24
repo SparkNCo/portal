@@ -7,61 +7,68 @@ import { getAllUsers } from "./getAllUsers.ts";
 import { updateUser } from "./updateUser.ts";
 
 Deno.serve(async (req) => {
-  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const url = new URL(req.url);
-    const email = url.searchParams.get("email");
 
-    // ✅ GET
-    if (req.method === "GET") {
-      // GET ALL
-      if (!email) {
-        const users = await getAllUsers();
-        return jsonResponse(users);
-      }
-
-      // GET ONE
-      const user = await fetchUser(email);
-      return jsonResponse(user);
-    }
-
-    // ✅ PATCH (update user)
-    if (req.method === "PATCH") {
-      const body = await req.json();
-
-      const updatedUser = await updateUser(body);
-      return jsonResponse(updatedUser);
-    }
-
-    // ✅ POST (create user)
-    if (req.method === "POST") {
-      const body = await req.json();
-      const type = url.searchParams.get("type");
-
-      if (!type || type === "developer") {
-        const newUser = await createUser(body);
-        return jsonResponse(newUser);
-      }
-
-      if (type === "customer") {
-        const result = await createCustomerFlow(body);
-        return jsonResponse(result);
-      }
-
-      return jsonResponse({ error: "Invalid type" }, 400);
-    }
+    if (req.method === "GET") return handleGet(url);
+    if (req.method === "PATCH") return handlePatch(req);
+    if (req.method === "POST") return handlePost(req, url);
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
     console.error("[Supabase Error]", error);
-
     return jsonResponse({ error: error.message }, 500);
   }
 });
+
+const handleGet = async (url: URL) => {
+  const type = url.searchParams.get("type");
+  const email = url.searchParams.get("email");
+
+  if (type === "customers") {
+    const { data, error } = await supabase
+      .from("users")
+      .select("userName, linear_slug, email")
+      .eq("role", "customer");
+    if (error) throw new Error(error.message);
+    return jsonResponse(data);
+  }
+
+  if (!email) {
+    const users = await getAllUsers();
+    return jsonResponse(users);
+  }
+
+  const user = await fetchUser(email);
+  return jsonResponse(user);
+};
+
+const handlePatch = async (req: Request) => {
+  const body = await req.json();
+  const updatedUser = await updateUser(body);
+  return jsonResponse(updatedUser);
+};
+
+const handlePost = async (req: Request, url: URL) => {
+  const body = await req.json();
+  const type = url.searchParams.get("type");
+
+  if (!type || type === "developer") {
+    const newUser = await createUser(body);
+    return jsonResponse(newUser);
+  }
+
+  if (type === "customer") {
+    const result = await createCustomerFlow(body);
+    return jsonResponse(result);
+  }
+
+  return jsonResponse({ error: "Invalid type" }, 400);
+};
 
 // =========================
 // 📦 Helpers

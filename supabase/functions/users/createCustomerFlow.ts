@@ -8,10 +8,8 @@ export const createCustomerFlow = async (body: any) => {
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
 
-  const redirectTo = `http://localhost:3000/set-password?slug=${linear_slug}`;
+  const redirectTo = "http://localhost:3000/set-password";
 
-  // Try invite link first (new user path)
-  let linkData: any;
   let authUserId: string;
   let inviteLink: string;
 

@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound } from "lucide-react";
 
 function SetPasswordForm() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const slug = searchParams.get("slug") ?? "";
 
   const [ready, setReady] = useState(false);
   const [sessionEmail, setSessionEmail] = useState("");
   const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +40,10 @@ function SetPasswordForm() {
       setError("Email does not match the invited address.");
       return;
     }
+    if (!userName.trim()) {
+      setError("Username is required.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -55,8 +58,39 @@ function SetPasswordForm() {
       return;
     }
 
+    const headers = {
+      Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+      apikey: process.env.NEXT_PUBLIC_APIKEY!,
+      "Content-Type": "application/json",
+    };
+
+    const getRes = await fetch(
+      `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(email)}`,
+      { headers }
+    );
+
+    if (!getRes.ok) {
+      setError("Password set, but could not load your profile.");
+      setSubmitting(false);
+      return;
+    }
+
+    const userData = await getRes.json();
+
+    const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ id: userData.id, userName }),
+    });
+
+    if (!patchRes.ok) {
+      setError("Password set, but could not save your username.");
+      setSubmitting(false);
+      return;
+    }
+
     setDone(true);
-    setTimeout(() => router.replace(`/${slug}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(`/${userName}/dashboard/client`), 1500);
   }
 
   const inputClass =
@@ -95,6 +129,14 @@ function SetPasswordForm() {
               />
               <input
                 className={inputClass}
+                type="text"
+                placeholder="Choose a username"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                autoComplete="username"
+              />
+              <input
+                className={inputClass}
                 type="password"
                 placeholder="New password"
                 value={password}
@@ -110,7 +152,7 @@ function SetPasswordForm() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !email || !password}
+                  disabled={submitting || !email || !userName || !password}
                 >
                   {submitting ? "Saving..." : "Set password"}
                 </Button>
