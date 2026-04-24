@@ -24,8 +24,6 @@ export function SettingsTabs() {
   const {
     data: billingData,
     isLoading,
-    isError,
-    refetch,
   } = useQuery({
     queryKey: ["billing", user?.email],
     queryFn: () => fetchBillingData({ user }),

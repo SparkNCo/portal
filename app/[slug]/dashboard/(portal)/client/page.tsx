@@ -13,7 +13,7 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
-  const statuses = [...new Set(["UAT", "Business Review", ...ticketStatuses])];
+  const statuses = [...new Set([...ticketStatuses])];
   const params = new URLSearchParams({
     slug,
     ticket_statuses: statuses.join(","),
@@ -25,7 +25,6 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   return res.json();
 }
 
-// 🔹 Check if user has approved policies
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/check?user_id=${userId}`,
@@ -60,7 +59,6 @@ export default function ClientDashboard() {
     refetchOnWindowFocus: false,
   });
 
-  // 🔹 useEffect to react when policiesStatus changes
   useEffect(() => {
     if (policiesStatus && !policiesStatus.approved) {
       setShowPoliciesModal(true);

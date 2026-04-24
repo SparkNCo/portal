@@ -9,6 +9,7 @@ type Profile = {
   role: "admin" | "developer" | "customer";
   linear_slug?: string;
   userName?: string;
+  customer_id?: string;
 };
 
 type UserContextType = {
@@ -71,8 +72,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    loadUser();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -82,12 +81,13 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
         return;
       }
-      if (event === "USER_UPDATED") {
+      if (
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "USER_UPDATED"
+      ) {
         loadUser();
       }
-      // Ignore SIGNED_IN, TOKEN_REFRESHED, INITIAL_SESSION —
-      // initial loadUser() above already handles those, and SIGNED_IN
-      // fires spuriously on tab focus when Supabase validates the session.
     });
 
     return () => subscription.unsubscribe();

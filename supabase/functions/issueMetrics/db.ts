@@ -37,9 +37,28 @@ export async function getAllCustomers() {
 export async function upsertCycleMetrics(cycles: any[]) {
   if (!cycles.length) return;
 
+  const cycleIds = cycles.map((c) => c.cycle_id);
+  const { data: existing } = await supabase
+    .from("cycle_metrics")
+    .select("cycle_id, issues_averages")
+    .in("cycle_id", cycleIds);
+
+  const existingMap = new Map(
+    (existing ?? []).map((r) => [r.cycle_id, r.issues_averages ?? []]),
+  );
+
+  const payload = cycles.map(({ _snapshot, ...cycle }) => {
+    const prev: any[] = existingMap.get(cycle.cycle_id) ?? [];
+    const merged = [
+      ...prev.filter((e) => e.date !== _snapshot.date),
+      _snapshot,
+    ];
+    return { ...cycle, issues_averages: merged };
+  });
+
   const { error } = await supabase
     .from("cycle_metrics")
-    .upsert(cycles, { onConflict: "customer_id,project_id,cycle_id" });
+    .upsert(payload, { onConflict: "customer_id,project_id,cycle_id" });
 
   if (error) {
     throw new Error(`Cycle upsert failed: ${error.message}`);

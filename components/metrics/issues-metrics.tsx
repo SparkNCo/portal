@@ -84,7 +84,7 @@ export function IssueMetricsView({
     [cycleMetrics],
   );
 
-  const activeCycleId = selectedCycleId || cycles[0]?.cycle_id || "";
+  const activeCycleId = selectedCycleId || cycles.at(-1)?.cycle_id || "";
   const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
 
   const chartData = useMemo(

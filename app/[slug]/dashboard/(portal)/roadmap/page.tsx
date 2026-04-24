@@ -62,19 +62,6 @@ export default function RoadmapPage() {
     setAllMilestones(milestones);
   }, [roadmap]);
 
-  /* useEffect(() => {
-    if (!roadmap?.initiative?.projects?.nodes?.length) return;
-    const projectIds = roadmap.initiative.projects.nodes
-      .map((p: any) => p.id)
-      .filter(Boolean);
-    if (!projectIds.length) return;
-    const params = new URLSearchParams(searchParams.toString());
-    const existing = params.get("projects");
-    const next = projectIds.join("--");
-    if (existing === next) return;
-    params.set("projects", next);
-  }, [roadmap, router, searchParams]); */
-
   if (isLoading) {
     return (
       <div className="min-h-screen">
