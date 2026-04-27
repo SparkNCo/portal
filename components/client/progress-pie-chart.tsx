@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useMemo } from "react";
-import { PriorityTasksProps } from "./priority-tasks";
+import type { Issue } from "./priority-tasks";
 
 /** Status → Color mapping */
 const STATUS_COLORS: Record<string, string> = {
@@ -48,7 +48,7 @@ function CustomTooltip({ active, payload }: TooltipProps) {
   );
 }
 
-export function ProgressPieChart({ issuesData }: PriorityTasksProps) {
+export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
   const chartData = useMemo(() => {
     const counts: Record<string, number> = {};
 
