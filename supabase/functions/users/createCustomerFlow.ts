@@ -3,7 +3,7 @@ import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createCustomerFlow = async (body: any) => {
-  const { email, stripe_customer_id, linear_slug } = body;
+  const { email, customer_id, linear_slug } = body;
 
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
@@ -50,7 +50,7 @@ export const createCustomerFlow = async (body: any) => {
   const { data: customerUser, error: upsertError } = await supabase
     .from("users")
     .upsert(
-      [{ id: authUserId, email, role: "customer", stripe_customer_id, linear_slug }],
+      [{ id: authUserId, email, role: "customer", customer_id, linear_slug }],
       { onConflict: "id" }
     )
     .select()

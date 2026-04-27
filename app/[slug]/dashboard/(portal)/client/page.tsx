@@ -42,6 +42,8 @@ export default function ClientDashboard() {
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [onlyActive, setOnlyActive] = useState(false);
 
   // 🔹 Issues query
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -67,6 +69,31 @@ export default function ClientDashboard() {
     }
   }, [policiesStatus]);
 
+  const allIssues = issuesData ?? [];
+  const availableStatuses = Array.from(
+    new Set(allIssues.map((i: any) => i.state?.name).filter(Boolean)),
+  ) as string[];
+  const hasCycles = allIssues.some((i: any) => i.cycle !== undefined);
+
+  const filteredIssues = allIssues.filter((issue: any) => {
+    if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
+    if (selectedStatuses.length > 0 && (!issue.state?.name || !selectedStatuses.includes(issue.state.name))) return false;
+    return true;
+  });
+
+  const filterState = {
+    selectedStatuses,
+    onlyActive,
+    availableStatuses,
+    hasCycles,
+    onToggleStatus: (s: string) =>
+      setSelectedStatuses((prev) =>
+        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+      ),
+    onToggleActive: () => setOnlyActive((v) => !v),
+    onClearFilters: () => { setSelectedStatuses([]); setOnlyActive(false); },
+  };
+
   if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
 
   return (
@@ -77,7 +104,6 @@ export default function ClientDashboard() {
         notionUrl={notionUrl}
         onApproved={() => setShowPoliciesModal(false)}
       />
-      <div onClick={() => console.log({ profile })}>VER profile</div>
       <Header
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
@@ -85,16 +111,14 @@ export default function ClientDashboard() {
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
           <div className="w-full md:w-1/4 flex flex-col">
-            <ProgressPieChart issuesData={issuesData ?? []} />
+            <ProgressPieChart issuesData={filteredIssues} />
           </div>
           <div className="w-full md:w-3/4 flex flex-col">
-            <PriorityTasks issuesData={issuesData ?? []} />
+            <PriorityTasks issuesData={filteredIssues} filterState={filterState} />
           </div>
         </div>
-        <div onClick={() => console.log({ issuesData })}>VER issuesData</div>
 
         <CreateIssue />
-        <div onClick={() => console.log({ profile })}>VER profile</div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/*     <VelocityMetrics />

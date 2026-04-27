@@ -16,10 +16,7 @@ type Balance = {
    Helpers
 -----------------------------------*/
 
-function formatAmountFromCents(
-  cents: number,
-  currency: string
-) {
+function formatAmountFromCents(cents: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency.toUpperCase(),
@@ -30,28 +27,22 @@ function formatAmountFromCents(
    Component
 -----------------------------------*/
 
-export function PendingBalancePanel({
-  balance,
-}: {
-  balance?: Balance;
-}) {
+export function PendingBalancePanel({ balance }: { balance?: Balance }) {
   const hasDebt = Boolean(balance?.hasPendingBalance);
   const amount = balance?.amount ?? 0;
   const currency = balance?.currency ?? "usd";
 
   return (
-    <Card>
+    <Card className="bg-background">
       <CardContent className="pt-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between ">
           <div>
-            <p className="text-sm text-muted-foreground">
-              Outstanding Balance
-            </p>
+            <p className="text-sm text-muted-foreground">Outstanding Balance</p>
 
             <p
               className={clsx(
                 "text-2xl font-bold",
-                hasDebt ? "text-warning" : "text-green-600"
+                hasDebt ? "text-warning" : "text-green-600",
               )}
             >
               {formatAmountFromCents(amount, currency)}
@@ -66,7 +57,7 @@ export function PendingBalancePanel({
         <p
           className={clsx(
             "mt-2 text-xs",
-            hasDebt ? "text-warning" : "text-muted-foreground"
+            hasDebt ? "text-warning" : "text-muted-foreground",
           )}
         >
           {hasDebt

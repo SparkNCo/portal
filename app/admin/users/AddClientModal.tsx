@@ -30,7 +30,7 @@ export default function AddClientModal({ onClose }: Props) {
           },
           body: JSON.stringify({
             email,
-            stripe_customer_id: stripeId,
+            customer_id: stripeId,
             linear_slug: linearSlug,
           }),
         },

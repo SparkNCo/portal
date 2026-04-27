@@ -2,7 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Send, ChevronsRight, Filter } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Send,
+  ChevronsRight,
+  Filter,
+} from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useRef, useState } from "react";
 
@@ -86,8 +92,19 @@ export type Issue = {
   comments?: { nodes: Comment[] };
 };
 
+export type FilterState = {
+  selectedStatuses: string[];
+  onlyActive: boolean;
+  availableStatuses: string[];
+  hasCycles: boolean;
+  onToggleStatus: (s: string) => void;
+  onToggleActive: () => void;
+  onClearFilters: () => void;
+};
+
 export type PriorityTasksProps = {
   issuesData: Issue[];
+  filterState: FilterState;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -268,28 +285,20 @@ function IssueCard({ issue }: { issue: Issue }) {
   );
 }
 
-
-export function PriorityTasks({ issuesData }: PriorityTasksProps) {
+export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [onlyActive, setOnlyActive] = useState(false);
 
-  const hasCycles = issuesData.some((i) => i.cycle !== undefined);
-  const availableStatuses = Array.from(new Set(issuesData.map((i) => i.state?.name).filter(Boolean))) as string[];
-
-  const filtered = issuesData.filter((issue) => {
-    if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
-    if (selectedStatuses.length > 0 && (!issue.state?.name || !selectedStatuses.includes(issue.state.name))) return false;
-    return true;
-  });
-
-  function toggleStatus(status: string) {
-    setSelectedStatuses((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
-    );
-  }
+  const {
+    selectedStatuses,
+    onlyActive,
+    availableStatuses,
+    hasCycles,
+    onToggleStatus,
+    onToggleActive,
+    onClearFilters,
+  } = filterState;
 
   const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
 
@@ -303,67 +312,78 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
         <div className="flex items-center gap-1">
           <div className="relative">
             <Button
-              variant="ghost"
+              variant={activeFilters > 0 ? "secondary" : "ghost"}
               size="sm"
-              className="text-muted-foreground"
+              className="text-muted-foreground gap-1.5"
               onClick={() => setFilterOpen((v) => !v)}
             >
-              <Filter className="h-3 w-3 mr-1" />
-              Filter
+              <Filter className="h-3 w-3" />
+              Filters
               {activeFilters > 0 && (
-                <span className="ml-1 rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4 flex items-center justify-center">
+                <span className="rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4 flex items-center justify-center font-medium">
                   {activeFilters}
                 </span>
               )}
             </Button>
+
             {filterOpen && (
               <div
-                className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-border bg-background shadow-lg p-3 space-y-3"
+                className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
                 role="menu"
                 tabIndex={0}
               >
                 {hasCycles && (
-                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={onlyActive}
-                      onChange={() => setOnlyActive((v) => !v)}
-                      className="rounded"
-                    />
-                    Active cycle only
-                  </label>
-                )}
-                <div onClick={() => console.log({ filtered })}>VER filtered</div>
-                
-                {availableStatuses.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Status</p>
-                    {availableStatuses.map((status) => (
-                      <label key={status} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={selectedStatuses.includes(status)}
-                          onChange={() => toggleStatus(status)}
-                          className="rounded"
-                        />
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] ${statusColors[status as keyof typeof statusColors]}`}
-                        >
-                          {status}
-                        </Badge>
-                      </label>
-                    ))}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Cycle
+                    </p>
+                    <button
+                      onClick={onToggleActive}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
+                        onlyActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      Active cycle only
+                    </button>
                   </div>
                 )}
+
+                {availableStatuses.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Status
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableStatuses.map((status) => {
+                        const active = selectedStatuses.includes(status);
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => onToggleStatus(status)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-all ${
+                              active
+                                ? `${statusColors[status as keyof typeof statusColors]} border-current opacity-100`
+                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted opacity-70 hover:opacity-100"
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {activeFilters > 0 && (
                   <button
-                    className="text-xs text-muted-foreground hover:text-foreground underline w-full text-left"
-                    onClick={() => { setSelectedStatuses([]); setOnlyActive(false); }}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    onClick={onClearFilters}
                   >
-                    Clear filters
+                    <span className="text-base leading-none">×</span> Clear all filters
                   </button>
                 )}
               </div>
@@ -382,9 +402,14 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden" onClick={() => filterOpen && setFilterOpen(false)}>
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic p-2">No issues match the current filters.</p>
+      <CardContent
+        className="flex-1 overflow-hidden"
+        onClick={() => filterOpen && setFilterOpen(false)}
+      >
+        {issuesData.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic p-2">
+            No issues match the current filters.
+          </p>
         ) : (
           <div
             ref={scrollRef}
@@ -402,7 +427,7 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
               }
             `}
           >
-            {filtered.map((issue) => (
+            {issuesData.map((issue) => (
               <IssueCard key={issue.id} issue={issue} />
             ))}
           </div>

@@ -2,7 +2,7 @@
 import { z } from "https://esm.sh/zod@3.23.8";
 
 export const getClientDataQuerySchema = z.object({
-  email: z.string().email(),
+  customer_id: z.string().min(1),
 });
 
 export const subscriptionSchema = z.object({
