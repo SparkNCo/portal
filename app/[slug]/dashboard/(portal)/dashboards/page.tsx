@@ -22,7 +22,7 @@ type CustomerSummary = {
   email: string;
 };
 
-function PanelRenderer({ panel }: { panel: string }) {
+function PanelRenderer({ panel }: { readonly panel: string }) {
   switch (panel) {
     case "roadmap":   return <RoadmapPage />;
     case "developer": return <DeveloperPage />;
@@ -47,7 +47,7 @@ function DashboardsContent() {
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
             "Content-Type": "application/json",
           },
         },
@@ -74,34 +74,47 @@ function DashboardsContent() {
     );
   }
 
-  if (isLoading) return <LoadingDataPanel />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Dashboards" subtitle="All customer dashboards" />
+        <p className="p-6 text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
       <Header title="Dashboards" subtitle="All customer dashboards" />
-      <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {customers?.map((c) => (
-          <Link
-            key={c.email}
-            href={`dashboards?customer=${c.linear_slug}&panel=client`}
-          >
-            <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
-              <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-accent" />
-                </div>
-                <CardTitle className="text-sm font-semibold">
-                  {c.userName || "—"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-0.5">
-                <p>{c.email}</p>
-                <p className="text-xs">Slug: {c.linear_slug}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {customers?.length ? (
+        <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {customers.map((c) => (
+            <Link
+              key={c.email}
+              href={`dashboards?customer=${c.linear_slug}&panel=client`}
+            >
+              <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
+                <CardHeader className="flex flex-row items-center gap-3 pb-2">
+                  <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
+                    <User className="h-4 w-4 text-accent" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold">
+                    {c.userName || "—"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-0.5">
+                  <p>{c.email}</p>
+                  <p className="text-xs">Slug: {c.linear_slug}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="p-6 text-sm text-muted-foreground">
+          There are no customer dashboards created to show.
+        </p>
+      )}
     </div>
   );
 }

@@ -8,8 +8,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { useQuery } from "@tanstack/react-query";
+import { useUser } from "context/UserContext";
 
 export default function RoadmapPage() {
+  const { profile } = useUser();
   const searchParams = useSearchParams();
   const router = useRouter();
   const initiativeId = searchParams.get("id");
@@ -100,10 +102,7 @@ export default function RoadmapPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
-          <SoftwareKPIs
-          /* targetDate={project?.targetDate}
-            progress={project?.progress} */
-          />
+          <SoftwareKPIs linearName={profile?.linear_slug ?? ""} />
         </div>
 
       </div>

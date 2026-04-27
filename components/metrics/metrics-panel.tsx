@@ -59,7 +59,7 @@ export function MetricsPanel() {
   }
 
   const projects: Project[] = Array.from(
-    new Map(
+    new Map<string, Project>(
       (data?.cycle_metrics ?? [])
         .filter(
           (m: { project_id: string; project_name?: string }) => m.project_name,

@@ -5,7 +5,6 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
 import { supabase } from "@/lib/supabase-client";
 
-import AIChatInput from "./AIChatInput";
 import StaffChatInput from "./StaffChatInput";
 import { Button } from "@/components/components/ui/button";
 import ConversationChat from "./ConversationChat";
@@ -167,11 +166,11 @@ export default function Chat({
       {conversationId && mode === "response" && (
         <ConversationChat user={user} notification={responseConversation} />
       )}
-      {mode === "ai" && activeUID && (
+      {/*       {mode === "ai" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
           <AIChatInput user={user!} />{" "}
         </div>
-      )}
+      )} */}
       {mode === "staff" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
           <StaffChatInput />

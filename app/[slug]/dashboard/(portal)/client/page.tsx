@@ -88,6 +88,7 @@ export default function ClientDashboard() {
             <PriorityTasks issuesData={issuesData ?? []} />
           </div>
         </div>
+        <div onClick={() => console.log({ issuesData })}>VER issuesData</div>
 
         <CreateIssue />
         <div onClick={() => console.log({ profile })}>VER profile</div>
