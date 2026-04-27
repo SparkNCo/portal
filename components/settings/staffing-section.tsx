@@ -162,14 +162,14 @@ export function StaffingSection() {
           ))}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border">
+        {/* <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Total Weekly Hours</span>
             <span className="font-medium text-background-foreground">
               {totalHours} hours
             </span>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

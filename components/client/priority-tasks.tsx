@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Send, ChevronsRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Send, ChevronsRight, Filter } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useRef, useState } from "react";
 
@@ -82,6 +82,7 @@ export type Issue = {
       | "UAT"
       | "Planning";
   };
+  cycle?: { number: number; isActive: boolean; name?: string };
   comments?: { nodes: Comment[] };
 };
 
@@ -267,9 +268,30 @@ function IssueCard({ issue }: { issue: Issue }) {
   );
 }
 
+
 export function PriorityTasks({ issuesData }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [onlyActive, setOnlyActive] = useState(false);
+
+  const hasCycles = issuesData.some((i) => i.cycle !== undefined);
+  const availableStatuses = Array.from(new Set(issuesData.map((i) => i.state?.name).filter(Boolean))) as string[];
+
+  const filtered = issuesData.filter((issue) => {
+    if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
+    if (selectedStatuses.length > 0 && (!issue.state?.name || !selectedStatuses.includes(issue.state.name))) return false;
+    return true;
+  });
+
+  function toggleStatus(status: string) {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  }
+
+  const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
 
   return (
     <Card className="bg-background border-border h-full flex flex-col md:max-w-[50rem] lg:max-w-[100%]">
@@ -278,39 +300,113 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
           <AlertTriangle className="h-4 w-4 text-warning" />
           Priority Tasks
         </CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? "Collapse" : "View all"}
-          <ArrowRight
-            className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
-        </Button>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
-        <div
-          ref={scrollRef}
-          className={`
-            grid
-            gap-4
-            pb-2
-            scrollbar-thin
-            scrollbar-thumb-border
-            scrollbar-track-transparent
-            ${
-              expanded
-                ? `grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto`
-                : `grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full`
-            }
-          `}
-        >
-          {issuesData.map((issue) => (
-            <IssueCard key={issue.id} issue={issue} />
-          ))}
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => setFilterOpen((v) => !v)}
+            >
+              <Filter className="h-3 w-3 mr-1" />
+              Filter
+              {activeFilters > 0 && (
+                <span className="ml-1 rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4 flex items-center justify-center">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+            {filterOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-border bg-background shadow-lg p-3 space-y-3"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                role="menu"
+                tabIndex={0}
+              >
+                {hasCycles && (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={onlyActive}
+                      onChange={() => setOnlyActive((v) => !v)}
+                      className="rounded"
+                    />
+                    Active cycle only
+                  </label>
+                )}
+                <div onClick={() => console.log({ filtered })}>VER filtered</div>
+                
+                {availableStatuses.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Status</p>
+                    {availableStatuses.map((status) => (
+                      <label key={status} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedStatuses.includes(status)}
+                          onChange={() => toggleStatus(status)}
+                          className="rounded"
+                        />
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] ${statusColors[status as keyof typeof statusColors]}`}
+                        >
+                          {status}
+                        </Badge>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {activeFilters > 0 && (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground underline w-full text-left"
+                    onClick={() => { setSelectedStatuses([]); setOnlyActive(false); }}
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "Collapse" : "View all"}
+            <ArrowRight
+              className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+            />
+          </Button>
         </div>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-hidden" onClick={() => filterOpen && setFilterOpen(false)}>
+        {filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic p-2">No issues match the current filters.</p>
+        ) : (
+          <div
+            ref={scrollRef}
+            className={`
+              grid
+              gap-4
+              pb-2
+              scrollbar-thin
+              scrollbar-thumb-border
+              scrollbar-track-transparent
+              ${
+                expanded
+                  ? `grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto`
+                  : `grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full`
+              }
+            `}
+          >
+            {filtered.map((issue) => (
+              <IssueCard key={issue.id} issue={issue} />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -20,6 +20,7 @@ async function fetchIssues(slug: string) {
 
 export function useIssues(slug: string | null) {
   const hasRefetched = useRef(false);
+  console.log("SLUG", slug);
 
   const query = useQuery({
     queryKey: ["linear-issues", slug],
@@ -50,7 +51,10 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Client Dashboard" subtitle={`Welcome back, ${profile?.email ?? "User"}`} />
+      <Header
+        title="Client Dashboard"
+        subtitle={`Welcome back, ${profile?.email ?? "User"}`}
+      />
       {isLoading ? (
         <LoadingDataPanel />
       ) : (

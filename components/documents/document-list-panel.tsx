@@ -52,11 +52,27 @@ export function DocumentRow({
 }) {
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
-  const { user, profile, loading } = useUser();
+  const { user } = useUser();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
-  const [emails, setEmails] = useState<string>("");
+
+  const handleOpen = async (doc: any) => {
+    try {
+      setOpeningId(doc.id);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}&inline=true`,
+      );
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
   const handleDownload = async (doc: any) => {
     try {
       setDownloadingId(doc.id);
@@ -164,9 +180,14 @@ export function DocumentRow({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => window.open(doc.link, "_blank")}
+                onClick={() => handleOpen(doc)}
               >
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink
+                  className={cn(
+                    "h-4 w-4",
+                    openingId === doc.id && "animate-pulse",
+                  )}
+                />
               </Button>
 
               {doc.permission === "write" && (

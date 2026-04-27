@@ -9,6 +9,7 @@ query Issues($filter: IssueFilter) {
         isActive
         isPast
         isFuture
+        number
       }
       title
       url

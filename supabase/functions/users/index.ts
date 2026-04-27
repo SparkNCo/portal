@@ -96,6 +96,27 @@ const fetchUser = async (email: string) => {
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) return data;
+
+  if (data.role === "developer" && data.assignment_id?.length > 0) {
+    const { data: assignment, error: assignmentError } = await supabase
+      .from("assignments")
+      .select("customer_id")
+      .eq("id", data.assignment_id[0])
+      .single();
+
+    if (assignmentError) throw new Error(assignmentError.message);
+
+    const { data: customer, error: customerError } = await supabase
+      .from("users")
+      .select("linear_slug")
+      .eq("id", assignment.customer_id)
+      .single();
+
+    if (customerError) throw new Error(customerError.message);
+
+    return { ...data, linear_slug: customer.linear_slug };
+  }
 
   return data;
 };

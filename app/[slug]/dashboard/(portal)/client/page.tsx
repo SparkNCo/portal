@@ -14,6 +14,8 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set([...ticketStatuses])];
+  console.log("Fetching issues with slug:", slug);
+
   const params = new URLSearchParams({
     slug,
     ticket_statuses: statuses.join(","),
@@ -75,6 +77,7 @@ export default function ClientDashboard() {
         notionUrl={notionUrl}
         onApproved={() => setShowPoliciesModal(false)}
       />
+      <div onClick={() => console.log({ profile })}>VER profile</div>
       <Header
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}

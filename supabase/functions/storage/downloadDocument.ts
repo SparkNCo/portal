@@ -17,6 +17,7 @@ export async function downloadDocument(req: Request) {
 
     const document_id = searchParams.get("document_id");
     const user_id = searchParams.get("user_id");
+    const inline = searchParams.get("inline") === "true";
     console.log("document_id:", document_id);
     console.log("user_id:", user_id);
 
@@ -97,7 +98,7 @@ export async function downloadDocument(req: Request) {
      */
     const { data: signedUrlData, error: signedError } = await supabase.storage
       .from("documents_bucket")
-      .createSignedUrl(path, 300, { download: true });
+      .createSignedUrl(path, 300, ...(inline ? [] : [{ download: true }]));
 
     if (signedError) {
       return new Response(JSON.stringify({ error: signedError.message }), {
