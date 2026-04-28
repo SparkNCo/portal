@@ -42,7 +42,6 @@ async function fetchDocuments(id: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${id}`,
   );
-  console.log("documents", res);
 
   if (!res.ok) {
     throw new Error("Failed to fetch documents");

@@ -10,8 +10,8 @@ export default function Header() {
     setLoading(true);
     try {
       // const { error } = await createProposalAndSaveFeaturesFn(new FormData());
-    } catch (error) {
-      console.log(error);
+    } catch {
+      // intentionally swallowed — main call is disabled
     } finally {
       setLoading(false);
     }

@@ -23,9 +23,9 @@ export const getInitialValues = (layout: LayoutType, values: any = {}) => {
         initialValues[field.name] = values[field.name];
       } else if ('initial' in field) {
         initialValues[field.name] = field.initial;
-      } else if (field.type == 'select' && field?.options) {
+      } else if (field.type === 'select' && field?.options) {
         initialValues[field.name] = field.options[0];
-      } else if (field.type == 'number') {
+      } else if (field.type === 'number') {
         initialValues[field.name] = 0;
       } else {
         initialValues[field.name] = '';
@@ -67,10 +67,10 @@ export const getSelectOptions = ({
 }): { opt: OptionType[]; isDisabled: boolean } => {
   let opt: OptionType[] = []; // Initialize as an empty array
   let isDisabled: boolean = disabled;
-  if (name == 'project_status') {
+  if (name === 'project_status') {
     opt = projectStatusOptions;
   }
-  if (name == 'project_requirements') {
+  if (name === 'project_requirements') {
     opt = projectRequirementOptions;
   }
   if (
@@ -145,7 +145,7 @@ export const itsTitleHidden = (
 export const requiredFields = (required?: boolean) => {
   return (value: any) => {
     if (required) {
-      if (typeof value == 'undefined' || !value || (required && value === '')) {
+      if (typeof value === 'undefined' || !value || value === '') {
         return 'Required field';
       }
     }

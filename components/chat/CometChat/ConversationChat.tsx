@@ -86,7 +86,6 @@ export default function ConversationChat({ user, notification }: Props) {
 
     CometChat.addAIAssistantListener(listenerId, {
       onAIAssistantEventReceived: (event) => {
-        console.log("🤖 AI EVENT:", event);
         const type = event?.type || "";
         const { delta, finishReason } = event?.data || {};
 

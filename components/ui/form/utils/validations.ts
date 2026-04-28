@@ -18,7 +18,7 @@ export const validateMaxValue = (value: number, max: number): string | null => {
 export const validateEmail = (email: string): string | null => {
   if (typeof email !== 'string') return null;
   let message;
-  if (typeof email == 'undefined' || email === '') {
+  if (typeof email === 'undefined' || email === '') {
     message = 'Email required';
     return message;
   }
@@ -36,7 +36,7 @@ export const validatePhone = (
   const phone = String(numberPhone);
   let message;
   if (required) {
-    if (typeof phone == 'undefined' || phone === '') {
+    if (typeof phone === 'undefined' || phone === '') {
       message = 'Phone number required';
       return message;
     }

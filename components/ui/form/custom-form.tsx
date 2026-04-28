@@ -79,7 +79,7 @@ export default function DynamicForm({
       )}
       {layout?.map(
         ({ title, fields }, i: number) =>
-          page == i && (
+          page === i && (
             <Formik
               key={"formikPage" + i}
               initialValues={getInitialValues(layout, values)}
@@ -104,7 +104,7 @@ export default function DynamicForm({
                       throw new Error(error);
                     }
                   }
-                  if (page == layout.length - 1) {
+                  if (page === layout.length - 1) {
                     const { error, success } = await completeFn(formData);
                     // setComplete(true);
                     if (success) {
@@ -120,7 +120,7 @@ export default function DynamicForm({
                   } else {
                     setPage((p) => p + 1);
                   }
-                } catch (error: any) {
+                } catch (error) {
                   toast.error("Error", {
                     description: error?.message,
                   });
@@ -169,7 +169,7 @@ export default function DynamicForm({
                     </motion.div>
                   </AnimatePresence>
 
-                  {view == "signin" && (
+                  {view === "signin" && (
                     <>
                       <Link
                         className=" text-xs text-end text-blue-500"
@@ -180,7 +180,7 @@ export default function DynamicForm({
                     </>
                   )}
                   {!Array.isArray(fields[0]) &&
-                    fields[0]?.type != "welcome_message" && (
+                    fields[0]?.type !== "welcome_message" && (
                       <AnimatePresence mode="popLayout">
                         <motion.div
                           key={page}
@@ -207,15 +207,15 @@ export default function DynamicForm({
                           >
                             {!isLoading && (
                               <>
-                                {i == layout.length - 1
-                                  ? lang == "en"
+                                {i === layout.length - 1
+                                  ? lang === "en"
                                     ? submitButton
                                     : "Soumettre"
-                                  : lang == "en"
+                                  : lang === "en"
                                     ? "Next"
                                     : "Suivant"}
 
-                                {i == layout.length - 1 ? (
+                                {i === layout.length - 1 ? (
                                   submitButtonIcon
                                 ) : (
                                   <ChevronRight className="w-4 h-4" />
@@ -225,7 +225,7 @@ export default function DynamicForm({
                             {isLoading && (
                               <>
                                 <LoaderCircle className="w-4 h-4 animate-spin" />
-                                <p>{lang == "en" ? "Wait..." : "Chargement"}</p>
+                                <p>{lang === "en" ? "Wait..." : "Chargement"}</p>
                               </>
                             )}
                           </SubmitButton>

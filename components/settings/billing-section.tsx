@@ -9,24 +9,15 @@ import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 
 export async function fetchBillingData({ user }: { user: any }) {
-  console.log("[fetchBillingData] user:", user);
-  console.log("[fetchBillingData] customer_id being sent:", user?.customer_id);
-
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${user?.customer_id}`,
   );
 
-  console.log("[fetchBillingData] response status:", res.status);
-
   if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    console.log("[fetchBillingData] error body:", body);
     throw new Error("Failed to fetch billing data");
   }
 
-  const data = await res.json();
-  console.log("[fetchBillingData] data received:", data);
-  return data;
+  return res.json();
 }
 
 function calculateInvoicesBalance(invoices: any[] = []) {
@@ -85,9 +76,6 @@ export function BillingSection({
         window.open(data.url, "_blank");
       }
       queryClient.invalidateQueries({ queryKey: ["billing"] });
-    },
-    onError: (err: any) => {
-      console.error("Error opening Stripe portal:", err);
     },
   });
 

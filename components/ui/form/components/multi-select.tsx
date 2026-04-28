@@ -67,7 +67,6 @@ export function MultiSelectInput({
   const handleRemove = (typeToRemove: string) => {
     setSelectedOptions(selectedOptions.filter((v) => v !== typeToRemove));
   };
-  console.log(errors);
   return (
     <div className={cn('', field?.class)}>
       <FormLabelComponent

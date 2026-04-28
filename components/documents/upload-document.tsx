@@ -80,8 +80,6 @@ export function UploadDocument() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    console.log("handle drop ");
-
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
     handleFiles(files);
@@ -95,7 +93,6 @@ export function UploadDocument() {
 
   const handleFiles = (files: File[]) => {
     files.forEach((file) => {
-      console.log("hola2", file);
       setUploadedFiles((prev) => [
         ...prev,
         {
@@ -104,7 +101,6 @@ export function UploadDocument() {
           status: "uploading",
         },
       ]);
-      console.log("hola", file);
 
       uploadMutation.mutate(
         {

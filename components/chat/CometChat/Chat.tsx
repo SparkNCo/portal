@@ -85,7 +85,6 @@ export default function Chat({
         logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
       }
 
-      console.log("✅ Login successful", logged);
       setUser(logged);
     } catch (err) {
       console.error("❌ CometChat error:", err);
@@ -116,8 +115,6 @@ export default function Chat({
       listenerID,
       new CometChat.MessageListener({
         onTextMessageReceived: (msg: CometChat.TextMessage) => {
-          console.log("📩 Incoming:", msg);
-
           const convId = msg.getConversationId();
           setConversationId(convId);
 

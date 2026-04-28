@@ -76,7 +76,7 @@ export function DynamicField({
     const hidden = itsHidden(field, values);
     if (hidden) {
       if (name in values) {
-        if (field.type == 'select' && options) {
+        if (field.type === 'select' && options) {
           values[name] = options[0];
         } else {
           values[name] = initial || '';

@@ -175,7 +175,7 @@ export function MilestoneRow({ data, year }: MilestoneRowProps) {
             <div
               key={i}
               className="h-8 relative "
-              onClick={() => console.log(data)}
+              onClick={() => {}}
             >
               {isInRange && (
                 <div
