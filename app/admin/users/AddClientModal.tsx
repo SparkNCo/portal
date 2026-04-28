@@ -62,7 +62,7 @@ export default function AddClientModal({ onClose }: Props) {
         <CardContent className="space-y-4">
           <input
             className={inputClass}
-            placeholder="Client email"
+            placeholder="Client Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />

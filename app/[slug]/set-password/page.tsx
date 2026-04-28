@@ -67,7 +67,7 @@ export default function SetPasswordPage() {
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-accent" />
-            Set your password
+            Set your password 
           </CardTitle>
         </CardHeader>
 

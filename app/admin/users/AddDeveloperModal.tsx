@@ -55,6 +55,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             placeholder="Developer email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
           />
 
           {error && (

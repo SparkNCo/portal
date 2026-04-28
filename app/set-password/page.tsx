@@ -20,9 +20,18 @@ function SetPasswordForm() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Supabase auto-detects the #access_token hash and fires SIGNED_IN
+    // The SIGNED_IN event often fires before this listener is registered
+    // (Supabase processes the hash synchronously on load), so check immediately.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setSessionEmail(session.user.email ?? "");
+        setEmail(session.user.email ?? "");
+        setReady(true);
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
         setSessionEmail(session.user.email ?? "");
         setEmail(session.user.email ?? "");
         setReady(true);
@@ -102,7 +111,7 @@ function SetPasswordForm() {
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-accent" />
-            Set your password
+            Set your password 
           </CardTitle>
         </CardHeader>
 
