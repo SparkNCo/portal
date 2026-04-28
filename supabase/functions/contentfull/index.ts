@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
           },
         );
       }
-
-      if (url && !contentType) {
+      console.log("🔍 GET request received with params:", { url, contentType });
+      if (!url && !contentType) {
         return new Response(
           JSON.stringify({
             error: "contentType is required when searching by url",

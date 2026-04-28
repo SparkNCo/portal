@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email } = body;
+    const { email, redirectTo } = body;
 
     if (!email) {
       return new Response(JSON.stringify({ error: "email is required" }), {
@@ -29,12 +29,13 @@ Deno.serve(async (req) => {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/reset-password",
+      redirectTo: redirectTo || "http://localhost:3000/reset-password",
     });
 
     if (error) throw new Error(error.message);
 
     console.log("[reset-password] Password reset email sent to:", email);
+    console.log("[reset-password] Redirect URL:", redirectTo);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

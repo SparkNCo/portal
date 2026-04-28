@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +41,8 @@ function formatAmountFromCents(cents?: number, currency = "usd") {
 }
 
 export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
+  const [showAll, setShowAll] = useState(false);
+
   if (!invoices.length) {
     return (
       <CardContent>
@@ -47,6 +50,8 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
       </CardContent>
     );
   }
+
+  const visible = showAll ? invoices : invoices.slice(0, 5);
 
   function getInvoiceAmounts(invoice: Invoice) {
     const paid = invoice.amountPaid ?? 0;
@@ -59,8 +64,8 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
   }
 
   return (
-    <Card className="flex flex-col space-y-2 h-full">
-      {invoices.map((invoice) => (
+    <Card className="flex flex-col space-y-2 h-full bg-background">
+      {visible.map((invoice) => (
         <div
           key={invoice.id}
           className="flex items-center justify-between rounded-lg border p-5 w-full"
@@ -129,6 +134,13 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
           </div>
         </div>
       ))}
+      {invoices.length > 5 && (
+        <div className="flex justify-center pt-1 pb-2">
+          <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? "Show less" : `Show all ${invoices.length} invoices`}
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

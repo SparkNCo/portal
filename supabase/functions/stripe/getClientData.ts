@@ -1,6 +1,5 @@
 // @ts-nocheck
 
-import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { stripe } from "./client.ts";
 import { balanceSchema, getClientDataQuerySchema, invoiceSchema, paymentMethodSchema, subscriptionSchema } from "./zod.ts";
@@ -16,45 +15,50 @@ export async function getClientData(req: Request) {
   try {
     const url = new URL(req.url);
 
-    const parseResult = getClientDataQuerySchema.safeParse({ email: url.searchParams.get("email") });
+    const rawCustomerId = url.searchParams.get("customer_id");
+    console.log("[getClientData] raw customer_id param:", rawCustomerId);
+
+    const parseResult = getClientDataQuerySchema.safeParse({ customer_id: rawCustomerId });
     if (!parseResult.success) {
+      console.log("[getClientData] validation failed:", parseResult.error.flatten());
       return new Response(
-        JSON.stringify({ error: "Invalid or missing email" }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        JSON.stringify({ error: "Invalid or missing customer_id" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
-    const { email } = parseResult.data;
+    const { customer_id } = parseResult.data;
+    console.log("[getClientData] validated customer_id:", customer_id);
 
-    // 🔹 STEP 1: Fetch user from Supabase
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("subscription_id, customer_id")
-      .eq("email", email)
-      .single();
+    // 🔹 STEP 1: Find active subscription from Stripe
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customer_id,
+      status: "active",
+      limit: 1,
+    });
 
-    if (error || !user?.customer_id || !user?.subscription_id) {
+    console.log("[getClientData] subscriptions found:", subscriptions.data.length);
+
+    if (!subscriptions.data.length) {
+      console.log("[getClientData] no active subscription for customer:", customer_id);
       return new Response(
-        JSON.stringify({ error: "Stripe data not found for user" }),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        JSON.stringify({ error: "No active subscription found for this customer" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
 
-    const { customer_id, subscription_id } = user;
-
-    // 🔹 STEP 2: Stripe calls
-    const subscription = await stripe.subscriptions.retrieve(subscription_id);
+    const subscription = subscriptions.data[0];
 
     let upcomingInvoice = null;
     try {
       upcomingInvoice = await stripe.invoices.retrieveUpcoming({
         customer: customer_id,
-        subscription: subscription_id,
+        subscription: subscription.id,
       });
     } catch {
       upcomingInvoice = null;

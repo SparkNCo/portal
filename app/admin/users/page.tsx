@@ -15,6 +15,7 @@ import {
   UserCheck,
   ChevronDown,
   ChevronUp,
+  Search,
 } from "lucide-react";
 
 type User = {
@@ -42,6 +43,8 @@ export default function AdminUsersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
 
   const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
     useQuery({
@@ -70,7 +73,7 @@ export default function AdminUsersPage() {
       enabled: !!expandedUser?.id && expandedUser.role === "customer",
       queryFn: async () => {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer=${expandedUser!.id}&user_id=${expandedUser!.id}`,
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${expandedUser!.id}`,
           {
             headers: {
               Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -116,6 +119,15 @@ export default function AdminUsersPage() {
   });
 
   const customers = users.filter((u: User) => u.role === "customer");
+
+  const filteredUsers = users.filter((u: any) => {
+    if (roleFilter && u.role !== roleFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return u.email?.toLowerCase().includes(q) || u.userName?.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const { mutate: assignUser, isPending: assigning } = useMutation({
     mutationFn: async () => {
@@ -219,14 +231,43 @@ export default function AdminUsersPage() {
                 onClick={() => setShowAddCustomerModal(true)}
               >
                 <UserPlus className="h-4 w-4" />
-                Add Client
+                Add Customer
               </Button>
             </div>
           </div>
         </CardHeader>
 
         <CardContent>
-          {users.length === 0 && (
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by email or username..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="flex gap-1.5">
+              {(["admin", "developer", "customer"] as const).map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setRoleFilter(roleFilter === role ? null : role)}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                    roleFilter === role
+                      ? `${roleColors[role]} border-current`
+                      : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredUsers.length === 0 && (
             <div className="text-center py-8">
               <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">No users found</p>
@@ -234,7 +275,7 @@ export default function AdminUsersPage() {
           )}
 
           <div className="space-y-2">
-            {users.map((u: User) => {
+            {filteredUsers.map((u: User) => {
               const isExpanded = expandedUser?.id === u.id;
 
               return (
@@ -333,7 +374,9 @@ export default function AdminUsersPage() {
                                     {a.joined && (
                                       <span>
                                         Joined{" "}
-                                        {new Date(a.joined).toLocaleDateString()}
+                                        {new Date(
+                                          a.joined,
+                                        ).toLocaleDateString()}
                                       </span>
                                     )}
                                     {a.allocation && (

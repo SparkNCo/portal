@@ -99,7 +99,7 @@ export function NextPaymentPanel({
   };
 
   return (
-    <Card>
+    <Card className="bg-background">
       {/* ===============================
          Subscription Canceled State
       =============================== */}

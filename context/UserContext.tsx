@@ -1,13 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase-client";
 
 type Profile = {
   id: string;
   email: string;
-  role: "admin" | "developer";
-  // add more fields if needed
+  role: "admin" | "developer" | "customer";
+  linear_slug?: string;
+  userName?: string;
+  customer_id?: string;
 };
 
 type UserContextType = {
@@ -26,6 +28,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   const loadUser = async () => {
     setLoading(true);
@@ -57,6 +60,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await res.json();
 
+        loadedUserIdRef.current = user.id;
         setProfile(data);
       } catch (err) {
         console.error("Context fetch error:", err);
@@ -70,14 +74,23 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    loadUser();
-
-    // 🔥 listen to login/logout automatically
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
-      loadUser();
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        loadedUserIdRef.current = null;
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "INITIAL_SESSION" || event === "USER_UPDATED") {
+        loadUser();
+        return;
+      }
+      if (event === "SIGNED_IN" && session?.user?.id !== loadedUserIdRef.current) {
+        loadUser();
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -16,7 +16,7 @@ async function getCustomerBySlug(slug: string) {
       stripe_customer_id
     `,
     )
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
     .maybeSingle();
 
   if (error) {
@@ -74,11 +74,11 @@ async function fetchIssuesFromLinear(
 export async function handleGetIssues(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
 
-  const rawSlug = searchParams.get("slug");
+  const rawSlug = searchParams.get("linear_slug") ?? searchParams.get("slug");
   const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
 
   if (!slug) {
-    return Response.json({ error: "Missing slug" }, { status: 400 });
+    return Response.json({ error: "Missing linear_slug" }, { status: 400 });
   }
 
   const rawStatuses = searchParams.get("ticket_statuses");

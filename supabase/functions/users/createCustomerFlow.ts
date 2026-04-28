@@ -1,61 +1,68 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { sendWelcomeCustomerMail } from "./sendWelcomeCustomerMail.ts";
+import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createCustomerFlow = async (body: any) => {
-  const { email, stripe_customer_id, linear_initiative_id } = body;
+  const { email, customer_id, linear_slug } = body;
 
   if (!email) throw new Error("Email required");
+  if (!linear_slug) throw new Error("linear_slug required");
 
-  // 1. Create ADMIN user
-  const { data: adminUser, error: adminError } = await supabase
+  const redirectTo = "http://localhost:3000/set-password";
+
+  let authUserId: string;
+  let inviteLink: string;
+
+  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
+
+  if (inviteError) {
+    if (!inviteError.message.includes("already been registered")) {
+      throw new Error(`Auth invite failed: ${inviteError.message}`);
+    }
+
+    // User already exists in auth — find them and generate a recovery link instead
+    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
+
+    const existingAuthUser = listData.users.find((u: any) => u.email === email);
+    if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
+
+    authUserId = existingAuthUser.id;
+
+    const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+    if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
+
+    inviteLink = recoveryData.properties.action_link;
+  } else {
+    authUserId = inviteData.user.id;
+    inviteLink = inviteData.properties.action_link;
+  }
+
+  // Upsert users table — insert on new, update columns on existing
+  const { data: customerUser, error: upsertError } = await supabase
     .from("users")
-    .insert([{ email, role: "admin" }])
+    .upsert(
+      [{ id: authUserId, email, role: "customer", customer_id, linear_slug }],
+      { onConflict: "id" }
+    )
     .select()
     .single();
-  if (adminError) throw new Error(adminError.message);
 
-  // 2. Create CUSTOMER user
-  const { data: customerUser, error: customerError } = await supabase
-    .from("users")
-    .insert([
-      {
-        email,
-        role: "customer",
-        stripe_customer_id,
-        linear_initiative_id,
-        linear_name: email,
-        linear_slug: email?.split("@")[0],
-      },
-    ])
-    .select()
-    .single();
-
-  if (customerError) {
-    await supabase.from("users").delete().eq("id", adminUser.id);
-    throw new Error(customerError.message);
+  if (upsertError) {
+    // Only clean up the auth user if we just created them (invite path)
+    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    throw new Error(upsertError.message);
   }
 
-  // 3. Create assignment
-  const { error: assignError } = await supabase.from("assignments").insert([
-    {
-      user_id: adminUser.id,
-      customer_id: customerUser.id,
-    },
-  ]);
-  if (assignError) {
-    await supabase.from("users").delete().eq("id", adminUser.id);
-    await supabase.from("users").delete().eq("id", customerUser.id);
-    throw new Error(assignError.message);
-  }
+  await sendInviteCustomerMail(email, inviteLink);
 
-  // 4. Send welcome email
-  try {
-    await sendWelcomeCustomerMail(email, email?.split("@")[0]);
-  } catch (err) {
-    console.error("Failed to send welcome email:", err);
-    // Don't rollback user creation if email fails
-  }
-
-  return { admin: adminUser, customer: customerUser };
+  return { customer: customerUser };
 };

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
+import { supabase } from "@/lib/supabase-client";
 
-import AIChatInput from "./AIChatInput";
 import StaffChatInput from "./StaffChatInput";
 import { Button } from "@/components/components/ui/button";
 import ConversationChat from "./ConversationChat";
@@ -69,8 +69,22 @@ export default function Chat({
         setLoading(false);
         return;
       }
-      const UID = "UID";
-      const logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+      const { data } = await supabase.auth.getUser();
+      const UID = data.user?.id ?? "UID";
+
+      let logged: CometChat.User;
+      try {
+        logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+      } catch (loginErr: any) {
+        if (loginErr?.code !== "ERR_UID_NOT_FOUND") throw loginErr;
+
+        // First time — create the user in CometChat then log in
+        const cometUser = new CometChat.User(UID);
+        cometUser.setName(data.user?.email ?? UID);
+        await CometChat.createUser(cometUser, COMETCHAT_CONSTANTS.AUTH_KEY);
+        logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+      }
+
       console.log("✅ Login successful", logged);
       setUser(logged);
     } catch (err) {
@@ -165,11 +179,11 @@ export default function Chat({
       {conversationId && mode === "response" && (
         <ConversationChat user={user} notification={responseConversation} />
       )}
-      {mode === "ai" && activeUID && (
+      {/*       {mode === "ai" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
           <AIChatInput user={user!} />{" "}
         </div>
-      )}
+      )} */}
       {mode === "staff" && activeUID && (
         <div className="flex flex-1 items-center justify-center">
           <StaffChatInput />

@@ -8,11 +8,10 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     console.log("[Request URL]:", req.url);
 
     const url = new URL(req.url);
-    const customer_id = url.searchParams.get("customer");
-    console.log("[customer_id]:", customer_id);
+    const customer_id = url.searchParams.get("customer_id");
 
     if (!customer_id) {
-      console.warn("[GetAssignments] Missing customer param");
+      console.warn("[GetAssignments] Missing customer_id param");
       return new Response(
         JSON.stringify({ error: "customer is required" }),
         {
@@ -31,12 +30,15 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .from("assignments")
       .select(
         `
+        user_id,
         allocation,
         joined,
-        users!fk_user (
+        role,
+        users!user_id (
           id,
           email,
-          role
+          role,
+          userName
         )
       `,
       )
@@ -51,8 +53,10 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .filter((row: any) => row.users)
       .map((row: any) => ({
         ...row.users,
+        user_id: row.user_id,
         allocation: row.allocation,
         joined: row.joined,
+        role: row.role,
       }));
 
     console.log("[GetAssignments] Query success");

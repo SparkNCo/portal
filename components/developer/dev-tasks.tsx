@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ListTodo, ArrowRight, GitBranch } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ListTodo, ArrowRight, GitBranch } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 
 const tasks = [
@@ -34,17 +34,17 @@ const tasks = [
     branch: "perf/images",
     estimate: "4h",
   },
-]
+];
 
 const statusColors = {
   "in-progress": "bg-chart-1/20 text-chart-1",
   todo: "bg-muted text-muted-foreground",
   review: "bg-chart-2/20 text-chart-2",
-}
+};
 
 export function DevTasks() {
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-background border-border">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <ListTodo className="h-4 w-4 text-accent" />
@@ -62,21 +62,34 @@ export function DevTasks() {
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-mono text-muted-foreground">{task.id}</span>
-                <Badge variant="secondary" className={statusColors[task.status as keyof typeof statusColors]}>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {task.id}
+                </span>
+                <Badge
+                  variant="secondary"
+                  className={
+                    statusColors[task.status as keyof typeof statusColors]
+                  }
+                >
                   {task.status}
                 </Badge>
               </div>
-              <p className="text-sm font-medium text-card-foreground truncate">{task.title}</p>
+              <p className="text-sm font-medium text-card-foreground truncate">
+                {task.title}
+              </p>
               <div className="flex items-center gap-2 mt-1">
                 <GitBranch className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs font-mono text-muted-foreground">{task.branch}</span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {task.branch}
+                </span>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground ml-4">{task.estimate}</div>
+            <div className="text-xs text-muted-foreground ml-4">
+              {task.estimate}
+            </div>
           </div>
         ))}
       </CardContent>
     </Card>
-  )
+  );
 }

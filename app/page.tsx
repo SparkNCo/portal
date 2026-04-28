@@ -23,7 +23,7 @@ export default function HomePage() {
           onLoginSuccess={(email) => console.log("Logged in:", email)}
         />
       </SquaresGridLayout>
-      <Footer mode="bottom" />
+      {/* <Footer mode="bottom" /> */}
     </div>
   );
 }

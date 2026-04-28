@@ -1,4 +1,5 @@
-// supabase/functions/lib/redis.ts
+
+// @ts-nocheck
 import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
 
 export const redis = new Redis({

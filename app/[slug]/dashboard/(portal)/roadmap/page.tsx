@@ -4,13 +4,16 @@ import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { useEffect, useState } from "react";
-import {  useParams } from "next/navigation";
 import { LoadingDataPanel } from "@/components/loader";
+import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useQuery } from "@tanstack/react-query";
+import { MetricsPanel } from "@/components/metrics/metrics-panel";
 
 export default function RoadmapPage() {
-  const params = useParams();
-  const slug = params.slug as string;
+  const { profile } = useUser();
+  const customerSlug = useCustomerSlug();
+  const slug = customerSlug ?? profile?.linear_slug ?? "";
 
   const {
     data: roadmap,
@@ -59,19 +62,6 @@ export default function RoadmapPage() {
     setAllMilestones(milestones);
   }, [roadmap]);
 
-  /* useEffect(() => {
-    if (!roadmap?.initiative?.projects?.nodes?.length) return;
-    const projectIds = roadmap.initiative.projects.nodes
-      .map((p: any) => p.id)
-      .filter(Boolean);
-    if (!projectIds.length) return;
-    const params = new URLSearchParams(searchParams.toString());
-    const existing = params.get("projects");
-    const next = projectIds.join("--");
-    if (existing === next) return;
-    params.set("projects", next);
-  }, [roadmap, router, searchParams]); */
-
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -90,22 +80,18 @@ export default function RoadmapPage() {
     );
   }
 
-  const project = roadmap?.projects?.nodes?.[2];
-
   return (
     <div className="min-h-screen">
       <Header title="Roadmap" subtitle="Project timeline and progress" />
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 ">
         <RoadmapTimeline projectMilestones={allMilestones} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <VelocityMetrics />
-          <SoftwareKPIs
-          /* targetDate={project?.targetDate}
-            progress={project?.progress} */
-          />
+          <SoftwareKPIs linearName={slug} />
         </div>
       </div>
+      <MetricsPanel />
     </div>
   );
 }

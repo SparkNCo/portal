@@ -9,18 +9,24 @@ import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 
 export async function fetchBillingData({ user }: { user: any }) {
-  console.log("USER", user);
+  console.log("[fetchBillingData] user:", user);
+  console.log("[fetchBillingData] customer_id being sent:", user?.customer_id);
 
   const res = await fetch(
-    //  `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?email=${user?.email}`,
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?email=santiaguero@gmail.com`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${user?.customer_id}`,
   );
 
+  console.log("[fetchBillingData] response status:", res.status);
+
   if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    console.log("[fetchBillingData] error body:", body);
     throw new Error("Failed to fetch billing data");
   }
 
-  return res.json();
+  const data = await res.json();
+  console.log("[fetchBillingData] data received:", data);
+  return data;
 }
 
 function calculateInvoicesBalance(invoices: any[] = []) {

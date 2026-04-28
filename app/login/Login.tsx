@@ -60,7 +60,11 @@ export default function LoginForm({
   useEffect(() => {
     if (customer) {
       console.log("Customer from query:", customer);
-      router.push(`/${customer.linear_name}/dashboard/client`);
+      if (customer.role === "admin") {
+        router.push(`/${customer.userName}/dashboard/admin`);
+      } else {
+        router.push(`/${customer.userName}/dashboard/client`);
+      }
       onLoginSuccess(customer.email);
     }
 

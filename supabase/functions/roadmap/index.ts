@@ -1,9 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { redis } from "../lib/redis.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { PROJECTS_QUERY } from "./query.ts";
-import { RoadmapResponseSchema } from "./zod.ts";
 
 async function getCustomerBySlug(slug: string) {
   const { data, error } = await supabase
@@ -17,11 +15,10 @@ async function getCustomerBySlug(slug: string) {
       stripe_customer_id
     `,
     )
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
     .maybeSingle();
 
   if (error) {
-    console.error("Supabase error:", error);
     throw new Error("Customer not found");
   }
 
@@ -46,8 +43,8 @@ async function fetchFromLinear(initiativeId: string) {
   });
 
   const data = await res.json();
-  const parsed = RoadmapResponseSchema.parse(data.data);
-  return parsed;
+
+  return data.data;
 }
 
 Deno.serve(async (req) => {
@@ -63,7 +60,6 @@ Deno.serve(async (req) => {
 
     const rawSlug = searchParams.get("slug");
     const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
-    console.log("slug:", slug);
 
     if (!slug) {
       return new Response(JSON.stringify({ error: "Missing slug" }), {
@@ -75,7 +71,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ✅ Fetch full customer record
+    // ✅ Fetch customer
     const customer = await getCustomerBySlug(slug);
 
     if (!customer.linear_initiative_id) {
@@ -92,27 +88,8 @@ Deno.serve(async (req) => {
     }
 
     const initiativeId = customer.linear_slug;
-    const cacheKey = `roadmap:${initiativeId}`;
-    const cached = await redis.get(cacheKey);
-
-    if (cached) {
-      fetchFromLinear(initiativeId)
-        .then((freshData) =>
-          redis.set(cacheKey, JSON.stringify(freshData), { ex: 300 }),
-        )
-        .catch(console.error);
-
-      return new Response(cached, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      });
-    }
 
     const data = await fetchFromLinear(initiativeId);
-
-    await redis.set(cacheKey, JSON.stringify(data), { ex: 300 });
 
     return new Response(JSON.stringify(data), {
       headers: {
@@ -121,8 +98,6 @@ Deno.serve(async (req) => {
       },
     });
   } catch (error) {
-    console.error("[Linear API Error]", error);
-
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {

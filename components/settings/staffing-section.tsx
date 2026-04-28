@@ -53,17 +53,16 @@ export function StaffingSection() {
   }
 
   const teamMembers = assignments.map((item: any) => ({
-    name: item.users?.email || "Unknown",
+    name: item.userName || item?.email || "Unknown",
+    email: item.email || "",
     role: item.role,
     hours: item.allocation,
     joined: item.joined,
     status: "active",
-    avatar: item.users?.name
-      ? item.users.name
-          .split(" ")
-          .map((n: string) => n[0])
-          .join("")
-      : "U",
+    avatar:
+      item.users?.userName?.[0]?.toUpperCase() ??
+      item.users?.email?.[0]?.toUpperCase() ??
+      "U",
     skills: [],
   }));
 
@@ -131,6 +130,9 @@ export function StaffingSection() {
                       active
                     </Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {member.email}
+                  </p>
                   <p className="text-xs text-muted-foreground capitalize">
                     {member.role}
                   </p>
@@ -160,14 +162,14 @@ export function StaffingSection() {
           ))}
         </div>
 
-        <div className="mt-4 pt-4 border-t border-border">
+        {/* <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Total Weekly Hours</span>
             <span className="font-medium text-background-foreground">
               {totalHours} hours
             </span>
           </div>
-        </div>
+        </div> */}
       </CardContent>
     </Card>
   );

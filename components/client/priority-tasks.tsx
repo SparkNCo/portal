@@ -2,7 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, ArrowRight, Send, ChevronsRight } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Send,
+  ChevronsRight,
+  Filter,
+} from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useRef, useState } from "react";
 
@@ -82,11 +88,23 @@ export type Issue = {
       | "UAT"
       | "Planning";
   };
+  cycle?: { number: number; isActive: boolean; name?: string };
   comments?: { nodes: Comment[] };
+};
+
+export type FilterState = {
+  selectedStatuses: string[];
+  onlyActive: boolean;
+  availableStatuses: string[];
+  hasCycles: boolean;
+  onToggleStatus: (s: string) => void;
+  onToggleActive: () => void;
+  onClearFilters: () => void;
 };
 
 export type PriorityTasksProps = {
   issuesData: Issue[];
+  filterState: FilterState;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -267,9 +285,22 @@ function IssueCard({ issue }: { issue: Issue }) {
   );
 }
 
-export function PriorityTasks({ issuesData }: PriorityTasksProps) {
+export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const {
+    selectedStatuses,
+    onlyActive,
+    availableStatuses,
+    hasCycles,
+    onToggleStatus,
+    onToggleActive,
+    onClearFilters,
+  } = filterState;
+
+  const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
 
   return (
     <Card className="bg-background border-border h-full flex flex-col md:max-w-[50rem] lg:max-w-[100%]">
@@ -278,39 +309,129 @@ export function PriorityTasks({ issuesData }: PriorityTasksProps) {
           <AlertTriangle className="h-4 w-4 text-warning" />
           Priority Tasks
         </CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? "Collapse" : "View all"}
-          <ArrowRight
-            className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
-        </Button>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
-        <div
-          ref={scrollRef}
-          className={`
-            grid
-            gap-4
-            pb-2
-            scrollbar-thin
-            scrollbar-thumb-border
-            scrollbar-track-transparent
-            ${
-              expanded
-                ? `grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto`
-                : `grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full`
-            }
-          `}
-        >
-          {issuesData.map((issue) => (
-            <IssueCard key={issue.id} issue={issue} />
-          ))}
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <Button
+              variant={activeFilters > 0 ? "secondary" : "ghost"}
+              size="sm"
+              className="text-muted-foreground gap-1.5"
+              onClick={() => setFilterOpen((v) => !v)}
+            >
+              <Filter className="h-3 w-3" />
+              Filters
+              {activeFilters > 0 && (
+                <span className="rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4 flex items-center justify-center font-medium">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+
+            {filterOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                role="menu"
+                tabIndex={0}
+              >
+                {hasCycles && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Cycle
+                    </p>
+                    <button
+                      onClick={onToggleActive}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
+                        onlyActive
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      Active cycle only
+                    </button>
+                  </div>
+                )}
+
+                {availableStatuses.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Status
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableStatuses.map((status) => {
+                        const active = selectedStatuses.includes(status);
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => onToggleStatus(status)}
+                            className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-all ${
+                              active
+                                ? `${statusColors[status as keyof typeof statusColors]} border-current opacity-100`
+                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted opacity-70 hover:opacity-100"
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {activeFilters > 0 && (
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    onClick={onClearFilters}
+                  >
+                    <span className="text-base leading-none">×</span> Clear all filters
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "Collapse" : "View all"}
+            <ArrowRight
+              className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+            />
+          </Button>
         </div>
+      </CardHeader>
+      <CardContent
+        className="flex-1 overflow-hidden"
+        onClick={() => filterOpen && setFilterOpen(false)}
+      >
+        {issuesData.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic p-2">
+            No issues match the current filters.
+          </p>
+        ) : (
+          <div
+            ref={scrollRef}
+            className={`
+              grid
+              gap-4
+              pb-2
+              scrollbar-thin
+              scrollbar-thumb-border
+              scrollbar-track-transparent
+              ${
+                expanded
+                  ? `grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto`
+                  : `grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full`
+              }
+            `}
+          >
+            {issuesData.map((issue) => (
+              <IssueCard key={issue.id} issue={issue} />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
