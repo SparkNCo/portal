@@ -9,7 +9,6 @@ import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
 
-const SUPPORT_UID = "60ecb62b-05fb-452f-b2fe-bf7bc84765c3";
 const AI_AGENT_UID = "e17fda15-1881-4375-a818-21fb97a507ce";
 
 type AssistantType = "support" | "ai";
@@ -73,10 +72,21 @@ export default function ChatLayout() {
         cometUser = null;
       }
       if (!cometUser) {
-        cometUser = await CometChat.login(
-          supaUser.id,
-          COMETCHAT_CONSTANTS.AUTH_KEY,
-        );
+        try {
+          cometUser = await CometChat.login(
+            supaUser.id,
+            COMETCHAT_CONSTANTS.AUTH_KEY,
+          );
+        } catch (loginErr: any) {
+          if (loginErr?.code !== "ERR_UID_NOT_FOUND") throw loginErr;
+          const newUser = new CometChat.User(supaUser.id);
+          newUser.setName(supaUser.email ?? supaUser.id);
+          await CometChat.createUser(newUser, COMETCHAT_CONSTANTS.AUTH_KEY);
+          cometUser = await CometChat.login(
+            supaUser.id,
+            COMETCHAT_CONSTANTS.AUTH_KEY,
+          );
+        }
       }
       setUser(cometUser);
 
@@ -110,7 +120,7 @@ export default function ChatLayout() {
     if (!profile) return null;
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer=${profile.id}&user_id=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -119,7 +129,31 @@ export default function ChatLayout() {
           },
         },
       );
-      const assignments: any[] = await res.json();
+      const assignees: any[] = await res.json();
+
+      // Collect all UIDs that need to be in the group: developer(s) + customer + support
+      const memberUids = new Set<string>(
+        (assignees ?? [])
+          .filter((a) => a.user_id)
+          .map((a) => a.user_id as string),
+      );
+      memberUids.add(profile.id);
+
+      // Ensure every member exists in CometChat, auto-create if missing
+      await Promise.all(
+        Array.from(memberUids).map(async (uid) => {
+          try {
+            await CometChat.getUser(uid);
+          } catch (e: any) {
+            if (e?.code === "ERR_UID_NOT_FOUND") {
+              const assignee = (assignees ?? []).find((a) => a.user_id === uid);
+              const newUser = new CometChat.User(uid);
+              newUser.setName(assignee?.email ?? uid);
+              await CometChat.createUser(newUser, COMETCHAT_CONSTANTS.AUTH_KEY);
+            }
+          }
+        }),
+      );
 
       const guid = `customer_${profile.id}_${Date.now()}`;
       const group = new CometChat.Group(
@@ -129,14 +163,7 @@ export default function ChatLayout() {
         "",
       );
 
-      const assignedUids = new Set(
-        (assignments ?? [])
-          .filter((a) => a.user_id)
-          .map((a) => a.user_id as string),
-      );
-      assignedUids.add(SUPPORT_UID);
-
-      const members = Array.from(assignedUids).map(
+      const members = Array.from(memberUids).map(
         (uid) =>
           new CometChat.GroupMember(
             uid,

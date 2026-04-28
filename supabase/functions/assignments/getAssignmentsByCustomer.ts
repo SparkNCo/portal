@@ -30,10 +30,11 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .from("assignments")
       .select(
         `
+        user_id,
         allocation,
         joined,
         role,
-        users!customer_id (
+        users!user_id (
           id,
           email,
           role,
@@ -52,6 +53,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .filter((row: any) => row.users)
       .map((row: any) => ({
         ...row.users,
+        user_id: row.user_id,
         allocation: row.allocation,
         joined: row.joined,
         role: row.role,

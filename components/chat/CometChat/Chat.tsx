@@ -71,7 +71,20 @@ export default function Chat({
       }
       const { data } = await supabase.auth.getUser();
       const UID = data.user?.id ?? "UID";
-      const logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+
+      let logged: CometChat.User;
+      try {
+        logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+      } catch (loginErr: any) {
+        if (loginErr?.code !== "ERR_UID_NOT_FOUND") throw loginErr;
+
+        // First time — create the user in CometChat then log in
+        const cometUser = new CometChat.User(UID);
+        cometUser.setName(data.user?.email ?? UID);
+        await CometChat.createUser(cometUser, COMETCHAT_CONSTANTS.AUTH_KEY);
+        logged = await CometChat.login(UID, COMETCHAT_CONSTANTS.AUTH_KEY);
+      }
+
       console.log("✅ Login successful", logged);
       setUser(logged);
     } catch (err) {

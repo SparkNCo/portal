@@ -58,7 +58,7 @@ export async function getClientData(req: Request) {
     try {
       upcomingInvoice = await stripe.invoices.retrieveUpcoming({
         customer: customer_id,
-        subscription: subscription_id,
+        subscription: subscription.id,
       });
     } catch {
       upcomingInvoice = null;
