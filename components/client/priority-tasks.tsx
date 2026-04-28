@@ -8,9 +8,10 @@ import {
   Send,
   ChevronsRight,
   Filter,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -112,68 +113,12 @@ const STATE_TRANSITIONS: Partial<Record<string, string>> = {
   UAT: "Done",
 };
 
-function IssueCard({ issue }: { issue: Issue }) {
-  const [cardExpanded, setCardExpanded] = useState(false);
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [advancing, setAdvancing] = useState(false);
-  const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
-
-  const nextState = currentStateName
-    ? STATE_TRANSITIONS[currentStateName]
-    : undefined;
-
-  async function handleAdvanceState() {
-    if (!nextState || advancing) return;
-    setAdvancing(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
-      }
-    } finally {
-      setAdvancing(false);
-    }
-  }
-
-  const latestComment = issue.comments?.nodes?.at(-1);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!comment.trim() || submitting) return;
-
-    setSubmitting(true);
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
-      });
-      setComment("");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
+function IssueCard({ issue, onOpen }: { issue: Issue; onOpen: () => void }) {
   return (
     <div
-      className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
-      onClick={() => setCardExpanded((v) => !v)}
+      className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150 cursor-pointer"
+      onClick={onOpen}
     >
-      {/* Collapsed header — always visible */}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">
@@ -202,46 +147,144 @@ function IssueCard({ issue }: { issue: Issue }) {
           </Badge>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Expanded body */}
-      {cardExpanded && (
-        <div
-          className="border-t border-border px-4 pb-4 pt-3 flex flex-col gap-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Title + status recap */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-muted-foreground line-clamp-1 flex-1">
+function IssueDetailModal({
+  issue,
+  onClose,
+}: {
+  issue: Issue;
+  onClose: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
+
+  const nextState = currentStateName
+    ? STATE_TRANSITIONS[currentStateName]
+    : undefined;
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handleClose = () => {
+    setVisible(false);
+    setTimeout(onClose, 180);
+  };
+
+  async function handleAdvanceState() {
+    if (!nextState || advancing) return;
+    setAdvancing(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
+      }
+    } finally {
+      setAdvancing(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!comment.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
+      });
+      setComment("");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const comments = issue.comments?.nodes ?? [];
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+        visible ? "bg-black/60 backdrop-blur-sm" : "bg-transparent backdrop-blur-none"
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`relative bg-background border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh] transition-all duration-200 ${
+          visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-xs font-mono text-muted-foreground">
+                {issue.branchName.slice(0, 7).toUpperCase()}
+              </span>
+              <Badge
+                variant="outline"
+                className={
+                  priorityColors[
+                    issue.priorityLabel as keyof typeof priorityColors
+                  ]
+                }
+              >
+                {issue.priorityLabel}
+              </Badge>
+              <Badge
+                variant="secondary"
+                className={
+                  statusColors[
+                    currentStateName as keyof typeof statusColors
+                  ]
+                }
+              >
+                {currentStateName}
+              </Badge>
+            </div>
+            <h2 className="text-base font-semibold leading-snug">
               {issue.title}
-            </span>
-            <Badge
-              variant="secondary"
-              className={`text-[10px] ${statusColors[issue?.state?.name as keyof typeof statusColors]}`}
-            >
-              {issue?.state?.name}
-            </Badge>
+            </h2>
           </div>
+          <button
+            onClick={handleClose}
+            className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 mt-0.5"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          {/* Latest comment */}
-          <div className="rounded-md bg-muted/40 p-3 min-h-[60px]">
-            {latestComment ? (
-              <div className="space-y-1">
-                {latestComment.user?.displayName && (
-                  <p className="text-[10px] font-medium text-muted-foreground">
-                    {latestComment.user.displayName}
-                  </p>
-                )}
-                <p className="text-sm text-foreground whitespace-pre-wrap">
-                  {extractTextFromBodyData(latestComment.bodyData)}
-                </p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">
-                No comments yet.
-              </p>
-            )}
-          </div>
-
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Advance state */}
           {nextState && (
             <Button
@@ -256,12 +299,49 @@ function IssueCard({ issue }: { issue: Issue }) {
             </Button>
           )}
 
-          {/* Comment input */}
+          {/* Comments */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Comments {comments.length > 0 && `(${comments.length})`}
+            </p>
+            {comments.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">
+                No comments yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {comments.map((c) => (
+                  <div
+                    key={c.id}
+                    className="rounded-lg bg-muted/40 p-3 space-y-0.5"
+                  >
+                    {c.user?.displayName && (
+                      <p className="text-[10px] font-medium text-muted-foreground">
+                        {c.user.displayName}
+                        {c.createdAt && (
+                          <span className="ml-2 font-normal">
+                            {new Date(c.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    <p className="text-sm text-foreground whitespace-pre-wrap">
+                      {extractTextFromBodyData(c.bodyData)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer — comment input */}
+        <div className="border-t border-border p-4">
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <textarea
-              className="w-full rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
-              placeholder="Add a comment..."
+              placeholder="Add a comment... (⌘+Enter to send)"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onKeyDown={(e) => {
@@ -276,11 +356,11 @@ function IssueCard({ issue }: { issue: Issue }) {
               disabled={!comment.trim() || submitting}
             >
               <Send className="h-3 w-3 mr-1" />
-              Send
+              {submitting ? "Sending…" : "Send"}
             </Button>
           </form>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -289,6 +369,7 @@ export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
   const {
     selectedStatuses,
@@ -428,11 +509,22 @@ export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
             `}
           >
             {issuesData.map((issue) => (
-              <IssueCard key={issue.id} issue={issue} />
+              <IssueCard
+                key={issue.id}
+                issue={issue}
+                onOpen={() => setSelectedIssue(issue)}
+              />
             ))}
           </div>
         )}
       </CardContent>
+
+      {selectedIssue && (
+        <IssueDetailModal
+          issue={selectedIssue}
+          onClose={() => setSelectedIssue(null)}
+        />
+      )}
     </Card>
   );
 }
