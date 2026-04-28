@@ -14,6 +14,7 @@ import {
   Shield,
   LayoutGrid,
   ChevronLeft,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
@@ -22,6 +23,7 @@ const clientNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
   { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "documents", label: "Documents", icon: FileText },
+  { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -30,7 +32,8 @@ const developerNavItems = [
   { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "developer", label: "Developer", icon: Code2 },
   { href: "documents", label: "Documents", icon: FileText },
-  { href: "settings", label: "Settings", icon: Settings },
+  { href: "chat", label: "Chat", icon: MessageCircle },
+  //{ href: "settings", label: "Settings", icon: Settings },
 ];
 
 const adminNavItems = [
@@ -47,14 +50,17 @@ export function Sidebar() {
 
   const selectedCustomer = searchParams.get("customer");
   const selectedPanel = searchParams.get("panel") ?? "client";
-  const isViewingCustomer = profile?.role === "admin" && pathname.endsWith("/dashboards") && !!selectedCustomer;
+  const isViewingCustomer =
+    profile?.role === "admin" &&
+    pathname.endsWith("/dashboards") &&
+    !!selectedCustomer;
 
   const customerPanelItems = [
-    { href: "client",    label: "Dashboard", icon: LayoutDashboard },
-    { href: "roadmap",   label: "Roadmap",   icon: Map },
+    { href: "client", label: "Dashboard", icon: LayoutDashboard },
+    { href: "roadmap", label: "Roadmap", icon: Map },
     { href: "developer", label: "Developer", icon: Code2 },
     { href: "documents", label: "Documents", icon: FileText },
-    { href: "settings",  label: "Settings",  icon: Settings },
+    { href: "settings", label: "Settings", icon: Settings },
   ];
 
   const roleNavMap: Record<string, typeof clientNavItems> = {
@@ -120,7 +126,9 @@ export function Sidebar() {
             const isActive =
               pathname === `/dashboard/${item.href}` ||
               pathname.startsWith(`/dashboard/${item.href}/`);
-            const hrefWithParams = params ? `${item.href}?${params}` : item.href;
+            const hrefWithParams = params
+              ? `${item.href}?${params}`
+              : item.href;
             return (
               <Link
                 key={item.href}

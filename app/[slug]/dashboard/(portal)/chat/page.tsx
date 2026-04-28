@@ -1,13 +1,13 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
+import ChatLayout from "@/components/chat/CometChat/ChatLayout";
 
-export default function ChatPage() {
+export default function CometChatPage() {
   return (
-    <div className="min-h-screen">
+    <div className="flex flex-col h-screen">
       <Header title="Chat" subtitle="Messages and AI Assistant" />
-
-      <div className="flex h-[calc(100vh-3.5rem)]">
-        {/* <ChatLayout /> */}
+      <div className="flex flex-1 overflow-hidden">
+        <ChatLayout />
       </div>
     </div>
   );
