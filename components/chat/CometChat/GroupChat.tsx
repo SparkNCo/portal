@@ -134,6 +134,8 @@ export default function GroupChat({ user, group }: Props) {
             msg.getSender?.()?.getName?.() ?? msg.sender?.name ?? "Unknown";
           const text =
             msg.getText?.() ?? msg.text ?? msg?.aiAssistantMessageData?.text;
+
+          if (!text?.trim()) return null;
           const sentAt: number | undefined =
             msg.getSentAt?.() ?? msg.sentAt;
 

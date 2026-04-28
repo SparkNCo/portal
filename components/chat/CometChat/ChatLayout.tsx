@@ -131,7 +131,6 @@ export default function ChatLayout() {
       );
       const assignees: any[] = await res.json();
 
-      // Collect all UIDs that need to be in the group: developer(s) + customer + support
       const memberUids = new Set<string>(
         (assignees ?? [])
           .filter((a) => a.user_id)
