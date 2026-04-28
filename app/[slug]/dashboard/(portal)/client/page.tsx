@@ -13,8 +13,7 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 
 // 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
-  const statuses = [...new Set([...ticketStatuses])];
-  console.log("Fetching issues with slug:", slug);
+  const statuses = [...new Set(ticketStatuses)];
 
   const params = new URLSearchParams({
     slug,

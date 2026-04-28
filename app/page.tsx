@@ -20,7 +20,7 @@ export default function HomePage() {
         indexComponent={1}
       >
         <LoginForm
-          onLoginSuccess={(email) => console.log("Logged in:", email)}
+          onLoginSuccess={() => {}}
         />
       </SquaresGridLayout>
       {/* <Footer mode="bottom" /> */}

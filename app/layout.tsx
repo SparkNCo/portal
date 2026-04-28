@@ -1,5 +1,4 @@
 import "./globals.css";
-import Link from "next/link";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Suspense } from "react";

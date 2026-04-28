@@ -50,7 +50,6 @@ export default function LoginForm({
       if (!res.ok) throw new Error("Failed to fetch customer");
 
       const data = await res.json();
-      console.log("Backend response:", data);
 
       return data;
     },
@@ -59,7 +58,6 @@ export default function LoginForm({
 
   useEffect(() => {
     if (customer) {
-      console.log("Customer from query:", customer);
       if (customer.role === "admin") {
         router.push(`/${customer.userName}/dashboard/admin`);
       } else {
@@ -68,7 +66,6 @@ export default function LoginForm({
       onLoginSuccess(customer.email);
     }
 
-    if (customerError) console.error("Customer error:", customerError);
   }, [customer, customerError]);
 
   const login = async (e?: React.FormEvent) => {
@@ -127,8 +124,8 @@ export default function LoginForm({
       }
 
       setResetSent(true);
-    } catch (err: any) {
-      setResetError(err.message);
+    } catch (err) {
+      setResetError(err instanceof Error ? err.message : String(err));
     } finally {
       setResetLoading(false);
     }

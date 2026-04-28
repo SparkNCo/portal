@@ -21,6 +21,7 @@ import {
 type User = {
   id: string;
   email: string;
+  userName?: string;
   role: "admin" | "developer" | "customer";
 };
 
@@ -62,7 +63,6 @@ export default function AdminUsersPage() {
           },
         );
         const data = await res.json();
-        console.log("[developer assignments]", data);
         return data;
       },
     });
@@ -83,7 +83,6 @@ export default function AdminUsersPage() {
           },
         );
         const data = await res.json();
-        console.log("[customer assignments]", data);
         return data;
       },
     });
@@ -120,7 +119,7 @@ export default function AdminUsersPage() {
 
   const customers = users.filter((u: User) => u.role === "customer");
 
-  const filteredUsers = users.filter((u: any) => {
+  const filteredUsers = users.filter((u: User) => {
     if (roleFilter && u.role !== roleFilter) return false;
     if (search) {
       const q = search.toLowerCase();

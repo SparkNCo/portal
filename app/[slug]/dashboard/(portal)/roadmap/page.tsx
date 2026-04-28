@@ -44,7 +44,6 @@ export default function RoadmapPage() {
 
   useEffect(() => {
     if (!roadmap?.initiative?.projects?.nodes) return;
-    console.log("roadmap", roadmap);
 
     const milestones = roadmap.initiative.projects.nodes.flatMap(
       (project: any) => {

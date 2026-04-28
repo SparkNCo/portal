@@ -341,7 +341,7 @@ function IssueDetailModal({
             <textarea
               className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               rows={3}
-              placeholder="Add a comment... (⌘+Enter to send)"
+              placeholder="Add a comment... "
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onKeyDown={(e) => {
