@@ -11,29 +11,30 @@ function SetPasswordForm() {
   const router = useRouter();
 
   const [ready, setReady] = useState(false);
-  const [sessionEmail, setSessionEmail] = useState("");
   const [email, setEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // The SIGNED_IN event often fires before this listener is registered
-    // (Supabase processes the hash synchronously on load), so check immediately.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        setSessionEmail(session.user.email ?? "");
         setEmail(session.user.email ?? "");
+        setUserId(session.user.id);
         setReady(true);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-        setSessionEmail(session.user.email ?? "");
         setEmail(session.user.email ?? "");
+        setUserId(session.user.id);
         setReady(true);
       }
     });
@@ -45,12 +46,8 @@ function SetPasswordForm() {
     e.preventDefault();
     setError(null);
 
-    if (email !== sessionEmail) {
-      setError("Email does not match the invited address.");
-      return;
-    }
-    if (!userName.trim()) {
-      setError("Username is required.");
+    if (!firstName.trim() || !lastName.trim() || !clientName.trim()) {
+      setError("First name, last name and client name are required.");
       return;
     }
     if (password.length < 8) {
@@ -59,8 +56,8 @@ function SetPasswordForm() {
     }
 
     setSubmitting(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
 
+    const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setError(updateError.message);
       setSubmitting(false);
@@ -73,37 +70,30 @@ function SetPasswordForm() {
       "Content-Type": "application/json",
     };
 
-    const getRes = await fetch(
-      `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(email)}`,
-      { headers }
-    );
-
-    if (!getRes.ok) {
-      setError("Password set, but could not load your profile.");
-      setSubmitting(false);
-      return;
-    }
-
-    const userData = await getRes.json();
+    const profileUpdate: Record<string, string> = { firstName, lastName, clientName };
+    if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ id: userData.id, userName }),
+      body: JSON.stringify({ id: userId, ...profileUpdate }),
     });
 
     if (!patchRes.ok) {
-      setError("Password set, but could not save your username.");
+      setError("Password set, but could not save your profile.");
       setSubmitting(false);
       return;
     }
 
     setDone(true);
-    setTimeout(() => router.replace(`/${userName}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(`/${clientName}/dashboard/client`), 1500);
   }
 
   const inputClass =
     "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
+
+  const readOnlyClass =
+    "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-not-allowed select-none";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -111,7 +101,7 @@ function SetPasswordForm() {
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-accent" />
-            Set your password 
+            User Data
           </CardTitle>
         </CardHeader>
 
@@ -128,22 +118,44 @@ function SetPasswordForm() {
 
           {ready && !done && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email — read only */}
               <input
-                className={inputClass}
+                className={readOnlyClass}
                 type="email"
-                placeholder="Your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                readOnly
+                tabIndex={-1}
               />
+
+              <div className="flex gap-2">
+                <input
+                  className={inputClass}
+                  placeholder="First name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+                <input
+                  className={inputClass}
+                  placeholder="Last name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+
               <input
                 className={inputClass}
-                type="text"
-                placeholder="Choose a username"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                autoComplete="username"
+                placeholder="Client name"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
               />
+
+              <input
+                className={inputClass}
+                placeholder="Phone number (optional)"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+
               <input
                 className={inputClass}
                 type="password"
@@ -161,9 +173,9 @@ function SetPasswordForm() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !email || !userName || !password}
+                  disabled={submitting || !firstName || !lastName || !clientName || !password}
                 >
-                  {submitting ? "Saving..." : "Set password"}
+                  {submitting ? "Saving..." : "Save"}
                 </Button>
               </div>
             </form>

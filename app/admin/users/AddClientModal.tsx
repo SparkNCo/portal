@@ -32,6 +32,7 @@ export default function AddClientModal({ onClose }: Props) {
             email,
             customer_id: stripeId,
             linear_slug: linearSlug,
+            origin: globalThis.location.origin,
           }),
         },
       );
