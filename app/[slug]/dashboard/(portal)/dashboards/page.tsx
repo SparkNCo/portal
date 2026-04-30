@@ -40,15 +40,28 @@ const apiHeaders = {
 
 function PanelRenderer({ panel }: { readonly panel: string }) {
   switch (panel) {
-    case "roadmap":   return <RoadmapPage />;
-    case "developer": return <DeveloperPage />;
-    case "documents": return <DocumentsPage />;
-    case "settings":  return <SettingsPage />;
-    default:          return <ClientDashboard />;
+    case "roadmap":
+      return <RoadmapPage />;
+    case "developer":
+      return <DeveloperPage />;
+    case "documents":
+      return <DocumentsPage />;
+    case "settings":
+      return <SettingsPage />;
+    default:
+      return <ClientDashboard />;
   }
 }
 
-function CustomerCard({ email, clientName, linear_slug }: { readonly email: string; readonly clientName: string; readonly linear_slug: string }) {
+function CustomerCard({
+  email,
+  clientName,
+  linear_slug,
+}: {
+  readonly email: string;
+  readonly clientName: string;
+  readonly linear_slug: string;
+}) {
   return (
     <Link href={`dashboards?customer=${linear_slug}&panel=client`}>
       <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
@@ -79,7 +92,9 @@ function DashboardsContent() {
   const isDeveloper = profile?.role === "developer";
 
   // Admin: fetch all customers
-  const { data: allCustomers, isLoading: customersLoading } = useQuery<CustomerSummary[]>({
+  const { data: allCustomers, isLoading: customersLoading } = useQuery<
+    CustomerSummary[]
+  >({
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
@@ -93,7 +108,9 @@ function DashboardsContent() {
   });
 
   // Developer: fetch only their assigned customers
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery<DeveloperAssignment[]>({
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery<
+    DeveloperAssignment[]
+  >({
     queryKey: ["developer-assignments", profile?.id],
     queryFn: async () => {
       const res = await fetch(
@@ -143,8 +160,11 @@ function DashboardsContent() {
     <div className="min-h-screen">
       <Header
         title="Dashboards"
-        subtitle={isAdmin ? "All customer dashboards" : "Your assigned dashboards"}
+        subtitle={
+          isAdmin ? "All customer dashboards" : "Your assigned dashboards"
+        }
       />
+
       {cards.length ? (
         <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (

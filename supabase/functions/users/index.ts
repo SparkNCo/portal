@@ -32,7 +32,7 @@ const handleGet = async (url: URL) => {
   if (type === "customers") {
     const { data, error } = await supabase
       .from("users")
-      .select("userName, linear_slug, email")
+      .select("clientName, linear_slug, email")
       .eq("role", "customer");
     if (error) throw new Error(error.message);
     return jsonResponse(data);

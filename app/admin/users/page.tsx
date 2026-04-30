@@ -23,7 +23,6 @@ type User = {
   id: string;
   email: string;
   userName?: string;
-  userName?: string;
   role: "admin" | "developer" | "customer";
 };
 
@@ -83,6 +82,21 @@ export default function AdminUsersPage() {
 
   const customers: User[] = users.filter((u: User) => u.role === "customer");
 
+  const customerIds = customers.map((c) => c.id);
+
+  const { data: allAssignments = [], isLoading: allAssignmentsLoading } = useQuery({
+    queryKey: ["all-assignments", customerIds],
+    enabled: customerIds.length > 0,
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds.join(",")}`,
+        { headers: apiHeaders },
+      );
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json();
+    },
+  });
+
   // ── Developer assignments (expanded user panel) ──
   const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
     useQuery({
@@ -137,29 +151,6 @@ export default function AdminUsersPage() {
     expandedUser?.role === "customer"
       ? customerAssignmentsLoading
       : developerAssignmentsLoading;
-
-  const {
-    data: users = [],
-    isLoading: usersLoading,
-    error,
-  } = useQuery({
-    queryKey: ["users"],
-    queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch users");
-
-      return res.json();
-    },
-  });
-
-  const customers = users.filter((u: User) => u.role === "customer");
 
   const filteredUsers = users.filter((u: User) => {
     if (roleFilter && u.role !== roleFilter) return false;
