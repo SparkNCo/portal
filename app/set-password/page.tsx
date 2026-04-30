@@ -70,7 +70,8 @@ function SetPasswordForm() {
       "Content-Type": "application/json",
     };
 
-    const profileUpdate: Record<string, string> = { firstName, lastName, clientName };
+    const slugifiedClientName = clientName.replaceAll(" ", "-");
+    const profileUpdate: Record<string, string> = { firstName, lastName, clientName: slugifiedClientName };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
@@ -86,7 +87,7 @@ function SetPasswordForm() {
     }
 
     setDone(true);
-    setTimeout(() => router.replace(`/${clientName}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(`/${slugifiedClientName}/dashboard/client`), 1500);
   }
 
   const inputClass =
@@ -153,7 +154,7 @@ function SetPasswordForm() {
                 className={inputClass}
                 placeholder="Phone number (optional)"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))}
               />
 
               <input

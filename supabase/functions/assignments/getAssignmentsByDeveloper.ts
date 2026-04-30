@@ -41,31 +41,32 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
 
     const { data: customers, error: customersError } = await supabase
       .from("users")
-      .select("id, email")
+      .select("id, email, linear_slug, clientName")
       .in("id", customerIds);
 
     if (customersError) throw new Error(customersError.message);
 
     const customerMap = Object.fromEntries(
-      customers.map((c) => [c.id, c.email]),
+      customers.map((c) => [c.id, {
+        email: c.email,
+        linear_slug: c.linear_slug,
+        clientName: c.clientName,
+      }]),
     );
 
-    /**
-     * 3. Merge and return
-     */
+    // 3. Merge and return
     const result = assignments.map((a) => ({
       ...a,
-      customer_email: customerMap[a.customer_id] ?? null,
+      customer_email: customerMap[a.customer_id]?.email ?? null,
+      linear_slug: customerMap[a.customer_id]?.linear_slug ?? null,
+      clientName: customerMap[a.customer_id]?.clientName ?? null,
     }));
-
-    console.log("[getAssignmentsByDeveloper] result:", result);
 
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[getAssignmentsByDeveloper]", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

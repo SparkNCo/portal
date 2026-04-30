@@ -15,6 +15,7 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set([...ticketStatuses])];
   console.log("Fetching issues with slug:", slug);
+  console.log("slug", slug);
 
   const params = new URLSearchParams({
     slug,
@@ -77,7 +78,11 @@ export default function ClientDashboard() {
 
   const filteredIssues = allIssues.filter((issue: any) => {
     if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
-    if (selectedStatuses.length > 0 && (!issue.state?.name || !selectedStatuses.includes(issue.state.name))) return false;
+    if (
+      selectedStatuses.length > 0 &&
+      (!issue.state?.name || !selectedStatuses.includes(issue.state.name))
+    )
+      return false;
     return true;
   });
 
@@ -91,7 +96,10 @@ export default function ClientDashboard() {
         prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
       ),
     onToggleActive: () => setOnlyActive((v) => !v),
-    onClearFilters: () => { setSelectedStatuses([]); setOnlyActive(false); },
+    onClearFilters: () => {
+      setSelectedStatuses([]);
+      setOnlyActive(false);
+    },
   };
 
   if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
@@ -114,7 +122,10 @@ export default function ClientDashboard() {
             <ProgressPieChart issuesData={filteredIssues} />
           </div>
           <div className="w-full md:w-3/4 flex flex-col">
-            <PriorityTasks issuesData={filteredIssues} filterState={filterState} />
+            <PriorityTasks
+              issuesData={filteredIssues}
+              filterState={filterState}
+            />
           </div>
         </div>
 

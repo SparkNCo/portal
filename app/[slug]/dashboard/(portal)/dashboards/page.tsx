@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { Header } from "@/components/headerDashboard";
@@ -17,9 +17,25 @@ import DocumentsPage from "../documents/page";
 import SettingsPage from "../settings/page";
 
 type CustomerSummary = {
-  userName: string;
+  clientName: string;
   linear_slug: string;
   email: string;
+};
+
+type DeveloperAssignment = {
+  id: string;
+  customer_id: string;
+  customer_email: string;
+  linear_slug: string;
+  clientName: string;
+  allocation: number;
+  joined: string;
+};
+
+const apiHeaders = {
+  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+  apikey: process.env.NEXT_PUBLIC_APIKEY!,
+  "Content-Type": "application/json",
 };
 
 function PanelRenderer({ panel }: { readonly panel: string }) {
@@ -32,40 +48,67 @@ function PanelRenderer({ panel }: { readonly panel: string }) {
   }
 }
 
+function CustomerCard({ email, clientName, linear_slug }: { readonly email: string; readonly clientName: string; readonly linear_slug: string }) {
+  return (
+    <Link href={`dashboards?customer=${linear_slug}&panel=client`}>
+      <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
+        <CardHeader className="flex flex-row items-center gap-3 pb-2">
+          <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
+            <User className="h-4 w-4 text-accent" />
+          </div>
+          <CardTitle className="text-sm font-semibold">
+            {clientName || "—"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-0.5">
+          <p>{email}</p>
+          <p className="text-xs">Slug: {linear_slug}</p>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 function DashboardsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { profile, loading } = useUser();
   const customer = searchParams.get("customer");
   const panel = searchParams.get("panel") ?? "client";
 
-  const { data: customers, isLoading } = useQuery<CustomerSummary[]>({
+  const isAdmin = profile?.role === "admin";
+  const isDeveloper = profile?.role === "developer";
+
+  // Admin: fetch all customers
+  const { data: allCustomers, isLoading: customersLoading } = useQuery<CustomerSummary[]>({
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-        },
+        { headers: apiHeaders },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
       return res.json();
     },
-    enabled: profile?.role === "admin",
+    enabled: isAdmin,
   });
 
-  useEffect(() => {
-    if (!loading && profile?.role !== "admin") {
-      router.replace(`/${profile?.userName}/dashboard/client`);
-    }
-  }, [loading, profile, router]);
+  // Developer: fetch only their assigned customers
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery<DeveloperAssignment[]>({
+    queryKey: ["developer-assignments", profile?.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile!.id}`,
+        { headers: apiHeaders },
+      );
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json();
+    },
+    enabled: isDeveloper && !!profile?.id,
+  });
 
-  if (loading || profile?.role !== "admin") return <LoadingDataPanel />;
+  if (loading) return <LoadingDataPanel />;
 
+  // If a specific customer dashboard is selected, render it
   if (customer) {
     return (
       <CustomerSlugProvider value={customer}>
@@ -74,45 +117,48 @@ function DashboardsContent() {
     );
   }
 
+  const isLoading = isAdmin ? customersLoading : assignmentsLoading;
+
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <Header title="Dashboards" subtitle="All customer dashboards" />
-        <p className="p-6 text-sm text-muted-foreground">Loading...</p>
+        <Header title="Dashboards" subtitle="Customer dashboards" />
+        <LoadingDataPanel />
       </div>
     );
   }
 
+  // Normalise both sources to a common shape
+  const cards: CustomerSummary[] = isAdmin
+    ? (allCustomers ?? [])
+    : (assignments ?? [])
+        .filter((a) => a.linear_slug)
+        .map((a) => ({
+          clientName: a.clientName,
+          linear_slug: a.linear_slug,
+          email: a.customer_email,
+        }));
+
   return (
     <div className="min-h-screen">
-      <Header title="Dashboards" subtitle="All customer dashboards" />
-      {customers?.length ? (
+      <Header
+        title="Dashboards"
+        subtitle={isAdmin ? "All customer dashboards" : "Your assigned dashboards"}
+      />
+      {cards.length ? (
         <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {customers.map((c) => (
-            <Link
-              key={c.email}
-              href={`dashboards?customer=${c.linear_slug}&panel=client`}
-            >
-              <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
-                <CardHeader className="flex flex-row items-center gap-3 pb-2">
-                  <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
-                    <User className="h-4 w-4 text-accent" />
-                  </div>
-                  <CardTitle className="text-sm font-semibold">
-                    {c.userName || "—"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground space-y-0.5">
-                  <p>{c.email}</p>
-                  <p className="text-xs">Slug: {c.linear_slug}</p>
-                </CardContent>
-              </Card>
-            </Link>
+          {cards.map((c) => (
+            <CustomerCard
+              key={c.linear_slug}
+              email={c.email}
+              clientName={c.clientName}
+              linear_slug={c.linear_slug}
+            />
           ))}
         </div>
       ) : (
         <p className="p-6 text-sm text-muted-foreground">
-          There are no customer dashboards created to show.
+          No dashboards assigned yet.
         </p>
       )}
     </div>

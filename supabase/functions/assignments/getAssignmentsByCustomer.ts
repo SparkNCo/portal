@@ -4,32 +4,27 @@ import { corsHeaders } from "../utils/headers.ts";
 
 export const getAssignmentsByCustomer = async (req: Request) => {
   try {
-    console.log("=== [GetAssignments] START ===");
-    console.log("[Request URL]:", req.url);
 
     const url = new URL(req.url);
-    const customer_id = url.searchParams.get("customer_id");
+    const raw = url.searchParams.get("customer_id");
 
-    if (!customer_id) {
-      console.warn("[GetAssignments] Missing customer_id param");
+    if (!raw) {
       return new Response(
-        JSON.stringify({ error: "customer is required" }),
+        JSON.stringify({ error: "customer_id is required" }),
         {
           status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
     }
 
-    console.log("[GetAssignments] Running query using fk_user...");
+    const customer_ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
 
     const { data, error } = await supabase
       .from("assignments")
       .select(
         `
+        customer_id,
         user_id,
         allocation,
         joined,
@@ -38,11 +33,11 @@ export const getAssignmentsByCustomer = async (req: Request) => {
           id,
           email,
           role,
-          userName
+          clientName
         )
       `,
       )
-      .eq("customer_id", customer_id);
+      .in("customer_id", customer_ids);
 
     if (error) {
       console.error("[Supabase ERROR]:", error);
@@ -53,16 +48,12 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       .filter((row: any) => row.users)
       .map((row: any) => ({
         ...row.users,
+        customer_id: row.customer_id,
         user_id: row.user_id,
         allocation: row.allocation,
         joined: row.joined,
         role: row.role,
       }));
-
-    console.log("[GetAssignments] Query success");
-    console.log("[Row count]:", users.length);
-    console.log("[Sample row]:", users?.[0]);
-    console.log("=== [GetAssignments] END ===");
 
     return new Response(JSON.stringify(users), {
       status: 200,
@@ -72,10 +63,6 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       },
     });
   } catch (error) {
-    console.error("=== [GetAssignments ERROR] ===");
-    console.error(error);
-    console.error("=== [END ERROR] ===");
-
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {

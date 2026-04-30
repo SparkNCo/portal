@@ -61,9 +61,9 @@ export default function LoginForm({
     if (customer) {
       console.log("Customer from query:", customer);
       if (customer.role === "admin") {
-        router.push(`/${customer.userName}/dashboard/admin`);
+        router.push(`/${customer.clientName}/dashboard/admin`);
       } else {
-        router.push(`/${customer.userName}/dashboard/client`);
+        router.push(`/${customer.clientName}/dashboard/client`);
       }
       onLoginSuccess(customer.email);
     }
