@@ -21,6 +21,18 @@ export async function getCustomerBySlug(slug: string) {
   return data;
 }
 
+export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("linear_projects")
+    .eq("linear_slug", slug)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to fetch customer: ${error.message}`);
+  if (!data) throw new Error(`Customer not found for slug: ${slug}`);
+  return data.linear_projects ?? [];
+}
+
 export async function getAllCustomers() {
   const { data, error } = await supabase
     .from("customers")
@@ -40,15 +52,15 @@ export async function upsertCycleMetrics(cycles: any[]) {
   const cycleIds = cycles.map((c) => c.cycle_id);
   const { data: existing } = await supabase
     .from("cycle_metrics")
-    .select("cycle_id, issues_averages")
+    .select("project_id, cycle_id, issues_averages")
     .in("cycle_id", cycleIds);
 
   const existingMap = new Map(
-    (existing ?? []).map((r) => [r.cycle_id, r.issues_averages ?? []]),
+    (existing ?? []).map((r) => [`${r.project_id}:${r.cycle_id}`, r.issues_averages ?? []]),
   );
 
   const payload = cycles.map(({ _snapshot, ...cycle }) => {
-    const prev: any[] = existingMap.get(cycle.cycle_id) ?? [];
+    const prev: any[] = existingMap.get(`${cycle.project_id}:${cycle.cycle_id}`) ?? [];
     const merged = [
       ...prev.filter((e) => e.date !== _snapshot.date),
       _snapshot,

@@ -116,3 +116,31 @@ query GetCycleIssues($cycleId: String!) {
   }
 }
 `;
+
+// Fetch issue statuses + active cycle per page — scalar fields only to keep complexity low
+export const GET_PROJECT_ISSUE_STATUSES_QUERY = `
+query GetProjectIssueStatuses($projectId: String!, $after: String) {
+  project(id: $projectId) {
+    id
+    name
+    issues(first: 250, after: $after) {
+      nodes {
+        id
+        state {
+          name
+        }
+        cycle {
+          id
+          name
+          number
+          isActive
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`;

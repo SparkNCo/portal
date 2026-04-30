@@ -6,9 +6,122 @@ import {
   upsertCycleMetrics,
   getCycleMetricsByCustomerId,
   getIssueMetricsByCustomerId,
+  getProjectIdsBySlug,
 } from "./db.ts";
-import { fetchProjectDetails, fetchCycleIssues, fetchCycleByNumber } from "./linear.ts";
+import { fetchProjectDetails, fetchCycleIssues } from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleGet(searchParams: URLSearchParams) {
+  const slug = searchParams.get("slug");
+  if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
+
+  const [issue_metrics, cycle_metrics] = await Promise.all([
+    getIssueMetricsByCustomerId(slug),
+    getCycleMetricsByCustomerId(slug),
+  ]);
+
+  return jsonResponse({ issue_metrics, cycle_metrics });
+}
+
+// Fetch each unique cycle exactly once, then group issues by their actual project.id.
+// This prevents double-counting when the same cycle_id appears across multiple projects.
+async function resolveCycleIssues(cyclesByProject: { projectId: string; cycles: any[] }[]) {
+  const uniqueCycleIds = [...new Set(cyclesByProject.flatMap(({ cycles }) => cycles.map((c) => c.id)))];
+
+  const fetched = await Promise.all(uniqueCycleIds.map(async (cycleId) => [cycleId, await fetchCycleIssues(cycleId)]));
+  const issuesByCycle = new Map<string, any[]>(fetched);
+
+  const result: { cycleId: string; projectId: string; issues: any[] }[] = [];
+  for (const [cycleId, issues] of issuesByCycle) {
+    const byProject = new Map<string, any[]>();
+    for (const issue of issues) {
+      const pid = issue.project?.id;
+      if (!pid) continue;
+      if (!byProject.has(pid)) byProject.set(pid, []);
+      byProject.get(pid).push(issue);
+    }
+    for (const [projectId, projectIssues] of byProject) {
+      result.push({ cycleId, projectId, issues: projectIssues });
+    }
+  }
+  return result;
+}
+
+async function handlePut(req: Request) {
+  const { linear_slug } = await req.json();
+  if (!linear_slug) return jsonResponse({ error: "Missing linear_slug" }, 400);
+
+  // Step 1: resolve project IDs from Supabase by customer slug
+  const projectIds = await getProjectIdsBySlug(linear_slug);
+  if (!projectIds.length) return jsonResponse({ error: `No projects found for slug: ${linear_slug}` }, 404);
+
+  // Step 2: fetch project details to discover active cycles
+  const projects = await fetchProjectDetails(projectIds);
+
+  const cyclesByProject = projects.map((project: any) => {
+    const cyclesMap = new Map();
+    for (const issue of project.issues?.nodes || []) {
+      if (issue.cycle?.id && issue.cycle.isActive === true) {
+        cyclesMap.set(issue.cycle.id, issue.cycle);
+      }
+    }
+    return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
+  });
+
+  // Step 3: fetch issues per unique cycle, grouped by actual project
+  const cycleIssues = await resolveCycleIssues(cyclesByProject);
+
+  // Step 4: build metrics and return status summary per project
+  const metrics = buildIssueMetrics(cycleIssues, linear_slug);
+
+  const byProject: Record<string, Record<string, number>> = {};
+  for (const m of metrics) {
+    if (!byProject[m.project_id]) byProject[m.project_id] = {};
+    byProject[m.project_id][m.status] = m.count;
+  }
+
+  return jsonResponse({ projects: byProject });
+}
+
+async function handlePost() {
+  const customers = await getAllCustomers();
+
+  for (const customer of customers) {
+    const linearProjects: string[] = customer.linear_projects ?? [];
+    if (!linearProjects.length) continue;
+
+    const projects = await fetchProjectDetails(linearProjects);
+
+    const cyclesByProject = projects.map((project: any) => {
+      const cyclesMap = new Map();
+      for (const issue of project.issues?.nodes || []) {
+        if (issue.cycle?.id && issue.cycle.isActive === true) {
+          cyclesMap.set(issue.cycle.id, issue.cycle);
+        }
+      }
+      return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
+    });
+
+    const cycleIssues = await resolveCycleIssues(cyclesByProject);
+
+    const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
+    const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics);
+
+    await Promise.all([
+      upsertIssueMetrics(metrics),
+      upsertCycleMetrics(cycles),
+    ]);
+  }
+
+  return jsonResponse({ ok: true });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,126 +130,11 @@ Deno.serve(async (req) => {
 
   const { searchParams } = new URL(req.url);
 
-  if (req.method === "GET") {
-    try {
-      const slug = searchParams.get("slug");
-
-      if (!slug) {
-        return new Response(JSON.stringify({ error: "Missing slug" }), {
-          status: 400,
-          headers: corsHeaders,
-        });
-      }
-
-      const [issue_metrics, cycle_metrics] = await Promise.all([
-        getIssueMetricsByCustomerId(slug),
-        getCycleMetricsByCustomerId(slug),
-      ]);
-
-      return new Response(JSON.stringify({ issue_metrics, cycle_metrics }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: corsHeaders,
-      });
-    }
-  }
-
-  if (req.method === "PUT") {
-    try {
-      const { slug, project_id, cycle_number } = await req.json();
-
-      if (!slug || !project_id || cycle_number == null) {
-        return new Response(JSON.stringify({ error: "Missing slug, project_id or cycle_number" }), {
-          status: 400,
-          headers: corsHeaders,
-        });
-      }
-
-      const result = await fetchCycleByNumber(project_id, cycle_number);
-      if (!result) {
-        return new Response(JSON.stringify({ error: `Cycle #${cycle_number} not found in project ${project_id}` }), {
-          status: 404,
-          headers: corsHeaders,
-        });
-      }
-
-      const { project, cycle } = result;
-      const issues = await fetchCycleIssues(cycle.id);
-
-      const cyclesByProject = [{ projectId: project.id, projectName: project.name, cycles: [cycle] }];
-      const cycleIssues = [{ cycleId: cycle.id, projectId: project.id, issues }];
-
-      const metrics = buildIssueMetrics(cycleIssues, slug);
-      const cycles = buildCycleMetrics(cyclesByProject, slug, metrics);
-
-      await Promise.all([
-        upsertIssueMetrics(metrics),
-        upsertCycleMetrics(cycles),
-      ]);
-
-      return new Response(JSON.stringify({ ok: true, cycle_id: cycle.id, cycle_number: cycle.number }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: corsHeaders,
-      });
-    }
-  }
-
   try {
-    const customers = await getAllCustomers();
-
-    for (const customer of customers) {
-      const linearProjects: string[] = customer.linear_projects ?? [];
-      if (!linearProjects.length) continue;
-
-      const projects = await fetchProjectDetails(linearProjects);
-
-      const cyclesByProject = projects.map((project: any) => {
-        const cyclesMap = new Map();
-        for (const issue of project.issues?.nodes || []) {
-          if (issue.cycle?.id && issue.cycle.isActive === true) {
-            cyclesMap.set(issue.cycle.id, issue.cycle);
-          }
-        }
-        return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
-      });
-
-      const activeCycleEntries: { cycleId: string; projectId: string }[] = [];
-      for (const { projectId, cycles } of cyclesByProject) {
-        for (const cycle of cycles) {
-          activeCycleEntries.push({ cycleId: cycle.id, projectId });
-        }
-      }
-
-      const cycleIssues = await Promise.all(
-        activeCycleEntries.map(async ({ cycleId, projectId }) => {
-          const issues = await fetchCycleIssues(cycleId);
-          return { cycleId, projectId, issues };
-        }),
-      );
-
-      const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
-      const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics);
-
-      await Promise.all([
-        upsertIssueMetrics(metrics),
-        upsertCycleMetrics(cycles),
-      ]);
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (req.method === "GET") return await handleGet(searchParams);
+    if (req.method === "PUT") return await handlePut(req);
+    return await handlePost();
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    return jsonResponse({ error: error.message }, 500);
   }
 });
