@@ -3,12 +3,12 @@ import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createCustomerFlow = async (body: any) => {
-  const { email, customer_id, linear_slug } = body;
+  const { email, customer_id, linear_slug, origin } = body;
 
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
 
-  const redirectTo = "http://localhost:3000/set-password";
+  const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
 
   let authUserId: string;
   let inviteLink: string;

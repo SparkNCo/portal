@@ -25,7 +25,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             apikey: process.env.NEXT_PUBLIC_APIKEY!,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ email, role: "developer" }),
+          body: JSON.stringify({ email, role: "developer", origin: globalThis.location.origin }),
         },
       );
 

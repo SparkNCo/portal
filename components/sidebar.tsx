@@ -28,12 +28,7 @@ const clientNavItems = [
 ];
 
 const developerNavItems = [
-  { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Roadmap", icon: Map },
-  { href: "developer", label: "Developer", icon: Code2 },
-  { href: "documents", label: "Documents", icon: FileText },
-  { href: "chat", label: "Chat", icon: MessageCircle },
-  //{ href: "settings", label: "Settings", icon: Settings },
+  { href: "dashboards", label: "Assignments", icon: LayoutGrid },
 ];
 
 const adminNavItems = [
@@ -51,7 +46,7 @@ export function Sidebar() {
   const selectedCustomer = searchParams.get("customer");
   const selectedPanel = searchParams.get("panel") ?? "client";
   const isViewingCustomer =
-    profile?.role === "admin" &&
+    (profile?.role === "admin" || profile?.role === "developer") &&
     pathname.endsWith("/dashboards") &&
     !!selectedCustomer;
 
@@ -60,7 +55,7 @@ export function Sidebar() {
     { href: "roadmap", label: "Roadmap", icon: Map },
     { href: "developer", label: "Developer", icon: Code2 },
     { href: "documents", label: "Documents", icon: FileText },
-    { href: "settings", label: "Settings", icon: Settings },
+    ...(profile?.role === "admin" ? [{ href: "settings", label: "Settings", icon: Settings }] : []),
   ];
 
   const roleNavMap: Record<string, typeof clientNavItems> = {
