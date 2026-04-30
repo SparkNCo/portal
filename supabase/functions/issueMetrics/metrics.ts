@@ -22,12 +22,14 @@ export function buildIssueMetrics(
           label,
           count: 0,
           points: 0,
+          title: [],
         });
       }
 
       const entry = metricsMap.get(key);
       entry.count += 1;
       entry.points += issue.estimate ?? 0;
+      if (issue.title) entry.title.push(issue.title);
     }
   }
 
@@ -45,7 +47,7 @@ export function buildCycleMetrics(
   for (const { projectId, projectName, cycles } of cyclesByProject) {
     for (const cycle of cycles) {
       const snapshot: Record<string, any> = { date: today };
-      for (const im of issueMetrics.filter((m) => m.cycle === cycle.id)) {
+      for (const im of issueMetrics.filter((m) => m.cycle === cycle.id && m.project_id === projectId)) {
         snapshot[im.status] = (snapshot[im.status] ?? 0) + im.count;
       }
 

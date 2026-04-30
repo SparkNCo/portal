@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { GET_PROJECT_QUERY, GET_CYCLE_ISSUES_QUERY, GET_PROJECT_CYCLES_QUERY, GET_CYCLE_DETAILS_QUERY } from "./queries.ts";
+import { GET_PROJECT_QUERY, GET_CYCLE_ISSUES_QUERY, GET_PROJECT_CYCLES_QUERY, GET_CYCLE_DETAILS_QUERY, GET_PROJECT_ISSUE_STATUSES_QUERY } from "./queries.ts";
 
 async function linearFetch(query: string, variables: any) {
   const res = await fetch(LINEAR_GRAPHQL, {
@@ -33,6 +33,24 @@ export async function fetchProjectDetails(projectIds: string[]) {
 export async function fetchCycleIssues(cycleId: string) {
   const data = await linearFetch(GET_CYCLE_ISSUES_QUERY, { cycleId });
   return data.cycle?.issues?.nodes ?? [];
+}
+
+export async function fetchProjectById(projectId: string) {
+  const issues: any[] = [];
+  let name = "";
+  let after: string | undefined;
+
+  do {
+    const page = await linearFetch(GET_PROJECT_ISSUE_STATUSES_QUERY, { projectId, after });
+    const project = page.project;
+    if (!project) return null;
+    if (!name) name = project.name;
+    issues.push(...(project.issues?.nodes ?? []));
+    const pageInfo = project.issues?.pageInfo;
+    after = pageInfo?.hasNextPage ? pageInfo.endCursor : undefined;
+  } while (after);
+
+  return { id: projectId, name, issues };
 }
 
 export async function fetchCycleByNumber(projectId: string, cycleNumber: number) {
