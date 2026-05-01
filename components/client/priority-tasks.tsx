@@ -8,6 +8,7 @@ import {
   Send,
   ChevronsRight,
   Filter,
+  MessageSquare,
   X,
 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -106,6 +107,7 @@ export type FilterState = {
 export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
+  onOpenChat?: (title: string) => void;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -113,7 +115,16 @@ const STATE_TRANSITIONS: Partial<Record<string, string>> = {
   UAT: "Done",
 };
 
-function IssueCard({ issue, onOpen }: { issue: Issue; onOpen: () => void }) {
+function IssueCard({
+  issue,
+  onOpen,
+  onOpenChat,
+}: {
+  readonly issue: Issue;
+  readonly onOpen: () => void;
+  readonly onOpenChat?: (title: string) => void;
+}) {
+  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
     <div
       className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150 cursor-pointer"
@@ -145,6 +156,15 @@ function IssueCard({ issue, onOpen }: { issue: Issue; onOpen: () => void }) {
           >
             {issue?.state?.name}
           </Badge>
+          {onOpenChat && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
+              className="text-muted-foreground hover:text-accent transition-colors"
+              title="Open chat about this issue"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -365,7 +385,7 @@ function IssueDetailModal({
   );
 }
 
-export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
+export function PriorityTasks({ issuesData, filterState, onOpenChat }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -513,6 +533,7 @@ export function PriorityTasks({ issuesData, filterState }: PriorityTasksProps) {
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
+                onOpenChat={onOpenChat}
               />
             ))}
           </div>

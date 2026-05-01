@@ -5,13 +5,14 @@ import { useState } from "react";
 type AssistantType = "support" | "ai";
 
 type Props = {
-  creating: boolean;
-  onCreate: (title: string, type: AssistantType) => void;
-  onClose: () => void;
+  readonly creating: boolean;
+  readonly initialTitle?: string;
+  readonly onCreate: (title: string, type: AssistantType) => void;
+  readonly onClose: () => void;
 };
 
-export default function CreateChatModal({ creating, onCreate, onClose }: Props) {
-  const [title, setTitle] = useState("");
+export default function CreateChatModal({ creating, initialTitle, onCreate, onClose }: Props) {
+  const [title, setTitle] = useState(initialTitle ?? "");
   const [assistantType] = useState<AssistantType>("support");
 
   const handleSubmit = () => {

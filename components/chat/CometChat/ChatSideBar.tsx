@@ -1,5 +1,5 @@
 import type { Group } from "@cometchat/chat-sdk-javascript";
-import { Plus, MessageSquare, Bot } from "lucide-react";
+import { Plus, MessageSquare, Bot, X } from "lucide-react";
 import type { DirectChatEntry } from "./ChatLayout";
 
 type Props = Readonly<{
@@ -9,6 +9,8 @@ type Props = Readonly<{
   selectedDirect: DirectChatEntry | null;
   onSelectGroup: (group: Group) => void;
   onSelectDirect: (entry: DirectChatEntry) => void;
+  onCloseGroup: (group: Group) => void;
+  onCloseDirect: (entry: DirectChatEntry) => void;
   isCustomer: boolean;
   onCreateChat: () => void;
 }>;
@@ -34,6 +36,8 @@ export default function ChatSideBar({
   selectedDirect,
   onSelectGroup,
   onSelectDirect,
+  onCloseGroup,
+  onCloseDirect,
   isCustomer,
   onCreateChat,
 }: Props) {
@@ -70,50 +74,66 @@ export default function ChatSideBar({
             {groups.map((group) => {
               const isSelected = selectedGroup?.getGuid() === group.getGuid();
               return (
-                <button
+                <div
                   key={group.getGuid()}
-                  onClick={() => onSelectGroup(group)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 border-b text-left cursor-pointer transition-colors ${
+                  className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
                     isSelected
                       ? "bg-accent/10 border-l-2 border-l-accent"
                       : "hover:bg-secondary/40 border-l-2 border-l-transparent"
                   }`}
                 >
-                  <GroupAvatar name={group.getName()} />
-                  <div className="min-w-0">
-                    <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
-                      {group.getName()}
+                  <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={() => onSelectGroup(group)}>
+                    <GroupAvatar name={group.getName()} />
+                    <div className="min-w-0">
+                      <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+                        {group.getName()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {group.getMembersCount()} members
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {group.getMembersCount()} members
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    onClick={() => onCloseGroup(group)}
+                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+                    title="Leave chat"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               );
             })}
 
             {directChats.map((entry) => {
               const isSelected = selectedDirect?.uid === entry.uid && selectedDirect?.title === entry.title;
               return (
-                <button
+                <div
                   key={`${entry.uid}-${entry.title}`}
-                  onClick={() => onSelectDirect(entry)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 border-b text-left cursor-pointer transition-colors ${
+                  className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
                     isSelected
                       ? "bg-accent/10 border-l-2 border-l-accent"
                       : "hover:bg-secondary/40 border-l-2 border-l-transparent"
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-accent" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
-                      {entry.title}
+                  <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={() => onSelectDirect(entry)}>
+                    <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-4 h-4 text-accent" />
                     </div>
-                    <div className="text-xs text-muted-foreground">AI Agent</div>
-                  </div>
-                </button>
+                    <div className="min-w-0">
+                      <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+                        {entry.title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">AI Agent</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => onCloseDirect(entry)}
+                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+                    title="Close chat"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               );
             })}
           </>

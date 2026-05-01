@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CometChat } from "@cometchat/chat-sdk-javascript";
+import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "context/UserContext";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
@@ -14,10 +16,14 @@ const AI_AGENT_UID = "e17fda15-1881-4375-a818-21fb97a507ce";
 
 export type DirectChatEntry = { uid: string; title: string };
 
-export default function ChatLayout() {
+export default function ChatLayout({ initialTitle }: { readonly initialTitle?: string }) {
   const { profile } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
   const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup } =
     useCometChat();
+
+  const clearNewChatParam = () => router.replace(pathname);
 
   const [directChats, setDirectChats] = useState<DirectChatEntry[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -26,10 +32,11 @@ export default function ChatLayout() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (ready && groups.length === 0 && directChats.length === 0 && profile?.role === "customer") {
+    if (!ready) return;
+    if (initialTitle || (groups.length === 0 && directChats.length === 0 && profile?.role === "customer")) {
       setShowCreateModal(true);
     }
-  }, [ready, groups.length, directChats.length, profile?.role]);
+  }, [ready]);
 
   const handleCreate = async (title: string, type: "support" | "ai") => {
     setCreating(true);
@@ -71,18 +78,18 @@ export default function ChatLayout() {
         directChats={directChats}
         selectedGroup={selectedGroup}
         selectedDirect={selectedDirect}
-        onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); }}
-        onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); }}
+        onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
+        onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
         isCustomer={isCustomer}
         onCreateChat={() => setShowCreateModal(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {selectedGroup && user ? (
-          <GroupChat user={user} group={selectedGroup} />
-        ) : selectedDirect && user ? (
+        {selectedGroup && user && <GroupChat user={user} group={selectedGroup} />}
+        {!selectedGroup && selectedDirect && user && (
           <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
-        ) : (
+        )}
+        {!selectedGroup && !selectedDirect && (
           <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
             {hasNoChats ? "No chats yet." : "Select a chat to start messaging."}
           </div>
@@ -92,6 +99,7 @@ export default function ChatLayout() {
       {showCreateModal && (
         <CreateChatModal
           creating={creating}
+          initialTitle={initialTitle}
           onCreate={handleCreate}
           onClose={() => setShowCreateModal(false)}
         />

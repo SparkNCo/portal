@@ -14,9 +14,9 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
 
-    if (req.method === "GET") return handleGet(url);
-    if (req.method === "PATCH") return handlePatch(req);
-    if (req.method === "POST") return handlePost(req, url);
+    if (req.method === "GET") return await handleGet(url);
+    if (req.method === "PATCH") return await handlePatch(req);
+    if (req.method === "POST") return await handlePost(req, url);
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {

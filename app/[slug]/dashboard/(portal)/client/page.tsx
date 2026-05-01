@@ -6,6 +6,7 @@ import { PriorityTasks } from "@/components/client/priority-tasks";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
@@ -37,6 +38,8 @@ export async function fetchPoliciesStatus(userId: string) {
 export default function ClientDashboard() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const router = useRouter();
+  const pathname = usePathname();
   const slug = customerSlug ?? profile?.linear_slug ?? "";
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
@@ -84,6 +87,11 @@ export default function ClientDashboard() {
     return true;
   });
 
+  const handleOpenChat = (title: string) => {
+    const chatPath = pathname.replace(/\/[^/]+$/, "/chat");
+    router.push(`${chatPath}?newChat=${encodeURIComponent(title)}`);
+  };
+
   const filterState = {
     selectedStatuses,
     onlyActive,
@@ -123,6 +131,7 @@ export default function ClientDashboard() {
             <PriorityTasks
               issuesData={filteredIssues}
               filterState={filterState}
+              onOpenChat={handleOpenChat}
             />
           </div>
         </div>

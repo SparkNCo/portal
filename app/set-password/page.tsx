@@ -13,6 +13,7 @@ function SetPasswordForm() {
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<"customer" | "developer" | "admin" | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [clientName, setClientName] = useState("");
@@ -22,20 +23,30 @@ function SetPasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  const isCustomer = role === "customer";
+
+  async function resolveSession(session: { user: { id: string; email?: string } }) {
+    setEmail(session.user.email ?? "");
+    setUserId(session.user.id);
+
+    const { data } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    setRole(data?.role ?? null);
+    setReady(true);
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setEmail(session.user.email ?? "");
-        setUserId(session.user.id);
-        setReady(true);
-      }
+      if (session) resolveSession(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-        setEmail(session.user.email ?? "");
-        setUserId(session.user.id);
-        setReady(true);
+        resolveSession(session);
       }
     });
 
@@ -46,8 +57,12 @@ function SetPasswordForm() {
     e.preventDefault();
     setError(null);
 
-    if (!firstName.trim() || !lastName.trim() || !clientName.trim()) {
-      setError("First name, last name and client name are required.");
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First name and last name are required.");
+      return;
+    }
+    if (isCustomer && !clientName.trim()) {
+      setError("Client name is required.");
       return;
     }
     if (password.length < 8) {
@@ -70,9 +85,15 @@ function SetPasswordForm() {
       "Content-Type": "application/json",
     };
 
-    const slugifiedClientName = clientName.replaceAll(" ", "-");
-    const profileUpdate: Record<string, string> = { firstName, lastName, clientName: slugifiedClientName };
+    const profileUpdate: Record<string, string> = { firstName, lastName };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
+
+    let redirectPath = "/";
+    if (isCustomer) {
+      const slugifiedClientName = clientName.replaceAll(" ", "-");
+      profileUpdate.clientName = slugifiedClientName;
+      redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
+    }
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
       method: "PATCH",
@@ -87,7 +108,7 @@ function SetPasswordForm() {
     }
 
     setDone(true);
-    setTimeout(() => router.replace(`/${slugifiedClientName}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(redirectPath), 1500);
   }
 
   const inputClass =
@@ -145,7 +166,7 @@ function SetPasswordForm() {
 
               <input
                 className={inputClass}
-                placeholder="Client name"
+                placeholder={isCustomer ? "Client name" : "User name"}
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
               />
@@ -174,7 +195,7 @@ function SetPasswordForm() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !firstName || !lastName || !clientName || !password}
+                  disabled={submitting || !firstName || !lastName || (isCustomer && !clientName) || !password}
                 >
                   {submitting ? "Saving..." : "Save"}
                 </Button>
