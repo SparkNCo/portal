@@ -122,7 +122,7 @@ export default function DynamicForm({
                   }
                 } catch (error) {
                   toast.error("Error", {
-                    description: error?.message,
+                    description: error instanceof Error ? error.message : String(error),
                   });
                   return;
                 } finally {

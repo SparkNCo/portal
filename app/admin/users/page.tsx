@@ -138,7 +138,7 @@ export default function AdminUsersPage() {
     (acc, customer) => {
       acc[customer.id] = {
         customer,
-        developers: allAssignments.filter((a) => a.customer_id === customer.id),
+        developers: allAssignments.filter((a: Assignment) => a.customer_id === customer.id),
       };
       return acc;
     },

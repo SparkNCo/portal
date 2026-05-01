@@ -80,6 +80,8 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
         selectedDirect={selectedDirect}
         onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
         onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
+        onCloseGroup={(g) => { if (selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null); }}
+        onCloseDirect={(e) => { setDirectChats((prev) => prev.filter((d) => d.uid !== e.uid || d.title !== e.title)); if (selectedDirect?.uid === e.uid && selectedDirect?.title === e.title) setSelectedDirect(null); }}
         isCustomer={isCustomer}
         onCreateChat={() => setShowCreateModal(true)}
       />
