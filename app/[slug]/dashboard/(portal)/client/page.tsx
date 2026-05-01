@@ -6,7 +6,7 @@ import { PriorityTasks } from "@/components/client/priority-tasks";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useParams } from "next/navigation";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
@@ -38,9 +38,10 @@ export async function fetchPoliciesStatus(userId: string) {
 export default function ClientDashboard() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const { slug: urlSlug } = useParams<{ slug: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const slug = customerSlug ?? profile?.linear_slug ?? "";
+  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -135,6 +136,7 @@ export default function ClientDashboard() {
             />
           </div>
         </div>
+        <div onClick={() => console.log({customerSlug})}>VER customerSlug</div>
 
         <CreateIssue />
 

@@ -9,11 +9,13 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useQuery } from "@tanstack/react-query";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
+import { useParams } from "next/navigation";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const slug = customerSlug ?? profile?.linear_slug ?? "";
+  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const {
     data: roadmap,

@@ -4,18 +4,18 @@ import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { PROJECTS_QUERY } from "./query.ts";
 
 async function getCustomerBySlug(slug: string) {
+  console.log("getCustomerBySlug", slug);
+
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select(
       `
       linear_projects,
-      linear_initiative_id,
       linear_slug,
-      proposal_id,
-      stripe_customer_id
+      proposal_id
     `,
     )
-    .eq("linear_slug", slug)
+    .eq("clientName", slug)
     .maybeSingle();
 
   if (error) {
@@ -70,11 +70,12 @@ Deno.serve(async (req) => {
         },
       });
     }
+    console.log("slug", slug);
 
     // ✅ Fetch customer
     const customer = await getCustomerBySlug(slug);
 
-    if (!customer.linear_initiative_id) {
+    if (!customer.linear_slug) {
       return new Response(
         JSON.stringify({ error: "No Linear initiative configured" }),
         {
