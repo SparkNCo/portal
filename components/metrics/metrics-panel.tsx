@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useParams } from "next/navigation";
 import {
   Select,
   SelectContent,
@@ -21,10 +22,11 @@ interface Project {
   name: string;
 }
 
-export function MetricsPanel() {
+export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const slug = customerSlug ?? profile?.linear_slug ?? "";
+  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const slug = slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const [tab, setTab] = useState<Tab>("issues");
   const [selectedProjectId, setSelectedProjectId] = useState("");
 

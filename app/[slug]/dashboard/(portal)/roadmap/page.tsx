@@ -92,7 +92,7 @@ export default function RoadmapPage() {
           <SoftwareKPIs linearName={slug} />
         </div>
       </div>
-      <MetricsPanel />
+      <MetricsPanel slug={slug}/>
     </div>
   );
 }

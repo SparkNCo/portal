@@ -16,15 +16,29 @@ Deno.serve(async (req) => {
 
   try {
     const { searchParams } = new URL(req.url);
-    const linearName = decodeURIComponent(
-      searchParams.get("linear_name") ?? "",
-    );
+    const userName = decodeURIComponent(searchParams.get("linear_name") ?? "");
 
-    if (!linearName) {
+    if (!userName) {
+      return new Response(JSON.stringify({ error: "Missing userName param" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: userRow, error: userError } = await supabase
+      .from("users")
+      .select("linear_slug")
+      .eq("clientName", userName)
+      .maybeSingle();
+
+    if (userError) throw new Error(`User lookup error: ${userError.message}`);
+    if (!userRow?.linear_slug) {
       return new Response(
-        JSON.stringify({ error: "Missing linear_name param" }),
+        JSON.stringify({
+          error: `No linear_slug found for userName: ${userName}`,
+        }),
         {
-          status: 400,
+          status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
@@ -33,7 +47,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase
       .from("dorametrics")
       .select("*")
-      .eq("linear_slug", linearName)
+      .eq("linear_slug", userRow.linear_slug)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(`Supabase error: ${error.message}`);

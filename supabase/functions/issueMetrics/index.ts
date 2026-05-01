@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { supabase } from "../client.ts";
 import {
   getAllCustomers,
   upsertIssueMetrics,
@@ -22,9 +23,18 @@ async function handleGet(searchParams: URLSearchParams) {
   const slug = searchParams.get("slug");
   if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
 
+  const { data: userRow, error: userError } = await supabase
+    .from("users")
+    .select("linear_slug")
+    .eq("clientName", slug)
+    .maybeSingle();
+
+  if (userError) throw new Error(`User lookup error: ${userError.message}`);
+  if (!userRow?.linear_slug) return jsonResponse({ error: `No linear_slug found for: ${slug}` }, 404);
+
   const [issue_metrics, cycle_metrics] = await Promise.all([
-    getIssueMetricsByCustomerId(slug),
-    getCycleMetricsByCustomerId(slug),
+    getIssueMetricsByCustomerId(userRow.linear_slug),
+    getCycleMetricsByCustomerId(userRow.linear_slug),
   ]);
 
   return jsonResponse({ issue_metrics, cycle_metrics });

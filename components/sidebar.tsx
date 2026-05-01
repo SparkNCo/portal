@@ -29,6 +29,7 @@ const clientNavItems = [
 
 const developerNavItems = [
   { href: "dashboards", label: "Assignments", icon: LayoutGrid },
+  { href: "chat", label: "Chat", icon: MessageCircle },
 ];
 
 const adminNavItems = [

@@ -136,8 +136,6 @@ export default function ClientDashboard() {
             />
           </div>
         </div>
-        <div onClick={() => console.log({customerSlug})}>VER customerSlug</div>
-
         <CreateIssue />
 
         <div className="grid gap-6 lg:grid-cols-2">
