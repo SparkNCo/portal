@@ -58,14 +58,15 @@ export default function LoginForm({
 
   useEffect(() => {
     if (customer) {
-      if (customer.role === "admin") {
+      if (customer?.role === "admin") {
         router.push(`/${customer.clientName}/dashboard/admin`);
+      } else if (customer?.role === "developer") {
+        router.push(`/${customer.clientName}/dashboard/dashboards`);
       } else {
         router.push(`/${customer.clientName}/dashboard/client`);
       }
       onLoginSuccess(customer.email);
     }
-
   }, [customer, customerError]);
 
   const login = async (e?: React.FormEvent) => {

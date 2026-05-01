@@ -63,7 +63,7 @@ function CustomerCard({
   readonly linear_slug: string;
 }) {
   return (
-    <Link href={`dashboards?customer=${linear_slug}&panel=client`}>
+    <Link href={`dashboards?customer=${clientName}&panel=client`}>
       <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
           <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
@@ -150,7 +150,7 @@ function DashboardsContent() {
   const cards: CustomerSummary[] = isAdmin
     ? (allCustomers ?? [])
     : (assignments ?? [])
-        .filter((a) => a.linear_slug)
+        .filter((a) => a.clientName)
         .map((a) => ({
           clientName: a.clientName,
           linear_slug: a.linear_slug,
@@ -170,7 +170,7 @@ function DashboardsContent() {
         <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
             <CustomerCard
-              key={c.linear_slug}
+              key={c.clientName}
               email={c.email}
               clientName={c.clientName}
               linear_slug={c.linear_slug}

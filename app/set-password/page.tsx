@@ -87,13 +87,12 @@ function SetPasswordForm() {
       "Content-Type": "application/json",
     };
 
-    const profileUpdate: Record<string, string> = { firstName, lastName };
+    const slugifiedClientName = clientName.trim().replaceAll(" ", "-");
+    const profileUpdate: Record<string, string> = { firstName, lastName, clientName: slugifiedClientName };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
     let redirectPath = "/";
     if (isCustomer) {
-      const slugifiedClientName = clientName.replaceAll(" ", "-");
-      profileUpdate.clientName = slugifiedClientName;
       redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
     }
 
@@ -169,7 +168,7 @@ function SetPasswordForm() {
 
               <input
                 className={inputClass}
-                placeholder={isCustomer ? "Client name" : "User name"}
+                placeholder="Client name"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
               />
