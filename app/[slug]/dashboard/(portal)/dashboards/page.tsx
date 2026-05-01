@@ -123,9 +123,8 @@ function DashboardsContent() {
     enabled: isDeveloper && !!profile?.id,
   });
 
-  if (loading) return <LoadingDataPanel />;
-
-  // If a specific customer dashboard is selected, render it
+  // If a specific customer dashboard is selected, render it immediately
+  // without waiting for the profile — ClientDashboard uses customerSlug from context
   if (customer) {
     return (
       <CustomerSlugProvider value={customer}>
@@ -133,6 +132,8 @@ function DashboardsContent() {
       </CustomerSlugProvider>
     );
   }
+
+  if (loading) return <LoadingDataPanel />;
 
   const isLoading = isAdmin ? customersLoading : assignmentsLoading;
 

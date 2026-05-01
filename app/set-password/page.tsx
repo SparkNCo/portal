@@ -6,9 +6,11 @@ import { supabase } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound } from "lucide-react";
+import { useUser } from "context/UserContext";
 
 function SetPasswordForm() {
   const router = useRouter();
+  const { reloadUser } = useUser();
 
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
@@ -92,7 +94,7 @@ function SetPasswordForm() {
     if (isCustomer) {
       const slugifiedClientName = clientName.replaceAll(" ", "-");
       profileUpdate.clientName = slugifiedClientName;
-      redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
+      redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
     }
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
@@ -108,7 +110,8 @@ function SetPasswordForm() {
     }
 
     setDone(true);
-    setTimeout(() => router.replace(redirectPath), 1500);
+    await reloadUser();
+    router.replace(redirectPath);
   }
 
   const inputClass =

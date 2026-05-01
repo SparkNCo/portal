@@ -4,19 +4,30 @@ import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
 
+const INITIATIVE_PROJECTS_QUERY = `
+  query InitiativeProjects($initiativeId: String!) {
+    initiative(id: $initiativeId) {
+      projects(first: 50) {
+        nodes { id }
+      }
+    }
+  }
+`;
+
 async function getCustomerBySlug(slug: string) {
+  console.log("getCustomerBySlug", slug);
+
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select(
       `
+      id,
       linear_projects,
-      linear_initiative_id,
       linear_slug,
-      proposal_id,
-      stripe_customer_id
+      proposal_id
     `,
     )
-    .eq("linear_slug", slug)
+    .eq("clientName", slug)
     .maybeSingle();
 
   if (error) {
@@ -29,6 +40,38 @@ async function getCustomerBySlug(slug: string) {
   }
 
   return data;
+}
+
+async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<string[]> {
+  const res = await fetch(LINEAR_GRAPHQL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: Deno.env.get("LINEAR_API_KEY")!,
+    },
+    body: JSON.stringify({ query: INITIATIVE_PROJECTS_QUERY, variables: { initiativeId } }),
+  });
+
+  const json = await res.json();
+
+  if (json.errors) {
+    throw new Error(`Linear API error: ${json.errors[0]?.message}`);
+  }
+
+  const projectIds: string[] = (json.data?.initiative?.projects?.nodes ?? []).map((p: any) => p.id);
+
+  return projectIds;
+}
+
+async function saveLinearProjects(userId: string, projectIds: string[]) {
+  const { error } = await supabase
+    .from("users")
+    .update({ linear_projects: projectIds })
+    .eq("id", userId);
+
+  if (error) {
+    console.error("Failed to save linear_projects:", error);
+  }
 }
 
 async function fetchIssuesFromLinear(
@@ -91,14 +134,25 @@ export async function handleGetIssues(req: Request): Promise<Response> {
 
   const customer = await getCustomerBySlug(slug);
 
-  if (!customer.linear_projects?.length) {
-    throw new Error("No Linear projects configured");
+  let projectIds: string[] = customer.linear_projects ?? [];
+
+  if (!projectIds.length) {
+    if (!customer.linear_slug) {
+      throw new Error("No Linear projects configured and no linear_slug to look them up");
+    }
+
+    console.log(`No projects stored for ${slug}, fetching from Linear initiative: ${customer.linear_slug}`);
+    projectIds = await fetchLinearProjectsByInitiative(customer.linear_slug);
+
+    if (!projectIds.length) {
+      throw new Error(`No projects found in Linear for initiative: ${customer.linear_slug}`);
+    }
+
+    await saveLinearProjects(customer.id, projectIds);
+    console.log(`Saved ${projectIds.length} projects for ${slug}`);
   }
 
-  const issues = await fetchIssuesFromLinear(
-    customer.linear_projects,
-    ticketStatuses,
-  );
+  const issues = await fetchIssuesFromLinear(projectIds, ticketStatuses);
 
   return Response.json(issues);
 }

@@ -16,12 +16,14 @@ type UserContextType = {
   user: any;
   profile: Profile | null;
   loading: boolean;
+  reloadUser: () => Promise<void>;
 };
 
 const UserContext = createContext<UserContextType>({
   user: null,
   profile: null,
   loading: true,
+  reloadUser: async () => {},
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
@@ -96,7 +98,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const value = useMemo(() => ({ user, profile, loading }), [user, profile, loading]);
+  const value = useMemo(() => ({ user, profile, loading, reloadUser: loadUser }), [user, profile, loading]);
 
   return (
     <UserContext.Provider value={value}>
