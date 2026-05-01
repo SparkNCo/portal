@@ -63,7 +63,7 @@ function SetPasswordForm() {
       setError("First name and last name are required.");
       return;
     }
-    if (isCustomer && !clientName.trim()) {
+    if (!clientName.trim()) {
       setError("Client name is required.");
       return;
     }
@@ -91,7 +91,7 @@ function SetPasswordForm() {
     const profileUpdate: Record<string, string> = { firstName, lastName, clientName: slugifiedClientName };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
-    let redirectPath = "/";
+    let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
     if (isCustomer) {
       redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
     }
@@ -197,7 +197,7 @@ function SetPasswordForm() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !firstName || !lastName || (isCustomer && !clientName) || !password}
+                  disabled={submitting || !firstName || !lastName || !clientName || !password}
                 >
                   {submitting ? "Saving..." : "Save"}
                 </Button>
