@@ -12,7 +12,6 @@ import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 
-// 🔹 Fetch issues for dashboard
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
 
@@ -43,6 +42,8 @@ export default function ClientDashboard() {
   const pathname = usePathname();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const userId = profile?.id;
+  // TODO: replace with real Linear project ID from global state / profile
+  const linearProjectId = "36c538b0-e1ca-4ad2-95a8-8d1f53b36d2c";
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -136,7 +137,7 @@ export default function ClientDashboard() {
             />
           </div>
         </div>
-        <CreateIssue />
+        <CreateIssue slug={slug} projectId={linearProjectId} />
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/*     <VelocityMetrics />

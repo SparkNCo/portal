@@ -2,6 +2,7 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { handleGetIssues } from "./fetchIssues.ts";
 import { handleAddComment, handleUpdateState } from "./updateIsste.ts";
+import { handleCreateIssue } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -10,9 +11,12 @@ Deno.serve(async (req) => {
 
   try {
     let res: Response;
+    const pathname = new URL(req.url).pathname;
 
     if (req.method === "GET") {
       res = await handleGetIssues(req);
+    } else if (req.method === "POST" && pathname.endsWith("/create")) {
+      res = await handleCreateIssue(req);
     } else if (req.method === "POST") {
       res = await handleAddComment(req);
     } else if (req.method === "PATCH") {
