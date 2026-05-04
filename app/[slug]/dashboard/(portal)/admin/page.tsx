@@ -24,7 +24,7 @@ export default function AdminPage() {
     <div className="min-h-screen">
       <Header title="Admin Panel" subtitle="Manage users and settings" />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <AdminUsersPage />
       </div>
     </div>

@@ -7,7 +7,7 @@ export default function DocumentsPage() {
     <div className="min-h-screen">
       <Header title="Documents" subtitle="Artifacts, reports, and uploads" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <DocumentsList />

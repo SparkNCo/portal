@@ -207,7 +207,7 @@ export default function LoginForm({
 
       <form
         onSubmit={login}
-        className="flex flex-col items-center w-[500px] h-[600px] p-8 bg-card shadow-lg space-y-6 relative"
+        className="flex flex-col items-center w-full max-w-[500px] min-h-[600px] h-auto p-6 md:p-8 bg-card shadow-lg space-y-6 relative"
       >
         {/* Public image at the top */}
         <img

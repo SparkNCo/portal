@@ -63,7 +63,7 @@ export default function SetPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-96 bg-background border-border shadow-lg">
+      <Card className="w-full max-w-sm bg-background border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <KeyRound className="h-4 w-4 text-accent" />

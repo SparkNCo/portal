@@ -9,8 +9,8 @@ export default function DeveloperDashboard() {
     <div className="min-h-screen">
       <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
 
-      <div className="p-6 space-y-6">
-        <div className="grid gap-6 lg:grid-cols-2">
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <QuickLinks />
           <ToolShortcuts />
         </div>

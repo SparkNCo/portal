@@ -15,9 +15,11 @@ import {
   LayoutGrid,
   ChevronLeft,
   MessageCircle,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
+import { useSidebar } from "@/lib/sidebar-context";
 
 const clientNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
@@ -75,15 +77,30 @@ export function Sidebar() {
     router.push("/");
   };
 
+  const { isOpen, close } = useSidebar();
+
   if (!profile) return null;
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-40 flex h-screen w-full sm:w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200",
+        "lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <Building2 className="h-5 w-5 text-accent" />
-        <span className="font-semibold text-sidebar-foreground">
+        <span className="flex-1 font-semibold text-sidebar-foreground">
           Agency Portal
         </span>
+        <button
+          onClick={close}
+          className="lg:hidden rounded-md p-1 text-muted-foreground hover:text-sidebar-foreground"
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
       <div className="p-3">
         <div className="flex w-full items-center rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-foreground">
@@ -96,6 +113,7 @@ export function Sidebar() {
           <>
             <Link
               href="dashboards"
+              onClick={close}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
               <ChevronLeft className="h-3 w-3" />
@@ -105,6 +123,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={`dashboards?customer=${selectedCustomer}&panel=${item.href}`}
+                onClick={close}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   selectedPanel === item.href
@@ -129,6 +148,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={hrefWithParams}
+                onClick={close}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive

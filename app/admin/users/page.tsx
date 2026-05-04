@@ -84,18 +84,19 @@ export default function AdminUsersPage() {
 
   const customerIds = customers.map((c) => c.id);
 
-  const { data: allAssignments = [], isLoading: allAssignmentsLoading } = useQuery({
-    queryKey: ["all-assignments", customerIds],
-    enabled: customerIds.length > 0,
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds.join(",")}`,
-        { headers: apiHeaders },
-      );
-      if (!res.ok) throw new Error("Failed to fetch assignments");
-      return res.json();
-    },
-  });
+  const { data: allAssignments = [], isLoading: allAssignmentsLoading } =
+    useQuery({
+      queryKey: ["all-assignments", customerIds],
+      enabled: customerIds.length > 0,
+      queryFn: async () => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds.join(",")}`,
+          { headers: apiHeaders },
+        );
+        if (!res.ok) throw new Error("Failed to fetch assignments");
+        return res.json();
+      },
+    });
 
   // ── Developer assignments (expanded user panel) ──
   const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
@@ -134,19 +135,22 @@ export default function AdminUsersPage() {
     });
 
   // Group assignments by customer_id for the Projects view
-  const projectsMap = customers.reduce<Record<string, { customer: User; developers: Assignment[] }>>(
-    (acc, customer) => {
-      acc[customer.id] = {
-        customer,
-        developers: allAssignments.filter((a: Assignment) => a.customer_id === customer.id),
-      };
-      return acc;
-    },
-    {},
-  );
+  const projectsMap = customers.reduce<
+    Record<string, { customer: User; developers: Assignment[] }>
+  >((acc, customer) => {
+    acc[customer.id] = {
+      customer,
+      developers: allAssignments.filter(
+        (a: Assignment) => a.customer_id === customer.id,
+      ),
+    };
+    return acc;
+  }, {});
 
   const userAssignments =
-    expandedUser?.role === "customer" ? customerAssignments : developerAssignments;
+    expandedUser?.role === "customer"
+      ? customerAssignments
+      : developerAssignments;
   const assignmentsLoading =
     expandedUser?.role === "customer"
       ? customerAssignmentsLoading
@@ -156,18 +160,27 @@ export default function AdminUsersPage() {
     if (roleFilter && u.role !== roleFilter) return false;
     if (search) {
       const q = search.toLowerCase();
-      return u.email?.toLowerCase().includes(q) || u.userName?.toLowerCase().includes(q);
+      return (
+        u.email?.toLowerCase().includes(q) ||
+        u.userName?.toLowerCase().includes(q)
+      );
     }
     return true;
   });
 
   const { mutate: assignUser } = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/assignments`, {
-        method: "POST",
-        headers: apiHeaders,
-        body: JSON.stringify({ user_id: assigningUserId, customer_id: selectedCustomer }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments`,
+        {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify({
+            user_id: assigningUserId,
+            customer_id: selectedCustomer,
+          }),
+        },
+      );
       if (!res.ok) throw new Error("Failed to assign user");
       return res.json();
     },
@@ -180,22 +193,41 @@ export default function AdminUsersPage() {
   });
 
   if (loading || !profile?.role) {
-    return <div className="h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+    return (
+      <div className="h-screen flex items-center justify-center text-muted-foreground">
+        Loading...
+      </div>
+    );
   }
   if (profile.role !== "admin") {
-    return <div className="h-screen flex items-center justify-center text-destructive">Not authorized</div>;
+    return (
+      <div className="h-screen flex items-center justify-center text-destructive">
+        Not authorized
+      </div>
+    );
   }
   if (usersLoading) {
-    return <div className="h-screen flex items-center justify-center text-muted-foreground">Loading users...</div>;
+    return (
+      <div className="h-screen flex items-center justify-center text-muted-foreground">
+        Loading users...
+      </div>
+    );
   }
   if (error) {
-    return <div className="h-screen flex items-center justify-center text-destructive">Error loading users</div>;
+    return (
+      <div className="h-screen flex items-center justify-center text-destructive">
+        Error loading users
+      </div>
+    );
   }
-
   return (
-    <div className="p-6 space-y-4">
-      {showAddDevModal && <AddDeveloperModal onClose={() => setShowAddDevModal(false)} />}
-      {showAddCustomerModal && <AddClientModal onClose={() => setShowAddCustomerModal(false)} />}
+    <div className="sm:px-6 py-6 space-y-4 ">
+      {showAddDevModal && (
+        <AddDeveloperModal onClose={() => setShowAddDevModal(false)} />
+      )}
+      {showAddCustomerModal && (
+        <AddClientModal onClose={() => setShowAddCustomerModal(false)} />
+      )}
       {assigningUserId && (
         <AssignCustomerModal
           userId={assigningUserId}
@@ -232,13 +264,23 @@ export default function AdminUsersPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowAddDevModal(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={() => setShowAddDevModal(true)}
+          >
             <UserPlus className="h-4 w-4" />
-            Add Developer
+            <span className="hidden sm:inline">Add Developer</span>
           </Button>
-          <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowAddCustomerModal(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={() => setShowAddCustomerModal(true)}
+          >
             <UserPlus className="h-4 w-4" />
-            Add Customer
+            <span className="hidden sm:inline">Add Customer</span>
           </Button>
         </div>
       </div>
@@ -269,7 +311,9 @@ export default function AdminUsersPage() {
                 {(["admin", "developer", "customer"] as const).map((role) => (
                   <button
                     key={role}
-                    onClick={() => setRoleFilter(roleFilter === role ? null : role)}
+                    onClick={() =>
+                      setRoleFilter(roleFilter === role ? null : role)
+                    }
                     className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
                       roleFilter === role
                         ? `${roleColors[role]} border-current`
@@ -293,17 +337,28 @@ export default function AdminUsersPage() {
               {filteredUsers.map((u: User) => {
                 const isExpanded = expandedUser?.id === u.id;
                 return (
-                  <div key={u.id} className="rounded-lg border border-border bg-secondary/30 transition-colors group">
+                  <div
+                    key={u.id}
+                    className="rounded-lg border border-border bg-secondary/30 transition-colors group"
+                  >
                     <div className="flex items-center justify-between p-3 hover:bg-secondary/50">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
                           {getInitials(u.email)}
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors">
+                        <div className="min-w-0">
+                          <p
+                            title={u.email}
+                            className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate max-w-[15ch]"
+                          >
                             {u.email}
                           </p>
-                          <Badge variant="secondary" className={roleColors[u.role] ?? "bg-muted text-foreground"}>
+                          <Badge
+                            variant="secondary"
+                            className={
+                              roleColors[u.role] ?? "bg-muted text-foreground"
+                            }
+                          >
                             {u.role}
                           </Badge>
                         </div>
@@ -329,7 +384,11 @@ export default function AdminUsersPage() {
                           className="h-8 w-8"
                           onClick={() => setExpandedUser(isExpanded ? null : u)}
                         >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -337,45 +396,92 @@ export default function AdminUsersPage() {
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-3 border-t border-border">
                         {assignmentsLoading && (
-                          <p className="text-sm text-muted-foreground animate-pulse">Loading...</p>
+                          <p className="text-sm text-muted-foreground animate-pulse">
+                            Loading...
+                          </p>
                         )}
-                        {!assignmentsLoading && userAssignments?.length === 0 && (
-                          <p className="text-sm text-muted-foreground">No assignments found</p>
-                        )}
+                        {!assignmentsLoading &&
+                          userAssignments?.length === 0 && (
+                            <p className="text-sm text-muted-foreground">
+                              No assignments found
+                            </p>
+                          )}
                         {!assignmentsLoading && userAssignments?.length > 0 && (
                           <div className="space-y-2">
                             {expandedUser?.role === "customer"
                               ? userAssignments.map((a: Assignment) => (
-                                  <div key={a.user_id} className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm">
-                                    <div className="flex items-center gap-3">
-                                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                  <div
+                                    key={a.user_id}
+                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
                                         {a.email?.slice(0, 2).toUpperCase()}
                                       </div>
-                                      <div>
-                                        <p className="font-medium text-card-foreground">{a.email}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">{a.role}</p>
+                                      <div className="min-w-0">
+                                        <p
+                                          title={a.email}
+                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                        >
+                                          {a.email}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground capitalize">
+                                          {a.role}
+                                        </p>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                      {a.joined && <span>Joined {new Date(a.joined).toLocaleDateString()}</span>}
-                                      {a.allocation && <span className="font-medium text-foreground">{a.allocation}h/week</span>}
+                                      {a.joined && (
+                                        <span>
+                                          Joined{" "}
+                                          {new Date(
+                                            a.joined,
+                                          ).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                      {a.allocation && (
+                                        <span className="font-medium text-foreground">
+                                          {a.allocation}h/week
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 ))
                               : userAssignments.map((a: any) => (
-                                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm">
-                                    <div className="flex items-center gap-3">
-                                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                                        {a.customer_email?.slice(0, 2).toUpperCase()}
+                                  <div
+                                    key={a.id}
+                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                        {a.customer_email
+                                          ?.slice(0, 2)
+                                          .toUpperCase()}
                                       </div>
-                                      <div>
-                                        <p className="font-medium text-card-foreground">{a.customer_email}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">Customer</p>
+                                      <div className="min-w-0">
+                                        <p
+                                          title={a.customer_email}
+                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                        >
+                                          {a.customer_email}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground capitalize">
+                                          Customer
+                                        </p>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                      {a.joined && <span>Joined {new Date(a.joined).toLocaleDateString()}</span>}
-                                      <span className="font-medium text-foreground">{a.allocation}h/week</span>
+                                      {a.joined && (
+                                        <span>
+                                          Joined{" "}
+                                          {new Date(
+                                            a.joined,
+                                          ).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                      <span className="font-medium text-foreground">
+                                        {a.allocation}h/week
+                                      </span>
                                     </div>
                                   </div>
                                 ))}
@@ -402,27 +508,39 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             {allAssignmentsLoading && (
-              <p className="text-sm text-muted-foreground animate-pulse">Loading projects...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Loading projects...
+              </p>
             )}
 
             {!allAssignmentsLoading && customers.length === 0 && (
               <div className="text-center py-8">
                 <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No customers yet</p>
+                <p className="text-sm text-muted-foreground">
+                  No customers yet
+                </p>
               </div>
             )}
 
             {!allAssignmentsLoading && (
               <div className="space-y-4">
                 {Object.values(projectsMap).map(({ customer, developers }) => (
-                  <div key={customer.id} className="rounded-lg border border-border bg-secondary/30">
+                  <div
+                    key={customer.id}
+                    className="rounded-lg border border-border bg-secondary/30"
+                  >
                     {/* Customer header */}
                     <div className="flex items-center gap-3 p-3 border-b border-border">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
                         {getInitials(customer.email)}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-card-foreground">{customer.email}</p>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          title={customer.email}
+                          className="text-sm font-semibold text-card-foreground truncate max-w-[15ch]"
+                        >
+                          {customer.email}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {developers.length === 0
                             ? "No assignees"
@@ -433,24 +551,43 @@ export default function AdminUsersPage() {
 
                     {/* Developers */}
                     {developers.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-muted-foreground">No developers assigned yet.</p>
+                      <p className="px-4 py-3 text-sm text-muted-foreground">
+                        No developers assigned yet.
+                      </p>
                     ) : (
                       <div className="divide-y divide-border">
                         {developers.map((dev) => (
-                          <div key={dev.user_id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
+                          <div
+                            key={dev.user_id}
+                            className="flex items-center justify-between px-4 py-2.5 text-sm"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
                                 {dev.email?.slice(0, 2).toUpperCase()}
                               </div>
-                              <div>
-                                <p className="font-medium text-card-foreground">{dev.email}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{dev.role}</p>
+                              <div className="min-w-0">
+                                <p
+                                  title={dev.email}
+                                  className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                >
+                                  {dev.email}
+                                </p>
+                                <p className="text-xs text-muted-foreground capitalize">
+                                  {dev.role}
+                                </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              {dev.joined && <span>Joined {new Date(dev.joined).toLocaleDateString()}</span>}
+                              {dev.joined && (
+                                <span>
+                                  Joined{" "}
+                                  {new Date(dev.joined).toLocaleDateString()}
+                                </span>
+                              )}
                               {dev.allocation && (
-                                <span className="font-medium text-foreground">{dev.allocation}h/week</span>
+                                <span className="font-medium text-foreground">
+                                  {dev.allocation}h/week
+                                </span>
                               )}
                             </div>
                           </div>

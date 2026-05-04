@@ -6,6 +6,10 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
+    --sidebar: 240 5% 96%;
+    --sidebar-border: 240 5.9% 88%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-accent: 240 4.8% 90%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
@@ -39,6 +43,10 @@
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
+    --sidebar: 240 5% 8%;
+    --sidebar-border: 240 3.7% 18%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-accent: 240 3.7% 15%;
     --card: 30 27% 95%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;

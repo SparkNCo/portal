@@ -6,7 +6,7 @@ export default function SettingsPage() {
     <div className="min-h-screen">
       <Header title="Settings" subtitle="Manage your project and account" />
 
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <SettingsTabs />
       </div>
     </div>
