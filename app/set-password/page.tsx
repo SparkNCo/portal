@@ -15,7 +15,9 @@ function SetPasswordForm() {
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<"customer" | "developer" | "admin" | null>(null);
+  const [role, setRole] = useState<"customer" | "developer" | "admin" | null>(
+    null,
+  );
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [clientName, setClientName] = useState("");
@@ -27,7 +29,9 @@ function SetPasswordForm() {
 
   const isCustomer = role === "customer";
 
-  async function resolveSession(session: { user: { id: string; email?: string } }) {
+  async function resolveSession(session: {
+    user: { id: string; email?: string };
+  }) {
     setEmail(session.user.email ?? "");
     setUserId(session.user.id);
 
@@ -46,7 +50,9 @@ function SetPasswordForm() {
       if (session) resolveSession(session);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
         resolveSession(session);
       }
@@ -88,7 +94,11 @@ function SetPasswordForm() {
     };
 
     const slugifiedClientName = clientName.trim().replaceAll(" ", "-");
-    const profileUpdate: Record<string, string> = { firstName, lastName, clientName: slugifiedClientName };
+    const profileUpdate: Record<string, string> = {
+      firstName,
+      lastName,
+      clientName: slugifiedClientName,
+    };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
     let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
@@ -137,7 +147,9 @@ function SetPasswordForm() {
           )}
 
           {done && (
-            <p className="text-sm text-green-500">Password set! Redirecting...</p>
+            <p className="text-sm text-green-500">
+              Password set! Redirecting...
+            </p>
           )}
 
           {ready && !done && (
@@ -168,7 +180,7 @@ function SetPasswordForm() {
 
               <input
                 className={inputClass}
-                placeholder="Client name"
+                placeholder={isCustomer ? "Client name" : "User name"}
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
               />
@@ -177,7 +189,9 @@ function SetPasswordForm() {
                 className={inputClass}
                 placeholder="Phone number (optional)"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))}
+                onChange={(e) =>
+                  setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
+                }
               />
 
               <input
@@ -189,15 +203,19 @@ function SetPasswordForm() {
                 autoComplete="new-password"
               />
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <div className="flex justify-end">
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting || !firstName || !lastName || !clientName || !password}
+                  disabled={
+                    submitting ||
+                    !firstName ||
+                    !lastName ||
+                    !clientName ||
+                    !password
+                  }
                 >
                   {submitting ? "Saving..." : "Save"}
                 </Button>
