@@ -4,7 +4,12 @@ import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
 import { DevTasks } from "@/components/developer/dev-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
 
-export default function DeveloperDashboard() {
+export default function DeveloperDashboard({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const { slug } = params;
   return (
     <div className="min-h-screen">
       <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
@@ -16,7 +21,7 @@ export default function DeveloperDashboard() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
-          <CreateIssue />
+          <CreateIssue slug={slug} />
           <DevTasks />
         </div>
       </div>

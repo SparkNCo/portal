@@ -38,12 +38,12 @@ const apiHeaders = {
   "Content-Type": "application/json",
 };
 
-function PanelRenderer({ panel }: { readonly panel: string }) {
+function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug: string }) {
   switch (panel) {
     case "roadmap":
       return <RoadmapPage />;
     case "developer":
-      return <DeveloperPage />;
+      return <DeveloperPage params={{ slug }} />;
     case "documents":
       return <DocumentsPage />;
     case "settings":
@@ -128,7 +128,7 @@ function DashboardsContent() {
   if (customer) {
     return (
       <CustomerSlugProvider value={customer}>
-        <PanelRenderer panel={panel} />
+        <PanelRenderer panel={panel} slug={customer} />
       </CustomerSlugProvider>
     );
   }
