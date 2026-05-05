@@ -108,6 +108,7 @@ export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
   onOpenChat?: (title: string) => void;
+  title?: string;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -385,7 +386,7 @@ function IssueDetailModal({
   );
 }
 
-export function PriorityTasks({ issuesData, filterState, onOpenChat }: PriorityTasksProps) {
+export function PriorityTasks({ issuesData, filterState, onOpenChat, title = "Priority Tasks" }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -408,7 +409,7 @@ export function PriorityTasks({ issuesData, filterState, onOpenChat }: PriorityT
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
-          Priority Tasks
+          {title}
         </CardTitle>
         <div className="flex items-center gap-1">
           <div className="relative">
