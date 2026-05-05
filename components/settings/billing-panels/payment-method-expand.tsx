@@ -19,14 +19,14 @@ export function PaymentMethodPanel({
   if (!paymentMethod) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-between ">
+        <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
           <div>
-            <p className="text-sm text-muted-foreground mt-4">Payment Method</p>
+            <p className="text-sm text-muted-foreground">Payment Method</p>
             <p className="text-base font-medium text-muted-foreground">
               No payment method added
             </p>
           </div>
-          <Button size="sm" onClick={onUpdatePaymentMethod}>
+          <Button size="sm" className="self-start sm:self-auto" onClick={onUpdatePaymentMethod}>
             Add Card
           </Button>
         </CardContent>
@@ -36,14 +36,13 @@ export function PaymentMethodPanel({
 
   return (
     <Card className="bg-background">
-      <CardContent className="flex items-center justify-between space-x-4">
+      <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
             <CreditCard className="h-6 w-6 text-muted-foreground" />
           </div>
-
           <div>
-            <p className="text-sm text-muted-foreground mt-4">Payment Method</p>
+            <p className="text-sm text-muted-foreground">Payment Method</p>
             <p className="text-lg font-semibold">
               {paymentMethod.brand.toUpperCase()} ****{paymentMethod.last4}
             </p>
@@ -52,8 +51,7 @@ export function PaymentMethodPanel({
             </p>
           </div>
         </div>
-
-        <Button size="sm" onClick={onUpdatePaymentMethod}>
+        <Button size="sm" className="self-start sm:self-auto" onClick={onUpdatePaymentMethod}>
           Update Card
         </Button>
       </CardContent>

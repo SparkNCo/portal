@@ -86,13 +86,14 @@ export default function RoadmapPage() {
       <Header title="Roadmap" subtitle="Project timeline and progress" />
       <div className="p-4 md:p-6 space-y-6">
         <RoadmapTimeline projectMilestones={allMilestones} />
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <VelocityMetrics />
+        <div className="grid gap-6 lg:grid-cols-2 ">
+          {/* <VelocityMetrics /> */}
           <SoftwareKPIs linearName={slug} />
         </div>
       </div>
-      <MetricsPanel slug={slug}/>
+      <div className="px-4 md:px-6 pb-6">
+        <MetricsPanel slug={slug}/>
+      </div>
     </div>
   );
 }

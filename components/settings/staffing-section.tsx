@@ -73,7 +73,7 @@ export function StaffingSection() {
 
   return (
     <Card className="bg-background border-border">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <Users className="h-4 w-4 text-accent" />
           Team Members
@@ -112,25 +112,22 @@ export function StaffingSection() {
           {teamMembers.map((member: any, i: number) => (
             <div
               key={i}
-              className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-4"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-secondary/30 p-4"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
                   {member.avatar}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-background-foreground">
+                    <p title={member.name} className="text-sm font-medium text-background-foreground truncate max-w-[15ch]">
                       {member.name}
                     </p>
-                    <Badge
-                      variant="secondary"
-                      className={statusColors["active"]}
-                    >
+                    <Badge variant="secondary" className={statusColors["active"]}>
                       active
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p title={member.email} className="text-xs text-muted-foreground truncate max-w-[20ch]">
                     {member.email}
                   </p>
                   <p className="text-xs text-muted-foreground capitalize">
@@ -139,20 +136,18 @@ export function StaffingSection() {
                 </div>
               </div>
 
-              <div className="flex flex-row items-center gap-4">
+              <div className="flex items-center gap-4 sm:shrink-0">
                 {member.joined && (
-                  <div className="flex items-center gap-2 mr-4">
+                  <div className="flex items-center gap-2">
                     <p className="text-xs text-muted-foreground">Joined</p>
                     <p className="text-sm text-background-foreground">
                       {new Date(member.joined).toLocaleDateString()}
                     </p>
                   </div>
                 )}
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-sm text-background-foreground">
-                    <Clock className="h-3 w-3" />
-                    {member.hours}h/week
-                  </div>
+                <div className="flex items-center gap-1 text-sm text-background-foreground">
+                  <Clock className="h-3 w-3" />
+                  {member.hours}h/week
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <Mail className="h-4 w-4" />

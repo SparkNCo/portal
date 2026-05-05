@@ -68,24 +68,18 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
       {visible.map((invoice) => (
         <div
           key={invoice.id}
-          className="flex items-center justify-between rounded-lg border p-5 w-full"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-4 w-full"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-              <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
             </div>
-
-            <div>
-              <p className="text-sm font-medium">
-                {formatDateFromUnix(invoice.created)}
-              </p>
-              {/* <p className="text-xs text-muted-foreground">
-                 {invoice.id}
-              </p> */}
-            </div>
+            <p className="text-sm font-medium">
+              {formatDateFromUnix(invoice.created)}
+            </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
             {(() => {
               const { paid, due, remaining, isFullyPaid } =
                 getInvoiceAmounts(invoice);

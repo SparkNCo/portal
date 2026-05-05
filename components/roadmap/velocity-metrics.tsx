@@ -28,7 +28,7 @@ const stats = [
 
 export function VelocityMetrics() {
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border ">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-accent" />

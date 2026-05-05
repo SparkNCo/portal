@@ -127,7 +127,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
             <SelectContent>
-              {cycles.map((c: any) => (
+              {[...cycles].reverse().map((c: any) => (
                 <SelectItem key={c.cycle_id} value={c.cycle_id}>
                   Cycle {c.number}
                 </SelectItem>
@@ -136,22 +136,28 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           </Select>
         )}
 
-        <label htmlFor="metrics-date-from" className="text-sm text-muted-foreground">From</label>
-        <input
-          id="metrics-date-from"
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-        <label htmlFor="metrics-date-to" className="text-sm text-muted-foreground">To</label>
-        <input
-          id="metrics-date-to"
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <label htmlFor="metrics-date-from" className="text-sm text-muted-foreground w-8">From</label>
+            <input
+              id="metrics-date-from"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="metrics-date-to" className="text-sm text-muted-foreground w-8">To</label>
+            <input
+              id="metrics-date-to"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        </div>
         {(dateFrom || dateTo) && (
           <button
             onClick={() => {
