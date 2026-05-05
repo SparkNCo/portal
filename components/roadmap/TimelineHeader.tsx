@@ -40,11 +40,7 @@ interface TimelineMonthsHeaderProps {
    Components
 ========================= */
 
-export function TimelineHeader({
-  year,
-  onPrev,
-  onNext,
-}: TimelineHeaderProps) {
+export function TimelineHeader({ year, onPrev, onNext }: TimelineHeaderProps) {
   return (
     <CardHeader className="flex flex-row justify-between">
       <CardTitle className="flex items-center gap-2">
@@ -70,19 +66,15 @@ export function TimelineHeader({
   );
 }
 
-export function TimelineMonthsHeader({
-  year,
-}: TimelineMonthsHeaderProps) {
+export function TimelineMonthsHeader({ year }: TimelineMonthsHeaderProps) {
   const now = new Date();
-
   return (
     <div className="flex border-b pb-2 mb-4">
       <div className="w-56" />
       <div className="flex-1 grid grid-cols-12 gap-1">
         {months.map((month, i) => {
           const isCurrentMonth =
-            i === now.getMonth() &&
-            year === now.getFullYear();
+            i === now.getMonth() && year === now.getFullYear();
 
           return (
             <div
@@ -91,7 +83,7 @@ export function TimelineMonthsHeader({
                 "text-xs text-center py-1 rounded",
                 isCurrentMonth
                   ? "bg-accent/20 text-accent"
-                  : "text-muted-foreground"
+                  : "text-muted-foreground",
               )}
             >
               {month.slice(0, 3)}

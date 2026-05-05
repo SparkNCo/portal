@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { RefreshCw } from "lucide-react";
+import { ChevronDown, RefreshCw } from "lucide-react";
 
 interface CycleMetric {
   id: string;
@@ -99,8 +99,16 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
                   labelStyle={{ color: "oklch(0.95 0 0)" }}
                 />
                 <Legend wrapperStyle={{ fontSize: "12px" }} iconType="square" />
-                <Bar dataKey="Scope" fill="oklch(0.65 0.2 250)" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Completed" fill="oklch(0.7 0.18 140)" radius={[3, 3, 0, 0]} />
+                <Bar
+                  dataKey="Scope"
+                  fill="oklch(0.65 0.2 250)"
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="Completed"
+                  fill="oklch(0.7 0.18 140)"
+                  radius={[3, 3, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -117,6 +125,7 @@ export function CycleHistoryChart({
   readonly data: CycleMetric[];
   readonly lineFilter: "all" | "scope" | "done" | "uncompleted";
 }) {
+  const [legendOpen, setLegendOpen] = useState(false);
   const lineChartData = useMemo(() => {
     const maxLen = Math.max(
       0,
@@ -133,14 +142,14 @@ export function CycleHistoryChart({
           point[`${label} – Scope`] = c.scope_history[i] as number;
         if (i < c.completed_scope_history.length)
           point[`${label} – Done`] = c.completed_scope_history[i] as number;
-        point[`${label} – Uncompleted`] = c.uncompleted_issues_upon_close.length;
+        point[`${label} – Uncompleted`] =
+          c.uncompleted_issues_upon_close.length;
       });
       return point;
     });
   }, [data]);
-
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border ">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-accent" />
@@ -153,6 +162,7 @@ export function CycleHistoryChart({
             No cycles in selected range
           </p>
         ) : (
+          <>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={lineChartData}>
@@ -187,7 +197,6 @@ export function CycleHistoryChart({
                   labelStyle={{ color: "oklch(0.95 0 0)" }}
                   labelFormatter={(v) => `Day ${v}`}
                 />
-                <Legend wrapperStyle={{ fontSize: "11px" }} iconType="line" />
                 {data.map((c, i) => {
                   const label = c.name ?? `Cycle ${c.number}`;
                   const color = CYCLE_COLORS[i % CYCLE_COLORS.length];
@@ -232,6 +241,52 @@ export function CycleHistoryChart({
               </LineChart>
             </ResponsiveContainer>
           </div>
+          <div className="mt-3">
+            <button
+              onClick={() => setLegendOpen((o) => !o)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown
+                className={`h-3 w-3 transition-transform duration-200 ${legendOpen ? "rotate-180" : ""}`}
+              />
+              Legend
+            </button>
+            {legendOpen && (
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
+                {data.map((c, i) => {
+                  const label = c.name ?? `Cycle ${c.number}`;
+                  const color = CYCLE_COLORS[i % CYCLE_COLORS.length];
+                  return (
+                    <div key={label} className="flex flex-col gap-1">
+                      {(lineFilter === "all" || lineFilter === "scope") && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span style={{ display: "inline-block", width: 16, height: 2, background: color }} />
+                          {label} – Scope
+                        </div>
+                      )}
+                      {(lineFilter === "all" || lineFilter === "done") && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <svg width="16" height="4" aria-hidden>
+                            <line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="2" strokeDasharray="4 3" />
+                          </svg>
+                          {label} – Done
+                        </div>
+                      )}
+                      {(lineFilter === "all" || lineFilter === "uncompleted") && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <svg width="16" height="4" aria-hidden>
+                            <line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="2" strokeDasharray="1 4" />
+                          </svg>
+                          {label} – Uncompleted
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          </>
         )}
       </CardContent>
     </Card>

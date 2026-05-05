@@ -1,17 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart2 } from "lucide-react";
+import { BarChart2, ChevronDown } from "lucide-react";
 
 interface IssueMetric {
   id: string;
@@ -67,6 +66,7 @@ export function IssueMetricsView({
   );
 
   const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const chartData = useMemo(
     () =>
@@ -103,47 +103,72 @@ export function IssueMetricsView({
             No data
           </p>
         ) : (
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={30}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "oklch(0.13 0 0)",
-                    border: "1px solid oklch(0.22 0 0)",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                  }}
-                  labelStyle={{ color: "oklch(0.95 0 0)" }}
-                />
-                <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
-                {uniqueStatuses.map((status, i) => (
-                  <Area
-                    key={status}
-                    type="monotone"
-                    dataKey={status}
-                    stackId="a"
-                    stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                    fill={LINE_COLORS[i % LINE_COLORS.length]}
-                    fillOpacity={0.4}
-                    strokeWidth={2}
+          <>
+            <div className="h-72 sm:h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "oklch(0.13 0 0)",
+                      border: "1px solid oklch(0.22 0 0)",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                    }}
+                    labelStyle={{ color: "oklch(0.95 0 0)" }}
+                  />
+                  {uniqueStatuses.map((status, i) => (
+                    <Area
+                      key={status}
+                      type="monotone"
+                      dataKey={status}
+                      stackId="a"
+                      stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                      fill={LINE_COLORS[i % LINE_COLORS.length]}
+                      fillOpacity={0.4}
+                      strokeWidth={2}
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-3">
+              <button
+                onClick={() => setLegendOpen((o) => !o)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform duration-200 ${legendOpen ? "rotate-180" : ""}`}
+                />
+                Legend
+              </button>
+              {legendOpen && (
+                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
+                  {uniqueStatuses.map((status, i) => {
+                    const color = LINE_COLORS[i % LINE_COLORS.length];
+                    return (
+                      <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: 2, background: color, opacity: 0.8 }} />
+                        {status}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

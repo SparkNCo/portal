@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
@@ -71,31 +72,49 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   const isCustomer = profile?.role === "customer";
   const hasNoChats = groups.length === 0 && directChats.length === 0;
 
+  const hasActiveChat = selectedGroup !== null || selectedDirect !== null;
+
   return (
     <div className="flex flex-row w-full h-full">
-      <ChatSideBar
-        groups={groups}
-        directChats={directChats}
-        selectedGroup={selectedGroup}
-        selectedDirect={selectedDirect}
-        onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
-        onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
-        onCloseGroup={(g) => { if (selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null); }}
-        onCloseDirect={(e) => { setDirectChats((prev) => prev.filter((d) => d.uid !== e.uid || d.title !== e.title)); if (selectedDirect?.uid === e.uid && selectedDirect?.title === e.title) setSelectedDirect(null); }}
-        isCustomer={isCustomer}
-        onCreateChat={() => setShowCreateModal(true)}
-      />
+      {/* Sidebar: full-width on mobile when no chat active, fixed 288px on sm+ */}
+      <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
+        <ChatSideBar
+          groups={groups}
+          directChats={directChats}
+          selectedGroup={selectedGroup}
+          selectedDirect={selectedDirect}
+          onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
+          onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
+          onCloseGroup={(g) => { if (selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null); }}
+          onCloseDirect={(e) => { setDirectChats((prev) => prev.filter((d) => d.uid !== e.uid || d.title !== e.title)); if (selectedDirect?.uid === e.uid && selectedDirect?.title === e.title) setSelectedDirect(null); }}
+          isCustomer={isCustomer}
+          onCreateChat={() => setShowCreateModal(true)}
+        />
+      </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {selectedGroup && user && <GroupChat user={user} group={selectedGroup} />}
-        {!selectedGroup && selectedDirect && user && (
-          <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
+      {/* Chat area: hidden on mobile when no chat selected */}
+      <div className={`flex-col flex-1 overflow-hidden ${hasActiveChat ? "flex" : "hidden sm:flex"}`}>
+        {/* Back button — mobile only */}
+        {hasActiveChat && (
+          <button
+            onClick={() => { setSelectedGroup(null); setSelectedDirect(null); }}
+            className="sm:hidden flex items-center gap-1.5 px-4 py-2 border-b text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to chats
+          </button>
         )}
-        {!selectedGroup && !selectedDirect && (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
-            {hasNoChats ? "No chats yet." : "Select a chat to start messaging."}
-          </div>
-        )}
+        <div className="flex flex-1 overflow-hidden">
+          {selectedGroup && user && <GroupChat user={user} group={selectedGroup} />}
+          {!selectedGroup && selectedDirect && user && (
+            <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
+          )}
+          {!selectedGroup && !selectedDirect && (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+              {hasNoChats ? "No chats yet." : "Select a chat to start messaging."}
+            </div>
+          )}
+        </div>
       </div>
 
       {showCreateModal && (

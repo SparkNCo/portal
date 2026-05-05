@@ -65,23 +65,25 @@ export function RoadmapTimeline({
         onNext={() => setYear((y) => y + 1)}
       />
 
-      <CardContent>
-        <TimelineMonthsHeader year={year} />
-        {Object.entries(groupedMilestones).map(([projectName, milestones]) => (
-          <ProjectRow
-            key={projectName}
-            projectName={projectName}
-            milestones={milestones}
-            year={year}
-            expanded={!!expandedProjects[projectName]}
-            onToggle={() =>
-              setExpandedProjects((p) => ({
-                ...p,
-                [projectName]: !p[projectName],
-              }))
-            }
-          />
-        ))}
+      <CardContent className="overflow-x-auto">
+        <div className="min-w-[560px]">
+          <TimelineMonthsHeader year={year} />
+          {Object.entries(groupedMilestones).map(([projectName, milestones]) => (
+            <ProjectRow
+              key={projectName}
+              projectName={projectName}
+              milestones={milestones}
+              year={year}
+              expanded={!!expandedProjects[projectName]}
+              onToggle={() =>
+                setExpandedProjects((p) => ({
+                  ...p,
+                  [projectName]: !p[projectName],
+                }))
+              }
+            />
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
