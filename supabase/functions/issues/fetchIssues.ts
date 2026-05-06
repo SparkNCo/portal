@@ -111,7 +111,41 @@ async function fetchIssuesFromLinear(
     throw new Error("Invalid response from Linear API");
   }
 
-  return parsed.data.data.issues.nodes;
+  const EXCLUDED_AUTHORS = new Set(["cursor", "codex"]);
+
+  return parsed.data.data.issues.nodes.map((issue: any) => ({
+    ...issue,
+    comments: {
+      nodes: (issue.comments?.nodes ?? [])
+        .filter((c: any) => {
+          const name = c.user?.displayName?.toLowerCase();
+          return name && !EXCLUDED_AUTHORS.has(name);
+        })
+        .map((c: any) => ({
+          id: c.id,
+          body: extractText(c.bodyData),
+          createdAt: c.createdAt,
+          displayName: c.user?.displayName ?? null,
+        })),
+    },
+  }));
+}
+
+function extractText(bodyData: string): string {
+  try {
+    const doc = JSON.parse(bodyData);
+    const texts: string[] = [];
+    function walk(node: any) {
+      if (node.type === "text" && typeof node.text === "string") {
+        texts.push(node.text);
+      }
+      if (Array.isArray(node.content)) node.content.forEach(walk);
+    }
+    walk(doc);
+    return texts.join(" ").trim();
+  } catch {
+    return bodyData;
+  }
 }
 
 export async function handleGetIssues(req: Request): Promise<Response> {

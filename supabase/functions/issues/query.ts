@@ -24,6 +24,7 @@ query Issues($filter: IssueFilter) {
       canceledAt
       comments(last: 5) {
         nodes {
+          id
           bodyData
           createdAt
           editedAt

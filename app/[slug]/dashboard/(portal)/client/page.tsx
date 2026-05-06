@@ -57,6 +57,27 @@ export default function ClientDashboard() {
     enabled: !!slug,
   });
 
+  // 🔹 Issue questions query
+  const { data: questionsData } = useQuery<{ countByIssue: Record<string, number> }>({
+    queryKey: ["issue-questions", userId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions?user_id=${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          },
+        },
+      );
+      if (!res.ok) throw new Error("Failed to fetch issue questions");
+      return res.json();
+    },
+    enabled: !!userId,
+  });
+
+  const questionCounts = questionsData?.countByIssue ?? {};
+
   // 🔹 Policies approval query
   const { data: policiesStatus, isLoading: policiesLoading } = useQuery<
     { approved: boolean },
@@ -80,15 +101,21 @@ export default function ClientDashboard() {
   ) as string[];
   const hasCycles = allIssues.some((i: any) => i.cycle !== undefined);
 
-  const filteredIssues = allIssues.filter((issue: any) => {
-    if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
-    if (
-      selectedStatuses.length > 0 &&
-      (!issue.state?.name || !selectedStatuses.includes(issue.state.name))
-    )
-      return false;
-    return true;
-  });
+  const filteredIssues = allIssues
+    .filter((issue: any) => {
+      if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
+      if (
+        selectedStatuses.length > 0 &&
+        (!issue.state?.name || !selectedStatuses.includes(issue.state.name))
+      )
+        return false;
+      return true;
+    })
+    .sort((a: any, b: any) => {
+      const aCount = questionCounts[a.id] ?? 0;
+      const bCount = questionCounts[b.id] ?? 0;
+      return bCount - aCount;
+    });
 
   const priorityIssues = filteredIssues.filter(
     (i: any) => i.state?.name === "UAT" || i.state?.name === "Business Review",
@@ -141,14 +168,15 @@ export default function ClientDashboard() {
       <div className="p-4 md:p-6 space-y-6">
         {/* Priority view — UAT & Business Review only */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
-          <div className="w-full md:w-1/4 flex flex-col">
+          <div className="w-full md:w-1/3 flex flex-col">
             <ProgressPieChart issuesData={allIssues} />
           </div>
-          <div className="w-full md:w-3/4 flex flex-col">
+          <div className="w-full md:w-2/3 flex flex-col">
             <PriorityTasks
               issuesData={priorityIssues}
               filterState={filterState}
               onOpenChat={handleOpenChat}
+              questionCounts={questionCounts}
             />
           </div>
         </div>
@@ -160,6 +188,7 @@ export default function ClientDashboard() {
               filterState={filterState}
               onOpenChat={handleOpenChat}
               title="All Tasks"
+              questionCounts={questionCounts}
             />
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
@@ -186,7 +215,7 @@ export default function ClientDashboard() {
             )}
         </div>
 
-        <CreateIssue slug={slug} projectId={linearProjectId} />
+        <CreateIssue slug={slug} projectId={linearProjectId} profile={profile} />
       </div>
     </div>
   );

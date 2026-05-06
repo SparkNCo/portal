@@ -19,3 +19,7 @@ verify_jwt = true
 [functions.stripe]
 enabled = true
 verify_jwt = true
+
+[functions.issue-questions]
+enabled = true
+verify_jwt = true

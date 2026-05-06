@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useEffect, useRef, useState } from "react";
+import { useUser } from "context/UserContext";
 
 const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -42,29 +43,10 @@ const statusColors = {
 
 export type Comment = {
   id: string;
-  bodyData: string;
+  body: string;
   createdAt?: string;
-  user?: { displayName: string };
+  displayName?: string | null;
 };
-
-function extractTextFromBodyData(bodyData: string): string {
-  try {
-    const doc = JSON.parse(bodyData);
-    const texts: string[] = [];
-    function walk(node: any) {
-      if (node.type === "text" && typeof node.text === "string") {
-        texts.push(node.text);
-      }
-      if (Array.isArray(node.content)) {
-        node.content.forEach(walk);
-      }
-    }
-    walk(doc);
-    return texts.join(" ").trim();
-  } catch {
-    return bodyData;
-  }
-}
 
 export type Issue = {
   id: string;
@@ -92,6 +74,7 @@ export type Issue = {
   };
   cycle?: { number: number; isActive: boolean; name?: string };
   comments?: { nodes: Comment[] };
+  description?: string | null;
 };
 
 export type FilterState = {
@@ -109,6 +92,7 @@ export type PriorityTasksProps = {
   filterState: FilterState;
   onOpenChat?: (title: string) => void;
   title?: string;
+  questionCounts?: Record<string, number>;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -120,10 +104,12 @@ function IssueCard({
   issue,
   onOpen,
   onOpenChat,
+  questionCount = 0,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onOpenChat?: (title: string) => void;
+  readonly questionCount?: number;
 }) {
   const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
@@ -144,10 +130,21 @@ function IssueCard({
           >
             {issue.priorityLabel}
           </Badge>
+          {questionCount > 0 && (
+            <span className="ml-auto flex items-center gap-1 rounded-full bg-warning/20 text-warning border border-warning/30 text-[10px] font-semibold px-1.5 py-0.5">
+              {questionCount}
+            </span>
+          )}
         </div>
-        <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
+        <p className="text-sm font-medium text-background-foreground mb-1 line-clamp-2">
           {issue.title}
         </p>
+        {issue.description && (
+          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+            {issue.description}
+          </p>
+        )}
+        {!issue.description && <div className="mb-3" />}
         <div className="flex items-center justify-between">
           <Badge
             variant="secondary"
@@ -159,7 +156,10 @@ function IssueCard({
           </Badge>
           {onOpenChat && (
             <button
-              onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenChat(chatTitle);
+              }}
               className="text-muted-foreground hover:text-accent transition-colors"
               title="Open chat about this issue"
             >
@@ -179,11 +179,14 @@ function IssueDetailModal({
   issue: Issue;
   onClose: () => void;
 }) {
+  const { profile } = useUser();
   const [visible, setVisible] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
+  const [showDescription, setShowDescription] = useState(true);
+  const [showComments, setShowComments] = useState(false);
 
   const nextState = currentStateName
     ? STATE_TRANSITIONS[currentStateName]
@@ -229,19 +232,46 @@ function IssueDetailModal({
     }
   }
 
+  // Restore Linear comment posting when issue-questions flow is complete:
+  // async function handleSubmit_linear(e: React.FormEvent) {
+  //   e.preventDefault();
+  //   if (!comment.trim() || submitting) return;
+  //   setSubmitting(true);
+  //   try {
+  //     await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+  //       method: "POST",
+  //       headers: {
+  //         Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+  //         apikey: process.env.NEXT_PUBLIC_APIKEY!,
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
+  //     });
+  //     setComment("");
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!comment.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
+        body: JSON.stringify({
+          issue_id: issue.id,
+          body: comment.trim(),
+          role: profile?.role,
+          profile_id: profile?.id,
+          email: profile?.email,
+        }),
       });
       setComment("");
     } finally {
@@ -254,13 +284,17 @@ function IssueDetailModal({
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-        visible ? "bg-black/60 backdrop-blur-sm" : "bg-transparent backdrop-blur-none"
+        visible
+          ? "bg-black/60 backdrop-blur-sm"
+          : "bg-transparent backdrop-blur-none"
       }`}
       onClick={handleClose}
     >
       <div
         className={`relative bg-background border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh] transition-all duration-200 ${
-          visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
+          visible
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-2"
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -284,9 +318,7 @@ function IssueDetailModal({
               <Badge
                 variant="secondary"
                 className={
-                  statusColors[
-                    currentStateName as keyof typeof statusColors
-                  ]
+                  statusColors[currentStateName as keyof typeof statusColors]
                 }
               >
                 {currentStateName}
@@ -320,25 +352,52 @@ function IssueDetailModal({
             </Button>
           )}
 
+          {/* Description */}
+          {issue.description && (
+            <div className="space-y-1">
+              <button
+                onClick={() => setShowDescription((v) => !v)}
+                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              >
+                Description
+                <ArrowRight
+                  className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`}
+                />
+              </button>
+              {showDescription && (
+                <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
+                  {issue.description}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Comments */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <button
+              onClick={() => setShowComments((v) => !v)}
+              className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
               Comments {comments.length > 0 && `(${comments.length})`}
-            </p>
-            {comments.length === 0 ? (
+              <ArrowRight
+                className={`h-3 w-3 transition-transform ${showComments ? "rotate-90" : ""}`}
+              />
+            </button>
+
+            {showComments && comments.length === 0 ? (
               <p className="text-xs text-muted-foreground italic">
                 No comments yet.
               </p>
-            ) : (
+            ) : showComments ? (
               <div className="space-y-2">
                 {comments.map((c) => (
                   <div
                     key={c.id}
                     className="rounded-lg bg-muted/40 p-3 space-y-0.5"
                   >
-                    {c.user?.displayName && (
+                    {c.displayName && (
                       <p className="text-[10px] font-medium text-muted-foreground">
-                        {c.user.displayName}
+                        {c.displayName}
                         {c.createdAt && (
                           <span className="ml-2 font-normal">
                             {new Date(c.createdAt).toLocaleDateString()}
@@ -347,12 +406,12 @@ function IssueDetailModal({
                       </p>
                     )}
                     <p className="text-sm text-foreground whitespace-pre-wrap">
-                      {extractTextFromBodyData(c.bodyData)}
+                      {c.body}
                     </p>
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -386,7 +445,13 @@ function IssueDetailModal({
   );
 }
 
-export function PriorityTasks({ issuesData, filterState, onOpenChat, title = "Priority Tasks" }: PriorityTasksProps) {
+export function PriorityTasks({
+  issuesData,
+  filterState,
+  onOpenChat,
+  title = "Priority Tasks",
+  questionCounts = {},
+}: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -405,7 +470,7 @@ export function PriorityTasks({ issuesData, filterState, onOpenChat, title = "Pr
   const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
 
   return (
-    <Card className="bg-background border-border h-full flex flex-col md:max-w-[50rem] lg:max-w-[100%]">
+    <Card className="bg-background border-border h-full flex flex-col w-full">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
@@ -485,7 +550,8 @@ export function PriorityTasks({ issuesData, filterState, onOpenChat, title = "Pr
                     className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                     onClick={onClearFilters}
                   >
-                    <span className="text-base leading-none">×</span> Clear all filters
+                    <span className="text-base leading-none">×</span> Clear all
+                    filters
                   </button>
                 )}
               </div>
@@ -535,6 +601,7 @@ export function PriorityTasks({ issuesData, filterState, onOpenChat, title = "Pr
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
                 onOpenChat={onOpenChat}
+                questionCount={questionCounts[issue.id] ?? 0}
               />
             ))}
           </div>

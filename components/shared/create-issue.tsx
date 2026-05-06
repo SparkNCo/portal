@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useUser } from "context/UserContext";
 import { toast } from "sonner";
-import { Bug, Lightbulb, Database, Settings, Plus, Loader2 } from "lucide-react";
+import { Bug, Lightbulb, Database, Settings, Plus, Loader2, FlaskConical } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -156,7 +157,31 @@ const TYPE_OPTIONS: {
   },
 ];
 
-export function CreateIssue({ slug, projectId }: { slug: string; projectId?: string }) {
+const TEST_ISSUE = {
+  id: "test-issue-001",
+  branchName: "fix/login-mobile-001",
+  priorityLabel: "High",
+  title: "Login button not responding on mobile Safari",
+  state: { name: "Business Review" },
+  cycle: { number: 3, isActive: true, name: "Sprint 3" },
+  comments: {
+    nodes: [
+      {
+        id: "cmt-001",
+        bodyData: JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "Can you share the device model and OS version?" }] }],
+        }),
+        createdAt: new Date().toISOString(),
+        user: { displayName: "Dev Team" },
+      },
+    ],
+  },
+};
+
+export function CreateIssue({ slug, projectId, profile: profileProp }: { slug: string; projectId?: string; profile?: any }) {
+  const { profile: contextProfile } = useUser();
+  const profile = profileProp ?? contextProfile;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"type" | "form">("type");
   const [issueType, setIssueType] = useState<IssueType | null>(null);
@@ -174,6 +199,36 @@ export function CreateIssue({ slug, projectId }: { slug: string; projectId?: str
     },
     onError: () => {
       toast.error("Failed to create issue. Please try again.");
+    },
+  });
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+        },
+        body: JSON.stringify({
+          issue_id: TEST_ISSUE.id,
+          body: "Test question from CreateIssue",
+          role: profile?.role,
+          profile_id: profile?.id,
+          email: profile?.email,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send test question");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      console.log("[CreateIssue] test response", data);
+      toast.success("Test question sent");
+    },
+    onError: (err) => {
+      console.error("[CreateIssue] test error", err);
+      toast.error("Test failed — check console");
     },
   });
 
@@ -209,13 +264,27 @@ export function CreateIssue({ slug, projectId }: { slug: string; projectId?: str
 
   return (
     <>
-      <Button
-        onClick={() => setOpen(true)}
-        className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Create Issue
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => setOpen(true)}
+          className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Create Issue
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => testMutation.mutate()}
+          disabled={testMutation.isPending}
+          title="Send test question to backend"
+        >
+          {testMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FlaskConical className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
         <DialogContent className="sm:max-w-md">
