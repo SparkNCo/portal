@@ -151,6 +151,8 @@ export default function ClientDashboard() {
     },
   };
 
+  const linearOAuthUrl = `https://linear.app/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_LINEAR_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_LINEAR_REDIRECT_URI ?? "")}&response_type=code&scope=write&state=${userId}`;
+
   if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
 
   return (
@@ -165,6 +167,19 @@ export default function ClientDashboard() {
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
+      {!profile?.linear_access_token && (
+        <div className="mx-4 md:mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3">
+          <p className="text-sm text-warning font-medium">
+            Connect your Linear account to post comments as yourself.
+          </p>
+          <a
+            href={linearOAuthUrl}
+            className="shrink-0 rounded-md bg-warning text-warning-foreground text-xs font-semibold px-3 py-1.5 hover:opacity-90 transition-opacity"
+          >
+            Connect Linear
+          </a>
+        </div>
+      )}
       <div className="p-4 md:p-6 space-y-6">
         {/* Priority view — UAT & Business Review only */}
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">

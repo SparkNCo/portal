@@ -11,12 +11,21 @@ const CREATE_COMMENT_MUTATION = `
   }
 `;
 
-async function postLinearComment(issueId: string, body: string): Promise<void> {
+async function getUserLinearToken(profileId: string): Promise<string> {
+  const { data } = await supabase
+    .from("users")
+    .select("linear_access_token")
+    .eq("id", profileId)
+    .maybeSingle();
+  return data?.linear_access_token ?? Deno.env.get("LINEAR_API_KEY")!;
+}
+
+async function postLinearComment(issueId: string, body: string, token: string): Promise<void> {
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
+      Authorization: token,
     },
     body: JSON.stringify({
       query: CREATE_COMMENT_MUTATION,
@@ -30,7 +39,7 @@ async function postLinearComment(issueId: string, body: string): Promise<void> {
 export const createQuestion = async (req: Request) => {
   try {
     const body = await req.json();
-    const { issue_id, body: questionBody, role, profile_id, email } = body;
+    const { issue_id, body: questionBody, role, profile_id } = body;
 
     if (!issue_id || !questionBody || !role || !profile_id) {
       return new Response(
@@ -92,7 +101,8 @@ export const createQuestion = async (req: Request) => {
 
     if (insertError) throw new Error(insertError.message);
 
-    await postLinearComment(issue_id, questionBody);
+    const token = await getUserLinearToken(profile_id);
+    await postLinearComment(issue_id, questionBody, token);
 
     return new Response(JSON.stringify({ data: inserted }), {
       status: 200,

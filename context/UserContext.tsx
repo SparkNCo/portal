@@ -10,6 +10,7 @@ type Profile = {
   linear_slug?: string;
   userName?: string;
   customer_id?: string;
+  linear_access_token?: string | null;
 };
 
 type UserContextType = {
