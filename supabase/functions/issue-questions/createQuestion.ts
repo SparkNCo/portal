@@ -1,6 +1,31 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { corsHeaders } from "../utils/headers.ts";
+import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
+
+const CREATE_COMMENT_MUTATION = `
+  mutation CommentCreate($input: CommentCreateInput!) {
+    commentCreate(input: $input) {
+      success
+      comment { id }
+    }
+  }
+`;
+
+async function postLinearComment(issueId: string, body: string): Promise<void> {
+  const res = await fetch(LINEAR_GRAPHQL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: Deno.env.get("LINEAR_API_KEY")!,
+    },
+    body: JSON.stringify({
+      query: CREATE_COMMENT_MUTATION,
+      variables: { input: { issueId, body } },
+    }),
+  });
+  const json = await res.json();
+  if (json.errors) throw new Error(JSON.stringify(json.errors));
+}
 
 export const createQuestion = async (req: Request) => {
   try {
@@ -66,6 +91,8 @@ export const createQuestion = async (req: Request) => {
       .select();
 
     if (insertError) throw new Error(insertError.message);
+
+    await postLinearComment(issue_id, questionBody);
 
     return new Response(JSON.stringify({ data: inserted }), {
       status: 200,

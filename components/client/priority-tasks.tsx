@@ -456,6 +456,7 @@ export function PriorityTasks({
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [titleFilter, setTitleFilter] = useState("");
 
   const {
     selectedStatuses,
@@ -469,6 +470,12 @@ export function PriorityTasks({
 
   const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
 
+  const visibleIssues = titleFilter.trim()
+    ? issuesData.filter((i) =>
+        i.title.toLowerCase().includes(titleFilter.toLowerCase()),
+      )
+    : issuesData;
+
   return (
     <Card className="bg-background border-border h-full flex flex-col w-full">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
@@ -476,7 +483,14 @@ export function PriorityTasks({
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search by title..."
+            value={titleFilter}
+            onChange={(e) => setTitleFilter(e.target.value)}
+            className="h-7 w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
           <div className="relative">
             <Button
               variant={activeFilters > 0 ? "secondary" : "ghost"}
@@ -574,7 +588,7 @@ export function PriorityTasks({
         className="flex-1 overflow-hidden"
         onClick={() => filterOpen && setFilterOpen(false)}
       >
-        {issuesData.length === 0 ? (
+        {visibleIssues.length === 0 ? (
           <p className="text-sm text-muted-foreground italic p-2">
             No issues match the current filters.
           </p>
@@ -595,7 +609,7 @@ export function PriorityTasks({
               }
             `}
           >
-            {issuesData.map((issue) => (
+            {visibleIssues.map((issue) => (
               <IssueCard
                 key={issue.id}
                 issue={issue}
