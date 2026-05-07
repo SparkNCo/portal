@@ -58,6 +58,14 @@ export default function LoginForm({
 
   useEffect(() => {
     if (customer) {
+      if (customer?.role === "stakeholder") {
+        const clientName = customer.assignment_id?.[0]?.clientName;
+        if (clientName) {
+          router.push(`/${clientName}/dashboard/client`);
+          onLoginSuccess(customer.email);
+        }
+        return;
+      }
       if (customer?.role === "admin") {
         router.push(`/${customer.clientName}/dashboard/admin`);
       } else if (customer?.role === "developer") {
@@ -274,6 +282,7 @@ export default function LoginForm({
         >
           {loading ? "Logging in..." : "Login"}
         </SparkButton>
+
       </form>
     </div>
   );

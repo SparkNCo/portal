@@ -5,6 +5,7 @@ import { useUser } from "../../../context/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AddDeveloperModal from "./AddDeveloperModal";
 import AddClientModal from "./AddClientModal";
+import AddStakeholderModal from "./AddStakeholderModal";
 import AssignCustomerModal from "./AssignCustomerModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,7 @@ type User = {
   id: string;
   email: string;
   userName?: string;
-  role: "admin" | "developer" | "customer";
+  role: "admin" | "developer" | "customer" | "stakeholder";
 };
 
 type Assignment = {
@@ -40,6 +41,7 @@ const roleColors: Record<string, string> = {
   admin: "bg-chart-1/20 text-chart-1",
   developer: "bg-chart-2/20 text-chart-2",
   customer: "bg-chart-3/20 text-chart-3",
+  stakeholder: "bg-purple-500/20 text-purple-500",
 };
 
 function getInitials(email: string) {
@@ -59,8 +61,10 @@ export default function AdminUsersPage() {
   const [view, setView] = useState<"users" | "projects">("users");
   const [showAddDevModal, setShowAddDevModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showAddStakeholderModal, setShowAddStakeholderModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
+  const [assigningUserRole, setAssigningUserRole] = useState<string>("developer");
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -102,7 +106,7 @@ export default function AdminUsersPage() {
   const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
     useQuery({
       queryKey: ["developer-assignments", expandedUser?.id],
-      enabled: !!expandedUser?.id && expandedUser.role === "developer",
+      enabled: !!expandedUser?.id && (expandedUser.role === "developer" || expandedUser.role === "stakeholder"),
       queryFn: async () => {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${expandedUser!.id}`,
@@ -150,7 +154,7 @@ export default function AdminUsersPage() {
   const userAssignments =
     expandedUser?.role === "customer"
       ? customerAssignments
-      : developerAssignments;
+      : developerAssignments; // used for both developer and stakeholder
   const assignmentsLoading =
     expandedUser?.role === "customer"
       ? customerAssignmentsLoading
@@ -228,11 +232,15 @@ export default function AdminUsersPage() {
       {showAddCustomerModal && (
         <AddClientModal onClose={() => setShowAddCustomerModal(false)} />
       )}
+      {showAddStakeholderModal && (
+        <AddStakeholderModal onClose={() => setShowAddStakeholderModal(false)} />
+      )}
       {assigningUserId && (
         <AssignCustomerModal
           userId={assigningUserId}
+          userRole={assigningUserRole}
           customers={customers}
-          onClose={() => setAssigningUserId(null)}
+          onClose={() => { setAssigningUserId(null); setAssigningUserRole("developer"); }}
         />
       )}
 
@@ -282,6 +290,15 @@ export default function AdminUsersPage() {
             <UserPlus className="h-4 w-4" />
             <span className="hidden sm:inline">Add Customer</span>
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={() => setShowAddStakeholderModal(true)}
+          >
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Stakeholder</span>
+          </Button>
         </div>
       </div>
 
@@ -308,7 +325,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div className="flex gap-1.5">
-                {(["admin", "developer", "customer"] as const).map((role) => (
+                {(["admin", "developer", "customer", "stakeholder"] as const).map((role) => (
                   <button
                     key={role}
                     onClick={() =>
@@ -366,12 +383,12 @@ export default function AdminUsersPage() {
 
                       <div className="flex items-center gap-1">
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                          {u.role === "developer" && (
+                          {(u.role === "developer" || u.role === "stakeholder") && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-8 gap-1 text-xs"
-                              onClick={() => setAssigningUserId(u.id)}
+                              onClick={() => { setAssigningUserId(u.id); setAssigningUserRole(u.role); }}
                             >
                               <UserCheck className="h-4 w-4" />
                               Assign

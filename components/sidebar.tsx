@@ -40,6 +40,12 @@ const adminNavItems = [
   { href: "dashboards", label: "Dashboards", icon: LayoutGrid },
 ];
 
+const stakeholderNavItems = [
+  { href: "client", label: "Dashboard", icon: LayoutDashboard },
+  { href: "roadmap", label: "Roadmap", icon: Map },
+  { href: "documents", label: "Documents", icon: FileText },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -64,10 +70,11 @@ export function Sidebar() {
       : []),
   ];
 
-  const roleNavMap: Record<string, typeof clientNavItems> = {
+    const roleNavMap: Record<string, typeof clientNavItems> = {
     customer: clientNavItems,
     admin: adminNavItems,
     developer: developerNavItems,
+    stakeholder: stakeholderNavItems,
   };
   const portalType = profile?.role ?? "developer";
   const navItems = roleNavMap[portalType] ?? developerNavItems;

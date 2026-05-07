@@ -14,11 +14,12 @@ type User = {
 
 type Props = Readonly<{
   userId: string;
+  userRole?: string;
   customers: User[];
   onClose: () => void;
 }>;
 
-export default function AssignCustomerModal({ userId, customers, onClose }: Props) {
+export default function AssignCustomerModal({ userId, userRole = "developer", customers, onClose }: Props) {
   const queryClient = useQueryClient();
   const [selectedCustomer, setSelectedCustomer] = useState("");
 
@@ -49,7 +50,7 @@ export default function AssignCustomerModal({ userId, customers, onClose }: Prop
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer }),
+        body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer, role: userRole }),
       });
       if (!res.ok) throw new Error("Failed to assign user");
       return res.json();

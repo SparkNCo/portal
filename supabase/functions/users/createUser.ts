@@ -14,6 +14,10 @@ export const createUser = async (body: any) => {
     projects_slug = null,
     auth_id = null,
     origin,
+    firstName = null,
+    lastName = null,
+    userName = null,
+    phoneNumber = null,
   } = body;
 
   if (!email) {
@@ -68,6 +72,10 @@ export const createUser = async (body: any) => {
         customer_id,
         subscription_id,
         auth_id,
+        firstName,
+        lastName,
+        userName,
+        phoneNumber,
       }],
       { onConflict: "id" },
     )

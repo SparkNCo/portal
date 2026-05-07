@@ -23,7 +23,7 @@ export const createAssignment = async (req: Request) => {
 
     // 🧠 Defaults
     const finalRole = role || "developer";
-    const finalAllocation = allocation ?? 40;
+    const finalAllocation = finalRole === "stakeholder" ? null : (allocation ?? 40);
 
     // 🔍 Check if already exists
     const { data: existing } = await supabase
@@ -51,8 +51,8 @@ export const createAssignment = async (req: Request) => {
           user_id,
           customer_id,
           role: finalRole,
-          allocation: finalAllocation,
           joined: new Date().toISOString(),
+          ...(finalAllocation !== null && { allocation: finalAllocation }),
         },
       ])
       .select()

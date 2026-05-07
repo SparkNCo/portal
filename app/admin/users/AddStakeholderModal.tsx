@@ -10,21 +10,21 @@ type Props = {
   onClose: () => void;
 };
 
-export default function AddClientModal({ onClose }: Props) {
+export default function AddStakeholderModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
-  const [stripeId, setStripeId] = useState("");
-  const [linearSlug, setLinearSlug] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-
   const queryClient = useQueryClient();
+
+  const inputClass =
+    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customer`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=stakeholder`,
         {
           method: "POST",
           headers: {
@@ -34,8 +34,7 @@ export default function AddClientModal({ onClose }: Props) {
           },
           body: JSON.stringify({
             email,
-            customer_id: stripeId,
-            linear_slug: linearSlug,
+            role: "stakeholder",
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
@@ -45,7 +44,7 @@ export default function AddClientModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to create client");
+      if (!res.ok) throw new Error("Failed to create stakeholder");
 
       return res.json();
     },
@@ -55,16 +54,13 @@ export default function AddClientModal({ onClose }: Props) {
     },
   });
 
-  const inputClass =
-    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-96 bg-background border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <UserPlus className="h-4 w-4 text-accent" />
-            Add Customer
+            Add Stakeholder
           </CardTitle>
         </CardHeader>
 
@@ -91,9 +87,10 @@ export default function AddClientModal({ onClose }: Props) {
           />
           <input
             className={inputClass}
-            placeholder="Client email"
+            placeholder="Stakeholder email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
           />
           <input
             className={inputClass}
@@ -101,23 +98,9 @@ export default function AddClientModal({ onClose }: Props) {
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
           />
-          <input
-            className={inputClass}
-            placeholder="Stripe Customer ID"
-            value={stripeId}
-            onChange={(e) => setStripeId(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            placeholder="Linear Slug"
-            value={linearSlug}
-            onChange={(e) => setLinearSlug(e.target.value)}
-          />
 
           {error && (
-            <p className="text-sm text-destructive">
-              {(error as Error).message}
-            </p>
+            <p className="text-sm text-destructive">{(error as Error).message}</p>
           )}
 
           <div className="flex justify-end gap-2">
@@ -126,7 +109,7 @@ export default function AddClientModal({ onClose }: Props) {
             </Button>
             <Button
               size="sm"
-              disabled={isPending || !email || !stripeId || !linearSlug}
+              disabled={isPending || !email}
               onClick={() => mutate()}
             >
               {isPending ? "Creating..." : "Create"}

@@ -66,7 +66,7 @@ const handlePost = async (req: Request, url: URL) => {
   const body = await req.json();
   const type = url.searchParams.get("type");
 
-  if (!type || type === "developer") {
+  if (!type || type === "developer" || type === "stakeholder") {
     const newUser = await createUser(body);
     return jsonResponse(newUser);
   }
@@ -107,24 +107,31 @@ const fetchUser = async (email: string) => {
   if (error) throw new Error(error.message);
   if (!data) return data;
 
-  if (data.role === "developer" && data.assignment_id?.length > 0) {
-    const { data: assignment, error: assignmentError } = await supabase
+  if (data.assignment_id?.length > 0) {
+    const { data: assignments, error: assignmentError } = await supabase
       .from("assignments")
-      .select("customer_id")
-      .eq("id", data.assignment_id[0])
-      .single();
+      .select("*")
+      .in("id", data.assignment_id)
+      .eq("role", data.role);
 
     if (assignmentError) throw new Error(assignmentError.message);
 
-    const { data: customer, error: customerError } = await supabase
-      .from("users")
-      .select("linear_slug")
-      .eq("id", assignment.customer_id)
-      .single();
+    const enrichedAssignments = await Promise.all(
+      (assignments ?? []).map(async (assignment: any) => {
+        const { data: customer } = await supabase
+          .from("users")
+          .select("clientName, linear_slug")
+          .eq("id", assignment.customer_id)
+          .maybeSingle();
+        return {
+          ...assignment,
+          clientName: customer?.clientName ?? null,
+          linear_slug: customer?.linear_slug ?? null,
+        };
+      })
+    );
 
-    if (customerError) throw new Error(customerError.message);
-
-    return { ...data, linear_slug: customer.linear_slug };
+    return { ...data, assignment_id: enrichedAssignments };
   }
 
   return data;

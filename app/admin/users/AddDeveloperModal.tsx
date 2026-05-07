@@ -12,6 +12,10 @@ type Props = {
 
 export default function AddDeveloperModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [userName, setUserName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const queryClient = useQueryClient();
 
   const { mutate, isPending, error } = useMutation({
@@ -25,7 +29,15 @@ export default function AddDeveloperModal({ onClose }: Props) {
             apikey: process.env.NEXT_PUBLIC_APIKEY!,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ email, role: "developer", origin: globalThis.location.origin }),
+          body: JSON.stringify({
+            email,
+            role: "developer",
+            origin: globalThis.location.origin,
+            ...(firstName && { firstName }),
+            ...(lastName && { lastName }),
+            ...(userName && { userName }),
+            ...(phoneNumber && { phoneNumber }),
+          }),
         },
       );
 
@@ -50,12 +62,38 @@ export default function AddDeveloperModal({ onClose }: Props) {
         </CardHeader>
 
         <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+              placeholder="First name (optional)"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+            <input
+              className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+              placeholder="Last name (optional)"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+          <input
+            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            placeholder="Username (optional)"
+            value={userName}
+            onChange={(e) => setUserName(e.target.value)}
+          />
           <input
             className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
             placeholder="Developer email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
+          />
+          <input
+            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            placeholder="Phone number (optional)"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
           />
 
           {error && (
