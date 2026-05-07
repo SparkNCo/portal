@@ -14,7 +14,16 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
 
-    if (req.method === "GET") return await handleGet(url);
+    if (req.method === "GET") {
+      console.log("[users GET]", {
+        url: url.toString(),
+        email: url.searchParams.get("email"),
+        hasApiKey: !!req.headers.get("apikey"),
+        hasAuth: !!req.headers.get("authorization"),
+        apiKeyPrefix: req.headers.get("apikey")?.slice(0, 10),
+      });
+      return await handleGet(url);
+    }
     if (req.method === "PATCH") return await handlePatch(req);
     if (req.method === "POST") return await handlePost(req, url);
 

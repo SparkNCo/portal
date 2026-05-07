@@ -93,6 +93,7 @@ export type PriorityTasksProps = {
   onOpenChat?: (title: string) => void;
   title?: string;
   questionCounts?: Record<string, number>;
+  compact?: boolean;
 };
 
 const STATE_TRANSITIONS: Partial<Record<string, string>> = {
@@ -172,12 +173,49 @@ function IssueCard({
   );
 }
 
+function IssueListRow({
+  issue,
+  onOpen,
+  questionCount = 0,
+}: {
+  readonly issue: Issue;
+  readonly onOpen: () => void;
+  readonly questionCount?: number;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 cursor-pointer transition-all border border-transparent hover:border-border group"
+      onClick={onOpen}
+    >
+      <span className="text-[10px] font-mono text-muted-foreground w-14 flex-shrink-0">
+        {issue.branchName.slice(0, 7).toUpperCase()}
+      </span>
+      <Badge
+        variant="outline"
+        className={`text-[10px] flex-shrink-0 ${priorityColors[issue.priorityLabel as keyof typeof priorityColors]}`}
+      >
+        {issue.priorityLabel}
+      </Badge>
+      <p className="text-xs font-medium flex-1 truncate">{issue.title}</p>
+      {questionCount > 0 && (
+        <span className="flex-shrink-0 rounded-full bg-warning/20 text-warning border border-warning/30 text-[10px] font-semibold px-1.5 py-0.5">
+          {questionCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function IssueDetailModal({
   issue,
   onClose,
+  questionCount = 0,
+  onMarkedRead,
 }: {
   issue: Issue;
   onClose: () => void;
+  questionCount?: number;
+  onMarkedRead?: () => void;
 }) {
   const { profile } = useUser();
   const [visible, setVisible] = useState(false);
@@ -195,6 +233,21 @@ function IssueDetailModal({
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    if (questionCount > 0 && profile?.id) {
+      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions/read`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issue_id: issue.id, user_id: profile.id }),
+      }).then(() => onMarkedRead?.());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -231,27 +284,6 @@ function IssueDetailModal({
       setAdvancing(false);
     }
   }
-
-  // Restore Linear comment posting when issue-questions flow is complete:
-  // async function handleSubmit_linear(e: React.FormEvent) {
-  //   e.preventDefault();
-  //   if (!comment.trim() || submitting) return;
-  //   setSubmitting(true);
-  //   try {
-  //     await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
-  //       method: "POST",
-  //       headers: {
-  //         Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  //         apikey: process.env.NEXT_PUBLIC_APIKEY!,
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ issueId: issue.id, body: comment.trim() }),
-  //     });
-  //     setComment("");
-  //   } finally {
-  //     setSubmitting(false);
-  //   }
-  // }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -451,12 +483,14 @@ export function PriorityTasks({
   onOpenChat,
   title = "Priority Tasks",
   questionCounts = {},
+  compact = false,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
+  const [locallyRead, setLocallyRead] = useState<Set<string>>(new Set());
 
   const {
     selectedStatuses,
@@ -476,6 +510,57 @@ export function PriorityTasks({
       )
     : issuesData;
 
+  const effectiveCount = (issue: Issue) =>
+    locallyRead.has(issue.id) ? 0 : (questionCounts[issue.id] ?? 0);
+
+  const modal = selectedIssue && (
+    <IssueDetailModal
+      issue={selectedIssue}
+      onClose={() => setSelectedIssue(null)}
+      questionCount={questionCounts[selectedIssue.id] ?? 0}
+      onMarkedRead={() =>
+        setLocallyRead((prev) => new Set([...prev, selectedIssue.id]))
+      }
+    />
+  );
+
+  if (compact) {
+    return (
+      <Card className="bg-background border-border flex flex-col w-full h-full">
+        <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            {title}
+          </CardTitle>
+          {issuesData.length > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {issuesData.length} issue{issuesData.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
+          {visibleIssues.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic px-1">
+              No issues.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+              {visibleIssues.map((issue) => (
+                <IssueListRow
+                  key={issue.id}
+                  issue={issue}
+                  onOpen={() => setSelectedIssue(issue)}
+                  questionCount={effectiveCount(issue)}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+        {modal}
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-background border-border h-full flex flex-col w-full">
       <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
@@ -492,21 +577,6 @@ export function PriorityTasks({
             className="h-7 w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="relative">
-            <Button
-              variant={activeFilters > 0 ? "secondary" : "ghost"}
-              size="sm"
-              className="text-muted-foreground gap-1.5"
-              onClick={() => setFilterOpen((v) => !v)}
-            >
-              <Filter className="h-3 w-3" />
-              Filters
-              {activeFilters > 0 && (
-                <span className="rounded-full bg-primary text-primary-foreground text-[10px] w-4 h-4 flex items-center justify-center font-medium">
-                  {activeFilters}
-                </span>
-              )}
-            </Button>
-
             {filterOpen && (
               <div
                 className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
@@ -615,19 +685,13 @@ export function PriorityTasks({
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
                 onOpenChat={onOpenChat}
-                questionCount={questionCounts[issue.id] ?? 0}
+                questionCount={effectiveCount(issue)}
               />
             ))}
           </div>
         )}
       </CardContent>
-
-      {selectedIssue && (
-        <IssueDetailModal
-          issue={selectedIssue}
-          onClose={() => setSelectedIssue(null)}
-        />
-      )}
+      {modal}
     </Card>
   );
 }

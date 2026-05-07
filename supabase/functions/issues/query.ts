@@ -17,7 +17,7 @@ query Issues($filter: IssueFilter) {
       updatedAt
       description
       activitySummary
-      assignee { displayName }
+      assignee { id email displayName }
       branchName
       createdAt
       completedAt

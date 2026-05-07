@@ -45,10 +45,6 @@ export default function ClientDashboard() {
   const linearProjectId = "";
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [onlyActive, setOnlyActive] = useState(false);
-  const [allIssuePage, setAllIssuePage] = useState(1);
-  const ALL_PAGE_SIZE = 10;
 
   // 🔹 Issues query
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -58,7 +54,9 @@ export default function ClientDashboard() {
   });
 
   // 🔹 Issue questions query
-  const { data: questionsData } = useQuery<{ countByIssue: Record<string, number> }>({
+  const { data: questionsData } = useQuery<{
+    countByIssue: Record<string, number>;
+  }>({
     queryKey: ["issue-questions", userId],
     queryFn: async () => {
       const res = await fetch(
@@ -96,59 +94,40 @@ export default function ClientDashboard() {
   }, [policiesStatus]);
 
   const allIssues: any[] = issuesData ?? [];
-  const availableStatuses = Array.from(
-    new Set(allIssues.map((i: any) => i.state?.name).filter(Boolean)),
-  ) as string[];
-  const hasCycles = allIssues.some((i: any) => i.cycle !== undefined);
 
-  const filteredIssues = allIssues
-    .filter((issue: any) => {
-      if (onlyActive && issue.cycle && !issue.cycle.isActive) return false;
-      if (
-        selectedStatuses.length > 0 &&
-        (!issue.state?.name || !selectedStatuses.includes(issue.state.name))
-      )
-        return false;
-      return true;
-    })
-    .sort((a: any, b: any) => {
-      const aCount = questionCounts[a.id] ?? 0;
-      const bCount = questionCounts[b.id] ?? 0;
-      return bCount - aCount;
-    });
+  const filteredIssues = [...allIssues].sort((a: any, b: any) => {
+    const aCount = questionCounts[a.id] ?? 0;
+    const bCount = questionCounts[b.id] ?? 0;
+    return bCount - aCount;
+  });
 
-  const priorityIssues = filteredIssues.filter(
-    (i: any) => i.state?.name === "UAT" || i.state?.name === "Business Review",
-  );
+  const businessReviewIssues = allIssues
+    .filter((i: any) => i.state?.name === "Business Review")
+    .sort(
+      (a: any, b: any) =>
+        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
+    );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredIssues.length / ALL_PAGE_SIZE),
-  );
-  const pagedIssues = filteredIssues.slice(
-    (allIssuePage - 1) * ALL_PAGE_SIZE,
-    allIssuePage * ALL_PAGE_SIZE,
-  );
+  const uatIssues = allIssues
+    .filter((i: any) => i.state?.name === "UAT")
+    .sort(
+      (a: any, b: any) =>
+        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
+    );
+
+  const noopFilterState = {
+    selectedStatuses: [],
+    onlyActive: false,
+    availableStatuses: [],
+    hasCycles: false,
+    onToggleStatus: () => {},
+    onToggleActive: () => {},
+    onClearFilters: () => {},
+  };
 
   const handleOpenChat = (title: string) => {
     const chatPath = pathname.replace(/\/[^/]+$/, "/chat");
     router.push(`${chatPath}?newChat=${encodeURIComponent(title)}`);
-  };
-
-  const filterState = {
-    selectedStatuses,
-    onlyActive,
-    availableStatuses,
-    hasCycles,
-    onToggleStatus: (s: string) =>
-      setSelectedStatuses((prev) =>
-        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
-      ),
-    onToggleActive: () => setOnlyActive((v) => !v),
-    onClearFilters: () => {
-      setSelectedStatuses([]);
-      setOnlyActive(false);
-    },
   };
 
   if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
@@ -165,57 +144,38 @@ export default function ClientDashboard() {
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
-      <div className="p-4 md:p-6 space-y-6">
-        {/* Priority view — UAT & Business Review only */}
+      <div className="p-4 md:p-6 space-y-6 ">
         <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
           <div className="w-full md:w-1/3 flex flex-col">
             <ProgressPieChart issuesData={allIssues} />
           </div>
-          <div className="w-full md:w-2/3 flex flex-col">
+          <div className="w-full md:w-1/3 flex flex-col">
             <PriorityTasks
-              issuesData={priorityIssues}
-              filterState={filterState}
+              issuesData={uatIssues}
+              filterState={noopFilterState}
               onOpenChat={handleOpenChat}
+              title="Acceptance Testing"
               questionCounts={questionCounts}
+              compact
+            />
+          </div>
+          <div className="w-full md:w-1/3 flex flex-col">
+            <PriorityTasks
+              issuesData={businessReviewIssues}
+              filterState={noopFilterState}
+              onOpenChat={handleOpenChat}
+              title="Product Decisions"
+              questionCounts={questionCounts}
+              compact
             />
           </div>
         </div>
 
-        {/* All issues — paginated */}
-        <div className="w-full flex flex-col gap-3">
-            <PriorityTasks
-              issuesData={pagedIssues}
-              filterState={filterState}
-              onOpenChat={handleOpenChat}
-              title="All Tasks"
-              questionCounts={questionCounts}
-            />
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-                <button
-                  className="px-3 py-1 rounded-md border border-border hover:bg-secondary/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  onClick={() => setAllIssuePage((p) => Math.max(1, p - 1))}
-                  disabled={allIssuePage === 1}
-                >
-                  ← Prev
-                </button>
-                <span>
-                  Page {allIssuePage} of {totalPages}
-                </span>
-                <button
-                  className="px-3 py-1 rounded-md border border-border hover:bg-secondary/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  onClick={() =>
-                    setAllIssuePage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={allIssuePage === totalPages}
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-        </div>
-
-        <CreateIssue slug={slug} projectId={linearProjectId} profile={profile} />
+        <CreateIssue
+          slug={slug}
+          projectId={linearProjectId}
+          profile={profile}
+        />
       </div>
     </div>
   );
