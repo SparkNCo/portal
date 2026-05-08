@@ -13,10 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IssueMetricsView } from "./issues-metrics";
-import { CycleBarChart, CycleHistoryChart, CycleTable } from "./cycle-metrics";
+import { CycleBarChart, CycleHistoryChart, CycleTable, UncompletedIssuesList } from "./cycle-metrics";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 
-type LineFilter = "all" | "scope" | "done" | "uncompleted";
+type LineFilter = "all" | "scope" | "done";
 
 interface Project {
   id: string;
@@ -95,6 +95,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     (a: { number: number }, b: { number: number }) => a.number - b.number,
   );
   const activeCycleId = selectedCycleId || cycles.at(-1)?.cycle_id || "";
+  const activeCycle = cycles.find((c: any) => c.cycle_id === activeCycleId);
 
   const filteredCycleMetrics = allCycleMetrics.filter((c: any) => {
     const start = c.starts_at ? new Date(c.starts_at) : null;
@@ -189,7 +190,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               ["all", "All"],
               ["scope", "Scope"],
               ["done", "Done"],
-              ["uncompleted", "Uncompleted"],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -222,6 +222,18 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         <CycleHistoryChart data={filteredCycleMetrics} lineFilter={lineFilter} />
         <CycleTable data={filteredCycleMetrics} />
       </div>
+
+      {activeCycle && (
+        <UncompletedIssuesList
+          issues={activeCycle.uncompleted_issues_upon_close}
+          cycleEndsAt={activeCycle.ends_at}
+          cycleNumber={activeCycle.number}
+          prevUncompletedIds={new Set(
+            (cycles.find((c: any) => c.number === activeCycle.number - 1)
+              ?.uncompleted_issues_upon_close ?? []).map((i: any) => i.id)
+          )}
+        />
+      )}
 
       {/* DORA / software KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -122,7 +122,7 @@ async function handlePost() {
     const cycleIssues = await resolveCycleIssues(cyclesByProject);
 
     const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
-    const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics);
+    const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics, cycleIssues);
 
     await Promise.all([
       upsertIssueMetrics(metrics),

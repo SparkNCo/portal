@@ -39,7 +39,7 @@ export default function AddClientModal({ onClose }: Props) {
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
-            ...(userName && { userName }),
+            ...(userName && { clientName: userName }),
             ...(phoneNumber && { phoneNumber }),
           }),
         },
@@ -85,7 +85,7 @@ export default function AddClientModal({ onClose }: Props) {
           </div>
           <input
             className={inputClass}
-            placeholder="Username (optional)"
+            placeholder="Client name"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
           />
@@ -99,7 +99,9 @@ export default function AddClientModal({ onClose }: Props) {
             className={inputClass}
             placeholder="Phone number (optional)"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={(e) =>
+              setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
+            }
           />
           <input
             className={inputClass}

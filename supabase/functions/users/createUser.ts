@@ -16,7 +16,7 @@ export const createUser = async (body: any) => {
     origin,
     firstName = null,
     lastName = null,
-    userName = null,
+    clientName = null,
     phoneNumber = null,
   } = body;
 
@@ -74,7 +74,7 @@ export const createUser = async (body: any) => {
         auth_id,
         firstName,
         lastName,
-        userName,
+        clientName,
         phoneNumber,
       }],
       { onConflict: "id" },

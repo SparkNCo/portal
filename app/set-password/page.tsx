@@ -23,6 +23,7 @@ function SetPasswordForm() {
   const [clientName, setClientName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -37,11 +38,15 @@ function SetPasswordForm() {
 
     const { data } = await supabase
       .from("users")
-      .select("role")
+      .select("role, firstName, lastName, clientName, phoneNumber")
       .eq("id", session.user.id)
       .maybeSingle();
 
     setRole(data?.role ?? null);
+    if (data?.firstName) setFirstName(data.firstName);
+    if (data?.lastName) setLastName(data.lastName);
+    if (data?.clientName) setClientName(data.clientName);
+    if (data?.phoneNumber) setPhoneNumber(data.phoneNumber);
     setReady(true);
   }
 
@@ -75,6 +80,10 @@ function SetPasswordForm() {
     }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords do not match.");
       return;
     }
 
@@ -202,6 +211,14 @@ function SetPasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
               />
+              <input
+                className={inputClass}
+                type="password"
+                placeholder="Confirm password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+              />
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -214,7 +231,8 @@ function SetPasswordForm() {
                     !firstName ||
                     !lastName ||
                     !clientName ||
-                    !password
+                    !password ||
+                    !confirm
                   }
                 >
                   {submitting ? "Saving..." : "Save"}

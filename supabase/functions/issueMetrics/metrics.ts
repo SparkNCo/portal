@@ -40,6 +40,7 @@ export function buildCycleMetrics(
   cyclesByProject: { projectId: string; projectName: string; cycles: any[] }[],
   customerId: string,
   issueMetrics: any[],
+  cycleIssues: { cycleId: string; projectId: string; issues: any[] }[],
 ) {
   const today = new Date().toISOString().split("T")[0];
   const result = [];
@@ -50,6 +51,10 @@ export function buildCycleMetrics(
       for (const im of issueMetrics.filter((m) => m.cycle === cycle.id && m.project_id === projectId)) {
         snapshot[im.status] = (snapshot[im.status] ?? 0) + im.count;
       }
+
+      const issueIds = cycleIssues
+        .filter((ci) => ci.cycleId === cycle.id && ci.projectId === projectId)
+        .flatMap((ci) => ci.issues.map((i: any) => i.id));
 
       result.push({
         customer_id: customerId,
@@ -66,6 +71,7 @@ export function buildCycleMetrics(
         scope_history: cycle.scopeHistory ?? [],
         completed_scope_history: cycle.completedScopeHistory ?? [],
         uncompleted_issues_upon_close: cycle.uncompletedIssuesUponClose?.nodes ?? [],
+        cycle_issue_ids: issueIds,
         _snapshot: snapshot,
       });
     }
