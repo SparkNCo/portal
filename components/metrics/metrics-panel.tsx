@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { IssueMetricsView } from "./issues-metrics";
 import { CycleBarChart, CycleHistoryChart, CycleTable } from "./cycle-metrics";
+import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 
 type LineFilter = "all" | "scope" | "done" | "uncompleted";
 
@@ -26,7 +27,8 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
-  const slug = slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+  const slug =
+    slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedCycleId, setSelectedCycleId] = useState("");
@@ -103,9 +105,10 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     if (to && start && start > to) return false;
     return true;
   });
-
   return (
-    <div className="space-y-4 mb-20">
+    <div
+      className="space-y-4 mb-20"
+    >
       {/* Unified filter bar */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
@@ -138,7 +141,12 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="flex items-center gap-2">
-            <label htmlFor="metrics-date-from" className="text-sm text-muted-foreground w-8">From</label>
+            <label
+              htmlFor="metrics-date-from"
+              className="text-sm text-muted-foreground w-8"
+            >
+              From
+            </label>
             <input
               id="metrics-date-from"
               type="date"
@@ -148,7 +156,12 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="metrics-date-to" className="text-sm text-muted-foreground w-8">To</label>
+            <label
+              htmlFor="metrics-date-to"
+              className="text-sm text-muted-foreground w-8"
+            >
+              To
+            </label>
             <input
               id="metrics-date-to"
               type="date"
@@ -196,19 +209,24 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
       {/* 2-column grid: Issues by Status + Cycle Scope vs Completed */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <CycleBarChart data={filteredCycleMetrics} />
         <IssueMetricsView
           data={issueMetrics}
           cycleMetrics={allCycleMetrics}
           activeCycleId={activeCycleId}
         />
-        <CycleBarChart data={filteredCycleMetrics} />
       </div>
 
-      {/* Full-width: history line chart */}
-      <CycleHistoryChart data={filteredCycleMetrics} lineFilter={lineFilter} />
+      {/* History chart + table side by side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <CycleHistoryChart data={filteredCycleMetrics} lineFilter={lineFilter} />
+        <CycleTable data={filteredCycleMetrics} />
+      </div>
 
-      {/* Full-width: table */}
-      <CycleTable data={filteredCycleMetrics} />
+      {/* DORA / software KPIs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SoftwareKPIs linearName={slug} />
+      </div>
     </div>
   );
 }

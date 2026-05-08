@@ -68,25 +68,29 @@ export function IssueMetricsView({
   const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
   const [legendOpen, setLegendOpen] = useState(false);
 
-  const chartData = useMemo(
-    () =>
-      [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
-        String(a.date).localeCompare(String(b.date)),
-      ),
-    [activeCycle],
-  );
-
   const uniqueStatuses = useMemo(() => {
+    const raw = activeCycle?.issues_averages ?? [];
     const statuses = Array.from(
-      new Set(
-        chartData.flatMap((d) => Object.keys(d).filter((k) => k !== "date")),
-      ),
+      new Set(raw.flatMap((d) => Object.keys(d).filter((k) => k !== "date"))),
     );
     return statuses.sort(
       (a, b) =>
         (STATUS_ORDER.indexOf(a) ?? 99) - (STATUS_ORDER.indexOf(b) ?? 99),
     );
-  }, [chartData]);
+  }, [activeCycle]);
+
+  const chartData = useMemo(() => {
+    const raw = [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)),
+    );
+    return raw.map((d) => {
+      const point: Record<string, number | string> = { date: d.date ?? "" };
+      for (const status of uniqueStatuses) {
+        point[status] = (d[status] as number) ?? 0;
+      }
+      return point;
+    });
+  }, [activeCycle, uniqueStatuses]);
 
   return (
     <Card className="bg-background border-border">

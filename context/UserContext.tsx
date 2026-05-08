@@ -3,13 +3,25 @@
 import { createContext, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase-client";
 
+type Assignment = {
+  id: string;
+  user_id: string;
+  customer_id: string;
+  role: string;
+  allocation?: number | null;
+  joined?: string;
+  clientName?: string | null;
+  linear_slug?: string | null;
+};
+
 type Profile = {
   id: string;
   email: string;
-  role: "admin" | "developer" | "customer";
+  role: "admin" | "developer" | "customer" | "stakeholder";
   linear_slug?: string;
   userName?: string;
   customer_id?: string;
+  assignment_id?: Assignment[];
 };
 
 type UserContextType = {
