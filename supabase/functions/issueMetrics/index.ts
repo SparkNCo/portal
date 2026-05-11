@@ -22,6 +22,7 @@ function jsonResponse(data: unknown, status = 200) {
 async function handleGet(searchParams: URLSearchParams) {
   const slug = searchParams.get("slug");
   if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
+  console.log("hi");
 
   const { data: userRow, error: userError } = await supabase
     .from("users")
@@ -30,7 +31,8 @@ async function handleGet(searchParams: URLSearchParams) {
     .maybeSingle();
 
   if (userError) throw new Error(`User lookup error: ${userError.message}`);
-  if (!userRow?.linear_slug) return jsonResponse({ error: `No linear_slug found for: ${slug}` }, 404);
+  if (!userRow?.linear_slug)
+    return jsonResponse({ error: `No linear_slug found for: ${slug}` }, 404);
 
   const [issue_metrics, cycle_metrics] = await Promise.all([
     getIssueMetricsByCustomerId(userRow.linear_slug),
@@ -42,10 +44,21 @@ async function handleGet(searchParams: URLSearchParams) {
 
 // Fetch each unique cycle exactly once, then group issues by their actual project.id.
 // This prevents double-counting when the same cycle_id appears across multiple projects.
-async function resolveCycleIssues(cyclesByProject: { projectId: string; cycles: any[] }[]) {
-  const uniqueCycleIds = [...new Set(cyclesByProject.flatMap(({ cycles }) => cycles.map((c) => c.id)))];
+async function resolveCycleIssues(
+  cyclesByProject: { projectId: string; cycles: any[] }[],
+) {
+  const uniqueCycleIds = [
+    ...new Set(
+      cyclesByProject.flatMap(({ cycles }) => cycles.map((c) => c.id)),
+    ),
+  ];
 
-  const fetched = await Promise.all(uniqueCycleIds.map(async (cycleId) => [cycleId, await fetchCycleIssues(cycleId)]));
+  const fetched = await Promise.all(
+    uniqueCycleIds.map(async (cycleId) => [
+      cycleId,
+      await fetchCycleIssues(cycleId),
+    ]),
+  );
   const issuesByCycle = new Map<string, any[]>(fetched);
 
   const result: { cycleId: string; projectId: string; issues: any[] }[] = [];
@@ -70,7 +83,11 @@ async function handlePut(req: Request) {
 
   // Step 1: resolve project IDs from Supabase by customer slug
   const projectIds = await getProjectIdsBySlug(linear_slug);
-  if (!projectIds.length) return jsonResponse({ error: `No projects found for slug: ${linear_slug}` }, 404);
+  if (!projectIds.length)
+    return jsonResponse(
+      { error: `No projects found for slug: ${linear_slug}` },
+      404,
+    );
 
   // Step 2: fetch project details to discover active cycles
   const projects = await fetchProjectDetails(projectIds);
@@ -82,7 +99,11 @@ async function handlePut(req: Request) {
         cyclesMap.set(issue.cycle.id, issue.cycle);
       }
     }
-    return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      cycles: Array.from(cyclesMap.values()),
+    };
   });
 
   // Step 3: fetch issues per unique cycle, grouped by actual project
@@ -121,9 +142,16 @@ async function triggerDoraForAllCustomers() {
     eligible.map((user) =>
       fetch(doraUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: authHeader },
-        body: JSON.stringify({ method: "all", url: user.project_url, linear_slug: user.linear_slug }),
-      })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authHeader,
+        },
+        body: JSON.stringify({
+          method: "all",
+          url: user.project_url,
+          linear_slug: user.linear_slug,
+        }),
+      }),
     ),
   );
 }
@@ -144,13 +172,22 @@ async function handlePost() {
           cyclesMap.set(issue.cycle.id, issue.cycle);
         }
       }
-      return { projectId: project.id, projectName: project.name, cycles: Array.from(cyclesMap.values()) };
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        cycles: Array.from(cyclesMap.values()),
+      };
     });
 
     const cycleIssues = await resolveCycleIssues(cyclesByProject);
 
     const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
-    const cycles = buildCycleMetrics(cyclesByProject, customer.linear_slug, metrics, cycleIssues);
+    const cycles = buildCycleMetrics(
+      cyclesByProject,
+      customer.linear_slug,
+      metrics,
+      cycleIssues,
+    );
 
     await Promise.all([
       upsertIssueMetrics(metrics),
