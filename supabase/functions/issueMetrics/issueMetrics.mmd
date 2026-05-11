@@ -1,0 +1,47 @@
+flowchart TD
+    REQ([Incoming Request]) --> CORS{OPTIONS?}
+    CORS -->|Yes| CORSOK[204 CORS preflight]
+    CORS -->|No| METHOD{HTTP Method}
+
+    %% ── GET ──────────────────────────────────────────────
+    METHOD -->|GET| G1[Read ?slug from query params]
+    G1 --> G2[Query users table\nWHERE clientName = slug]
+    G2 --> G3{linear_slug\nfound?}
+    G3 -->|No| G4[400 / 404 error]
+    G3 -->|Yes| G5[("Supabase DB")]
+    G5 -->|getIssueMetricsByCustomerId| G6[issue_metrics]
+    G5 -->|getCycleMetricsByCustomerId| G7[cycle_metrics]
+    G6 & G7 --> G8[Return issue_metrics\n+ cycle_metrics JSON]
+
+    %% ── PUT ──────────────────────────────────────────────
+    METHOD -->|PUT| P1[Read linear_slug\nfrom request body]
+    P1 --> P2[getProjectIdsBySlug\nfrom Supabase]
+    P2 --> P3{Projects\nfound?}
+    P3 -->|No| P4[404 error]
+    P3 -->|Yes| P5[fetchProjectDetails\nLinear API]
+    P5 --> P6[Scan issues → find\nactive cycles per project]
+    P6 --> P7[resolveCycleIssues\nfetch each unique cycle once\ngroup issues by project.id]
+    P7 --> P8[buildIssueMetrics]
+    P8 --> P9[Return status counts\nby project JSON]
+
+    %% ── POST / Cron ──────────────────────────────────────
+    METHOD -->|POST / Cron| C1[getAllCustomers\nfrom Supabase]
+    C1 --> C2[For each customer\nwith linear_projects]
+    C2 --> C3[fetchProjectDetails\nLinear API]
+    C3 --> C4[Scan issues → find\nactive cycles per project]
+    C4 --> C5[resolveCycleIssues\nfetch unique cycles\ngroup by project.id]
+    C5 --> C6[buildIssueMetrics\n+ buildCycleMetrics]
+    C6 --> C7[("Supabase DB")]
+    C7 -->|upsertIssueMetrics| C8[issue_metrics table]
+    C7 -->|upsertCycleMetrics| C9[cycle_metrics table]
+    C8 & C9 --> C2
+    C2 -->|All customers done| D1
+
+    subgraph DORA ["triggerDoraForAllCustomers()"]
+        D1[Query users\nrole = customer\nlinear_slug NOT NULL\nproject_url length > 0]
+        D1 --> D2[For each eligible user\nin parallel]
+        D2 --> D3["POST /functions/v1/dora\n{ method: 'all', url: project_url, linear_slug }"]
+        D3 --> D4[("dorametrics table\nupdated")]
+    end
+
+    D4 --> DONE([Return ok: true])

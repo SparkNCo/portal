@@ -147,22 +147,29 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
 export function CycleHistoryChart({
   data,
   lineFilter,
+  activeCycleId,
 }: {
   readonly data: CycleMetric[];
   readonly lineFilter: "all" | "scope" | "done" | "uncompleted";
+  readonly activeCycleId?: string;
 }) {
   const [legendOpen, setLegendOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  const visibleData = showAll || !activeCycleId
+    ? data
+    : data.filter((c) => c.cycle_id === activeCycleId);
 
   const lineChartData = useMemo(() => {
     const maxLen = Math.max(
       0,
-      ...data.flatMap((c) => [
+      ...visibleData.flatMap((c) => [
         c.scope_history.length,
         c.completed_scope_history.length,
       ]),
     );
-    const baseDate = data.length === 1 && data[0]?.starts_at
-      ? new Date(data[0].starts_at).getTime()
+    const baseDate = visibleData.length === 1 && visibleData[0]?.starts_at
+      ? new Date(visibleData[0].starts_at).getTime()
       : null;
 
     return Array.from({ length: maxLen }, (_, i) => {
@@ -173,7 +180,7 @@ export function CycleHistoryChart({
           { month: "short", day: "numeric" },
         );
       }
-      data.forEach((c) => {
+      visibleData.forEach((c) => {
         const label = c.name ?? `Cycle ${c.number}`;
         if (i < c.scope_history.length)
           point[`${label} – Scope`] = c.scope_history[i] as number;
@@ -182,7 +189,7 @@ export function CycleHistoryChart({
       });
       return point;
     });
-  }, [data]);
+  }, [visibleData]);
 
   return (
     <Card className="bg-background border-border">
@@ -190,6 +197,23 @@ export function CycleHistoryChart({
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-accent" />
           Scope &amp; Completed History
+          {activeCycleId && (
+            <div className="ml-auto flex gap-1 rounded-lg border border-border bg-muted p-1">
+              {(["Current", "All"] as const).map((label) => (
+                <button
+                  key={label}
+                  onClick={() => setShowAll(label === "All")}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    (label === "All") === showAll
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -236,7 +260,7 @@ export function CycleHistoryChart({
                       return date ? `Day ${v} · ${date}` : `Day ${v}`;
                     }}
                   />
-                  {data.map((c, i) => {
+                  {visibleData.map((c, i) => {
                     const label = c.name ?? `Cycle ${c.number}`;
                     const color = CYCLE_COLORS[i % CYCLE_COLORS.length];
                     return [
@@ -280,7 +304,7 @@ export function CycleHistoryChart({
               </button>
               {legendOpen && (
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {data.map((c, i) => {
+                  {visibleData.map((c, i) => {
                     const label = c.name ?? `Cycle ${c.number}`;
                     const color = CYCLE_COLORS[i % CYCLE_COLORS.length];
                     return (
@@ -327,8 +351,6 @@ export function CycleTable({ data }: { readonly data: CycleMetric[] }) {
                 <TableHead>Scope</TableHead>
                 <TableHead>Completed</TableHead>
                 <TableHead>Rate</TableHead>
-                <TableHead>Left open</TableHead>
-                <TableHead>Carried over</TableHead>
                 <TableHead>Completed At</TableHead>
               </TableRow>
             </TableHeader>
@@ -336,31 +358,17 @@ export function CycleTable({ data }: { readonly data: CycleMetric[] }) {
               {sorted.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={6}
                     className="text-center text-muted-foreground py-6"
                   >
                     No cycle metrics found
                   </TableCell>
                 </TableRow>
               ) : (
-                sorted.map((row, i) => {
+                sorted.map((row) => {
                   const scope = row.scope_history.at(-1) ?? 0;
                   const completed = row.completed_scope_history.at(-1) ?? 0;
                   const rate = scope > 0 ? Math.round((completed / scope) * 100) : 0;
-                  const endsAt = row.ends_at ? new Date(row.ends_at) : null;
-                  const realLeftOpen = endsAt
-                    ? row.uncompleted_issues_upon_close.filter(
-                        (issue) => new Date(issue.addedToCycleAt) <= endsAt,
-                      ).length
-                    : row.uncompleted_issues_upon_close.length;
-
-                  const prevCycle = sorted[i - 1];
-                  const prevUncompletedIds = new Set(
-                    (prevCycle?.uncompleted_issues_upon_close ?? []).map((issue: any) => issue.id),
-                  );
-                  const carryover = prevCycle
-                    ? (row.cycle_issue_ids ?? []).filter((id) => prevUncompletedIds.has(id)).length
-                    : null;
 
                   return (
                     <TableRow key={row.id}>
@@ -380,14 +388,6 @@ export function CycleTable({ data }: { readonly data: CycleMetric[] }) {
                         >
                           {scope > 0 ? `${rate}%` : "—"}
                         </span>
-                      </TableCell>
-                      <TableCell>{realLeftOpen}</TableCell>
-                      <TableCell>
-                        {carryover === null ? "—" : carryover > 0 ? (
-                          <span className="text-yellow-500">{carryover}</span>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         {row.completed_at

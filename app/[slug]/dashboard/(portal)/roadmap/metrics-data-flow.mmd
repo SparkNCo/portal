@@ -1,0 +1,37 @@
+flowchart TD
+    subgraph Browser["Browser (React)"]
+        MP[MetricsPanel]
+        SK[SoftwareKPIs]
+    end
+
+    subgraph EdgeFunctions["Supabase Edge Functions"]
+        IM["issueMetrics\n(GET handler)"]
+        DM["get-dora-metrics\n(GET handler)"]
+        SYNC["issueMetrics\n(POST — background sync)"]
+    end
+
+    subgraph SupabaseDB["Supabase DB"]
+        U[(users)]
+        IM_T[(issue_metrics)]
+        CM_T[(cycle_metrics)]
+        DORA[(dorametrics)]
+        CUST[(customers)]
+    end
+
+    Linear[Linear API]
+
+    MP -->|"GET /issueMetrics?slug="| IM
+    IM -->|"lookup linear_slug\nby clientName"| U
+    IM -->|read cached rows| IM_T
+    IM -->|read cached rows| CM_T
+
+    MP -->|renders| SK
+    SK -->|"GET /get-dora-metrics?linear_name="| DM
+    DM -->|"lookup linear_slug\nby clientName"| U
+    DM -->|read cached rows| DORA
+
+    SYNC -->|read all customers| CUST
+    SYNC -->|"fetch projects,\ncycles & issues"| Linear
+    Linear -->|project & cycle data| SYNC
+    SYNC -->|upsert computed metrics| IM_T
+    SYNC -->|upsert computed metrics| CM_T

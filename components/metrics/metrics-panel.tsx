@@ -219,11 +219,11 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
       {/* History chart + table side by side on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CycleHistoryChart data={filteredCycleMetrics} lineFilter={lineFilter} />
+        <CycleHistoryChart data={filteredCycleMetrics} lineFilter={lineFilter} activeCycleId={activeCycleId} />
         <CycleTable data={filteredCycleMetrics} />
       </div>
 
-      {activeCycle && (
+      {/* {activeCycle && (
         <UncompletedIssuesList
           issues={activeCycle.uncompleted_issues_upon_close}
           cycleEndsAt={activeCycle.ends_at}
@@ -233,9 +233,8 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               ?.uncompleted_issues_upon_close ?? []).map((i: any) => i.id)
           )}
         />
-      )}
+      )} */}
 
-      {/* DORA / software KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SoftwareKPIs linearName={slug} />
       </div>

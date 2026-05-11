@@ -2,8 +2,8 @@
 import { fetchPRPage } from "./github.ts";
 
 function isRelevantPR(pr: any): boolean {
-  const title = (pr.title ?? "").toLowerCase().trim();
-  return /^feat\s*\/|^release\s*\//.test(title);
+  const title = (pr.title ?? "").trim();
+  return /^feat\s*\/|^release\s*\//i.test(title);
 }
 
 function extractIssueNumber(branchName: string): string | null {

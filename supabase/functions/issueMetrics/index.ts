@@ -100,6 +100,34 @@ async function handlePut(req: Request) {
   return jsonResponse({ projects: byProject });
 }
 
+async function triggerDoraForAllCustomers() {
+  const { data: users, error } = await supabase
+    .from("users")
+    .select("linear_slug, project_url")
+    .eq("role", "customer")
+    .not("linear_slug", "is", null)
+    .not("project_url", "is", null);
+
+  if (error) throw new Error(`Users lookup error: ${error.message}`);
+
+  const eligible = (users ?? []).filter(
+    (u) => Array.isArray(u.project_url) && u.project_url.length > 0,
+  );
+
+  const doraUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/dora`;
+  const authHeader = `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}`;
+
+  await Promise.all(
+    eligible.map((user) =>
+      fetch(doraUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ method: "all", url: user.project_url, linear_slug: user.linear_slug }),
+      })
+    ),
+  );
+}
+
 async function handlePost() {
   const customers = await getAllCustomers();
 
@@ -129,6 +157,8 @@ async function handlePost() {
       upsertCycleMetrics(cycles),
     ]);
   }
+
+  await triggerDoraForAllCustomers();
 
   return jsonResponse({ ok: true });
 }

@@ -2,8 +2,8 @@
 import { fetchPRPage } from "./github.ts";
 
 function isFixPR(pr: any): boolean {
-  const title = (pr.title ?? "").toLowerCase().trim();
-  return /^fix\s*\//.test(title);
+  const title = (pr.title ?? "").trim();
+  return /^fix\s*\//i.test(title);
 }
 
 function extractIssueNumber(branchName: string): string | null {

@@ -18,10 +18,8 @@ const handlers: Record<string, (repo: string, token: string, limit: number) => P
   deployFreq: handleDeployFreq,
 };
 
-const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
 async function handleAll(repo: string, token: string, limit: number) {
-  const since = new Date(Date.now() - TWENTY_FOUR_HOURS);
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [cfr, leadTime, mttr, deployFreq] = await Promise.all([
     handleCFR(repo, token, limit, since),
     handleLeadTime(repo, token, limit, since),
@@ -114,14 +112,6 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
     .eq("linear_slug", linearSlug)
     .maybeSingle();
-
-  if (existing?.last_called) {
-    const elapsed = Date.now() - new Date(existing.last_called).getTime();
-    if (elapsed < TWENTY_FOUR_HOURS) {
-      throw new Error("Dora metrics already updated in the last 24 hours. Next run available in " +
-        Math.ceil((TWENTY_FOUR_HOURS - elapsed) / 3_600_000) + "h.");
-    }
-  }
 
   const merged = mergeDoraMetrics(existing, result);
   const payload = { ...merged, url, last_called: new Date().toISOString() };
