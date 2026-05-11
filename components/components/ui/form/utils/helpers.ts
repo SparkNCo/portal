@@ -53,7 +53,7 @@ export const getURL = (path: string = "") => {
           "http://localhost:3000/";
 
   // Trim the URL and remove trailing slash if exists.
-  url = url.replace(/\/+$/, "");
+  while (url.endsWith("/")) url = url.slice(0, -1);
   // Make sure to include `https://` when not localhost.
   url = url.includes("http") ? url : `https://${url}`;
   // Ensure path starts without a slash to avoid double slashes in the final URL.
@@ -81,12 +81,8 @@ export const getPersonFullName = (first_name: string, last_name: string) =>
 export const generateRandom6DigitsCode = () => {
   const characters =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    code += characters[randomIndex];
-  }
-  return code;
+  const randomValues = crypto.getRandomValues(new Uint32Array(6));
+  return Array.from(randomValues, (v) => characters[v % characters.length]).join("");
 };
 
 export const parseFormData = (formData: FormData, key: string) => {
