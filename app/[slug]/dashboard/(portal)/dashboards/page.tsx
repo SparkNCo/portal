@@ -43,7 +43,7 @@ function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug:
     case "roadmap":
       return <RoadmapPage />;
     case "developer":
-      return <DeveloperPage params={{ slug }} />;
+      return <DeveloperPage />;
     case "documents":
       return <DocumentsPage />;
     case "settings":
