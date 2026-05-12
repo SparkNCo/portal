@@ -54,9 +54,11 @@ export default function DeveloperDashboard() {
   const questionCounts = questionsData?.countByIssue ?? {};
 
   const allIssues: any[] = issuesData ?? [];
-  const filteredIssues = [...allIssues].sort((a: any, b: any) => {
-    return (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0);
-  });
+  const filteredIssues = [...allIssues]
+    .filter((i: any) => i?.state?.name !== "Done")
+    .sort((a: any, b: any) => {
+      return (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0);
+    });
 
   const noopFilterState = {
     selectedStatuses: [],

@@ -11,6 +11,7 @@ if (typeof window !== "undefined") {
       defaults: "2025-05-24",
       opt_out_capturing_by_default: true,
       cookieless_mode: "on_reject",
+      capture_performance: false,
       loaded: (posthog) => {
         if (process.env.NODE_ENV === "development") {
           posthog.debug();

@@ -22,6 +22,7 @@ type Props = Readonly<{
 export default function AssignCustomerModal({ userId, userRole = "developer", customers, onClose }: Props) {
   const queryClient = useQueryClient();
   const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [allocation, setAllocation] = useState<number | "">("");
 
   const { data: existing = [], isLoading: loadingExisting } = useQuery({
     queryKey: ["developer-assignments", userId],
@@ -50,7 +51,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer, role: userRole }),
+        body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer, role: userRole, allocation: Number(allocation) }),
       });
       if (!res.ok) throw new Error("Failed to assign user");
       return res.json();
@@ -113,6 +114,21 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                 </option>
               ))}
             </select>
+
+            <div className="mt-3">
+              <label htmlFor="allocation-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+                Allocation (hrs/week)
+              </label>
+              <input
+                id="allocation-input"
+                type="number"
+                min={1}
+                className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+                placeholder="e.g. 20"
+                value={allocation}
+                onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2">
@@ -121,7 +137,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
             </Button>
             <Button
               size="sm"
-              disabled={!selectedCustomer || isPending || assignedCustomerIds.has(selectedCustomer)}
+              disabled={!selectedCustomer || !allocation || isPending || assignedCustomerIds.has(selectedCustomer)}
               onClick={() => mutate()}
             >
               {isPending ? "Assigning..." : "Assign"}

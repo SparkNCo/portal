@@ -299,7 +299,7 @@ function IssueDetailModal({
         },
         body: JSON.stringify({
           issue_id: issue.id,
-          body: comment.trim(),
+          body: `[${profile?.email}]: ${comment.trim()}`,
           role: profile?.role,
           profile_id: profile?.id,
           email: profile?.email,
@@ -563,18 +563,18 @@ export function PriorityTasks({
 
   return (
     <Card className="bg-background border-border h-full flex flex-col w-full">
-      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input
             type="text"
             placeholder="Search by title..."
             value={titleFilter}
             onChange={(e) => setTitleFilter(e.target.value)}
-            className="h-7 w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="relative">
             {filterOpen && (
