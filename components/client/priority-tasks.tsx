@@ -225,6 +225,7 @@ function IssueDetailModal({
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [showDescription, setShowDescription] = useState(true);
   const [showComments, setShowComments] = useState(false);
+  const [localComments, setLocalComments] = useState<Comment[]>(issue.comments?.nodes ?? []);
 
   const nextState = currentStateName
     ? STATE_TRANSITIONS[currentStateName]
@@ -299,19 +300,27 @@ function IssueDetailModal({
         },
         body: JSON.stringify({
           issue_id: issue.id,
-          body: `[${profile?.email}]: ${comment.trim()}`,
+          body: `From: ${profile?.email}\n\n${comment.trim()}`,
           role: profile?.role,
           profile_id: profile?.id,
           email: profile?.email,
         }),
       });
+      setLocalComments((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          body: `From: ${profile?.email}\n\n${comment.trim()}`,
+          createdAt: new Date().toISOString(),
+          displayName: null,
+        },
+      ]);
       setComment("");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const comments = issue.comments?.nodes ?? [];
 
   return (
     <div
@@ -403,6 +412,7 @@ function IssueDetailModal({
               )}
             </div>
           )}
+          <div onClick={() => console.log({localComments})}>VER localComments</div>
 
           {/* Comments */}
           <div className="space-y-2">
@@ -410,38 +420,54 @@ function IssueDetailModal({
               onClick={() => setShowComments((v) => !v)}
               className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
             >
-              Comments {comments.length > 0 && `(${comments.length})`}
+              Comments {localComments.length > 0 && `(${localComments.length})`}
               <ArrowRight
                 className={`h-3 w-3 transition-transform ${showComments ? "rotate-90" : ""}`}
               />
             </button>
 
-            {showComments && comments.length === 0 ? (
+            {showComments && localComments.length === 0 ? (
               <p className="text-xs text-muted-foreground italic">
-                No comments yet.
+                No localComments yet.
               </p>
             ) : showComments ? (
               <div className="space-y-2">
-                {comments.map((c) => (
-                  <div
-                    key={c.id}
-                    className="rounded-lg bg-muted/40 p-3 space-y-0.5"
-                  >
-                    {c.displayName && (
-                      <p className="text-[10px] font-medium text-muted-foreground">
-                        {c.displayName}
+                {localComments.map((c) => {
+                  const fromFmt = c.body
+                    ? /^From:\s+(\S+)(?:\n\n|\s+)([\s\S]*)$/.exec(c.body)
+                    : null;
+                  const author = fromFmt?.[1] ?? null;
+                  const text = fromFmt?.[2] ?? c.body ?? "";
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded-lg bg-muted/40 p-3 space-y-1"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {author ? (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-medium"
+                          >
+                            {author}
+                          </Badge>
+                        ) : c.displayName ? (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {c.displayName}
+                          </span>
+                        ) : null}
                         {c.createdAt && (
-                          <span className="ml-2 font-normal">
+                          <span className="text-[10px] text-muted-foreground">
                             {new Date(c.createdAt).toLocaleDateString()}
                           </span>
                         )}
+                      </div>
+                      <p className="text-sm text-foreground whitespace-pre-wrap">
+                        {text}
                       </p>
-                    )}
-                    <p className="text-sm text-foreground whitespace-pre-wrap">
-                      {c.body}
-                    </p>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>
