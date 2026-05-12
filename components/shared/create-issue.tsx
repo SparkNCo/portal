@@ -202,36 +202,6 @@ export function CreateIssue({ slug, projectId, profile: profileProp }: { slug: s
     },
   });
 
-  const testMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-        },
-        body: JSON.stringify({
-          issue_id: TEST_ISSUE.id,
-          body: "Test question from CreateIssue",
-          role: profile?.role,
-          profile_id: profile?.id,
-          email: profile?.email,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to send test question");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      console.log("[CreateIssue] test response", data);
-      toast.success("Test question sent");
-    },
-    onError: (err) => {
-      console.error("[CreateIssue] test error", err);
-      toast.error("Test failed — check console");
-    },
-  });
-
   function handleClose() {
     setOpen(false);
     setStep("type");
@@ -271,18 +241,6 @@ export function CreateIssue({ slug, projectId, profile: profileProp }: { slug: s
         >
           <Plus className="h-4 w-4 mr-2" />
           Create Issue
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => testMutation.mutate()}
-          disabled={testMutation.isPending}
-          title="Send test question to backend"
-        >
-          {testMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FlaskConical className="h-4 w-4" />
-          )}
         </Button>
       </div>
 

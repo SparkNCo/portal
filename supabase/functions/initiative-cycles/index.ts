@@ -127,7 +127,9 @@ function buildRow(cycle: any, projectId: string, projectName: string, linearSlug
     starts_at: cycle.startsAt ?? null,
     ends_at: cycle.endsAt ?? null,
     is_active: cycle.isActive ?? false,
-    completed_at: cycle.completedAt ?? null,
+    completed_at: !cycle.isActive && cycle.endsAt
+      ? cycle.endsAt.replace("T", " ").replace(/Z$/, "+00")
+      : null,
     scope_history: cycle.scopeHistory ?? [],
     completed_scope_history: cycle.completedScopeHistory ?? [],
     uncompleted_issues_upon_close: uncompletedIssues.map((i) => ({
