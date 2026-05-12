@@ -100,7 +100,7 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
           </p>
         ) : (
           <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={224}>
               <BarChart data={chartData} barGap={4}>
                 <XAxis
                   dataKey="label"
@@ -224,7 +224,7 @@ export function CycleHistoryChart({
         ) : (
           <>
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={288}>
                 <LineChart data={lineChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.22 0 0)" />
                   <XAxis

@@ -1,7 +1,6 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
-import { VelocityMetrics } from "@/components/roadmap/velocity-metrics";
 import { useEffect, useState } from "react";
 import { LoadingDataPanel } from "@/components/loader";
 import { useUser } from "context/UserContext";

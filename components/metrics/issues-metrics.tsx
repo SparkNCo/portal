@@ -109,7 +109,7 @@ export function IssueMetricsView({
         ) : (
           <>
             <div className="h-72 sm:h-56">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={288}>
                 <AreaChart data={chartData}>
                   <XAxis
                     dataKey="date"
