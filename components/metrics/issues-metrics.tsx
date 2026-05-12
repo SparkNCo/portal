@@ -108,8 +108,8 @@ export function IssueMetricsView({
           </p>
         ) : (
           <>
-            <div className="h-72 sm:h-56">
-              <ResponsiveContainer width="100%" height={288}>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height={320}>
                 <AreaChart data={chartData}>
                   <XAxis
                     dataKey="date"
@@ -148,7 +148,7 @@ export function IssueMetricsView({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-3">
+            <div className="mt-3 lg:hidden">
               <button
                 onClick={() => setLegendOpen((o) => !o)}
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"

@@ -111,36 +111,39 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
       className="space-y-4 mb-20"
     >
       {/* Unified filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Select project" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {cycles.length > 0 && (
-          <Select value={activeCycleId} onValueChange={setSelectedCycleId}>
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Cycle" />
+      <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center gap-3">
+        {/* Row 1: project + cycle selects */}
+        <div className="flex flex-wrap gap-3">
+          <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Select project" />
             </SelectTrigger>
             <SelectContent>
-              {[...cycles].reverse().map((c: any) => (
-                <SelectItem key={c.cycle_id} value={c.cycle_id}>
-                  Cycle {c.number}
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        )}
+          {cycles.length > 0 && (
+            <Select value={activeCycleId} onValueChange={setSelectedCycleId}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Cycle" />
+              </SelectTrigger>
+              <SelectContent>
+                {[...cycles].reverse().map((c: any) => (
+                  <SelectItem key={c.cycle_id} value={c.cycle_id}>
+                    Cycle {c.number}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        {/* Row 2: date range */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <label
               htmlFor="metrics-date-from"
@@ -171,20 +174,21 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
         </div>
-        {(dateFrom || dateTo) && (
-          <button
-            onClick={() => {
-              setDateFrom("");
-              setDateTo("");
-            }}
-            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            Clear
-          </button>
-        )}
 
-        <div className="ml-auto flex gap-1 rounded-lg border border-border bg-muted p-1">
+        {/* Row 3: line filter toggle */}
+        <div className="lg:ml-auto flex gap-1 rounded-lg border border-border bg-muted p-1 w-fit">
           {(
             [
               ["all", "All"],
