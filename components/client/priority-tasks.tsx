@@ -412,7 +412,6 @@ function IssueDetailModal({
               )}
             </div>
           )}
-          <div onClick={() => console.log({localComments})}>VER localComments</div>
 
           {/* Comments */}
           <div className="space-y-2">
