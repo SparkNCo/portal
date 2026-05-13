@@ -176,12 +176,15 @@ function IssueCard({
 function IssueListRow({
   issue,
   onOpen,
+  onOpenChat,
   questionCount = 0,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  readonly onOpenChat?: (title: string) => void;
   readonly questionCount?: number;
 }) {
+  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
     <div
       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 cursor-pointer transition-all border border-transparent hover:border-border group"
@@ -201,6 +204,15 @@ function IssueListRow({
         <span className="flex-shrink-0 rounded-full bg-warning/20 text-warning border border-warning/30 text-[10px] font-semibold px-1.5 py-0.5">
           {questionCount}
         </span>
+      )}
+      {onOpenChat && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
+          className="text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
+          title="Open chat about this issue"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+        </button>
       )}
     </div>
   );
@@ -575,6 +587,7 @@ export function PriorityTasks({
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
+                  onOpenChat={onOpenChat}
                   questionCount={effectiveCount(issue)}
                 />
               ))}
