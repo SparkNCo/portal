@@ -115,7 +115,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
       <div
-        className="flex flex-wrap items-center gap-3 border-4 border-red-800
+        className="flex flex-wrap items-center gap-3 
 "
       >
         <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
