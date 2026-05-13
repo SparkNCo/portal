@@ -69,7 +69,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
         <CardHeader>
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <UserCheck className="h-4 w-4 text-accent" />
-            Assign Developer
+            {userRole === "stakeholder" ? "Assign Stakeholder" : "Assign Developer"}
           </CardTitle>
         </CardHeader>
 
@@ -90,7 +90,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                     className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs"
                   >
                     <span className="text-foreground font-medium">{a.customer_email}</span>
-                    <span className="text-muted-foreground">{a.allocation}h/wk</span>
+                    {userRole !== "stakeholder" && <span className="text-muted-foreground">{a.allocation}h/wk</span>}
                   </div>
                   ))}
                 </div>
@@ -115,20 +115,22 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
               ))}
             </select>
 
-            <div className="mt-3">
-              <label htmlFor="allocation-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-                Allocation (hrs/week)
-              </label>
-              <input
-                id="allocation-input"
-                type="number"
-                min={1}
-                className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
-                placeholder="e.g. 20"
-                value={allocation}
-                onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}
-              />
-            </div>
+            {userRole !== "stakeholder" && (
+              <div className="mt-3">
+                <label htmlFor="allocation-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
+                  Allocation (hrs/week)
+                </label>
+                <input
+                  id="allocation-input"
+                  type="number"
+                  min={1}
+                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+                  placeholder="e.g. 20"
+                  value={allocation}
+                  onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">
@@ -137,7 +139,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
             </Button>
             <Button
               size="sm"
-              disabled={!selectedCustomer || !allocation || isPending || assignedCustomerIds.has(selectedCustomer)}
+              disabled={!selectedCustomer || (userRole !== "stakeholder" && !allocation) || isPending || assignedCustomerIds.has(selectedCustomer)}
               onClick={() => mutate()}
             >
               {isPending ? "Assigning..." : "Assign"}
