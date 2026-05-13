@@ -13,7 +13,6 @@ import { useCometChat } from "./useCometChat";
 
 type Group = ReturnType<typeof useCometChat>["groups"][number];
 
-const AI_AGENT_UID = "e17fda15-1881-4375-a818-21fb97a507ce";
 
 export type DirectChatEntry = { uid: string; title: string };
 
@@ -39,21 +38,14 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
     }
   }, [ready]);
 
-  const handleCreate = async (title: string, type: "support" | "ai") => {
+  const handleCreate = async (title: string) => {
     setCreating(true);
     try {
-      if (type === "ai") {
-        const entry: DirectChatEntry = { uid: AI_AGENT_UID, title };
-        setDirectChats((prev) => [...prev, entry]);
-        setSelectedDirect(entry);
-        setSelectedGroup(null);
-      } else {
-        const created = await createSupportGroup(title);
-        if (created) {
-          const list = await refreshGroups();
-          setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
-          setSelectedDirect(null);
-        }
+      const created = await createSupportGroup(title);
+      if (created) {
+        const list = await refreshGroups();
+        setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
+        setSelectedDirect(null);
       }
       setShowCreateModal(false);
     } finally {
