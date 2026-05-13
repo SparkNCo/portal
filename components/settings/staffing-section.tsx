@@ -13,20 +13,21 @@ const statusColors = {
   inactive: "bg-muted text-muted-foreground",
 };
 
-//export function StaffingSection({ customerId }: { customerId: string }) {
-export function StaffingSection() {
+export function StaffingSection({ customerId }: { readonly customerId?: string }) {
   const { user, profile, loading } = useUser();
+
+  const resolvedId = customerId ?? profile?.id;
 
   const {
     data: assignments = [],
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["assignments", profile?.id],
-    enabled: !!profile?.id && !loading,
+    queryKey: ["assignments", resolvedId],
+    enabled: !!resolvedId && !loading,
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile?.id}`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${resolvedId}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,

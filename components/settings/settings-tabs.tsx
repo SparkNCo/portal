@@ -11,23 +11,52 @@ import {
 import { StaffingSection } from "@/components/settings/staffing-section";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 
 const tabs = [
   { id: "staffing", label: "Staffing", icon: Users },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
+const apiHeaders = {
+  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+  apikey: process.env.NEXT_PUBLIC_APIKEY!,
+  "Content-Type": "application/json",
+};
+
 export function SettingsTabs() {
   const [activeTab, setActiveTab] = useState("staffing");
   const { profile } = useUser();
+  const customerSlug = useCustomerSlug();
 
-  const {
-    data: billingData,
-    isLoading,
-  } = useQuery({
-    queryKey: ["billing", profile?.customer_id],
-    queryFn: () => fetchBillingData({ user: profile }),
-    enabled: !!profile?.customer_id,
+  const isAdminViewingCustomer = profile?.role === "admin" && !!customerSlug;
+
+  // When admin is viewing a customer, fetch the customer list to resolve their IDs
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
+        { headers: apiHeaders },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json() as Promise<{ id: string; clientName: string; email: string; customer_id: string }[]>;
+    },
+    enabled: isAdminViewingCustomer,
+  });
+
+  const targetCustomer = isAdminViewingCustomer
+    ? (customers ?? []).find((c) => c.clientName === customerSlug)
+    : null;
+
+  // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise
+  const effectiveUserId = targetCustomer?.id ?? profile?.id;
+  const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
+
+  const { data: billingData, isLoading } = useQuery({
+    queryKey: ["billing", effectiveCustomerId],
+    queryFn: () => fetchBillingData({ user: { customer_id: effectiveCustomerId } }),
+    enabled: !!effectiveCustomerId,
     staleTime: 1000 * 30,
   });
 
@@ -56,7 +85,9 @@ export function SettingsTabs() {
         {activeTab === "billing" && (
           <BillingSection billingData={billingData} isLoading={isLoading} />
         )}
-        {activeTab === "staffing" && <StaffingSection />}
+        {activeTab === "staffing" && (
+          <StaffingSection customerId={effectiveUserId} />
+        )}
       </div>
     </div>
   );
