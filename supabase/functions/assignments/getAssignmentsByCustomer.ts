@@ -19,8 +19,9 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     }
 
     const customer_ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
+    const onlyDev = url.searchParams.get("onlyDev") === "true";
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("assignments")
       .select(
         `
@@ -38,6 +39,10 @@ export const getAssignmentsByCustomer = async (req: Request) => {
       `,
       )
       .in("customer_id", customer_ids);
+
+    if (onlyDev) query = query.eq("role", "developer");
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("[Supabase ERROR]:", error);

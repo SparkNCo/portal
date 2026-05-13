@@ -83,7 +83,7 @@ export function useCometChat() {
     if (!profile) return null;
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}&onlyDev=true`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,

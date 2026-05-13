@@ -63,7 +63,8 @@ export const createQuestion = async (req: Request) => {
       const { data, error } = await supabase
         .from("assignments")
         .select("user_id")
-        .eq("customer_id", profile_id);
+        .eq("customer_id", profile_id)
+        .eq("role", "developer");
 
       if (error) throw new Error(error.message);
       assigneeIds = (data ?? []).map((row: any) => row.user_id).filter(Boolean);
