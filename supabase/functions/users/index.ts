@@ -112,7 +112,7 @@ const fetchUser = async (email: string) => {
       .from("assignments")
       .select("*")
       .in("id", data.assignment_id)
-      .eq("role", "developer");
+      .eq("role", data.role);
 
     if (assignmentError) throw new Error(assignmentError.message);
 

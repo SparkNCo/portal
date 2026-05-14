@@ -48,9 +48,9 @@ export const createQuestion = async (req: Request) => {
       );
     }
 
-    if (role !== "customer" && role !== "developer") {
+    if (role !== "customer" && role !== "developer" && role !== "stakeholder") {
       return new Response(
-        JSON.stringify({ error: "role must be 'customer' or 'developer'" }),
+        JSON.stringify({ error: "role must be 'customer', 'developer', or 'stakeholder'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

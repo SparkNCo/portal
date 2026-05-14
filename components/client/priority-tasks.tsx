@@ -96,9 +96,21 @@ export type PriorityTasksProps = {
   compact?: boolean;
 };
 
-const STATE_TRANSITIONS: Partial<Record<string, string>> = {
-  "Business Review": "UAT",
-  UAT: "Done",
+const STATUS_ORDER = [
+  "Backlog",
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Done",
+];
+
+const getNextState = (current: string | undefined): string | undefined => {
+  if (!current) return undefined;
+  const idx = STATUS_ORDER.indexOf(current);
+  if (idx === -1 || idx === STATUS_ORDER.length - 1) return undefined;
+  return STATUS_ORDER[idx + 1];
 };
 
 function IssueCard({
@@ -207,7 +219,10 @@ function IssueListRow({
       )}
       {onOpenChat && (
         <button
-          onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenChat(chatTitle);
+          }}
           className="text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
           title="Open chat about this issue"
         >
@@ -237,11 +252,11 @@ function IssueDetailModal({
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [showDescription, setShowDescription] = useState(true);
   const [showComments, setShowComments] = useState(false);
-  const [localComments, setLocalComments] = useState<Comment[]>(issue.comments?.nodes ?? []);
+  const [localComments, setLocalComments] = useState<Comment[]>(
+    issue.comments?.nodes ?? [],
+  );
 
-  const nextState = currentStateName
-    ? STATE_TRANSITIONS[currentStateName]
-    : undefined;
+  const nextState = getNextState(currentStateName);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -312,7 +327,7 @@ function IssueDetailModal({
         },
         body: JSON.stringify({
           issue_id: issue.id,
-          body: `From: ${profile?.email}\n\n${comment.trim()}`,
+          body: `From: ${profile?.userName ?? profile?.email}\n\n${comment.trim()}`,
           role: profile?.role,
           profile_id: profile?.id,
           email: profile?.email,
@@ -322,7 +337,7 @@ function IssueDetailModal({
         ...prev,
         {
           id: Date.now().toString(),
-          body: `From: ${profile?.email}\n\n${comment.trim()}`,
+          body: `From: ${profile?.userName ?? profile?.email}\n\n${comment.trim()}`,
           createdAt: new Date().toISOString(),
           displayName: null,
         },
@@ -332,7 +347,6 @@ function IssueDetailModal({
       setSubmitting(false);
     }
   }
-
 
   return (
     <div
@@ -483,6 +497,7 @@ function IssueDetailModal({
             ) : null}
           </div>
         </div>
+        <div onClick={() => console.log({ profile })}>VER profile</div>
 
         {/* Footer — comment input */}
         <div className="border-t border-border p-4">

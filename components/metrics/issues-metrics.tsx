@@ -34,6 +34,7 @@ interface CycleMetric {
 }
 
 const STATUS_ORDER = [
+  "Backlog",
   "Planning",
   "Business Review",
   "Development",
