@@ -20,6 +20,8 @@ type Profile = {
   role: "admin" | "developer" | "customer" | "stakeholder";
   linear_slug?: string;
   userName?: string;
+  firstName?: string;
+  lastName?: string;
   customer_id?: string;
   assignment_id?: Assignment[];
 };

@@ -317,6 +317,9 @@ function IssueDetailModal({
     e.preventDefault();
     if (!comment.trim() || submitting) return;
     setSubmitting(true);
+    const senderName = profile?.firstName && profile?.lastName
+      ? profile.firstName + " " + profile.lastName
+      : profile?.email;
     try {
       await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions`, {
         method: "POST",
@@ -327,7 +330,7 @@ function IssueDetailModal({
         },
         body: JSON.stringify({
           issue_id: issue.id,
-          body: `From: ${profile?.userName ?? profile?.email}\n\n${comment.trim()}`,
+          body: `From: ${senderName}\n\n${comment.trim()}`,
           role: profile?.role,
           profile_id: profile?.id,
           email: profile?.email,
@@ -337,7 +340,7 @@ function IssueDetailModal({
         ...prev,
         {
           id: Date.now().toString(),
-          body: `From: ${profile?.userName ?? profile?.email}\n\n${comment.trim()}`,
+          body: `From: ${senderName}\n\n${comment.trim()}`,
           createdAt: new Date().toISOString(),
           displayName: null,
         },

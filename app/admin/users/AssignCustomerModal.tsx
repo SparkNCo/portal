@@ -10,6 +10,7 @@ type User = {
   id: string;
   email: string;
   role: string;
+  clientName?: string;
 };
 
 type Props = Readonly<{
@@ -110,7 +111,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
               <option value="">Select Customer</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id} disabled={assignedCustomerIds.has(c.id)}>
-                  {c.email}{assignedCustomerIds.has(c.id) ? " (already assigned)" : ""}
+                  {c.clientName ?? c.email}{assignedCustomerIds.has(c.id) ? " (already assigned)" : ""}
                 </option>
               ))}
             </select>
