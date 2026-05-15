@@ -56,10 +56,14 @@ export function IssueMetricsView({
   data,
   cycleMetrics = [],
   activeCycleId,
+  dateFrom = "",
+  dateTo = "",
 }: {
   readonly data: IssueMetric[];
   readonly cycleMetrics?: CycleMetric[];
   readonly activeCycleId: string;
+  readonly dateFrom?: string;
+  readonly dateTo?: string;
 }) {
   const cycles = useMemo(
     () => [...cycleMetrics].sort((a, b) => a.number - b.number),
@@ -84,14 +88,21 @@ export function IssueMetricsView({
     const raw = [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
       String(a.date).localeCompare(String(b.date)),
     );
-    return raw.map((d) => {
-      const point: Record<string, number | string> = { date: d.date ?? "" };
-      for (const status of uniqueStatuses) {
-        point[status] = (d[status] as number) ?? 0;
-      }
-      return point;
-    });
-  }, [activeCycle, uniqueStatuses]);
+    return raw
+      .filter((d) => {
+        const date = String(d.date ?? "");
+        if (dateFrom && date < dateFrom) return false;
+        if (dateTo && date > dateTo) return false;
+        return true;
+      })
+      .map((d) => {
+        const point: Record<string, number | string> = { date: d.date ?? "" };
+        for (const status of uniqueStatuses) {
+          point[status] = (d[status] as number) ?? 0;
+        }
+        return point;
+      });
+  }, [activeCycle, uniqueStatuses, dateFrom, dateTo]);
 
   return (
     <Card className="bg-background border-border">

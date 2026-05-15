@@ -128,8 +128,18 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             ))}
           </SelectContent>
         </Select>
+        <div onClick={() => console.log({cycles})}>VER cycles</div>
+        
         {cycles.length > 0 && (
-          <Select value={activeCycleId} onValueChange={setSelectedCycleId}>
+          <Select
+            value={activeCycleId}
+            onValueChange={(id) => {
+              setSelectedCycleId(id);
+              const cycle = cycles.find((c: any) => c.cycle_id === id);
+              if (cycle?.starts_at) setDateFrom(String(cycle.starts_at).split("T")[0] ?? "");
+              if (cycle?.ends_at) setDateTo(String(cycle.ends_at).split("T")[0] ?? "");
+            }}
+          >
             <SelectTrigger className="w-36">
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
@@ -187,27 +197,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           </button>
         )}
 
-        <div className="ml-auto flex gap-1 rounded-lg border border-border bg-muted p-1">
-          {(
-            [
-              ["all", "All"],
-              ["scope", "Scope"],
-              ["done", "Done"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setLineFilter(value)}
-              className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                lineFilter === value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -216,17 +205,10 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           data={issueMetrics}
           cycleMetrics={allCycleMetrics}
           activeCycleId={activeCycleId}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
         />
       </div>
-
-      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CycleHistoryChart
-          data={filteredCycleMetrics}
-          lineFilter={lineFilter}
-          activeCycleId={activeCycleId}
-        />
-        <CycleTable data={filteredCycleMetrics} />
-      </div> */}
 
     </div>
   );
