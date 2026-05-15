@@ -79,6 +79,7 @@ export function useCometChat() {
 
   const createSupportGroup = async (
     title: string,
+    projectSlug?: string,
   ): Promise<CometChat.Group | null> => {
     if (!profile) return null;
     try {
@@ -151,6 +152,7 @@ export function useCometChat() {
         CometChat.GROUP_TYPE.PUBLIC,
         "",
       );
+      if (projectSlug) group.setMetadata({ projectSlug });
       const members = Array.from(memberUids).map(
         (uid) =>
           new CometChat.GroupMember(

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { ChevronLeft } from "lucide-react";
@@ -38,10 +37,12 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
     }
   }, [ready]);
 
+  const projectSlug = pathname.split("/")[1] ?? undefined;
+
   const handleCreate = async (title: string) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title);
+      const created = await createSupportGroup(title, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
