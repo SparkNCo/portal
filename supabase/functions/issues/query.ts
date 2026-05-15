@@ -32,6 +32,7 @@ query Issues($filter: IssueFilter) {
           user { displayName }
         }
       }
+      project { id name slugId }
       creator { displayName }
       documents(last: 5) {
         nodes {

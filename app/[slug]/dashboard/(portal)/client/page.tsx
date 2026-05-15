@@ -12,6 +12,7 @@ import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
+import { Button } from "@/components/components/ui/button";
 
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
@@ -46,6 +47,7 @@ export default function ClientDashboard() {
   const linearProjectId = "";
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
 
   // 🔹 Issues query
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -96,21 +98,38 @@ export default function ClientDashboard() {
 
   const allIssues: any[] = issuesData ?? [];
 
-  const filteredIssues = [...allIssues].sort((a: any, b: any) => {
-    const aCount = questionCounts[a.id] ?? 0;
-    const bCount = questionCounts[b.id] ?? 0;
-    return bCount - aCount;
-  });
+  const projects: { id: string; name: string }[] = Array.from(
+    new Map(
+      allIssues
+        .filter((i: any) => i.project?.id && i.project?.name)
+        .map((i: any) => [
+          i.project.id,
+          { id: i.project.id, name: i.project.name },
+        ]),
+    ).values(),
+  );
+
+  const toggleProject = (id: string) =>
+    setSelectedProjects((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const issueMatchesProject = (i: any) =>
+    selectedProjects.size === 0 || selectedProjects.has(i.project?.id);
 
   const businessReviewIssues = allIssues
-    .filter((i: any) => i.state?.name === "Business Review")
+    .filter(
+      (i: any) => i.state?.name === "Business Review" && issueMatchesProject(i),
+    )
     .sort(
       (a: any, b: any) =>
         (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
     );
 
   const uatIssues = allIssues
-    .filter((i: any) => i.state?.name === "UAT")
+    .filter((i: any) => i.state?.name === "UAT" && issueMatchesProject(i))
     .sort(
       (a: any, b: any) =>
         (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
@@ -146,6 +165,37 @@ export default function ClientDashboard() {
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              onClick={() => setSelectedProjects(new Set())}
+              className={selectedProjects.size === 0
+                ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                : "bg-secondary text-muted-foreground hover:bg-secondary/80"}
+            >
+              All
+            </Button>
+            {projects.map((p) => (
+              <Button
+                key={p.id}
+                onClick={() => toggleProject(p.id)}
+                className={selectedProjects.has(p.id)
+                  ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"}
+              >
+                {p.name}
+              </Button>
+            ))}
+          </div>
+          <CreateIssue
+            slug={slug}
+            projectId={linearProjectId}
+            profile={profile}
+            compact
+          />
+        </div>
+        <div onClick={() => console.log({ issuesData })}>VER CONVER</div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <ProgressPieChart issuesData={allIssues} />
           <SoftwareKPIs linearName={slug} />
@@ -166,12 +216,6 @@ export default function ClientDashboard() {
             compact
           />
         </div>
-
-        <CreateIssue
-          slug={slug}
-          projectId={linearProjectId}
-          profile={profile}
-        />
       </div>
     </div>
   );

@@ -179,7 +179,7 @@ const TEST_ISSUE = {
   },
 };
 
-export function CreateIssue({ slug, projectId, profile: profileProp }: { slug: string; projectId?: string; profile?: any }) {
+export function CreateIssue({ slug, projectId, profile: profileProp, compact }: { slug: string; projectId?: string; profile?: any; compact?: boolean }) {
   const { profile: contextProfile } = useUser();
   const profile = profileProp ?? contextProfile;
   const [open, setOpen] = useState(false);
@@ -234,10 +234,10 @@ export function CreateIssue({ slug, projectId, profile: profileProp }: { slug: s
 
   return (
     <>
-      <div className="flex gap-2">
+      <div className={compact ? undefined : "flex gap-2"}>
         <Button
           onClick={() => setOpen(true)}
-          className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+          className={`${compact ? "" : "flex-1 "}bg-accent text-accent-foreground hover:bg-accent/90`}
         >
           <Plus className="h-4 w-4 mr-2" />
           Create Issue
