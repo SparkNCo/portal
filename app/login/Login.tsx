@@ -69,7 +69,8 @@ export default function LoginForm({
       if (customer?.role === "admin") {
         router.push(`/${customer.clientName}/dashboard/admin`);
       } else if (customer?.role === "developer") {
-        router.push(`/${customer.clientName}/dashboard/dashboards`);
+        const clientName = customer.assignment_id?.[0]?.clientName;
+        router.push(`/${clientName}/dashboard/developer`);
       } else {
         router.push(`/${customer.clientName}/dashboard/client`);
       }

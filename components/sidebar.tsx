@@ -31,8 +31,9 @@ const clientNavItems = [
 
 const developerNavItems = [
   { href: "dashboards", label: "Assignments", icon: LayoutGrid },
-  { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "developer", label: "Developer", icon: Code2 },
+  { href: "chat", label: "Chat", icon: MessageCircle },
+  { href: "documents", label: "Documents", icon: FileText },
 ];
 
 const adminNavItems = [
@@ -44,6 +45,7 @@ const stakeholderNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
   { href: "roadmap", label: "Roadmap", icon: Map },
   { href: "documents", label: "Documents", icon: FileText },
+  { href: "chat", label: "Chat", icon: MessageCircle },
 ];
 
 export function Sidebar() {
@@ -64,13 +66,14 @@ export function Sidebar() {
     { href: "client", label: "Dashboard", icon: LayoutDashboard },
     { href: "roadmap", label: "Roadmap", icon: Map },
     //{ href: "developer", label: "Developer", icon: Code2 },
+    { href: "chat", label: "Chat", icon: MessageCircle },
     { href: "documents", label: "Documents", icon: FileText },
     ...(profile?.role === "admin"
       ? [{ href: "settings", label: "Settings", icon: Settings }]
       : []),
   ];
 
-    const roleNavMap: Record<string, typeof clientNavItems> = {
+  const roleNavMap: Record<string, typeof clientNavItems> = {
     customer: clientNavItems,
     admin: adminNavItems,
     developer: developerNavItems,

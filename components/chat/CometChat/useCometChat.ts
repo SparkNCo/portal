@@ -82,24 +82,52 @@ export function useCometChat() {
   ): Promise<CometChat.Group | null> => {
     if (!profile) return null;
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}&onlyDev=true`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-      const assignees: any[] = await res.json();
+      const headers = {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+        apikey: process.env.NEXT_PUBLIC_APIKEY!,
+        "Content-Type": "application/json",
+      };
 
-      const memberUids = new Set<string>(
+      const memberUids = new Set<string>();
+      memberUids.add(profile.id);
+      let assignees: any[] = [];
+
+      if (profile.role === "stakeholder") {
+        // Step 1: find the customer this stakeholder is assigned to
+        const stakeholderRes = await fetch(
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
+          { headers },
+        );
+        const stakeholderAssignments: any[] = await stakeholderRes.json();
+        const customerIds = stakeholderAssignments
+          .map((a) => a.customer_id)
+          .filter(Boolean);
+
+        if (customerIds.length > 0) {
+          // Add the customer(s)
+          customerIds.forEach((id: string) => memberUids.add(id));
+
+          // Step 2: fetch developers assigned to that customer
+          const devRes = await fetch(
+            `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
+            { headers },
+          );
+          assignees = await devRes.json();
+          (assignees ?? [])
+            .filter((a) => a.user_id)
+            .forEach((a) => memberUids.add(a.user_id));
+        }
+      } else {
+        // Customer: fetch all assignees (developers + stakeholders)
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
+          { headers },
+        );
+        assignees = await res.json();
         (assignees ?? [])
           .filter((a) => a.user_id)
-          .map((a) => a.user_id as string),
-      );
-      memberUids.add(profile.id);
+          .forEach((a) => memberUids.add(a.user_id));
+      }
 
       await Promise.all(
         Array.from(memberUids).map(async (uid) => {

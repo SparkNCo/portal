@@ -8,27 +8,39 @@ import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
+import { useState } from "react";
 import { fetchIssues } from "../client/page";
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
   const userId = profile?.id;
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
-  // Derive slugs from the enriched assignment_id objects already on profile
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
     : [];
-  const slugs: string[] = assignments
-    .map((a) => a.clientName)
-    .filter(Boolean);
+
+  // Each project: { clientName, linear_slug }
+  const projects = assignments
+    .filter((a) => a.clientName)
+    .map((a) => ({
+      clientName: a.clientName as string,
+      slug: (a.linear_slug ?? a.clientName) as string,
+    }));
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
-    queryKey: ["linear-issues-developer", slugs],
+    queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
     queryFn: async () => {
-      const results = await Promise.all(slugs.map((s) => fetchIssues(s)));
+      const results = await Promise.all(
+        projects.map(async (p) => {
+          const issues = await fetchIssues(p.clientName);
+          return issues.map((i: any) => ({ ...i, _project: p.clientName }));
+        }),
+      );
       return results.flat();
     },
-    enabled: slugs.length > 0,
+    enabled: projects.length > 0,
   });
 
   const { data: questionsData } = useQuery<{
@@ -53,21 +65,34 @@ export default function DeveloperDashboard() {
 
   const questionCounts = questionsData?.countByIssue ?? {};
 
-  const allIssues: any[] = issuesData ?? [];
-  const filteredIssues = [...allIssues]
+  const allIssues: any[] = (issuesData ?? [])
     .filter((i: any) => i?.state?.name !== "Done")
-    .sort((a: any, b: any) => {
-      return (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0);
-    });
+    .sort(
+      (a: any, b: any) =>
+        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
+    );
 
-  const noopFilterState = {
-    selectedStatuses: [],
+  const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
+
+  const projectFiltered = selectedProject
+    ? allIssues.filter((i: any) => i._project === selectedProject)
+    : allIssues;
+
+  const visibleIssues = selectedStatuses.length > 0
+    ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
+    : projectFiltered;
+
+  const filterState = {
+    selectedStatuses,
     onlyActive: false,
-    availableStatuses: [],
+    availableStatuses,
     hasCycles: false,
-    onToggleStatus: () => {},
+    onToggleStatus: (s: string) =>
+      setSelectedStatuses((prev) =>
+        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+      ),
     onToggleActive: () => {},
-    onClearFilters: () => {},
+    onClearFilters: () => setSelectedStatuses([]),
   };
 
   if (issuesLoading) return <LoadingDataPanel />;
@@ -82,18 +107,50 @@ export default function DeveloperDashboard() {
           <ToolShortcuts />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+        {projects.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedProject(null)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                selectedProject === null
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              All Projects
+            </button>
+            {projects.map((p) => (
+              <button
+                key={p.clientName}
+                onClick={() => setSelectedProject(p.clientName)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  selectedProject === p.clientName
+                    ? "bg-accent text-accent-foreground border-accent"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                {p.clientName}
+              </button>
+            ))}
+          </div>
+        )}
+        <div onClick={() => console.log({profile})}>VER profile</div>
+
+        <div className="w-full max-w-full overflow-hidden">
           <PriorityTasks
-            issuesData={filteredIssues}
-            filterState={noopFilterState}
+            issuesData={visibleIssues}
+            filterState={filterState}
             onOpenChat={() => {}}
-            title="All Tasks"
+            title={selectedProject ?? "All Tasks"}
             questionCounts={questionCounts}
           />
-          {/* <DevTasks /> */}
         </div>
 
-        <CreateIssue slug={slugs[0] ?? ""} projectId="" profile={profile} />
+        <CreateIssue
+          slug={projects[0]?.clientName ?? ""}
+          projectId=""
+          profile={profile}
+        />
       </div>
     </div>
   );
