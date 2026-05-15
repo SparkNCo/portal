@@ -30,7 +30,7 @@ const clientNavItems = [
 ];
 
 const developerNavItems = [
-  { href: "dashboards", label: "Assignments", icon: LayoutGrid },
+  /* { href: "dashboards", label: "Assignments", icon: LayoutGrid }, */
   { href: "developer", label: "Developer", icon: Code2 },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "documents", label: "Documents", icon: FileText },
@@ -39,6 +39,7 @@ const developerNavItems = [
 const adminNavItems = [
   { href: "admin", label: "Users", icon: Shield },
   { href: "dashboards", label: "Dashboards", icon: LayoutGrid },
+  { href: "chat", label: "Chat", icon: MessageCircle },
 ];
 
 const stakeholderNavItems = [
@@ -115,12 +116,6 @@ export function Sidebar() {
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="p-3">
-        <div className="flex w-full items-center rounded-md bg-sidebar-accent px-3 py-2 text-sm text-sidebar-foreground">
-          <span className="capitalize">{portalType} Portal</span>
-        </div>
-      </div>
-
       <nav className="flex-1 space-y-1 px-3 py-2">
         {isViewingCustomer ? (
           <>
@@ -187,6 +182,9 @@ export function Sidebar() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {profile.email}
+            </p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {profile.role}
             </p>
           </div>
         </div>

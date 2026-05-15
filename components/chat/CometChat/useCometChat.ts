@@ -64,11 +64,10 @@ export function useCometChat() {
   };
 
   const fetchGroups = async (): Promise<CometChat.Group[]> => {
-    const req = new CometChat.GroupsRequestBuilder()
-      .setLimit(50)
-      .joinedOnly(true)
-      .build();
-    return req.fetchNext();
+    const isAdmin = profile?.role === "admin";
+    const builder = new CometChat.GroupsRequestBuilder().setLimit(50);
+    if (!isAdmin) builder.joinedOnly(true);
+    return builder.build().fetchNext();
   };
 
   const refreshGroups = async () => {

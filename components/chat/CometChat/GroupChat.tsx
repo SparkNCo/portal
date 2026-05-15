@@ -59,6 +59,9 @@ export default function GroupChat({ user, group }: Props) {
   const fetchMessages = async () => {
     try {
       setLoading(true);
+      if (!group.getHasJoined()) {
+        await CometChat.joinGroup(guid, CometChat.GROUP_TYPE.PUBLIC, "");
+      }
       const req = new CometChat.MessagesRequestBuilder()
         .setGUID(guid)
         .setLimit(50)
