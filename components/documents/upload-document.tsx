@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
-import { useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 
 interface UploadedFile {
@@ -27,11 +27,12 @@ function useUploadFile() {
       userId,
       email,
       initiativeId,
+      projectSlug,
     }: {
       file: File;
       userId: string;
       email: string;
-      initiativeId: string | null;
+      projectSlug: string;
     }) => {
       const formData = new FormData();
 
@@ -40,7 +41,7 @@ function useUploadFile() {
       formData.append("path", `uploads/${Date.now()}-${file.name}`);
       formData.append("user_id", user?.id);
       formData.append("email", email);
-      formData.append("initiative_id", initiativeId ?? "");
+      formData.append("project_slug", projectSlug);
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "POST",
@@ -65,8 +66,7 @@ export function UploadDocument() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
-  const searchParams = useSearchParams();
-  const initiativeId = searchParams.get("id");
+  const { slug } = useParams<{ slug: string }>();
   const uploadMutation = useUploadFile();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -107,7 +107,7 @@ export function UploadDocument() {
           file,
           userId: user!.id,
           email: user!.email!,
-          initiativeId: initiativeId,
+          projectSlug: slug ?? "",
         },
         {
           onSuccess: () => {

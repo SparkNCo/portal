@@ -12,6 +12,8 @@ import {
   FileSpreadsheet,
   FileImage,
   File,
+  ChevronDown,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
@@ -53,6 +55,15 @@ async function fetchDocuments(id: string) {
 export function DocumentsList() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(slug: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(slug) ? next.delete(slug) : next.add(slug);
+      return next;
+    });
+  }
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
   const { user, profile, loading } = useUser();
@@ -75,19 +86,27 @@ export function DocumentsList() {
       link: doc.link,
       permission: doc.permission,
       format: getFileExtension(doc.file_name),
+      project_slug: doc.project_slug ?? null,
     }));
   }, [data]);
 
   const filteredDocs = documents.filter((doc: any) => {
     const name = doc.name?.toLowerCase() ?? "";
-
     const matchesSearch = name.includes(searchQuery.trim().toLowerCase());
-
     const matchesCategory =
       activeCategory === "All" || doc.category === activeCategory;
-
     return matchesSearch && matchesCategory;
   });
+
+  const groupedDocs = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    for (const doc of filteredDocs) {
+      const key = doc.project_slug ?? "Other";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(doc);
+    }
+    return groups;
+  }, [filteredDocs]);
 
   return (
     <Card className="bg-background border-border">
@@ -150,7 +169,46 @@ export function DocumentsList() {
           </div>
         )}
 
-        <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
+        {Array.from(groupedDocs.entries()).map(([slug, docs]) => {
+          const isCollapsed = !expandedGroups.has(slug);
+          const isGrouped = groupedDocs.size > 1;
+
+          return (
+            <div key={slug} className="mb-4">
+              {isGrouped && (
+                <button
+                  onClick={() => toggleGroup(slug)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-accent shrink-0" />
+                    <span className="text-sm font-medium text-foreground capitalize">
+                      {slug}
+                    </span>
+                    <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
+                      {docs.length} {docs.length === 1 ? "file" : "files"}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                      isCollapsed && "-rotate-90",
+                    )}
+                  />
+                </button>
+              )}
+
+              <div
+                className={cn(
+                  "overflow-hidden transition-all duration-200",
+                  isGrouped && isCollapsed ? "max-h-0" : "max-h-[9999px]",
+                )}
+              >
+                <DocumentRow filteredDocs={docs} userId={profile?.id} />
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );

@@ -72,8 +72,8 @@ export const UploadStorageInputSchema = z.object({
   path: z.string().min(1),
   user_id: z.string().uuid(),
   email: z.string(),
-  initiative_id: z.string(),
   category: z.string().min(1),
+  project_slug: z.string().optional(),
 });
 
 export const UploadStorageResponseSchema = z.object({

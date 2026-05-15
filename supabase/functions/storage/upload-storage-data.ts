@@ -16,8 +16,8 @@ export async function uploadStorageData(req: Request) {
       path: formData.get("path"),
       email: formData.get("email"),
       user_id: formData.get("user_id"),
-      initiative_id: formData.get("initiative_id"),
       category: formData.get("category") ?? "document",
+      project_slug: formData.get("project_slug") ?? undefined,
     };
 
     const parsedInput = UploadStorageInputSchema.safeParse(rawInput);
@@ -38,7 +38,7 @@ export async function uploadStorageData(req: Request) {
       );
     }
 
-    const { file, bucket, path, user_id, email, initiative_id, category } =
+    const { file, bucket, path, user_id, email, category, project_slug } =
       parsedInput.data;
 
     /**
@@ -105,8 +105,8 @@ export async function uploadStorageData(req: Request) {
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
         category,
         owner_id,
-        initiative_id,
         file_name: file.name,
+        project_slug,
       })
       .select()
       .single();

@@ -37,7 +37,7 @@ export async function getStorageData(req: Request) {
           category,
           size,
           created_at,
-          initiative_id
+          project_slug
         )
       `,
       )
@@ -76,7 +76,7 @@ export async function getStorageData(req: Request) {
         category: item.Document.category,
         size: item.Document.size,
         created_at: item.Document.created_at,
-        initiative_id: item.Document.initiative_id,
+        project_slug: item.Document.project_slug,
         permission: item.permission,
       }));
     /**
