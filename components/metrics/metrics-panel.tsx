@@ -19,7 +19,6 @@ import {
   CycleTable,
   UncompletedIssuesList,
 } from "./cycle-metrics";
-import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -100,7 +99,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     (a: { number: number }, b: { number: number }) => a.number - b.number,
   );
   const activeCycleId = selectedCycleId || cycles.at(-1)?.cycle_id || "";
-  const activeCycle = cycles.find((c: any) => c.cycle_id === activeCycleId);
 
   const filteredCycleMetrics = allCycleMetrics.filter((c: any) => {
     const start = c.starts_at ? new Date(c.starts_at) : null;
@@ -212,7 +210,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         </div>
       </div>
 
-      {/* 2-column grid: Issues by Status + Cycle Scope vs Completed */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CycleBarChart data={filteredCycleMetrics} />
         <IssueMetricsView
@@ -222,19 +219,15 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         />
       </div>
 
-      {/* History chart + table side by side on desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CycleHistoryChart
           data={filteredCycleMetrics}
           lineFilter={lineFilter}
           activeCycleId={activeCycleId}
         />
         <CycleTable data={filteredCycleMetrics} />
-      </div>
+      </div> */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SoftwareKPIs linearName={slug} />
-      </div>
     </div>
   );
 }

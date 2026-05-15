@@ -11,6 +11,7 @@ import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
@@ -145,30 +146,25 @@ export default function ClientDashboard() {
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
-        <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-stretch">
-          <div className="w-full md:w-1/3 flex flex-col">
-            <ProgressPieChart issuesData={allIssues} />
-          </div>
-          <div className="w-full md:w-1/3 flex flex-col">
-            <PriorityTasks
-              issuesData={uatIssues}
-              filterState={noopFilterState}
-              onOpenChat={handleOpenChat}
-              title="Acceptance Testing"
-              questionCounts={questionCounts}
-              compact
-            />
-          </div>
-          <div className="w-full md:w-1/3 flex flex-col">
-            <PriorityTasks
-              issuesData={businessReviewIssues}
-              filterState={noopFilterState}
-              onOpenChat={handleOpenChat}
-              title="Product Decisions"
-              questionCounts={questionCounts}
-              compact
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <ProgressPieChart issuesData={allIssues} />
+          <SoftwareKPIs linearName={slug} />
+          <PriorityTasks
+            issuesData={businessReviewIssues}
+            filterState={noopFilterState}
+            onOpenChat={handleOpenChat}
+            title="Product Decisions"
+            questionCounts={questionCounts}
+            compact
+          />
+          <PriorityTasks
+            issuesData={uatIssues}
+            filterState={noopFilterState}
+            onOpenChat={handleOpenChat}
+            title="Acceptance Testing"
+            questionCounts={questionCounts}
+            compact
+          />
         </div>
 
         <CreateIssue
