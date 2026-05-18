@@ -60,7 +60,7 @@ export default function GroupChat({ user, group }: Props) {
     try {
       setLoading(true);
       if (!group.getHasJoined()) {
-        await CometChat.joinGroup(guid, CometChat.GROUP_TYPE.PUBLIC, "");
+        await CometChat.joinGroup(guid, CometChat.GROUP_TYPE.PUBLIC as unknown as CometChat.GroupType, "");
       }
       const req = new CometChat.MessagesRequestBuilder()
         .setGUID(guid)

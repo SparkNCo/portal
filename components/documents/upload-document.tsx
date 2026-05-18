@@ -26,7 +26,6 @@ function useUploadFile() {
       file,
       userId,
       email,
-      initiativeId,
       projectSlug,
     }: {
       file: File;
