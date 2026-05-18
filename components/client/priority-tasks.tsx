@@ -244,7 +244,7 @@ function IssueListRow({
   );
 }
 
-function IssueDetailModal({
+export function IssueDetailModal({
   issue,
   onClose,
   questionCount = 0,
@@ -261,7 +261,7 @@ function IssueDetailModal({
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
-  const [showDescription, setShowDescription] = useState(true);
+  const [showDescription, setShowDescription] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -447,7 +447,7 @@ function IssueDetailModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-all duration-200 ${
         visible
           ? "bg-black/60 backdrop-blur-sm"
           : "bg-transparent backdrop-blur-none"
@@ -455,7 +455,7 @@ function IssueDetailModal({
       onClick={handleClose}
     >
       <div
-        className={`relative bg-background border border-border rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh] transition-all duration-200 ${
+        className={`relative bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:mx-6 flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all duration-200 ${
           visible
             ? "opacity-100 scale-100 translate-y-0"
             : "opacity-0 scale-95 translate-y-2"

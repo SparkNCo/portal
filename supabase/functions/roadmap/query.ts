@@ -52,6 +52,9 @@ query Projects($initiativeId: String!) {
                   name
                 }
                 id
+                title
+                identifier
+                description
               }
             }
             status

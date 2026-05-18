@@ -14,6 +14,8 @@ interface ProjectRowProps {
   year: number;
   expanded: boolean;
   onToggle: () => void;
+  onMilestoneSelect?: (m: Milestone) => void;
+  selectedMilestoneId?: string;
 }
 
 interface ProjectHeaderProps {
@@ -47,6 +49,8 @@ export function ProjectRow({
   year,
   expanded,
   onToggle,
+  onMilestoneSelect,
+  selectedMilestoneId,
 }: ProjectRowProps) {
   const projectRange = getProjectRange(milestones);
 
@@ -72,6 +76,8 @@ export function ProjectRow({
             key={m?.projectName + m?.progress}
             data={m}
             year={year}
+            onSelect={() => onMilestoneSelect?.(m)}
+            isSelected={selectedMilestoneId === m.name + m.projectName}
           />
         ))}
     </div>

@@ -144,23 +144,31 @@ export function ProjectSummaryBar({
 type MilestoneRowProps = {
   data: Milestone;
   year: number;
+  onSelect?: () => void;
+  isSelected?: boolean;
 };
 
-export function MilestoneRow({ data, year }: MilestoneRowProps) {
+export function MilestoneRow({ data, year, onSelect, isSelected }: MilestoneRowProps) {
   if (!data.createdAt || !data.targetDate) return null;
 
   const start = new Date(data.createdAt);
   const end = new Date(data.targetDate);
 
   return (
-    <div className="flex items-center gap-4">
+    <div
+      className={cn("flex items-center gap-4 cursor-pointer rounded-md transition-colors", isSelected && "bg-accent/10")}
+      onClick={onSelect}
+    >
       <div className="w-52">
-        <Badge variant="outline" className={statusColors[data?.status]}>
+        <Badge
+          variant="outline"
+          className={cn(statusColors[data?.status], isSelected && "ring-1 ring-offset-1 ring-accent")}
+        >
           {data.name}
         </Badge>
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-1 ">
+      <div className="flex-1 grid grid-cols-12 gap-1">
         {monthsGrid.map((_, i) => {
           if (year < start.getFullYear() || year > end.getFullYear())
             return null;
@@ -172,11 +180,7 @@ export function MilestoneRow({ data, year }: MilestoneRowProps) {
           const isInRange = i >= startMonth && i <= endMonth;
 
           return (
-            <div
-              key={i}
-              className="h-8 relative "
-              onClick={() => {}}
-            >
+            <div key={i} className="h-8 relative">
               {isInRange && (
                 <div
                   className={cn(
