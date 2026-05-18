@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "context/UserContext";
+import { supabase } from "@/lib/supabase-client";
 
 const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -41,11 +42,21 @@ const statusColors = {
   Planning: "bg-yellow-500/20 text-yellow-600",
 };
 
-export type Comment = {
-  id: string;
+export type Answer = {
+  email: string;
   body: string;
-  createdAt?: string;
-  displayName?: string | null;
+  created_at: string;
+};
+
+export type Decision = {
+  id: string;
+  issue_id: string;
+  owner_email: string;
+  question: string;
+  answers: Answer[];
+  decisions: { body: string; email: string; created_at: string } | null;
+  posted_to_linear: boolean;
+  created_at: string;
 };
 
 export type Issue = {
@@ -246,15 +257,20 @@ function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const [visible, setVisible] = useState(false);
-  const [comment, setComment] = useState("");
+  const [question, setQuestion] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [showDescription, setShowDescription] = useState(true);
-  const [showComments, setShowComments] = useState(false);
-  const [localComments, setLocalComments] = useState<Comment[]>(
-    issue.comments?.nodes ?? [],
-  );
+  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [loadingDecisions, setLoadingDecisions] = useState(true);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [activeForm, setActiveForm] = useState<{
+    decisionId: string;
+    mode: "answer" | "decision";
+  } | null>(null);
+  const [formText, setFormText] = useState("");
+  const [postingLinearId, setPostingLinearId] = useState<string | null>(null);
 
   const nextState = getNextState(currentStateName);
 
@@ -264,19 +280,28 @@ function IssueDetailModal({
   }, []);
 
   useEffect(() => {
-    if (questionCount > 0 && profile?.id) {
-      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions/read`, {
+    supabase
+      .from("decisions")
+      .select("*")
+      .eq("issue_id", issue.id)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (data) setDecisions(data as Decision[]);
+        setLoadingDecisions(false);
+      });
+
+    if (profile?.email) {
+      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ issue_id: issue.id, user_id: profile.id }),
+        body: JSON.stringify({ issue_id: issue.id, user_email: profile.email }),
       }).then(() => onMarkedRead?.());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [issue.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -290,6 +315,28 @@ function IssueDetailModal({
     setVisible(false);
     setTimeout(onClose, 180);
   };
+
+  async function handlePostToLinear(decisionId: string, question: string, questionEmail: string, decisionBody: string, decisionEmail: string) {
+    setPostingLinearId(decisionId);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/linear-comment`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issueId: issue.id, decisionId, question, questionEmail, decisionBody, decisionEmail }),
+      });
+      if (res.ok) {
+        setDecisions((prev) =>
+          prev.map((d) => (d.id === decisionId ? { ...d, posted_to_linear: true } : d))
+        );
+      }
+    } finally {
+      setPostingLinearId(null);
+    }
+  }
 
   async function handleAdvanceState() {
     if (!nextState || advancing) return;
@@ -315,13 +362,10 @@ function IssueDetailModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!comment.trim() || submitting) return;
+    if (!question.trim() || submitting) return;
     setSubmitting(true);
-    const senderName = profile?.firstName && profile?.lastName
-      ? profile.firstName + " " + profile.lastName
-      : profile?.email;
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -329,23 +373,73 @@ function IssueDetailModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          issue_id: issue.id,
-          body: `From: ${senderName}\n\n${comment.trim()}`,
-          role: profile?.role,
-          profile_id: profile?.id,
-          email: profile?.email,
+          issueId: issue.id,
+          question: question.trim(),
+          ownerEmail: profile?.email,
         }),
       });
-      setLocalComments((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          body: `From: ${senderName}\n\n${comment.trim()}`,
-          createdAt: new Date().toISOString(),
-          displayName: null,
+      const newDecision = await res.json();
+      if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
+      setQuestion("");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleAddAnswer(decisionId: string) {
+    if (!formText.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
         },
-      ]);
-      setComment("");
+        body: JSON.stringify({
+          decisionId,
+          answer: formText.trim(),
+          answererEmail: profile?.email,
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id) {
+        setDecisions((prev) =>
+          prev.map((d) => (d.id === updated.id ? updated : d)),
+        );
+      }
+      setFormText("");
+      setActiveForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSetDecision(decisionId: string) {
+    if (!formText.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ decisionId, decision: formText.trim(), decisionEmail: profile?.email }),
+        },
+      );
+      const updated = await res.json();
+      if (updated.id) {
+        setDecisions((prev) =>
+          prev.map((d) => (d.id === updated.id ? updated : d)),
+        );
+      }
+      setFormText("");
+      setActiveForm(null);
     } finally {
       setSubmitting(false);
     }
@@ -442,90 +536,217 @@ function IssueDetailModal({
             </div>
           )}
 
-          {/* Comments */}
+          {/* Questions */}
           <div className="space-y-2">
-            <button
-              onClick={() => setShowComments((v) => !v)}
-              className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              Comments {localComments.length > 0 && `(${localComments.length})`}
-              <ArrowRight
-                className={`h-3 w-3 transition-transform ${showComments ? "rotate-90" : ""}`}
-              />
-            </button>
-
-            {showComments && localComments.length === 0 ? (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Questions {decisions.length > 0 && `(${decisions.length})`}
+            </p>
+            {loadingDecisions && (
+              <p className="text-xs text-muted-foreground italic">Loading…</p>
+            )}
+            {!loadingDecisions && decisions.length === 0 && (
               <p className="text-xs text-muted-foreground italic">
-                No localComments yet.
+                No questions yet.
               </p>
-            ) : showComments ? (
-              <div className="space-y-2">
-                {localComments.map((c) => {
-                  const fromFmt = c.body
-                    ? /^From:\s+(\S+)(?:\n\n|\s+)([\s\S]*)$/.exec(c.body)
-                    : null;
-                  const author = fromFmt?.[1] ?? null;
-                  const text = fromFmt?.[2] ?? c.body ?? "";
-                  return (
-                    <div
-                      key={c.id}
-                      className="rounded-lg bg-muted/40 p-3 space-y-1"
-                    >
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {author ? (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] font-medium"
-                          >
-                            {author}
-                          </Badge>
-                        ) : c.displayName ? (
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {c.displayName}
-                          </span>
-                        ) : null}
-                        {c.createdAt && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(c.createdAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-foreground whitespace-pre-wrap">
-                        {text}
-                      </p>
+            )}
+            {!loadingDecisions && decisions.length > 0 && (
+              <div className="space-y-3">
+                {decisions.map((d) => (
+                  <div
+                    key={d.id}
+                    className="rounded-lg bg-muted/40 p-3 space-y-2"
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] font-medium"
+                      >
+                        {d.owner_email}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(d.created_at).toLocaleDateString()}
+                      </span>
                     </div>
-                  );
-                })}
+                    <p className="text-sm font-medium text-foreground whitespace-pre-wrap">
+                      {d.question}
+                    </p>
+
+                    {d.answers.length > 0 && (
+                      <div className="space-y-1.5 pl-3 border-l border-border">
+                        {d.answers.map((a) => (
+                          <div
+                            key={`${a.email}-${a.created_at}`}
+                            className="space-y-0.5"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {a.email}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(a.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-xs text-foreground whitespace-pre-wrap">{a.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {d.decisions?.body && (
+                      <div className="rounded bg-success/10 p-2 space-y-0.5">
+                        <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-success/70">{d.decisions.email}</span>
+                          <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeForm?.decisionId === d.id ? (
+                      <div className="flex flex-col gap-1.5">
+                        <textarea
+                          className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                          rows={2}
+                          placeholder={
+                            activeForm.mode === "decision"
+                              ? "Describe the decision reached…"
+                              : "Your answer…"
+                          }
+                          value={formText}
+                          onChange={(e) => setFormText(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setActiveForm(null);
+                              setFormText("");
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            Cancel
+                          </Button>
+                          {activeForm.mode === "decision" ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSetDecision(d.id)}
+                              disabled={!formText.trim() || submitting}
+                              className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              Confirm decision
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddAnswer(d.id)}
+                              disabled={!formText.trim() || submitting}
+                              className="text-xs h-6 px-2"
+                            >
+                              <Send className="h-2.5 w-2.5 mr-1" />
+                              Answer
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between gap-2 pt-1">
+                        {!d.decisions?.body && (
+                          <button
+                            onClick={() => {
+                              setActiveForm({ decisionId: d.id, mode: "answer" });
+                              setFormText("");
+                            }}
+                            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            + Add answer
+                          </button>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          {d.decisions?.body && (() => {
+                            const linearLabel = postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear";
+                            return (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)}
+                                disabled={postingLinearId === d.id || d.posted_to_linear}
+                                className="text-xs h-7 px-3"
+                              >
+                                {linearLabel}
+                              </Button>
+                            );
+                          })()}
+                          {!d.posted_to_linear && <Button
+                            size="sm"
+                            onClick={() => {
+                              setActiveForm({ decisionId: d.id, mode: "decision" });
+                              setFormText(d.decisions?.body ?? "");
+                            }}
+                            className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            {d.decisions?.body ? "Update decision" : "Make decision"}
+                          </Button>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ) : null}
+            )}
           </div>
         </div>
-        <div onClick={() => console.log({ profile })}>VER profile</div>
 
-        {/* Footer — comment input */}
+        {/* Footer — question input */}
         <div className="border-t border-border p-4">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-            <textarea
-              className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
-              placeholder="Add a comment... "
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                  handleSubmit(e as any);
-              }}
-            />
+          {showQuestionForm ? (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                placeholder="What needs a decision?"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                    handleSubmit(e as any);
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowQuestionForm(false);
+                    setQuestion("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!question.trim() || submitting}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  {submitting ? "Sending…" : "Ask"}
+                </Button>
+              </div>
+            </form>
+          ) : (
             <Button
-              type="submit"
               size="sm"
-              className="self-end"
-              disabled={!comment.trim() || submitting}
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowQuestionForm(true)}
             >
-              <Send className="h-3 w-3 mr-1" />
-              {submitting ? "Sending…" : "Send"}
+              <MessageSquare className="h-3 w-3 mr-1.5" />
+              Ask a question
             </Button>
-          </form>
+          )}
         </div>
       </div>
     </div>

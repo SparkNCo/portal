@@ -13,7 +13,6 @@ import { fetchIssues } from "../client/page";
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
-  const userId = profile?.id;
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
@@ -43,13 +42,14 @@ export default function DeveloperDashboard() {
     enabled: projects.length > 0,
   });
 
+  const userEmail = profile?.email;
   const { data: questionsData } = useQuery<{
     countByIssue: Record<string, number>;
   }>({
-    queryKey: ["issue-questions", userId],
+    queryKey: ["decision-counts", userEmail],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/issue-questions?user_id=${userId}`,
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/counts?user_email=${encodeURIComponent(userEmail!)}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -57,10 +57,10 @@ export default function DeveloperDashboard() {
           },
         },
       );
-      if (!res.ok) throw new Error("Failed to fetch issue questions");
+      if (!res.ok) throw new Error("Failed to fetch decision counts");
       return res.json();
     },
-    enabled: !!userId,
+    enabled: !!userEmail,
   });
 
   const questionCounts = questionsData?.countByIssue ?? {};
