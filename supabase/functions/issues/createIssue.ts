@@ -111,6 +111,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   if (projectId) input.projectId = projectId;
   if (assigneeId) input.assigneeId = assigneeId;
   if (labelIds?.length) input.labelIds = labelIds;
+  if (body.projectMilestoneId) input.projectMilestoneId = body.projectMilestoneId;
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
 

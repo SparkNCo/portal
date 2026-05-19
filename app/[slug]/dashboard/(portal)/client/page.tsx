@@ -215,6 +215,14 @@ export default function ClientDashboard() {
             title="Acceptance Testing"
             questionCounts={questionCounts}
             compact
+            headerAction={
+              <CreateIssue
+                slug={slug}
+                profile={profile}
+                compact
+                defaultType="uat"
+              />
+            }
           />
         </div>
       </div>

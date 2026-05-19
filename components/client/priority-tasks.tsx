@@ -105,6 +105,7 @@ export type PriorityTasksProps = {
   title?: string;
   questionCounts?: Record<string, number>;
   compact?: boolean;
+  headerAction?: React.ReactNode;
 };
 
 const STATUS_ORDER = [
@@ -760,6 +761,7 @@ export function PriorityTasks({
   title = "Priority Tasks",
   questionCounts = {},
   compact = false,
+  headerAction,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -808,11 +810,14 @@ export function PriorityTasks({
             <AlertTriangle className="h-4 w-4 text-warning" />
             {title}
           </CardTitle>
-          {issuesData.length > 0 && (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {issuesData.length} issue{issuesData.length === 1 ? "" : "s"}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {headerAction}
+            {issuesData.length > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {issuesData.length} issue{issuesData.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
           {visibleIssues.length === 0 ? (

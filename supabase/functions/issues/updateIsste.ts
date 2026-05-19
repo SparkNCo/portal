@@ -303,3 +303,62 @@ export async function handleAddAnswer(req: Request): Promise<Response> {
 
   return Response.json(updated[0] ?? updated);
 }
+
+// ─── Projects & Milestones ───────────────────────────────────────────────────
+
+const GET_INITIATIVE_PROJECTS_QUERY = `
+  query GetInitiativeProjects($initiativeId: String!) {
+    initiative(id: $initiativeId) {
+      projects(first: 50) {
+        nodes { id name }
+      }
+    }
+  }
+`;
+
+const GET_MILESTONES_QUERY = `
+  query GetMilestones($projectId: String!) {
+    project(id: $projectId) {
+      projectMilestones(first: 50) {
+        nodes { id name targetDate }
+      }
+    }
+  }
+`;
+
+const CREATE_MILESTONE_MUTATION = `
+  mutation CreateMilestone($input: ProjectMilestoneCreateInput!) {
+    projectMilestoneCreate(input: $input) {
+      success
+      projectMilestone { id name }
+    }
+  }
+`;
+
+export async function handleGetProjects(req: Request): Promise<Response> {
+  const initiativeId = new URL(req.url).searchParams.get("initiativeId");
+  if (!initiativeId) return Response.json({ error: "Missing initiativeId" }, { status: 400 });
+
+  const data = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId });
+  return Response.json(data.initiative?.projects?.nodes ?? []);
+}
+
+export async function handleGetMilestones(req: Request): Promise<Response> {
+  const projectId = new URL(req.url).searchParams.get("projectId");
+  if (!projectId) return Response.json({ error: "Missing projectId" }, { status: 400 });
+
+  const data = await linearRequest(GET_MILESTONES_QUERY, { projectId });
+  return Response.json(data.project?.projectMilestones?.nodes ?? []);
+}
+
+export async function handleCreateMilestone(req: Request): Promise<Response> {
+  const { projectId, name, targetDate, description } = await req.json();
+  if (!projectId || !name) return Response.json({ error: "Missing projectId or name" }, { status: 400 });
+
+  const input: Record<string, any> = { projectId, name };
+  if (targetDate) input.targetDate = targetDate;
+  if (description) input.description = description;
+
+  const data = await linearRequest(CREATE_MILESTONE_MUTATION, { input });
+  return Response.json(data.projectMilestoneCreate);
+}
