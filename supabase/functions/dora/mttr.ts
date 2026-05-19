@@ -1,9 +1,10 @@
 // @ts-nocheck
-import { fetchPRPage } from "./github.ts";
+import { fetchPRPage, fetchPRCommits } from "./github.ts";
 
-function isFixPR(pr: any): boolean {
+function isFixPR(pr: any, commits: any[] = []): boolean {
   const title = (pr.title ?? "").trim();
-  return /^fix\s*\//i.test(title);
+  if (/^fix\s*\//i.test(title)) return true;
+  return commits.some((commit) => /^fix\s*\//i.test((commit.commit?.message ?? "").trim()));
 }
 
 function extractIssueNumber(branchName: string): string | null {
@@ -53,7 +54,8 @@ export async function handleIssueResolutionTime(repo: string, token: string, lim
   const results = [];
 
   for (const pr of prs) {
-    if (!isFixPR(pr)) continue;
+    const commits = await fetchPRCommits(repo, token, pr.number);
+    if (!isFixPR(pr, commits)) continue;
 
     const branchName = pr.head?.ref;
     const issueNumber = extractIssueNumber(branchName);

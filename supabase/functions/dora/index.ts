@@ -20,13 +20,16 @@ const handlers: Record<string, (repo: string, token: string, limit: number) => P
 
 async function handleAll(repo: string, token: string, limit: number) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  console.log("🚀 handleAll started", { repo, limit, since: since.toISOString() });
+
   const [cfr, leadTime, mttr, deployFreq] = await Promise.all([
-    handleCFR(repo, token, limit, since),
-    handleLeadTime(repo, token, limit, since),
-    handleIssueResolutionTime(repo, token, limit, since),
-    handleDeployFreq(repo, token, limit, since),
+    handleCFR(repo, token, limit).then(r => { console.log("✅ CFR done"); return r; }).catch(e => { console.error("❌ CFR failed", String(e)); throw e; }),
+    handleLeadTime(repo, token, limit, since).then(r => { console.log("✅ Lead Time done"); return r; }).catch(e => { console.error("❌ Lead Time failed", String(e)); throw e; }),
+    handleIssueResolutionTime(repo, token, limit, since).then(r => { console.log("✅ MTTR done"); return r; }).catch(e => { console.error("❌ MTTR failed", String(e)); throw e; }),
+    handleDeployFreq(repo, token, limit, since).then(r => { console.log("✅ Deploy Freq done"); return r; }).catch(e => { console.error("❌ Deploy Freq failed", String(e)); throw e; }),
   ]);
 
+  console.log("✅ All metrics computed successfully");
   return {
     repo,
     details: { cfr, leadTime, mttr, deployFreq },
@@ -51,17 +54,7 @@ function avg(values: number[]): number | null {
 function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<ReturnType<typeof handleAll>>) {
   const { cfr: newCfr, leadTime: newLeadTime, mttr: newMttr, deployFreq: newDeployFreq } = result.details;
 
-  const prevCfr = existing?.cfr_details ?? {};
-  const totalNonFix = (prevCfr.total_non_fix_deployments ?? 0) + newCfr.total_non_fix_deployments;
-  const failedDeploys = (prevCfr.failed_deployments ?? 0) + newCfr.failed_deployments;
-  const cfr_details = {
-    ...newCfr,
-    total_non_fix_deployments: totalNonFix,
-    failed_deployments: failedDeploys,
-    change_failure_rate: totalNonFix > 0
-      ? Number.parseFloat(((failedDeploys / totalNonFix) * 100).toFixed(2))
-      : 0,
-  };
+  const cfr_details = { ...newCfr };
 
   const leadResults = dedupeByPrNumber(existing?.lead_time_details?.results ?? [], newLeadTime.results);
   const lead_time_details = {
@@ -107,23 +100,35 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
 }
 
 async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<ReturnType<typeof handleAll>>) {
-  const { data: existing } = await supabase
+  console.log("🔍 Fetching existing dorametrics row for slug:", linearSlug);
+  const { data: existing, error: fetchError } = await supabase
     .from("dorametrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
     .eq("linear_slug", linearSlug)
     .maybeSingle();
 
+  if (fetchError) console.error("❌ Fetch existing error:", fetchError.message);
+  console.log("📦 Existing row found:", !!existing);
+
   const merged = mergeDoraMetrics(existing, result);
+  console.log("🔀 Merged metrics computed");
+
   const payload = { ...merged, url, last_called: new Date().toISOString() };
 
   const { error } = existing
     ? await supabase.from("dorametrics").update(payload).eq("linear_slug", linearSlug)
     : await supabase.from("dorametrics").insert({ linear_slug: linearSlug, ...payload });
 
-  if (error) throw new Error(`Failed to save dora metrics: ${error.message}`);
+  if (error) {
+    console.error("❌ Supabase write error:", error.message, error.details);
+    throw new Error(`Failed to save dora metrics: ${error.message}`);
+  }
+  console.log("✅ Supabase write successful");
 }
 
 Deno.serve(async (req) => {
+  console.log(`📨 Request received: ${req.method} ${req.url}`);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -166,8 +171,12 @@ Deno.serve(async (req) => {
 
     if (method === "all") {
       const result = await handleAll(repo, token, limit);
+      console.log("💾 Saving to dorametrics...");
       await saveDoraMetrics(linear_slug, repoUrl, result);
-      return new Response(JSON.stringify(result), {
+      console.log("✅ Saved to dorametrics");
+      const serialized = JSON.stringify(result);
+      console.log("✅ Response serialized, length:", serialized.length);
+      return new Response(serialized, {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

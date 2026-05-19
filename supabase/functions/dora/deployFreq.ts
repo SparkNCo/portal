@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getCIStatus, fetchPRPage, isHotfix } from "./github.ts";
+import { getCIStatus, fetchPRPage, fetchPRCommits, isHotfix } from "./github.ts";
 
 async function fetchDeployments(repo: string, token: string, limit: number, since?: Date) {
   const merges = [];
@@ -13,13 +13,21 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
     let done = false;
     for (const pr of prs) {
       if (!pr.merged_at) continue;
-      if (since && new Date(pr.merged_at) < since) continue;
-      if (isHotfix(pr)) continue;
+      if (since && new Date(pr.merged_at) < since) {
+        console.log(`⏩ deployFreq: PR#${pr.number} "${pr.title}" skipped (before since cutoff)`);
+        continue;
+      }
+      const commits = await fetchPRCommits(repo, token, pr.number);
+      if (isHotfix(pr, commits)) continue;
 
       const sha = pr.merge_commit_sha || pr.head?.sha;
-      if (!sha) continue;
+      if (!sha) {
+        console.warn(`⚠️ deployFreq: PR#${pr.number} has no SHA, skipping`);
+        continue;
+      }
 
       const ciState = await getCIStatus(repo, sha, token);
+      console.log(`🔬 deployFreq: PR#${pr.number} CI status = ${ciState}`);
       if (ciState !== "success") continue;
 
       merges.push({
