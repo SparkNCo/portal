@@ -169,6 +169,7 @@ export default function ClientDashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Button
+              size="sm"
               onClick={() => setSelectedProjects(new Set())}
               className={selectedProjects.size === 0
                 ? "bg-accent text-accent-foreground hover:bg-accent/90"
@@ -179,6 +180,7 @@ export default function ClientDashboard() {
             {projects.map((p) => (
               <Button
                 key={p.id}
+                size="sm"
                 onClick={() => toggleProject(p.id)}
                 className={selectedProjects.has(p.id)
                   ? "bg-accent text-accent-foreground hover:bg-accent/90"
@@ -195,7 +197,6 @@ export default function ClientDashboard() {
             compact
           />
         </div>
-        <div onClick={() => console.log({ issuesData })}>VER CONVER</div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <ProgressPieChart issuesData={allIssues} />
@@ -215,14 +216,6 @@ export default function ClientDashboard() {
             title="Acceptance Testing"
             questionCounts={questionCounts}
             compact
-            headerAction={
-              <CreateIssue
-                slug={slug}
-                profile={profile}
-                compact
-                defaultType="uat"
-              />
-            }
           />
         </div>
       </div>

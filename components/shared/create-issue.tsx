@@ -339,6 +339,7 @@ export function CreateIssue({
       <div className={compact ? undefined : "flex gap-2"}>
         <Button
           onClick={handleOpen}
+          size={compact ? "sm" : "default"}
           className={`${compact ? "" : "flex-1 "}bg-accent text-accent-foreground hover:bg-accent/90`}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -510,7 +511,6 @@ export function CreateIssue({
                 <>
                   <div className="space-y-1.5">
                     <Label>Project</Label>
-                    <div onClick={() => console.log({profile})}>VER profile</div>
 
                     <Select
                       value={selectedProjectId}

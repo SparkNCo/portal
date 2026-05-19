@@ -134,7 +134,6 @@ export default function DeveloperDashboard() {
             ))}
           </div>
         )}
-        <div onClick={() => console.log({profile})}>VER profile</div>
 
         <div className="w-full max-w-full overflow-hidden">
           <PriorityTasks

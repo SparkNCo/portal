@@ -128,7 +128,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             ))}
           </SelectContent>
         </Select>
-        <div onClick={() => console.log({cycles})}>VER cycles</div>
         
         {cycles.length > 0 && (
           <Select
