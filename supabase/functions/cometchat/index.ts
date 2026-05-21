@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { supabase } from "../client.ts";
 
 const AI_UID = Deno.env.get("AI_UID")!;
 const APP_ID = Deno.env.get("COMETCHAT_APP_ID")!;
@@ -49,6 +50,12 @@ Deno.serve(async (req) => {
           status: 200,
         });
       }
+
+      // 🔔 Update last_message_at for issue groups so the badge shows on cards
+      await supabase
+        .from("issue_chats")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("cometchat_group_id", groupId);
 
       // ===============================
       // 🤖 CALL AI ASSISTANT

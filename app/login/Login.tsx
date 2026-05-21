@@ -59,18 +59,31 @@ export default function LoginForm({
   useEffect(() => {
     if (customer) {
       if (customer?.role === "stakeholder") {
-        const clientName = customer.assignment_id?.[0]?.clientName;
+        const clientName =
+          customer.assignment_id?.[0]?.clientName ??
+          customer.assignment_id?.[0]?.linear_slug ??
+          customer.clientName;
         if (clientName) {
           router.push(`/${clientName}/dashboard/client`);
           onLoginSuccess(customer.email);
+        } else {
+          setErrorMessage("No client assigned to this account. Contact your administrator.");
+          setLoading(false);
         }
         return;
       }
       if (customer?.role === "admin") {
         router.push(`/${customer.clientName}/dashboard/admin`);
       } else if (customer?.role === "developer") {
-        const clientName = customer.assignment_id?.[0]?.clientName;
-        router.push(`/${clientName}/dashboard/developer`);
+        const clientName =
+          customer.assignment_id?.[0]?.clientName ??
+          customer.assignment_id?.[0]?.linear_slug;
+        if (clientName) {
+          router.push(`/${clientName}/dashboard/developer`);
+        } else {
+          setErrorMessage("No client assigned to this account. Contact your administrator.");
+          setLoading(false);
+        }
       } else {
         router.push(`/${customer.clientName}/dashboard/client`);
       }

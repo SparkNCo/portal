@@ -76,6 +76,7 @@ export default function ClientDashboard() {
       return res.json();
     },
     enabled: !!userEmail,
+    refetchInterval: 30_000,
   });
 
   const questionCounts = questionsData?.countByIssue ?? {};

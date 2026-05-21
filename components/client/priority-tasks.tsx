@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangle,
   ArrowRight,
-  Send,
   ChevronsRight,
   Filter,
   MessageSquare,
@@ -15,6 +14,7 @@ import { Button } from "@/components/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
+import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
 
 const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -258,20 +258,22 @@ export function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const [visible, setVisible] = useState(false);
-  const [question, setQuestion] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [showDescription, setShowDescription] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
-  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [showNewDecisionForm, setShowNewDecisionForm] = useState(false);
   const [activeForm, setActiveForm] = useState<{
     decisionId: string;
-    mode: "answer" | "decision";
+    mode: "decision";
   } | null>(null);
   const [formText, setFormText] = useState("");
   const [postingLinearId, setPostingLinearId] = useState<string | null>(null);
+  const [linearPostedAt, setLinearPostedAt] = useState(0);
+  const [activeTab, setActiveTab] = useState<"chat" | "decisions">("chat");
+  const [justPostedDecision, setJustPostedDecision] = useState<{ id: string; question: string; ownerEmail: string; body: string; email: string; created_at: string; posted_to_linear: boolean } | null>(null);
 
   const nextState = getNextState(currentStateName);
 
@@ -314,6 +316,17 @@ export function IssueDetailModal({
 
   const handleClose = () => {
     setVisible(false);
+    if (profile?.email) {
+      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ issue_id: issue.id, user_email: profile.email }),
+      });
+    }
     setTimeout(onClose, 180);
   };
 
@@ -333,6 +346,7 @@ export function IssueDetailModal({
         setDecisions((prev) =>
           prev.map((d) => (d.id === decisionId ? { ...d, posted_to_linear: true } : d))
         );
+        setLinearPostedAt(Date.now());
       }
     } finally {
       setPostingLinearId(null);
@@ -361,12 +375,11 @@ export function IssueDetailModal({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!question.trim() || submitting) return;
+  async function handleCreateDecision() {
+    if (!formText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const createRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
@@ -375,43 +388,31 @@ export function IssueDetailModal({
         },
         body: JSON.stringify({
           issueId: issue.id,
-          question: question.trim(),
+          question: formText.trim(),
           ownerEmail: profile?.email,
         }),
       });
-      const newDecision = await res.json();
-      if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
-      setQuestion("");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleAddAnswer(decisionId: string) {
-    if (!formText.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          decisionId,
-          answer: formText.trim(),
-          answererEmail: profile?.email,
-        }),
-      });
-      const updated = await res.json();
-      if (updated.id) {
-        setDecisions((prev) =>
-          prev.map((d) => (d.id === updated.id ? updated : d)),
-        );
+      const newDecision = await createRes.json();
+      if (newDecision.id) {
+        const setRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ decisionId: newDecision.id, decision: formText.trim(), decisionEmail: profile?.email }),
+        });
+        const updated = await setRes.json();
+        const final = updated.id ? updated : newDecision;
+        setDecisions((prev) => [...prev, final]);
+        if (final.decisions?.body) {
+          setJustPostedDecision({ id: final.id, question: final.question ?? "", ownerEmail: final.owner_email ?? "", body: final.decisions.body, email: final.decisions.email, created_at: final.decisions.created_at, posted_to_linear: true });
+          handlePostToLinear(final.id, final.question ?? "", final.owner_email ?? "", final.decisions.body, final.decisions.email);
+        }
       }
       setFormText("");
-      setActiveForm(null);
+      setShowNewDecisionForm(false);
     } finally {
       setSubmitting(false);
     }
@@ -501,254 +502,164 @@ export function IssueDetailModal({
           </button>
         </div>
 
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Advance state */}
-          {nextState && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              disabled={advancing}
-              onClick={handleAdvanceState}
-            >
-              <ChevronsRight className="h-3 w-3 mr-1" />
-              {advancing ? "Updating…" : `Move to ${nextState}`}
-            </Button>
-          )}
-
-          {/* Description */}
-          {issue.description && (
-            <div className="space-y-1">
-              <button
-                onClick={() => setShowDescription((v) => !v)}
-                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                Description
-                <ArrowRight
-                  className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`}
-                />
-              </button>
-              {showDescription && (
-                <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
-                  {issue.description}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Questions */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Questions {decisions.length > 0 && `(${decisions.length})`}
-            </p>
-            {loadingDecisions && (
-              <p className="text-xs text-muted-foreground italic">Loading…</p>
+        {/* Static content */}
+        {(nextState || issue.description) && (
+          <div className="px-5 pt-4 pb-2 space-y-3 flex-shrink-0">
+            {nextState && (
+              <Button size="sm" variant="outline" className="w-full" disabled={advancing} onClick={handleAdvanceState}>
+                <ChevronsRight className="h-3 w-3 mr-1" />
+                {advancing ? "Updating…" : `Move to ${nextState}`}
+              </Button>
             )}
-            {!loadingDecisions && decisions.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">
-                No questions yet.
-              </p>
-            )}
-            {!loadingDecisions && decisions.length > 0 && (
-              <div className="space-y-3">
-                {decisions.map((d) => (
-                  <div
-                    key={d.id}
-                    className="rounded-lg bg-muted/40 p-3 space-y-2"
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] font-medium"
-                      >
-                        {d.owner_email}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(d.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium text-foreground whitespace-pre-wrap">
-                      {d.question}
-                    </p>
-
-                    {d.answers.length > 0 && (
-                      <div className="space-y-1.5 pl-3 border-l border-border">
-                        {d.answers.map((a) => (
-                          <div
-                            key={`${a.email}-${a.created_at}`}
-                            className="space-y-0.5"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-medium text-muted-foreground">
-                                {a.email}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {new Date(a.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <p className="text-xs text-foreground whitespace-pre-wrap">{a.body}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {d.decisions?.body && (
-                      <div className="rounded bg-success/10 p-2 space-y-0.5">
-                        <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-success/70">{d.decisions.email}</span>
-                          <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeForm?.decisionId === d.id ? (
-                      <div className="flex flex-col gap-1.5">
-                        <textarea
-                          className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                          rows={2}
-                          placeholder={
-                            activeForm.mode === "decision"
-                              ? "Describe the decision reached…"
-                              : "Your answer…"
-                          }
-                          value={formText}
-                          onChange={(e) => setFormText(e.target.value)}
-                          autoFocus
-                        />
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setActiveForm(null);
-                              setFormText("");
-                            }}
-                            className="text-xs h-6 px-2"
-                          >
-                            Cancel
-                          </Button>
-                          {activeForm.mode === "decision" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handleSetDecision(d.id)}
-                              disabled={!formText.trim() || submitting}
-                              className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              Confirm decision
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddAnswer(d.id)}
-                              disabled={!formText.trim() || submitting}
-                              className="text-xs h-6 px-2"
-                            >
-                              <Send className="h-2.5 w-2.5 mr-1" />
-                              Answer
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-between gap-2 pt-1">
-                        {!d.decisions?.body && (
-                          <button
-                            onClick={() => {
-                              setActiveForm({ decisionId: d.id, mode: "answer" });
-                              setFormText("");
-                            }}
-                            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            + Add answer
-                          </button>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          {d.decisions?.body && (() => {
-                            const linearLabel = postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear";
-                            return (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)}
-                                disabled={postingLinearId === d.id || d.posted_to_linear}
-                                className="text-xs h-7 px-3"
-                              >
-                                {linearLabel}
-                              </Button>
-                            );
-                          })()}
-                          {!d.posted_to_linear && <Button
-                            size="sm"
-                            onClick={() => {
-                              setActiveForm({ decisionId: d.id, mode: "decision" });
-                              setFormText(d.decisions?.body ?? "");
-                            }}
-                            className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            {d.decisions?.body ? "Update decision" : "Make decision"}
-                          </Button>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {issue.description && (
+              <div className="space-y-1">
+                <button
+                  onClick={() => setShowDescription((v) => !v)}
+                  className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Description
+                  <ArrowRight className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`} />
+                </button>
+                {showDescription && (
+                  <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
+                    {issue.description}
+                  </p>
+                )}
               </div>
             )}
           </div>
+        )}
+
+        {/* Tab bar */}
+        <div className="flex border-b border-border px-5 flex-shrink-0">
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={`py-2.5 px-1 mr-5 text-xs font-semibold border-b-2 transition-colors ${
+              activeTab === "chat"
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setActiveTab("decisions")}
+            className={`py-2.5 px-1 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === "decisions"
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Decisions
+            {decisions.length > 0 && (
+              <span className="rounded-full bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 font-medium">
+                {decisions.length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Footer — question input */}
-        <div className="border-t border-border p-4">
-          {showQuestionForm ? (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-              <textarea
-                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                rows={3}
-                placeholder="What needs a decision?"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                    handleSubmit(e as any);
-                }}
-                autoFocus
-              />
-              <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setShowQuestionForm(false);
-                    setQuestion("");
-                  }}
-                >
-                  Cancel
+        {/* Chat tab */}
+        {activeTab === "chat" && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              <IssueCometChat issueId={issue.id} issueTitle={issue.title} linearPostedAt={linearPostedAt} />
+            </div>
+            <div className="border-t border-border p-4 flex-shrink-0 space-y-2">
+              {!showNewDecisionForm && justPostedDecision && (
+                <div className="rounded bg-success/10 p-2 space-y-1.5">
+                  <p className="text-xs font-medium text-success whitespace-pre-wrap">{justPostedDecision.body}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-success/70">{justPostedDecision.email}</span>
+                    <span className="text-[10px] text-success/70">{new Date(justPostedDecision.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              )}
+              {showNewDecisionForm ? (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                    rows={3}
+                    placeholder="Describe the decision reached…"
+                    value={formText}
+                    onChange={(e) => setFormText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateDecision(); }}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDecisionForm(false); setFormText(""); }}>Cancel</Button>
+                    <Button size="sm" disabled={!formText.trim() || submitting} onClick={handleCreateDecision} className="bg-green-600 hover:bg-green-700 text-white">
+                      {submitting ? "Saving…" : "Record decision"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" className="w-full" onClick={() => { setShowNewDecisionForm(true); setFormText(""); }}>
+                  <MessageSquare className="h-3 w-3 mr-1.5" />
+                  Record a decision
                 </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!question.trim() || submitting}
-                >
-                  <Send className="h-3 w-3 mr-1" />
-                  {submitting ? "Sending…" : "Ask"}
-                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Decisions tab */}
+        {activeTab === "decisions" && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            {loadingDecisions && (
+              <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+            )}
+            {!loadingDecisions && decisions.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No decisions recorded yet.</p>
+            )}
+            {decisions.map((d) => (
+              <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                {d.question && (
+                  <p className="text-[11px] text-muted-foreground italic">"{d.question}"</p>
+                )}
+                {d.decisions?.body && (
+                  <div className="rounded bg-success/10 p-2 space-y-0.5">
+                    <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-success/70">{d.decisions.email}</span>
+                      <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                )}
+                {activeForm?.decisionId === d.id ? (
+                  <div className="flex flex-col gap-1.5">
+                    <textarea
+                      className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      rows={2}
+                      placeholder="Describe the decision reached…"
+                      value={formText}
+                      onChange={(e) => setFormText(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-1 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => { setActiveForm(null); setFormText(""); }} className="text-xs h-6 px-2">Cancel</Button>
+                      <Button size="sm" onClick={() => handleSetDecision(d.id)} disabled={!formText.trim() || submitting} className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white">Confirm decision</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {d.decisions?.body && (
+                      <Button size="sm" variant="outline" onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)} disabled={postingLinearId === d.id || d.posted_to_linear} className="text-xs h-7 px-3">
+                        {postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear"}
+                      </Button>
+                    )}
+                    {!d.posted_to_linear && (
+                      <Button size="sm" onClick={() => { setActiveForm({ decisionId: d.id, mode: "decision" }); setFormText(d.decisions?.body ?? ""); }} className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white">
+                        {d.decisions?.body ? "Update decision" : "Make decision"}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
-            </form>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowQuestionForm(true)}
-            >
-              <MessageSquare className="h-3 w-3 mr-1.5" />
-              Ask a question
-            </Button>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
+
       </div>
     </div>
   );

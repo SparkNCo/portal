@@ -40,12 +40,16 @@ async function handleGetCounts(req: Request): Promise<Response> {
     return Response.json({ error: "user_email is required" }, { status: 400 });
   }
 
-  const [{ data: reads }, { data: decisions }] = await Promise.all([
+  const [{ data: reads }, { data: decisions }, { data: issueChats }] = await Promise.all([
     supabase
       .from("decision_reads")
       .select("issue_id, read_at")
       .eq("user_email", userEmail),
     supabase.from("decisions").select("id, issue_id, created_at"),
+    supabase
+      .from("issue_chats")
+      .select("issue_id, last_message_at")
+      .not("last_message_at", "is", null),
   ]);
 
   const readMap: Record<string, string> = {};
@@ -58,6 +62,14 @@ async function handleGetCounts(req: Request): Promise<Response> {
     const lastRead = readMap[d.issue_id];
     if (!lastRead || new Date(d.created_at) > new Date(lastRead)) {
       countByIssue[d.issue_id] = (countByIssue[d.issue_id] ?? 0) + 1;
+    }
+  }
+
+  // Include issues with unread chat messages
+  for (const ic of issueChats ?? []) {
+    const lastRead = readMap[ic.issue_id];
+    if (!lastRead || new Date(ic.last_message_at) > new Date(lastRead)) {
+      countByIssue[ic.issue_id] = (countByIssue[ic.issue_id] ?? 0) + 1;
     }
   }
 
