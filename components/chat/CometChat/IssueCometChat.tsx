@@ -90,24 +90,7 @@ function IssueGroupChat({
         .eq("issue_id", issueId)
         .single();
 
-      if (chatRow?.first_message_text) {
-        setFirstMessageSaved(true);
-      } else {
-        const firstTextMsg: any = msgs.find(
-          (m: any) => (m.type ?? m.getType?.()) === "text",
-        );
-        const firstText: string | undefined =
-          firstTextMsg?.text ?? firstTextMsg?.getText?.();
-        if (firstText) {
-          supabase
-            .from("issue_chats")
-            .update({ first_message_text: firstText })
-            .eq("issue_id", issueId);
-          setFirstMessageSaved(true);
-        } else {
-          setFirstMessageSaved(false);
-        }
-      }
+      setFirstMessageSaved(!!chatRow?.first_message_text);
     } catch (err) {
       console.error("Fetch issue messages error:", err);
     } finally {

@@ -271,6 +271,7 @@ export function IssueDetailModal({
   } | null>(null);
   const [formText, setFormText] = useState("");
   const [postingLinearId, setPostingLinearId] = useState<string | null>(null);
+  const [linearPostedAt, setLinearPostedAt] = useState(0);
 
   const nextState = getNextState(currentStateName);
 
@@ -343,6 +344,7 @@ export function IssueDetailModal({
         setDecisions((prev) =>
           prev.map((d) => (d.id === decisionId ? { ...d, posted_to_linear: true } : d))
         );
+        setLinearPostedAt(Date.now());
       }
     } finally {
       setPostingLinearId(null);
@@ -535,7 +537,7 @@ export function IssueDetailModal({
               Chat
             </p>
             <div className="h-72 rounded-lg border border-border overflow-hidden flex flex-col">
-              <IssueCometChat issueId={issue.id} issueTitle={issue.title} />
+              <IssueCometChat issueId={issue.id} issueTitle={issue.title} linearPostedAt={linearPostedAt} />
             </div>
           </div>
 

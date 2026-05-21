@@ -227,6 +227,16 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
     body: JSON.stringify({ posted_to_linear: true }),
   });
 
+  await fetch(`${supabaseUrl}/rest/v1/issue_chats?issue_id=eq.${issueId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({ first_message_text: null }),
+  });
+
   return Response.json(json.data.commentCreate);
 }
 
