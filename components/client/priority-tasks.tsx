@@ -272,6 +272,8 @@ export function IssueDetailModal({
   const [formText, setFormText] = useState("");
   const [postingLinearId, setPostingLinearId] = useState<string | null>(null);
   const [linearPostedAt, setLinearPostedAt] = useState(0);
+  const [activeTab, setActiveTab] = useState<"chat" | "decisions">("chat");
+  const [justPostedDecision, setJustPostedDecision] = useState<{ id: string; question: string; ownerEmail: string; body: string; email: string; created_at: string; posted_to_linear: boolean } | null>(null);
 
   const nextState = getNextState(currentStateName);
 
@@ -402,7 +404,12 @@ export function IssueDetailModal({
           body: JSON.stringify({ decisionId: newDecision.id, decision: formText.trim(), decisionEmail: profile?.email }),
         });
         const updated = await setRes.json();
-        setDecisions((prev) => [...prev, updated.id ? updated : newDecision]);
+        const final = updated.id ? updated : newDecision;
+        setDecisions((prev) => [...prev, final]);
+        if (final.decisions?.body) {
+          setJustPostedDecision({ id: final.id, question: final.question ?? "", ownerEmail: final.owner_email ?? "", body: final.decisions.body, email: final.decisions.email, created_at: final.decisions.created_at, posted_to_linear: true });
+          handlePostToLinear(final.id, final.question ?? "", final.owner_email ?? "", final.decisions.body, final.decisions.email);
+        }
       }
       setFormText("");
       setShowNewDecisionForm(false);
@@ -495,177 +502,164 @@ export function IssueDetailModal({
           </button>
         </div>
 
-        {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Advance state */}
-          {nextState && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              disabled={advancing}
-              onClick={handleAdvanceState}
-            >
-              <ChevronsRight className="h-3 w-3 mr-1" />
-              {advancing ? "Updating…" : `Move to ${nextState}`}
-            </Button>
-          )}
+        {/* Static content */}
+        {(nextState || issue.description) && (
+          <div className="px-5 pt-4 pb-2 space-y-3 flex-shrink-0">
+            {nextState && (
+              <Button size="sm" variant="outline" className="w-full" disabled={advancing} onClick={handleAdvanceState}>
+                <ChevronsRight className="h-3 w-3 mr-1" />
+                {advancing ? "Updating…" : `Move to ${nextState}`}
+              </Button>
+            )}
+            {issue.description && (
+              <div className="space-y-1">
+                <button
+                  onClick={() => setShowDescription((v) => !v)}
+                  className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  Description
+                  <ArrowRight className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`} />
+                </button>
+                {showDescription && (
+                  <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
+                    {issue.description}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* Description */}
-          {issue.description && (
-            <div className="space-y-1">
-              <button
-                onClick={() => setShowDescription((v) => !v)}
-                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                Description
-                <ArrowRight
-                  className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`}
-                />
-              </button>
-              {showDescription && (
-                <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
-                  {issue.description}
-                </p>
-              )}
-            </div>
-          )}
+        {/* Tab bar */}
+        <div className="flex border-b border-border px-5 flex-shrink-0">
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={`py-2.5 px-1 mr-5 text-xs font-semibold border-b-2 transition-colors ${
+              activeTab === "chat"
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => setActiveTab("decisions")}
+            className={`py-2.5 px-1 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === "decisions"
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Decisions
+            {decisions.length > 0 && (
+              <span className="rounded-full bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 font-medium">
+                {decisions.length}
+              </span>
+            )}
+          </button>
+        </div>
 
-          {/* Chat */}
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Chat
-            </p>
-            <div className="h-72 rounded-lg border border-border overflow-hidden flex flex-col">
+        {/* Chat tab */}
+        {activeTab === "chat" && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-hidden">
               <IssueCometChat issueId={issue.id} issueTitle={issue.title} linearPostedAt={linearPostedAt} />
             </div>
+            <div className="border-t border-border p-4 flex-shrink-0 space-y-2">
+              {!showNewDecisionForm && justPostedDecision && (
+                <div className="rounded bg-success/10 p-2 space-y-1.5">
+                  <p className="text-xs font-medium text-success whitespace-pre-wrap">{justPostedDecision.body}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-success/70">{justPostedDecision.email}</span>
+                    <span className="text-[10px] text-success/70">{new Date(justPostedDecision.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              )}
+              {showNewDecisionForm ? (
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                    rows={3}
+                    placeholder="Describe the decision reached…"
+                    value={formText}
+                    onChange={(e) => setFormText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateDecision(); }}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDecisionForm(false); setFormText(""); }}>Cancel</Button>
+                    <Button size="sm" disabled={!formText.trim() || submitting} onClick={handleCreateDecision} className="bg-green-600 hover:bg-green-700 text-white">
+                      {submitting ? "Saving…" : "Record decision"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" className="w-full" onClick={() => { setShowNewDecisionForm(true); setFormText(""); }}>
+                  <MessageSquare className="h-3 w-3 mr-1.5" />
+                  Record a decision
+                </Button>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Decisions */}
-          {(!loadingDecisions && decisions.length > 0) && (
-            <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Decisions ({decisions.length})
-              </p>
-              <div className="space-y-3">
-                {decisions.map((d) => (
-                  <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+        {/* Decisions tab */}
+        {activeTab === "decisions" && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            {loadingDecisions && (
+              <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+            )}
+            {!loadingDecisions && decisions.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No decisions recorded yet.</p>
+            )}
+            {decisions.map((d) => (
+              <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                {d.question && (
+                  <p className="text-[11px] text-muted-foreground italic">"{d.question}"</p>
+                )}
+                {d.decisions?.body && (
+                  <div className="rounded bg-success/10 p-2 space-y-0.5">
+                    <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-success/70">{d.decisions.email}</span>
+                      <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                )}
+                {activeForm?.decisionId === d.id ? (
+                  <div className="flex flex-col gap-1.5">
+                    <textarea
+                      className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      rows={2}
+                      placeholder="Describe the decision reached…"
+                      value={formText}
+                      onChange={(e) => setFormText(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="flex gap-1 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => { setActiveForm(null); setFormText(""); }} className="text-xs h-6 px-2">Cancel</Button>
+                      <Button size="sm" onClick={() => handleSetDecision(d.id)} disabled={!formText.trim() || submitting} className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white">Confirm decision</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 justify-end">
                     {d.decisions?.body && (
-                      <div className="rounded bg-success/10 p-2 space-y-0.5">
-                        <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-success/70">{d.decisions.email}</span>
-                          <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
+                      <Button size="sm" variant="outline" onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)} disabled={postingLinearId === d.id || d.posted_to_linear} className="text-xs h-7 px-3">
+                        {postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear"}
+                      </Button>
                     )}
-
-                    {activeForm?.decisionId === d.id ? (
-                      <div className="flex flex-col gap-1.5">
-                        <textarea
-                          className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                          rows={2}
-                          placeholder="Describe the decision reached…"
-                          value={formText}
-                          onChange={(e) => setFormText(e.target.value)}
-                          autoFocus
-                        />
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => { setActiveForm(null); setFormText(""); }}
-                            className="text-xs h-6 px-2"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSetDecision(d.id)}
-                            disabled={!formText.trim() || submitting}
-                            className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            Confirm decision
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 justify-end">
-                        {d.decisions?.body && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)}
-                            disabled={postingLinearId === d.id || d.posted_to_linear}
-                            className="text-xs h-7 px-3"
-                          >
-                            {postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear"}
-                          </Button>
-                        )}
-                        {!d.posted_to_linear && (
-                          <Button
-                            size="sm"
-                            onClick={() => { setActiveForm({ decisionId: d.id, mode: "decision" }); setFormText(d.decisions?.body ?? ""); }}
-                            className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
-                          >
-                            {d.decisions?.body ? "Update decision" : "Make decision"}
-                          </Button>
-                        )}
-                      </div>
+                    {!d.posted_to_linear && (
+                      <Button size="sm" onClick={() => { setActiveForm({ decisionId: d.id, mode: "decision" }); setFormText(d.decisions?.body ?? ""); }} className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white">
+                        {d.decisions?.body ? "Update decision" : "Make decision"}
+                      </Button>
                     )}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* Footer — record a decision */}
-        <div className="border-t border-border p-4">
-          {showNewDecisionForm ? (
-            <div className="flex flex-col gap-2">
-              <textarea
-                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                rows={3}
-                placeholder="Describe the decision reached…"
-                value={formText}
-                onChange={(e) => setFormText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateDecision();
-                }}
-                autoFocus
-              />
-              <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => { setShowNewDecisionForm(false); setFormText(""); }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!formText.trim() || submitting}
-                  onClick={handleCreateDecision}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {submitting ? "Saving…" : "Record decision"}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => { setShowNewDecisionForm(true); setFormText(""); }}
-            >
-              <MessageSquare className="h-3 w-3 mr-1.5" />
-              Record a decision
-            </Button>
-          )}
-        </div>
       </div>
     </div>
   );
