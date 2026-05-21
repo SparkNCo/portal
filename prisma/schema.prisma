@@ -10,8 +10,256 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id    String @id @default(uuid())
-  email String @unique
-  name  String
+model Document {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  file_name  String?
+  link       String?
+  category   String?
+  size       String?
+  owner_id   String?  @db.Uuid
+  project_slug String?
+
+  owner       users? @relation("DocumentOwner", fields: [owner_id], references: [id])
+  permissions document_permissions[]
+
+  @@map("Document")
+}
+
+model assignments {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String   @db.Uuid
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  customer_id        String?  @db.Uuid
+  role               String   @default("developer")
+  allocation         Int      @default(0)
+  joined             DateTime @default(now()) @db.Date
+  teamMemberLinearId String?
+
+  user     users  @relation("AssignmentUser", fields: [user_id], references: [id])
+  customer users? @relation("AssignmentCustomer", fields: [customer_id], references: [id])
+}
+
+model customers {
+  id                   BigInt   @default(autoincrement()) @db.BigInt
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  proposal_id          String?
+  stripe_customer_id   String?
+  linear_name          String?
+  linear_slug          String?
+  email                String?
+  linear_initiative_id String?
+  linear_projects      String[]
+  customer_id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_url          String[]
+}
+
+model cycle_metrics {
+  id                            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id                   String
+  project_id                    String
+  cycle_id                      String
+  name                          String?
+  description                   String?
+  number                        Int?
+  completed_at                  DateTime? @db.Timestamptz(6)
+  scope_history                 Int[]    @default([])
+  completed_scope_history       Int[]    @default([])
+  uncompleted_issues_upon_close Json     @default(dbgenerated("'[]'::jsonb"))
+  created_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  ends_at                       DateTime? @db.Timestamptz(6)
+  is_active                     Boolean?
+  starts_at                     DateTime? @db.Timestamptz(6)
+  issues_averages               Json[]
+  project_name                  String?
+  cycle_issue_ids               Json     @default(dbgenerated("'[]'::jsonb"))
+}
+
+model decision_reads {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  issue_id   String
+  user_email String
+  read_at    DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model decisions {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  issue_id         String
+  status           Boolean?
+  owner_email      String
+  question         String
+  answers          Json     @default(dbgenerated("'[]'::jsonb"))
+  decisions        Json     @default(dbgenerated("'[]'::jsonb"))
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  posted_to_linear Boolean  @default(false)
+  cometchat_id     String?
+}
+
+model document_permissions {
+  id          BigInt @id @default(autoincrement()) @db.BigInt
+  user_id     String @db.Uuid
+  document_id BigInt @db.BigInt
+  permission  String
+
+  document Document @relation(fields: [document_id], references: [id])
+}
+
+model dorametrics {
+  dorametrics_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  averages           Json
+  cfr_details        Json?
+  lead_time_details  Json?
+  mttr_details       Json?
+  deploy_freq_details Json?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  last_called        DateTime? @db.Timestamptz(6)
+  user_id            String?   @db.Uuid
+  linear_slug        String?
+  url                String?
+
+  user users? @relation(fields: [user_id], references: [id])
+}
+
+model ig_posts {
+  blog_id           String   @id @db.Uuid
+  title             String
+  img               String?
+  author            String?
+  tags              String[]
+  slide_two         String?
+  slide_three       String?
+  contentful_id     String?  @db.Uuid
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  slide_three_title String?
+}
+
+model issue_chats {
+  issue_id          String   @id
+  cometchat_group_id String
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  last_message_at   DateTime? @db.Timestamptz(6)
+}
+
+model issue_metrics {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id    String
+  project_id     String
+  status         String?
+  label          String?
+  count          Int?     @default(0)
+  points         Decimal? @default(0) @db.Decimal
+  cycle          String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  cycle_issue_id String?
+  title          String[]
+}
+
+model leads {
+  id               BigInt   @id @default(autoincrement()) @db.BigInt
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  first_name       String?
+  last_name        String?
+  email            String?
+  description      String?
+  budget_min       Decimal? @db.Decimal
+  budget_max       Decimal? @db.Decimal
+  company          String?
+  industry         String?
+  selected_date    String?
+  selected_time    String?
+  lead_id          String   @unique @db.Uuid
+  formatted_date   DateTime? @db.Timestamptz(6)
+  estimateTime_min Int?
+  estimateTime_max Int?
+  scheduling_url   String?
+  email_sent       Boolean?
+  booking_status   String?
+  email_sent_at    String?
+  discovery_state  String?
+  build_scale      String?
+
+  proposals proposals[]
+}
+
+model proposals {
+  created_at                       DateTime @default(now()) @db.Timestamptz(6)
+  passcode                         String   @id
+  proposal_id                      String?  @db.Uuid
+  stage                            String?
+  updated_at                       DateTime? @db.Timestamptz(6)
+  lead_id                          String?  @db.Uuid
+  creator_email                    String?
+  signature_url                    String?
+  signed_at                        DateTime? @db.Timestamptz(6)
+  summary_items                    Json?
+  client_name                      String?
+  provider_name                    String?
+  proposal_title                   String?
+  proposal_date                    DateTime? @db.Date
+  valid_until                      DateTime? @db.Date
+  signatures                       Json?
+  disclaimer                       Json?
+  timeline_and_milestones          Json?
+  summary                          Json?
+  problem_and_context              Json?
+  solution_overview                Json?
+  pricing_and_commercial           Json?
+  objectives_and_success_criteria  Json?
+  next_steps                       Json?
+  assurance_and_quality            Json?
+  risk_and_responsabilities        Json?
+  assumptions_and_dependencies     Json?
+  change_management_process        Json?
+  history_and_case_studies         Json?
+  technology_and_architecture      Json?
+  team_and_communication           Json?
+  deliverables                     Json?
+  meetingDate                      String?
+
+  lead         leads?         @relation(fields: [lead_id], references: [lead_id])
+  requirements requirements[]
+}
+
+model requirements {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  proposal_id      String?  @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id    String?
+  integration_text String?
+  description      String?
+  purpose          String?
+  feature_name     String?
+  tech_constraints String?
+
+  proposal proposals? @relation(fields: [submission_id], references: [passcode])
+}
+
+model users {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  email             String?
+  role              String?  @default("user")
+  customer_id       String?
+  subscription_id   String?
+  project_ids       String[]
+  initiative_ids    String[]
+  auth_id           String?
+  proposal_id       String?
+  linear_slug       String?
+  linear_projects   String[]
+  policies_approved Boolean?
+  policy_notion_url String?
+  userName          String?
+  assignment_id     String[]
+  clientName        String?
+  phoneNumber       String?
+  firstName         String?
+  lastName          String?
+  project_url       String[]
+
+  documents              Document[]     @relation("DocumentOwner")
+  assignments_as_user     assignments[]  @relation("AssignmentUser")
+  assignments_as_customer assignments[]  @relation("AssignmentCustomer")
+  dorametrics             dorametrics[]
 }
