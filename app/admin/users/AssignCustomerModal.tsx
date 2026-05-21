@@ -90,7 +90,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                     key={a.id}
                     className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-1.5 text-xs"
                   >
-                    <span className="text-foreground font-medium">{a.customer_email}</span>
+                    <span className="text-foreground font-medium">{a.clientName ?? a.customer_email}</span>
                     {userRole !== "stakeholder" && <span className="text-muted-foreground">{a.allocation}h/wk</span>}
                   </div>
                   ))}

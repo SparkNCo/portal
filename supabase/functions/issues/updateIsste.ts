@@ -170,9 +170,37 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
     );
   }
 
-  const quotedQuestion = question.split("\n").map((l: string) => `> ${l}`).join("\n");
+  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+  // Look up the CometChat group and stored first message for this issue
+  const chatRes = await fetch(
+    `${supabaseUrl}/rest/v1/issue_chats?issue_id=eq.${issueId}&select=cometchat_group_id,first_message_text&limit=1`,
+    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+  );
+  const chatRowRaw = await chatRes.json();
+  const [chatRow] = chatRowRaw;
+  const cometchatGroupId: string | null = chatRow?.cometchat_group_id ?? null;
+  const firstMessageText: string | null = chatRow?.first_message_text ?? null;
+
+  let effectiveQuestion = question;
+  if (firstMessageText) {
+    effectiveQuestion = firstMessageText;
+    await fetch(`${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ question: effectiveQuestion }),
+    });
+  }
+
+  const quotedQuestion = effectiveQuestion.split("\n").map((l: string) => `> ${l}`).join("\n");
   const quotedDecision = decisionBody.split("\n").map((l: string) => `> ${l}`).join("\n");
-  const body = `**Question** _(${questionEmail})_:\n${quotedQuestion}\n\n**Decision** _(${decisionEmail})_:\n${quotedDecision}`;
+  const chatLine = cometchatGroupId ? `\n\n---\n💬 Chat Group: \`${cometchatGroupId}\`` : "";
+  const body = `**Question** _(${questionEmail})_:\n${quotedQuestion}\n\n**Decision** _(${decisionEmail})_:\n${quotedDecision}${chatLine}`;
 
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
@@ -188,9 +216,6 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 
   const json = await res.json();
   if (json.errors) throw new Error(JSON.stringify(json.errors));
-
-  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
   await fetch(`${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`, {
     method: "PATCH",
