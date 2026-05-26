@@ -43,18 +43,11 @@ const statusColors = {
   Planning: "bg-yellow-500/20 text-yellow-600",
 };
 
-export type Answer = {
-  email: string;
-  body: string;
-  created_at: string;
-};
-
 export type Decision = {
   id: string;
   issue_id: string;
   owner_email: string;
   question: string;
-  answers: Answer[];
   decisions: { body: string; email: string; created_at: string } | null;
   posted_to_linear: boolean;
   created_at: string;

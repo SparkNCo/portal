@@ -287,63 +287,6 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   return Response.json(row);
 }
 
-export async function handleAddAnswer(req: Request): Promise<Response> {
-  const { decisionId, answer, answererEmail } = await req.json();
-
-  if (!decisionId || !answer || !answererEmail) {
-    return Response.json(
-      { error: "Missing decisionId, answer, or answererEmail" },
-      { status: 400 },
-    );
-  }
-
-  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
-
-  // Fetch current answers
-  const getRes = await fetch(
-    `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=answers`,
-    {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-    },
-  );
-  const [current] = await getRes.json();
-
-  if (!current) {
-    return Response.json({ error: "Decision not found" }, { status: 404 });
-  }
-
-  const newAnswers = [
-    ...(current.answers ?? []),
-    { email: answererEmail, body: answer, created_at: new Date().toISOString() },
-  ];
-
-  const patchRes = await fetch(
-    `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({ answers: newAnswers }),
-    },
-  );
-
-  const updated = await patchRes.json();
-
-  if (!patchRes.ok) {
-    return Response.json({ error: "Failed to add answer", details: updated }, { status: 500 });
-  }
-
-  return Response.json(updated[0] ?? updated);
-}
-
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
 const GET_INITIATIVE_PROJECTS_QUERY = `
