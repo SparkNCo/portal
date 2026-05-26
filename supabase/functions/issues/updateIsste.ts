@@ -131,6 +131,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
+  // Save to Supabase
   const res = await fetch(`${supabaseUrl}/rest/v1/decisions`, {
     method: "POST",
     headers: {
@@ -232,6 +233,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
     created_at: new Date().toISOString(),
   };
 
+  // Save answer, mark as closed and posted
   const res = await fetch(
     `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`,
     {
@@ -242,17 +244,47 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
       },
-      body: JSON.stringify({ decisions: decisionObj }),
+      body: JSON.stringify({ decisions: decisionObj, status: true, posted_to_linear: true }),
     },
   );
 
   const updated = await res.json();
-
   if (!res.ok) {
     return Response.json({ error: "Failed to set decision", details: updated }, { status: 500 });
   }
 
-  return Response.json(updated[0] ?? updated);
+  const row = updated[0] ?? updated;
+
+  // Fetch question + owner so we can post both together (non-fatal if Linear fails)
+  try {
+    const getRes = await fetch(
+      `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
+      {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+      },
+    );
+    const [decisionRow] = await getRes.json();
+
+    const question = decisionRow?.question ?? "";
+    const ownerEmail = decisionRow?.owner_email ?? "";
+
+    const commentBody =
+      `❓ **Question** from ${ownerEmail}:\n\n${question}\n\n` +
+      `✅ **Decision** from ${decisionEmail}:\n\n${decision}`;
+
+    await fetch(LINEAR_GRAPHQL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: Deno.env.get("LINEAR_API_KEY")! },
+      body: JSON.stringify({
+        query: CREATE_COMMENT_MUTATION,
+        variables: { issueId: row.issue_id, body: commentBody },
+      }),
+    });
+  } catch (err) {
+    console.error("[handleSetDecision] Linear sync error (non-fatal):", err);
+  }
+
+  return Response.json(row);
 }
 
 export async function handleAddAnswer(req: Request): Promise<Response> {

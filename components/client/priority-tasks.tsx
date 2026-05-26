@@ -258,6 +258,9 @@ export function IssueDetailModal({
   onMarkedRead?: () => void;
 }) {
   const { profile } = useUser();
+  const role = profile?.role;
+  const canAnswer = role === "customer" || role === "stakeholder";
+  const canAsk = role === "developer" || role === "admin";
   const [visible, setVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -265,16 +268,18 @@ export function IssueDetailModal({
   const [showDescription, setShowDescription] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
-  const [showNewDecisionForm, setShowNewDecisionForm] = useState(false);
-  const [activeForm, setActiveForm] = useState<{
-    decisionId: string;
-    mode: "decision";
-  } | null>(null);
+  const [showNewQuestionForm, setShowNewQuestionForm] = useState(false);
+  const [activeAnswerForm, setActiveAnswerForm] = useState<string | null>(null);
   const [formText, setFormText] = useState("");
-  const [postingLinearId, setPostingLinearId] = useState<string | null>(null);
-  const [linearPostedAt, setLinearPostedAt] = useState(0);
-  const [activeTab, setActiveTab] = useState<"chat" | "decisions">("chat");
-  const [justPostedDecision, setJustPostedDecision] = useState<{ id: string; question: string; ownerEmail: string; body: string; email: string; created_at: string; posted_to_linear: boolean } | null>(null);
+  const [activeTab, setActiveTab] = useState<"chat" | "decisions" | "tests">("chat");
+
+  // Tests state
+  type TestCase = { id: string; title: string; steps: { order: number; description: string }[]; expected: string; actual?: string; status: "draft" | "approved" | "passed" | "failed"; created_by: string; approved_by?: string };
+  const [tests, setTests] = useState<TestCase[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [showNewTestForm, setShowNewTestForm] = useState(false);
+  const [testForm, setTestForm] = useState({ title: "", steps: "", expected: "" });
+  const [uatForm, setUatForm] = useState<{ testId: string; actual: string } | null>(null);
 
   const nextState = getNextState(currentStateName);
 
@@ -331,29 +336,6 @@ export function IssueDetailModal({
     setTimeout(onClose, 180);
   };
 
-  async function handlePostToLinear(decisionId: string, decisionBody: string, decisionEmail: string) {
-    setPostingLinearId(decisionId);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/linear-comment`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ issueId: issue.id, decisionId, decisionBody, decisionEmail }),
-      });
-      if (res.ok) {
-        setDecisions((prev) =>
-          prev.map((d) => (d.id === decisionId ? { ...d, posted_to_linear: true } : d))
-        );
-        setLinearPostedAt(Date.now());
-      }
-    } finally {
-      setPostingLinearId(null);
-    }
-  }
-
   async function handleAdvanceState() {
     if (!nextState || advancing) return;
     setAdvancing(true);
@@ -368,84 +350,113 @@ export function IssueDetailModal({
         body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
       });
       const data = await res.json();
-      if (data.success) {
-        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
-      }
+      if (data.success) setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
     } finally {
       setAdvancing(false);
     }
   }
 
-  async function handleCreateDecision() {
+  // Dev only: create a question for the client to answer
+  async function handleCreateQuestion() {
     if (!formText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const createRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          issueId: issue.id,
-          question: formText.trim(),
-          ownerEmail: profile?.email,
-        }),
+        body: JSON.stringify({ issueId: issue.id, question: formText.trim(), ownerEmail: profile?.email }),
       });
-      const newDecision = await createRes.json();
-      if (newDecision.id) {
-        const setRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`, {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ decisionId: newDecision.id, decision: formText.trim(), decisionEmail: profile?.email }),
-        });
-        const updated = await setRes.json();
-        const final = updated.id ? updated : newDecision;
-        setDecisions((prev) => [...prev, final]);
-        if (final.decisions?.body) {
-          setJustPostedDecision({ id: final.id, question: final.question ?? "", ownerEmail: final.owner_email ?? "", body: final.decisions.body, email: final.decisions.email, created_at: final.decisions.created_at, posted_to_linear: true });
-          handlePostToLinear(final.id, final.decisions.body, final.decisions.email);
-        }
-      }
+      const newDecision = await res.json();
+      if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
       setFormText("");
-      setShowNewDecisionForm(false);
+      setShowNewQuestionForm(false);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleSetDecision(decisionId: string) {
+  // Client only: submit their answer — backend auto-posts to Linear + moves to Development
+  async function handleSubmitAnswer(decisionId: string) {
     if (!formText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ decisionId, decision: formText.trim(), decisionEmail: profile?.email }),
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ decisionId, decision: formText.trim(), decisionEmail: profile?.email }),
+      });
       const updated = await res.json();
       if (updated.id) {
-        setDecisions((prev) =>
-          prev.map((d) => (d.id === updated.id ? updated : d)),
-        );
+        setDecisions((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
       }
       setFormText("");
-      setActiveForm(null);
+      setActiveAnswerForm(null);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "tests") return;
+    setLoadingTests(true);
+    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests?issue_id=${issue.id}`, {
+      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`, apikey: process.env.NEXT_PUBLIC_APIKEY! },
+    })
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTests(data); })
+      .finally(() => setLoadingTests(false));
+  }, [activeTab, issue.id]);
+
+  async function handleCreateTest() {
+    if (!testForm.title.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const steps = testForm.steps.trim()
+        ? testForm.steps.split("\n").filter(Boolean).map((d, i) => ({ order: i + 1, description: d }))
+        : [];
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`, apikey: process.env.NEXT_PUBLIC_APIKEY!, "Content-Type": "application/json" },
+        body: JSON.stringify({ issue_id: issue.id, title: testForm.title.trim(), steps, expected: testForm.expected.trim(), created_by: profile?.email }),
+      });
+      const created = await res.json();
+      if (created.id) setTests((prev) => [...prev, created]);
+      setTestForm({ title: "", steps: "", expected: "" });
+      setShowNewTestForm(false);
+    } finally { setSubmitting(false); }
+  }
+
+  async function handleApproveTest(testId: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`, apikey: process.env.NEXT_PUBLIC_APIKEY!, "Content-Type": "application/json" },
+      body: JSON.stringify({ test_id: testId, approved_by: profile?.email }),
+    });
+    const updated = await res.json();
+    if (updated.id) setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
+  async function handleSubmitUat() {
+    if (!uatForm || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`, apikey: process.env.NEXT_PUBLIC_APIKEY!, "Content-Type": "application/json" },
+        body: JSON.stringify({ test_id: uatForm.testId, actual: uatForm.actual, passed: true }),
+      });
+      const updated = await res.json();
+      if (updated.id) setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setUatForm(null);
+    } finally { setSubmitting(false); }
   }
 
   return (
@@ -565,106 +576,245 @@ export function IssueDetailModal({
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("tests")}
+            className={`py-2.5 px-1 ml-5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+              activeTab === "tests"
+                ? "border-accent text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Tests
+            {tests.length > 0 && (
+              <span className="rounded-full bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 font-medium">
+                {tests.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Chat tab */}
         {activeTab === "chat" && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden">
-              <IssueCometChat issueId={issue.id} issueTitle={issue.title} linearPostedAt={linearPostedAt} />
-            </div>
-            <div className="border-t border-border p-4 flex-shrink-0 space-y-2">
-              {!showNewDecisionForm && justPostedDecision && (
-                <div className="rounded bg-success/10 p-2 space-y-1.5">
-                  <p className="text-xs font-medium text-success whitespace-pre-wrap">{justPostedDecision.body}</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-success/70">{justPostedDecision.email}</span>
-                    <span className="text-[10px] text-success/70">{new Date(justPostedDecision.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              )}
-              {showNewDecisionForm ? (
-                <div className="flex flex-col gap-2">
-                  <textarea
-                    className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                    rows={3}
-                    placeholder="Describe the decision reached…"
-                    value={formText}
-                    onChange={(e) => setFormText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateDecision(); }}
-                    autoFocus
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => { setShowNewDecisionForm(false); setFormText(""); }}>Cancel</Button>
-                    <Button size="sm" disabled={!formText.trim() || submitting} onClick={handleCreateDecision} className="bg-green-600 hover:bg-green-700 text-white">
-                      {submitting ? "Saving…" : "Record decision"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" className="w-full" onClick={() => { setShowNewDecisionForm(true); setFormText(""); }}>
-                  <MessageSquare className="h-3 w-3 mr-1.5" />
-                  Record a decision
-                </Button>
-              )}
-            </div>
+          <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
+            <IssueCometChat issueId={issue.id} issueTitle={issue.title} />
           </div>
         )}
 
         {/* Decisions tab */}
         {activeTab === "decisions" && (
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
             {loadingDecisions && (
               <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
             )}
+
             {!loadingDecisions && decisions.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">No decisions recorded yet.</p>
+              <p className="text-xs text-muted-foreground italic">
+                {canAnswer ? "No questions from your team yet." : "No questions asked yet."}
+              </p>
             )}
+
             {decisions.map((d) => (
               <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-                {d.question && (
-                  <p className="text-[11px] text-muted-foreground italic">"{d.question}"</p>
-                )}
+                {/* Question */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Question</p>
+                  <p className="text-sm text-foreground">{d.question}</p>
+                </div>
+
+                {/* Answer — shown once submitted */}
                 {d.decisions?.body && (
-                  <div className="rounded bg-success/10 p-2 space-y-0.5">
-                    <p className="text-xs font-medium text-success whitespace-pre-wrap">{d.decisions.body}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-success/70">{d.decisions.email}</span>
-                      <span className="text-[10px] text-success/70">{new Date(d.decisions.created_at).toLocaleDateString()}</span>
-                    </div>
+                  <div className="rounded bg-success/10 p-2.5 space-y-0.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-success/70 mb-0.5">Decision</p>
+                    <p className="text-xs text-success whitespace-pre-wrap">{d.decisions.body}</p>
+                    <p className="text-[10px] text-success/60">
+                      {d.decisions.email} · {new Date(d.decisions.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                 )}
-                {activeForm?.decisionId === d.id ? (
-                  <div className="flex flex-col gap-1.5">
-                    <textarea
-                      className="w-full rounded border border-border bg-secondary/30 text-xs p-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                      rows={2}
-                      placeholder="Describe the decision reached…"
-                      value={formText}
-                      onChange={(e) => setFormText(e.target.value)}
-                      autoFocus
-                    />
-                    <div className="flex gap-1 justify-end">
-                      <Button size="sm" variant="ghost" onClick={() => { setActiveForm(null); setFormText(""); }} className="text-xs h-6 px-2">Cancel</Button>
-                      <Button size="sm" onClick={() => handleSetDecision(d.id)} disabled={!formText.trim() || submitting} className="text-xs h-6 px-2 bg-green-600 hover:bg-green-700 text-white">Confirm decision</Button>
+
+                {/* Customer: submit answer form if not yet answered */}
+                {canAnswer && !d.decisions?.body && (
+                  activeAnswerForm === d.id ? (
+                    <div className="flex flex-col gap-1.5">
+                      <textarea
+                        className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                        rows={3}
+                        placeholder="Your decision…"
+                        value={formText}
+                        onChange={(e) => setFormText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmitAnswer(d.id); }}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" onClick={() => { setActiveAnswerForm(null); setFormText(""); }}>Cancel</Button>
+                        <Button size="sm" disabled={!formText.trim() || submitting} onClick={() => handleSubmitAnswer(d.id)} className="bg-green-600 hover:bg-green-700 text-white">
+                          {submitting ? "Submitting…" : "Submit decision"}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 justify-end">
-                    {d.decisions?.body && (
-                      <Button size="sm" variant="outline" onClick={() => handlePostToLinear(d.id, d.decisions!.body, d.decisions!.email)} disabled={postingLinearId === d.id || d.posted_to_linear} className="text-xs h-7 px-3">
-                        {postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear"}
-                      </Button>
-                    )}
-                    {!d.posted_to_linear && (
-                      <Button size="sm" onClick={() => { setActiveForm({ decisionId: d.id, mode: "decision" }); setFormText(d.decisions?.body ?? ""); }} className="text-xs h-7 px-3 bg-green-600 hover:bg-green-700 text-white">
-                        {d.decisions?.body ? "Update decision" : "Make decision"}
-                      </Button>
-                    )}
-                  </div>
+                  ) : (
+                    <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => { setActiveAnswerForm(d.id); setFormText(""); }}>
+                      Submit your decision
+                    </Button>
+                  )
+                )}
+
+                {/* Dev: show pending badge if no answer yet */}
+                {canAsk && !d.decisions?.body && (
+                  <p className="text-[10px] text-muted-foreground italic">Awaiting client decision…</p>
                 )}
               </div>
             ))}
+
+            {/* Dev only: ask a new question */}
+            {canAsk && (
+              <div className="pt-1">
+                {showNewQuestionForm ? (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      rows={3}
+                      placeholder="Ask the client a question…"
+                      value={formText}
+                      onChange={(e) => setFormText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleCreateQuestion(); }}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => { setShowNewQuestionForm(false); setFormText(""); }}>Cancel</Button>
+                      <Button size="sm" disabled={!formText.trim() || submitting} onClick={handleCreateQuestion}>
+                        {submitting ? "Saving…" : "Ask question"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => { setShowNewQuestionForm(true); setFormText(""); }}>
+                    <MessageSquare className="h-3 w-3 mr-1.5" />
+                    Ask a question
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tests tab */}
+        {activeTab === "tests" && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            {loadingTests && <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>}
+
+            {!loadingTests && tests.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No test cases yet.</p>
+            )}
+
+            {tests.map((t) => (
+              <div key={t.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">{t.title}</p>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                    t.status === "passed" ? "bg-success/20 text-success" :
+                    t.status === "failed" ? "bg-destructive/20 text-destructive" :
+                    t.status === "approved" ? "bg-chart-1/20 text-chart-1" :
+                    "bg-muted text-muted-foreground"
+                  }`}>{t.status}</span>
+                </div>
+
+                {t.steps.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Steps</p>
+                    <ol className="list-decimal pl-4 space-y-0.5">
+                      {t.steps.map((s) => (
+                        <li key={s.order} className="text-xs text-foreground">{s.description}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {t.expected && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Expected</p>
+                    <p className="text-xs text-foreground">{t.expected}</p>
+                  </div>
+                )}
+
+                {t.actual && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Actual</p>
+                    <p className="text-xs text-foreground">{t.actual}</p>
+                  </div>
+                )}
+
+                {canAnswer && t.status === "draft" && (
+                  <Button size="sm" className="w-full" onClick={() => handleApproveTest(t.id)}>
+                    Approve test case
+                  </Button>
+                )}
+
+                {canAnswer && t.status === "approved" && (
+                  uatForm?.testId === t.id ? (
+                    <div className="flex flex-col gap-1.5">
+                      <textarea
+                        className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                        rows={2}
+                        placeholder="Describe what actually happened…"
+                        value={uatForm.actual}
+                        onChange={(e) => setUatForm({ ...uatForm, actual: e.target.value })}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" onClick={() => setUatForm(null)}>Cancel</Button>
+                        <Button size="sm" disabled={!uatForm.actual.trim() || submitting} onClick={handleSubmitUat} className="bg-green-600 hover:bg-green-700 text-white">
+                          {submitting ? "Saving…" : "Mark as passed"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" className="w-full" onClick={() => setUatForm({ testId: t.id, actual: "" })}>
+                      Record UAT result
+                    </Button>
+                  )
+                )}
+              </div>
+            ))}
+
+            {role === "admin" && (
+              <div className="pt-1">
+                {showNewTestForm ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                      placeholder="Test case title…"
+                      value={testForm.title}
+                      onChange={(e) => setTestForm((f) => ({ ...f, title: e.target.value }))}
+                    />
+                    <textarea
+                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      rows={3}
+                      placeholder="Steps (one per line)…"
+                      value={testForm.steps}
+                      onChange={(e) => setTestForm((f) => ({ ...f, steps: e.target.value }))}
+                    />
+                    <textarea
+                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      rows={2}
+                      placeholder="Expected result…"
+                      value={testForm.expected}
+                      onChange={(e) => setTestForm((f) => ({ ...f, expected: e.target.value }))}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => { setShowNewTestForm(false); setTestForm({ title: "", steps: "", expected: "" }); }}>Cancel</Button>
+                      <Button size="sm" disabled={!testForm.title.trim() || submitting} onClick={handleCreateTest}>
+                        {submitting ? "Saving…" : "Add test case"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" className="w-full" onClick={() => setShowNewTestForm(true)}>
+                    + Add test case
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
