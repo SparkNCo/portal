@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
+import ReactMarkdown from "react-markdown";
 
 const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -330,7 +331,7 @@ export function IssueDetailModal({
     setTimeout(onClose, 180);
   };
 
-  async function handlePostToLinear(decisionId: string, question: string, questionEmail: string, decisionBody: string, decisionEmail: string) {
+  async function handlePostToLinear(decisionId: string, decisionBody: string, decisionEmail: string) {
     setPostingLinearId(decisionId);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/linear-comment`, {
@@ -340,7 +341,7 @@ export function IssueDetailModal({
           apikey: process.env.NEXT_PUBLIC_APIKEY!,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ issueId: issue.id, decisionId, question, questionEmail, decisionBody, decisionEmail }),
+        body: JSON.stringify({ issueId: issue.id, decisionId, decisionBody, decisionEmail }),
       });
       if (res.ok) {
         setDecisions((prev) =>
@@ -408,7 +409,7 @@ export function IssueDetailModal({
         setDecisions((prev) => [...prev, final]);
         if (final.decisions?.body) {
           setJustPostedDecision({ id: final.id, question: final.question ?? "", ownerEmail: final.owner_email ?? "", body: final.decisions.body, email: final.decisions.email, created_at: final.decisions.created_at, posted_to_linear: true });
-          handlePostToLinear(final.id, final.question ?? "", final.owner_email ?? "", final.decisions.body, final.decisions.email);
+          handlePostToLinear(final.id, final.decisions.body, final.decisions.email);
         }
       }
       setFormText("");
@@ -521,9 +522,16 @@ export function IssueDetailModal({
                   <ArrowRight className={`h-3 w-3 transition-transform ${showDescription ? "rotate-90" : ""}`} />
                 </button>
                 {showDescription && (
-                  <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3">
-                    {issue.description}
-                  </p>
+                  <div className="text-sm text-foreground rounded-lg bg-muted/40 p-3 prose prose-sm prose-invert max-w-none
+                    [&_h1]:text-base [&_h1]:font-bold [&_h1]:mb-1
+                    [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mb-1
+                    [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1
+                    [&_strong]:font-semibold
+                    [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5
+                    [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-0.5
+                    [&_p]:mb-1 [&_p:last-child]:mb-0">
+                    <ReactMarkdown>{issue.description}</ReactMarkdown>
+                  </div>
                 )}
               </div>
             )}
@@ -644,7 +652,7 @@ export function IssueDetailModal({
                 ) : (
                   <div className="flex items-center gap-1.5 justify-end">
                     {d.decisions?.body && (
-                      <Button size="sm" variant="outline" onClick={() => handlePostToLinear(d.id, d.question, d.owner_email, d.decisions!.body, d.decisions!.email)} disabled={postingLinearId === d.id || d.posted_to_linear} className="text-xs h-7 px-3">
+                      <Button size="sm" variant="outline" onClick={() => handlePostToLinear(d.id, d.decisions!.body, d.decisions!.email)} disabled={postingLinearId === d.id || d.posted_to_linear} className="text-xs h-7 px-3">
                         {postingLinearId === d.id ? "Posting…" : d.posted_to_linear ? "Posted" : "Post in Linear"}
                       </Button>
                     )}

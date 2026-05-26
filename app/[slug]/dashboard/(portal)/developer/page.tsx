@@ -15,6 +15,7 @@ export default function DeveloperDashboard() {
   const { profile } = useUser();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
 
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
@@ -79,9 +80,18 @@ export default function DeveloperDashboard() {
     ? allIssues.filter((i: any) => i._project === selectedProject)
     : allIssues;
 
-  const visibleIssues = selectedStatuses.length > 0
+  const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
+
+  const statusFiltered = selectedStatuses.length > 0
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
+
+  const visibleIssues = [...statusFiltered].sort((a: any, b: any) => {
+    if (sortBy === "priority")
+      return PRIORITY_ORDER.indexOf(a.priorityLabel) - PRIORITY_ORDER.indexOf(b.priorityLabel);
+    // default: last updated
+    return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+  });
 
   const filterState = {
     selectedStatuses,
@@ -135,6 +145,23 @@ export default function DeveloperDashboard() {
             ))}
           </div>
         )}
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Sort by:</span>
+          {(["updated", "priority"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setSortBy(opt)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                sortBy === opt
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {opt === "updated" ? "Last Updated" : "Priority"}
+            </button>
+          ))}
+        </div>
 
         <div className="w-full max-w-full overflow-hidden">
           <PriorityTasks

@@ -161,11 +161,11 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 export async function handlePostToLinear(req: Request): Promise<Response> {
-  const { issueId, decisionId, question, questionEmail, decisionBody, decisionEmail } = await req.json();
+  const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
 
-  if (!issueId || !decisionId || !question || !decisionBody) {
+  if (!issueId || !decisionId || !decisionBody) {
     return Response.json(
-      { error: "Missing issueId, decisionId, question, or decisionBody" },
+      { error: "Missing issueId, decisionId, or decisionBody" },
       { status: 400 },
     );
   }
@@ -173,34 +173,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
-  // Look up the CometChat group and stored first message for this issue
-  const chatRes = await fetch(
-    `${supabaseUrl}/rest/v1/issue_chats?issue_id=eq.${issueId}&select=cometchat_group_id,first_message_text&limit=1`,
-    { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
-  );
-  const chatRowRaw = await chatRes.json();
-  const [chatRow] = chatRowRaw;
-  const cometchatGroupId: string | null = chatRow?.cometchat_group_id ?? null;
-  const firstMessageText: string | null = chatRow?.first_message_text ?? null;
-
-  let effectiveQuestion = question;
-  if (firstMessageText) {
-    effectiveQuestion = firstMessageText;
-    await fetch(`${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-      body: JSON.stringify({ question: effectiveQuestion }),
-    });
-  }
-
-  const quotedQuestion = effectiveQuestion.split("\n").map((l: string) => `> ${l}`).join("\n");
-  const quotedDecision = decisionBody.split("\n").map((l: string) => `> ${l}`).join("\n");
-  const chatLine = cometchatGroupId ? `\n\n---\n💬 Chat Group: \`${cometchatGroupId}\`` : "";
-  const body = `**Question** _(${questionEmail})_:\n${quotedQuestion}\n\n**Decision** _(${decisionEmail})_:\n${quotedDecision}${chatLine}`;
+  const body = `${decisionBody}\n\n— ${decisionEmail}`;
 
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
