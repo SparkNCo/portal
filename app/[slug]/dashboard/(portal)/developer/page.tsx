@@ -173,11 +173,11 @@ export default function DeveloperDashboard() {
           />
         </div>
 
-        <CreateIssue
+        {/* <CreateIssue
           slug={projects[0]?.clientName ?? ""}
           projectId=""
           profile={profile}
-        />
+        /> */}
       </div>
     </div>
   );
