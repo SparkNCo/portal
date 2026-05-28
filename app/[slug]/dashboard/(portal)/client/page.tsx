@@ -123,7 +123,9 @@ export default function ClientDashboard() {
 
   const businessReviewIssues = allIssues
     .filter(
-      (i: any) => i.state?.name === "Business Review" && issueMatchesProject(i),
+      (i: any) =>
+        (i.state?.name === "Business Review" || i.state?.name === "Development") &&
+        issueMatchesProject(i),
     )
     .sort(
       (a: any, b: any) =>
