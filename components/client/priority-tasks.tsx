@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Check,
   ChevronsRight,
-  Filter,
   MessageSquare,
   X,
 } from "lucide-react";
@@ -52,6 +51,17 @@ export type Decision = {
   decisions: { body: string; email: string; created_at: string } | null;
   posted_to_linear: boolean;
   created_at: string;
+};
+
+export type TestCase = {
+  id: string;
+  title: string;
+  steps: { order: number; description: string }[];
+  expected: string;
+  actual?: string;
+  status: "draft" | "approved" | "passed" | "failed";
+  created_by: string;
+  approved_by?: string;
 };
 
 export type Issue = {
@@ -119,6 +129,619 @@ const getNextState = (current: string | undefined): string | undefined => {
   if (idx === -1 || idx === STATUS_ORDER.length - 1) return undefined;
   return STATUS_ORDER[idx + 1];
 };
+
+async function markRead(issueId: string, email: string): Promise<void> {
+  await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+      apikey: process.env.NEXT_PUBLIC_APIKEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ issue_id: issueId, user_email: email }),
+  });
+}
+
+// ── Tab components ──────────────────────────────────────────────────────────
+
+function DescriptionTab({
+  issue,
+  canAnswer,
+  canAsk,
+  currentStateName,
+  advancing,
+  nextState,
+  onAdvanceState,
+}: {
+  issue: Issue;
+  canAnswer: boolean;
+  canAsk: boolean;
+  currentStateName: string | undefined;
+  advancing: boolean;
+  nextState: string | undefined;
+  onAdvanceState: () => void;
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-[320px]">
+      {issue.description ? (
+        <div
+          className="text-sm text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
+          [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
+          [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
+          [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
+          [&_strong]:font-semibold
+          [&_p]:mb-2 [&_p:last-child]:mb-0
+          [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
+          [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
+        >
+          <ReactMarkdown>{issue.description}</ReactMarkdown>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground italic">No description yet.</p>
+      )}
+
+      {canAnswer && currentStateName === "Business Review" && (
+        <Button
+          size="sm"
+          className="w-full bg-green-600 hover:bg-green-700 text-white"
+          disabled={advancing}
+          onClick={onAdvanceState}
+        >
+          <Check className="h-3.5 w-3.5 mr-1.5" />
+          {advancing ? "Approving…" : "Approve user stories & acceptance criteria"}
+        </Button>
+      )}
+
+      {canAsk && nextState && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={advancing}
+          onClick={onAdvanceState}
+        >
+          <ChevronsRight className="h-3 w-3 mr-1" />
+          {advancing ? "Updating…" : `Move to ${nextState}`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function DecisionsTab({
+  issue,
+  ownerEmail,
+  canAnswer,
+  canAsk,
+  decisions,
+  setDecisions,
+  loadingDecisions,
+}: {
+  issue: Issue;
+  ownerEmail: string | undefined;
+  canAnswer: boolean;
+  canAsk: boolean;
+  decisions: Decision[];
+  setDecisions: React.Dispatch<React.SetStateAction<Decision[]>>;
+  loadingDecisions: boolean;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [showNewQuestionForm, setShowNewQuestionForm] = useState(false);
+  const [activeAnswerForm, setActiveAnswerForm] = useState<string | null>(null);
+  const [formText, setFormText] = useState("");
+
+  async function handleCreateQuestion() {
+    if (!formText.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issueId: issue.id,
+          question: formText.trim(),
+          ownerEmail,
+        }),
+      });
+      const newDecision = await res.json();
+      if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
+      setFormText("");
+      setShowNewQuestionForm(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSubmitAnswer(decisionId: string) {
+    if (!formText.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            decisionId,
+            decision: formText.trim(),
+            decisionEmail: ownerEmail,
+          }),
+        },
+      );
+      const updated = await res.json();
+      if (updated.id) {
+        setDecisions((prev) =>
+          prev.map((d) => (d.id === updated.id ? updated : d)),
+        );
+      }
+      setFormText("");
+      setActiveAnswerForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
+      {loadingDecisions && (
+        <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+      )}
+
+      {!loadingDecisions && decisions.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">
+          {canAnswer ? "No questions from your team yet." : "No questions asked yet."}
+        </p>
+      )}
+
+      {decisions.map((d) => (
+        <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+              Question
+            </p>
+            <p className="text-sm text-foreground">{d.question}</p>
+          </div>
+
+          {d.decisions?.body && (
+            <div className="rounded bg-success/10 p-2.5 space-y-0.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-success/70 mb-0.5">
+                Decision
+              </p>
+              <p className="text-xs text-success whitespace-pre-wrap">
+                {d.decisions.body}
+              </p>
+              <p className="text-[10px] text-success/60">
+                {d.decisions.email} ·{" "}
+                {new Date(d.decisions.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          )}
+
+          {canAnswer &&
+            !d.decisions?.body &&
+            (activeAnswerForm === d.id ? (
+              <div className="flex flex-col gap-1.5">
+                <textarea
+                  className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                  rows={3}
+                  placeholder="Your decision…"
+                  value={formText}
+                  onChange={(e) => setFormText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                      handleSubmitAnswer(d.id);
+                  }}
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setActiveAnswerForm(null);
+                      setFormText("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!formText.trim() || submitting}
+                    onClick={() => handleSubmitAnswer(d.id)}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {submitting ? "Submitting…" : "Submit decision"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => {
+                  setActiveAnswerForm(d.id);
+                  setFormText("");
+                }}
+              >
+                Submit your decision
+              </Button>
+            ))}
+
+          {canAsk && !d.decisions?.body && (
+            <p className="text-[10px] text-muted-foreground italic">
+              Awaiting client decision…
+            </p>
+          )}
+        </div>
+      ))}
+
+      {canAsk && (
+        <div className="pt-1">
+          {showNewQuestionForm ? (
+            <div className="flex flex-col gap-2">
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                placeholder="Ask the client a question…"
+                value={formText}
+                onChange={(e) => setFormText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                    handleCreateQuestion();
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowNewQuestionForm(false);
+                    setFormText("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!formText.trim() || submitting}
+                  onClick={handleCreateQuestion}
+                >
+                  {submitting ? "Saving…" : "Ask question"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setShowNewQuestionForm(true);
+                setFormText("");
+              }}
+            >
+              <MessageSquare className="h-3 w-3 mr-1.5" />
+              Ask a question
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TestsTab({
+  issue,
+  userEmail,
+  canAnswer,
+  role,
+  currentStateName,
+  tests,
+  setTests,
+}: {
+  issue: Issue;
+  userEmail: string | undefined;
+  canAnswer: boolean;
+  role: string | undefined;
+  currentStateName: string | undefined;
+  tests: TestCase[];
+  setTests: React.Dispatch<React.SetStateAction<TestCase[]>>;
+}) {
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [showNewTestForm, setShowNewTestForm] = useState(false);
+  const [testForm, setTestForm] = useState({ title: "", steps: "", expected: "" });
+  const [uatForm, setUatForm] = useState<{ testId: string; actual: string } | null>(null);
+
+  useEffect(() => {
+    setLoadingTests(true);
+    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests?issue_id=${issue.id}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+        apikey: process.env.NEXT_PUBLIC_APIKEY!,
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setTests(data);
+      })
+      .finally(() => setLoadingTests(false));
+  }, [issue.id]);
+
+  async function handleCreateTest() {
+    if (!testForm.title.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const steps = testForm.steps.trim()
+        ? testForm.steps
+            .split("\n")
+            .filter(Boolean)
+            .map((d, i) => ({ order: i + 1, description: d }))
+        : [];
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issue_id: issue.id,
+          title: testForm.title.trim(),
+          steps,
+          expected: testForm.expected.trim(),
+          created_by: userEmail,
+        }),
+      });
+      const created = await res.json();
+      if (created.id) setTests((prev) => [...prev, created]);
+      setTestForm({ title: "", steps: "", expected: "" });
+      setShowNewTestForm(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleApproveTest(testId: string) {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
+      },
+    );
+    const updated = await res.json();
+    if (updated.id)
+      setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
+  async function handleSubmitUat() {
+    if (!uatForm || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
+          apikey: process.env.NEXT_PUBLIC_APIKEY!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          test_id: uatForm.testId,
+          actual: uatForm.actual,
+          passed: true,
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id)
+        setTests((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t)),
+        );
+      setUatForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5 space-y-3">
+      {loadingTests && (
+        <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+      )}
+
+      {!loadingTests && tests.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">No test cases yet.</p>
+      )}
+
+      {tests.map((t) => (
+        <div key={t.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-foreground">{t.title}</p>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                t.status === "passed"
+                  ? "bg-success/20 text-success"
+                  : t.status === "failed"
+                    ? "bg-destructive/20 text-destructive"
+                    : t.status === "approved"
+                      ? "bg-chart-1/20 text-chart-1"
+                      : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {t.status}
+            </span>
+          </div>
+
+          {t.steps.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                Steps
+              </p>
+              <ol className="list-decimal pl-4 space-y-0.5">
+                {t.steps.map((s) => (
+                  <li key={s.order} className="text-xs text-foreground">
+                    {s.description}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {t.expected && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                Expected
+              </p>
+              <p className="text-xs text-foreground">{t.expected}</p>
+            </div>
+          )}
+
+          {t.actual && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                Actual
+              </p>
+              <p className="text-xs text-foreground">{t.actual}</p>
+            </div>
+          )}
+
+          {canAnswer && t.status === "draft" && (
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => handleApproveTest(t.id)}
+            >
+              Approve test case
+            </Button>
+          )}
+
+          {canAnswer &&
+            t.status === "approved" &&
+            currentStateName === "UAT" &&
+            (uatForm?.testId === t.id ? (
+              <div className="flex flex-col gap-1.5">
+                <textarea
+                  className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                  rows={2}
+                  placeholder="Describe what actually happened…"
+                  value={uatForm.actual}
+                  onChange={(e) =>
+                    setUatForm({ ...uatForm, actual: e.target.value })
+                  }
+                  autoFocus
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setUatForm(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!uatForm.actual.trim() || submitting}
+                    onClick={handleSubmitUat}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {submitting ? "Saving…" : "Mark as passed"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => setUatForm({ testId: t.id, actual: "" })}
+              >
+                Record UAT result
+              </Button>
+            ))}
+        </div>
+      ))}
+
+      {role === "admin" && (
+        <div className="pt-1">
+          {showNewTestForm ? (
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Test case title…"
+                value={testForm.title}
+                onChange={(e) =>
+                  setTestForm((f) => ({ ...f, title: e.target.value }))
+                }
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                placeholder="Steps (one per line)…"
+                value={testForm.steps}
+                onChange={(e) =>
+                  setTestForm((f) => ({ ...f, steps: e.target.value }))
+                }
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={2}
+                placeholder="Expected result…"
+                value={testForm.expected}
+                onChange={(e) =>
+                  setTestForm((f) => ({ ...f, expected: e.target.value }))
+                }
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowNewTestForm(false);
+                    setTestForm({ title: "", steps: "", expected: "" });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!testForm.title.trim() || submitting}
+                  onClick={handleCreateTest}
+                >
+                  {submitting ? "Saving…" : "Add test case"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowNewTestForm(true)}
+            >
+              + Add test case
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Card sub-components ─────────────────────────────────────────────────────
 
 function IssueCard({
   issue,
@@ -240,10 +863,12 @@ function IssueListRow({
   );
 }
 
+// ── Modal ───────────────────────────────────────────────────────────────────
+
 export function IssueDetailModal({
   issue,
   onClose,
-  questionCount = 0,
+  questionCount: _questionCount = 0,
   onMarkedRead,
 }: {
   issue: Issue;
@@ -255,42 +880,16 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
+
   const [visible, setVisible] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
-  const [showNewQuestionForm, setShowNewQuestionForm] = useState(false);
-  const [activeAnswerForm, setActiveAnswerForm] = useState<string | null>(null);
-  const [formText, setFormText] = useState("");
+  const [tests, setTests] = useState<TestCase[]>([]);
   const [activeTab, setActiveTab] = useState<
     "description" | "chat" | "decisions" | "tests"
   >("description");
-
-  // Tests state
-  type TestCase = {
-    id: string;
-    title: string;
-    steps: { order: number; description: string }[];
-    expected: string;
-    actual?: string;
-    status: "draft" | "approved" | "passed" | "failed";
-    created_by: string;
-    approved_by?: string;
-  };
-  const [tests, setTests] = useState<TestCase[]>([]);
-  const [loadingTests, setLoadingTests] = useState(false);
-  const [showNewTestForm, setShowNewTestForm] = useState(false);
-  const [testForm, setTestForm] = useState({
-    title: "",
-    steps: "",
-    expected: "",
-  });
-  const [uatForm, setUatForm] = useState<{
-    testId: string;
-    actual: string;
-  } | null>(null);
 
   const nextState = getNextState(currentStateName);
 
@@ -311,15 +910,7 @@ export function IssueDetailModal({
       });
 
     if (profile?.email) {
-      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ issue_id: issue.id, user_email: profile.email }),
-      }).then(() => onMarkedRead?.());
+      markRead(issue.id, profile.email).then(() => onMarkedRead?.());
     }
   }, [issue.id]);
 
@@ -333,17 +924,7 @@ export function IssueDetailModal({
 
   const handleClose = () => {
     setVisible(false);
-    if (profile?.email) {
-      fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ issue_id: issue.id, user_email: profile.email }),
-      });
-    }
+    if (profile?.email) markRead(issue.id, profile.email);
     setTimeout(onClose, 180);
   };
 
@@ -365,163 +946,6 @@ export function IssueDetailModal({
         setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
     } finally {
       setAdvancing(false);
-    }
-  }
-
-  // Dev only: create a question for the client to answer
-  async function handleCreateQuestion() {
-    if (!formText.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          issueId: issue.id,
-          question: formText.trim(),
-          ownerEmail: profile?.email,
-        }),
-      });
-      const newDecision = await res.json();
-      if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
-      setFormText("");
-      setShowNewQuestionForm(false);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // Client only: submit their answer — backend auto-posts to Linear + moves to Development
-  async function handleSubmitAnswer(decisionId: string) {
-    if (!formText.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            decisionId,
-            decision: formText.trim(),
-            decisionEmail: profile?.email,
-          }),
-        },
-      );
-      const updated = await res.json();
-      if (updated.id) {
-        setDecisions((prev) =>
-          prev.map((d) => (d.id === updated.id ? updated : d)),
-        );
-      }
-      setFormText("");
-      setActiveAnswerForm(null);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  useEffect(() => {
-    if (activeTab !== "tests") return;
-    setLoadingTests(true);
-    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests?issue_id=${issue.id}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-        apikey: process.env.NEXT_PUBLIC_APIKEY!,
-      },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setTests(data);
-      })
-      .finally(() => setLoadingTests(false));
-  }, [activeTab, issue.id]);
-
-  async function handleCreateTest() {
-    if (!testForm.title.trim() || submitting) return;
-    setSubmitting(true);
-    try {
-      const steps = testForm.steps.trim()
-        ? testForm.steps
-            .split("\n")
-            .filter(Boolean)
-            .map((d, i) => ({ order: i + 1, description: d }))
-        : [];
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          issue_id: issue.id,
-          title: testForm.title.trim(),
-          steps,
-          expected: testForm.expected.trim(),
-          created_by: profile?.email,
-        }),
-      });
-      const created = await res.json();
-      if (created.id) setTests((prev) => [...prev, created]);
-      setTestForm({ title: "", steps: "", expected: "" });
-      setShowNewTestForm(false);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleApproveTest(testId: string) {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ test_id: testId, approved_by: profile?.email }),
-      },
-    );
-    const updated = await res.json();
-    if (updated.id)
-      setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-  }
-
-  async function handleSubmitUat() {
-    if (!uatForm || submitting) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          test_id: uatForm.testId,
-          actual: uatForm.actual,
-          passed: true,
-        }),
-      });
-      const updated = await res.json();
-      if (updated.id)
-        setTests((prev) =>
-          prev.map((t) => (t.id === updated.id ? updated : t)),
-        );
-      setUatForm(null);
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -634,416 +1058,53 @@ export function IssueDetailModal({
           </button>
         </div>
 
-        {/* Description tab */}
         {activeTab === "description" && (
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-[320px]">
-            {issue.description ? (
-              <div
-                className="text-sm text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
-                [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
-                [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
-                [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
-                [&_strong]:font-semibold
-                [&_p]:mb-2 [&_p:last-child]:mb-0
-                [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
-                [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
-              >
-                <ReactMarkdown>{issue.description}</ReactMarkdown>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">
-                No description yet.
-              </p>
-            )}
-
-            {canAnswer && currentStateName === "Business Review" && (
-              <Button
-                size="sm"
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-                disabled={advancing}
-                onClick={handleAdvanceState}
-              >
-                <Check className="h-3.5 w-3.5 mr-1.5" />
-                {advancing
-                  ? "Approving…"
-                  : "Approve user stories & acceptance criteria"}
-              </Button>
-            )}
-
-            {canAsk && nextState && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                disabled={advancing}
-                onClick={handleAdvanceState}
-              >
-                <ChevronsRight className="h-3 w-3 mr-1" />
-                {advancing ? "Updating…" : `Move to ${nextState}`}
-              </Button>
-            )}
-          </div>
+          <DescriptionTab
+            issue={issue}
+            canAnswer={canAnswer}
+            canAsk={canAsk}
+            currentStateName={currentStateName}
+            advancing={advancing}
+            nextState={nextState}
+            onAdvanceState={handleAdvanceState}
+          />
         )}
 
-        {/* Chat tab */}
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
             <IssueCometChat issueId={issue.id} issueTitle={issue.title} />
           </div>
         )}
 
-        {/* Decisions tab */}
         {activeTab === "decisions" && (
-          <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
-            {loadingDecisions && (
-              <p className="text-xs text-muted-foreground animate-pulse">
-                Loading…
-              </p>
-            )}
-
-            {!loadingDecisions && decisions.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">
-                {canAnswer
-                  ? "No questions from your team yet."
-                  : "No questions asked yet."}
-              </p>
-            )}
-
-            {decisions.map((d) => (
-              <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-                {/* Question */}
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                    Question
-                  </p>
-                  <p className="text-sm text-foreground">{d.question}</p>
-                </div>
-
-                {/* Answer — shown once submitted */}
-                {d.decisions?.body && (
-                  <div className="rounded bg-success/10 p-2.5 space-y-0.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-success/70 mb-0.5">
-                      Decision
-                    </p>
-                    <p className="text-xs text-success whitespace-pre-wrap">
-                      {d.decisions.body}
-                    </p>
-                    <p className="text-[10px] text-success/60">
-                      {d.decisions.email} ·{" "}
-                      {new Date(d.decisions.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-
-                {/* Customer: submit answer form if not yet answered */}
-                {canAnswer &&
-                  !d.decisions?.body &&
-                  (activeAnswerForm === d.id ? (
-                    <div className="flex flex-col gap-1.5">
-                      <textarea
-                        className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                        rows={3}
-                        placeholder="Your decision…"
-                        value={formText}
-                        onChange={(e) => setFormText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                            handleSubmitAnswer(d.id);
-                        }}
-                        autoFocus
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setActiveAnswerForm(null);
-                            setFormText("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={!formText.trim() || submitting}
-                          onClick={() => handleSubmitAnswer(d.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          {submitting ? "Submitting…" : "Submit decision"}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => {
-                        setActiveAnswerForm(d.id);
-                        setFormText("");
-                      }}
-                    >
-                      Submit your decision
-                    </Button>
-                  ))}
-
-                {/* Dev: show pending badge if no answer yet */}
-                {canAsk && !d.decisions?.body && (
-                  <p className="text-[10px] text-muted-foreground italic">
-                    Awaiting client decision…
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {/* Dev only: ask a new question */}
-            {canAsk && (
-              <div className="pt-1">
-                {showNewQuestionForm ? (
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                      rows={3}
-                      placeholder="Ask the client a question…"
-                      value={formText}
-                      onChange={(e) => setFormText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                          handleCreateQuestion();
-                      }}
-                      autoFocus
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowNewQuestionForm(false);
-                          setFormText("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={!formText.trim() || submitting}
-                        onClick={handleCreateQuestion}
-                      >
-                        {submitting ? "Saving…" : "Ask question"}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      setShowNewQuestionForm(true);
-                      setFormText("");
-                    }}
-                  >
-                    <MessageSquare className="h-3 w-3 mr-1.5" />
-                    Ask a question
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+          <DecisionsTab
+            issue={issue}
+            ownerEmail={profile?.email}
+            canAnswer={canAnswer}
+            canAsk={canAsk}
+            decisions={decisions}
+            setDecisions={setDecisions}
+            loadingDecisions={loadingDecisions}
+          />
         )}
 
-        {/* Tests tab */}
         {activeTab === "tests" && (
-          <div className="flex-1 overflow-y-auto p-5 space-y-3">
-            {loadingTests && (
-              <p className="text-xs text-muted-foreground animate-pulse">
-                Loading…
-              </p>
-            )}
-
-            {!loadingTests && tests.length === 0 && (
-              <p className="text-xs text-muted-foreground italic">
-                No test cases yet.
-              </p>
-            )}
-
-            {tests.map((t) => (
-              <div key={t.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium text-foreground">
-                    {t.title}
-                  </p>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
-                      t.status === "passed"
-                        ? "bg-success/20 text-success"
-                        : t.status === "failed"
-                          ? "bg-destructive/20 text-destructive"
-                          : t.status === "approved"
-                            ? "bg-chart-1/20 text-chart-1"
-                            : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {t.status}
-                  </span>
-                </div>
-
-                {t.steps.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                      Steps
-                    </p>
-                    <ol className="list-decimal pl-4 space-y-0.5">
-                      {t.steps.map((s) => (
-                        <li key={s.order} className="text-xs text-foreground">
-                          {s.description}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                {t.expected && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                      Expected
-                    </p>
-                    <p className="text-xs text-foreground">{t.expected}</p>
-                  </div>
-                )}
-
-                {t.actual && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                      Actual
-                    </p>
-                    <p className="text-xs text-foreground">{t.actual}</p>
-                  </div>
-                )}
-
-                {canAnswer && t.status === "draft" && (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleApproveTest(t.id)}
-                  >
-                    Approve test case
-                  </Button>
-                )}
-
-                {canAnswer &&
-                  t.status === "approved" &&
-                  currentStateName === "UAT" &&
-                  (uatForm?.testId === t.id ? (
-                    <div className="flex flex-col gap-1.5">
-                      <textarea
-                        className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                        rows={2}
-                        placeholder="Describe what actually happened…"
-                        value={uatForm.actual}
-                        onChange={(e) =>
-                          setUatForm({ ...uatForm, actual: e.target.value })
-                        }
-                        autoFocus
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setUatForm(null)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={!uatForm.actual.trim() || submitting}
-                          onClick={handleSubmitUat}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          {submitting ? "Saving…" : "Mark as passed"}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setUatForm({ testId: t.id, actual: "" })}
-                    >
-                      Record UAT result
-                    </Button>
-                  ))}
-              </div>
-            ))}
-
-            {role === "admin" && (
-              <div className="pt-1">
-                {showNewTestForm ? (
-                  <div className="flex flex-col gap-2">
-                    <input
-                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
-                      placeholder="Test case title…"
-                      value={testForm.title}
-                      onChange={(e) =>
-                        setTestForm((f) => ({ ...f, title: e.target.value }))
-                      }
-                    />
-                    <textarea
-                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                      rows={3}
-                      placeholder="Steps (one per line)…"
-                      value={testForm.steps}
-                      onChange={(e) =>
-                        setTestForm((f) => ({ ...f, steps: e.target.value }))
-                      }
-                    />
-                    <textarea
-                      className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                      rows={2}
-                      placeholder="Expected result…"
-                      value={testForm.expected}
-                      onChange={(e) =>
-                        setTestForm((f) => ({ ...f, expected: e.target.value }))
-                      }
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setShowNewTestForm(false);
-                          setTestForm({ title: "", steps: "", expected: "" });
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={!testForm.title.trim() || submitting}
-                        onClick={handleCreateTest}
-                      >
-                        {submitting ? "Saving…" : "Add test case"}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowNewTestForm(true)}
-                  >
-                    + Add test case
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+          <TestsTab
+            issue={issue}
+            userEmail={profile?.email}
+            canAnswer={canAnswer}
+            role={role}
+            currentStateName={currentStateName}
+            tests={tests}
+            setTests={setTests}
+          />
         )}
       </div>
     </div>
   );
 }
+
+// ── Main component ──────────────────────────────────────────────────────────
 
 export function PriorityTasks({
   issuesData,

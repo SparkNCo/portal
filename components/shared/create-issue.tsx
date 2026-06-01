@@ -39,8 +39,6 @@ interface IssueFields {
   actual?: string;
   // feature
   featureDescription?: string;
-  whoWillUseIt?: string;
-  whyImportant?: string;
   successLooksLike?: string;
   // project
   projectDescription?: string;
@@ -73,8 +71,6 @@ ${data.actual || ""}
     case "feature":
       return [
         `### Feature Description\n${data.featureDescription || ""}`,
-        data.whoWillUseIt ? `### Who Will Use It\n${data.whoWillUseIt}` : null,
-        data.whyImportant ? `### Why It's Important\n${data.whyImportant}` : null,
         data.successLooksLike
           ? `### What Success Looks Like\n${data.successLooksLike}`
           : null,
@@ -436,7 +432,7 @@ export function CreateIssue({
               {issueType === "feature" && (
                 <>
                   <div className="space-y-1.5">
-                    <Label>What do you need?</Label>
+                    <Label>Description</Label>
                     <Textarea
                       placeholder="Describe the feature you'd like in plain language..."
                       value={fields.featureDescription ?? ""}
@@ -447,31 +443,8 @@ export function CreateIssue({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Who will use it?</Label>
-                    <Input
-                      placeholder="e.g. clients, admins, all users..."
-                      value={fields.whoWillUseIt ?? ""}
-                      onChange={(e) => setField("whoWillUseIt", e.target.value)}
-                      className="bg-secondary border-0"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
                     <Label>
-                      Why is this important?{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </Label>
-                    <Textarea
-                      placeholder="What problem does this solve or what value does it bring?"
-                      value={fields.whyImportant ?? ""}
-                      onChange={(e) => setField("whyImportant", e.target.value)}
-                      className="bg-secondary border-0 min-h-[70px] resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>
-                      What does success look like to you?{" "}
+                      Requirements{" "}
                       <span className="text-muted-foreground font-normal">
                         (optional)
                       </span>
