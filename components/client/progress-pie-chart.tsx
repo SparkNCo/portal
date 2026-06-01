@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useMemo } from "react";
-import type { Issue } from "./priority-tasks";
+import type { Issue } from "./issues.types";
 
 /** Status → Color mapping */
 const STATUS_COLORS: Record<string, string> = {

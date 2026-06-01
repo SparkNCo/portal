@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
-import { IssueDetailModal, Issue } from "@/components/client/priority-tasks";
+import { IssueDetailModal } from "@/components/client/issue-detail-modal";
+import type { Issue } from "@/components/client/issues.types";
 import { X } from "lucide-react";
 
 export type MilestoneStatus =

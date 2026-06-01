@@ -47,7 +47,9 @@ export default function ClientDashboard() {
   const linearProjectId = "";
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
-  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
+    new Set(),
+  );
 
   // 🔹 Issues query
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -123,9 +125,7 @@ export default function ClientDashboard() {
 
   const businessReviewIssues = allIssues
     .filter(
-      (i: any) =>
-        (i.state?.name === "Business Review" || i.state?.name === "Development") &&
-        issueMatchesProject(i),
+      (i: any) => i.state?.name === "Business Review" && issueMatchesProject(i),
     )
     .sort(
       (a: any, b: any) =>
@@ -174,9 +174,11 @@ export default function ClientDashboard() {
             <Button
               size="sm"
               onClick={() => setSelectedProjects(new Set())}
-              className={selectedProjects.size === 0
-                ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                : "bg-secondary text-muted-foreground hover:bg-secondary/80"}
+              className={
+                selectedProjects.size === 0
+                  ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }
             >
               All
             </Button>
@@ -185,9 +187,11 @@ export default function ClientDashboard() {
                 key={p.id}
                 size="sm"
                 onClick={() => toggleProject(p.id)}
-                className={selectedProjects.has(p.id)
-                  ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"}
+                className={
+                  selectedProjects.has(p.id)
+                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                }
               >
                 {p.name}
               </Button>
