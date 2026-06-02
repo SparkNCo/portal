@@ -40,7 +40,7 @@ The bottom of the sidebar always shows the user's email, their role, and a **Log
 
 ## Data loaded on mount
 
-When `ClientDashboard` mounts, three separate queries fire:
+When `ClientDashboard` mounts, two separate queries fire:
 
 ### 1. Issues — `GET /issues?slug={slug}&ticket_statuses={...}`
 
@@ -57,6 +57,8 @@ Fetches the number of **unanswered questions** per issue for the logged-in user.
 
 This query **refetches automatically every 30 seconds** so the badges stay up to date without a manual refresh.
 
+---
+
 ## Project filter
 
 At the top of the dashboard there is a row of **project filter buttons** — one for "All" and one per unique project found across the issues list (extracted from `issue.project.id / issue.project.name`).
@@ -70,7 +72,7 @@ At the top of the dashboard there is a row of **project filter buttons** — one
 
 ## Create Issue button
 
-To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens the issue creation dialog. See `docs/FLOWS.md` for the full issue creation flow.
+To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens the issue creation dialog. See `app/docs/FEATURES_FLOWS.md` for the full issue creation flow.
 
 ---
 
@@ -113,7 +115,7 @@ Shows all issues currently in the **Business Review** state. These are issues wh
 
 Issues are sorted by question count — those with the most unanswered questions appear first.
 
-Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `docs/FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 The **chat icon** on each card navigates to the Chat page with that issue pre-selected (via `?newChat=...` query param).
 
@@ -178,6 +180,5 @@ User lands on /{slug}/dashboard/client
 | `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
 | `components/shared/create-issue.tsx` | Create Issue dialog |
-| `components/ui/PolicyApprovalModal.tsx` | Developer policy agreement modal |
 | `context/UserContext.tsx` | Provides `profile` (role, email, id, linear_slug) |
 | `context/CustomerSlugContext.tsx` | Provides the active customer slug when admin/dev is previewing a customer |

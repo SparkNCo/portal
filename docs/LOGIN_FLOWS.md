@@ -40,10 +40,10 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 |---|---|---|
 | `admin` | `/{clientName}/dashboard/admin` | Always |
 | `customer` | `/{clientName}/dashboard/client` | Always |
-| `developer` | `/{assignment[0].clientName}/dashboard/developer` | Requires at least one customer assignment |
+| `developer` | `/{assignment[0].clientName}/dashboard/developer` | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard/client` | Requires at least one customer assignment |
 
-> **Important for developers and stakeholders:** If the user has no customer assignment yet, they cannot log in — they see an error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `docs/ADMIN_FLOWS.md`).
+> **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
 The `clientName` used in the URL comes from the user's profile. For developers and stakeholders it comes from their first assignment (`assignment_id[0].clientName` or `assignment_id[0].linear_slug` as fallback).
 
@@ -159,7 +159,7 @@ Redirect to dashboard          │     Dashboard loaded         │   Sets new p
 |---|---|
 | Wrong email or password | Error message below the password field |
 | Supabase session not found after login | "User session not found" |
-| Developer / stakeholder with no assignment | "No client assigned to this account. Contact your administrator." |
+| Stakeholder with no assignment | "No client assigned to this account. Contact your administrator." |
 | Reset email request fails | Error message inside the forgot password modal |
 | Reset link is expired | "Link expired" screen with a back-to-login button |
 | Passwords don't match (reset or set-password) | "Passwords do not match." |

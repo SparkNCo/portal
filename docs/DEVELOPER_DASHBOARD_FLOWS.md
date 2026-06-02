@@ -137,7 +137,7 @@ The card title changes dynamically:
 - `"All Tasks"` when no project filter is active
 - The customer's `clientName` when a specific project is selected
 
-Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `docs/FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 > **Note:** The `CreateIssue` button is currently commented out at the bottom of the page. It would allow developers to create new issues directly from their dashboard.
 

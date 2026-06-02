@@ -11,7 +11,7 @@ Chat is accessible to `customer`, `developer`, and `stakeholder`. All three role
 
 There are two distinct chat surfaces in the app:
 - **This page** (`/chat`) — the full standalone chat experience with a sidebar and conversation view.
-- **Issue chat** (`IssueCometChat`) — the Chat tab embedded inside the Issue Detail Modal, scoped to a single issue. Documented in `docs/FLOWS.md`.
+- **Issue chat** (`IssueCometChat`) — the Chat tab embedded inside the Issue Detail Modal, scoped to a single issue. Documented in `app/docs/FEATURES_FLOWS.md`.
 
 ---
 

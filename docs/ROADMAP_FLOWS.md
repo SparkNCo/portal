@@ -114,7 +114,7 @@ Clicking a second time on the same milestone closes the panel. Clicking a differ
 
 ### Opening an issue from the timeline
 
-Clicking any issue card in the milestone detail panel opens the full **IssueDetailModal** — the same modal used on the client and developer dashboards — with Description, Chat, Tests, and Decisions tabs. See `docs/FLOWS.md` for the full modal interaction flows.
+Clicking any issue card in the milestone detail panel opens the full **IssueDetailModal** — the same modal used on the client and developer dashboards — with Description, Chat, Tests, and Decisions tabs. See `app/docs/FEATURES_FLOWS.md` for the full modal interaction flows.
 
 ---
 

@@ -11,6 +11,8 @@ The admin panel is only accessible to users with `role === "admin"`.
 If anyone tries to open it with a different role, the component renders a "Not authorized" message and stops there.  
 The role comes from the global `UserContext`, which loads the user profile from Supabase on login.
 
+> Admin accounts are created directly in the **Supabase Authentication UI** — not through the portal itself.
+
 ---
 
 ## Page Structure
