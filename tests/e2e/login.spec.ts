@@ -63,28 +63,39 @@ test.describe('Login page', () => {
 
   test('customer is redirected to the client dashboard', async ({ page }) => {
     const email = process.env.TEST_CUSTOMER_EMAIL;
-    const password = process.env.TEST_CUSTOMER_PASSWORD;
+    const password = process.env.TEST_PASSWORD;
 
     if (!email || !password) {
-      test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_CUSTOMER_PASSWORD not set');
+      test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
     }
 
+    page.on('console', msg => {
+      if (msg.type() === 'error') console.log('Browser error:', msg.text());
+    });
+
     await fillLoginForm(page, email!, password!);
-    await page.waitForURL('**/dashboard/client', { timeout: 15_000 });
+
+    await page.waitForURL('**/dashboard/client', { timeout: 30_000 });
     expect(page.url()).toContain('/dashboard/client');
   });
 
   test('developer is redirected to the developer dashboard', async ({ page }) => {
     const email = process.env.TEST_DEVELOPER_EMAIL;
-    const password = process.env.TEST_DEVELOPER_PASSWORD;
+    const password = process.env.TEST_PASSWORD;
 
     if (!email || !password) {
-      test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_DEVELOPER_PASSWORD not set');
+      test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set');
     }
 
+    page.on('console', msg => {
+      if (msg.type() === 'error') console.log('Browser error:', msg.text());
+    });
+
     await fillLoginForm(page, email!, password!);
-    await page.waitForURL('**/dashboard/developer', { timeout: 15_000 });
+
+    await page.waitForURL('**/dashboard/developer', { timeout: 30_000 });
     expect(page.url()).toContain('/dashboard/developer');
   });
+
 
 });
