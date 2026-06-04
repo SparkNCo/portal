@@ -8,12 +8,10 @@ export function IssueCard({
   issue,
   onOpen,
   onOpenChat,
-  questionCount = 0,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onOpenChat?: (title: string) => void;
-  readonly questionCount?: number;
 }) {
   const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
@@ -32,11 +30,6 @@ export function IssueCard({
           >
             {issue.priorityLabel}
           </Badge>
-          {questionCount > 0 && (
-            <span className="ml-auto flex items-center gap-1 rounded-full bg-warning/20 text-warning border border-warning/30 text-[10px] font-semibold px-1.5 py-0.5">
-              {questionCount}
-            </span>
-          )}
         </div>
         <p className="text-sm font-medium text-background-foreground mb-1 line-clamp-2">
           {issue.title}
@@ -77,12 +70,10 @@ export function IssueListRow({
   issue,
   onOpen,
   onOpenChat,
-  questionCount = 0,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onOpenChat?: (title: string) => void;
-  readonly questionCount?: number;
 }) {
   const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
@@ -102,11 +93,6 @@ export function IssueListRow({
       <p className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}>
         {issue.title}
       </p>
-      {questionCount > 0 && (
-        <span className="flex-shrink-0 rounded-full bg-warning/20 text-warning border border-warning/30 text-[10px] font-semibold px-1.5 py-0.5">
-          {questionCount}
-        </span>
-      )}
       {onOpenChat && (
         <button
           onClick={(e) => {

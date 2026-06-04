@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send } from "lucide-react";
 import { COMETCHAT_CONSTANTS } from "./constants";
-import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
+import { supabase } from "@/lib/supabase-client";
 
 function MessageAvatar({ name }: { readonly name: string }) {
   const initials = name
@@ -36,17 +36,12 @@ function IssueGroupChat({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [firstMessageSaved, setFirstMessageSaved] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const guid = group.getGuid();
 
   useEffect(() => {
     fetchMessages();
   }, [guid]);
-
-  useEffect(() => {
-    if (linearPostedAt) setFirstMessageSaved(false);
-  }, [linearPostedAt]);
 
   useEffect(() => {
     const listenerId = `issue-chat-${guid}`;
@@ -84,13 +79,6 @@ function IssueGroupChat({
       const msgs = await req.fetchPrevious();
       setMessages(msgs);
 
-      const { data: chatRow } = await supabase
-        .from("issue_chats")
-        .select("first_message_text")
-        .eq("issue_id", issueId)
-        .single();
-
-      setFirstMessageSaved(!!chatRow?.first_message_text);
     } catch (err) {
       console.error("Fetch issue messages error:", err);
     } finally {
@@ -110,18 +98,6 @@ function IssueGroupChat({
       const sent = await CometChat.sendMessage(textMsg);
       setMessages((prev) => [...prev, sent]);
       setMessage("");
-      const sentText: string | undefined = (sent as any).getText?.() ?? (sent as any).text;
-      const updateData: Record<string, string> = { last_message_at: new Date().toISOString() };
-      if (!firstMessageSaved && sentText) {
-        updateData.first_message_text = sentText;
-        setFirstMessageSaved(true);
-      }
-      console.log("[IssueCometChat] updating issue_chats:", { issueId, updateData, firstMessageSaved, sentText });
-      supabase.from("issue_chats").update(updateData).eq("issue_id", issueId)
-        .then(({ error, count }) => {
-          if (error) console.error("[IssueCometChat] update failed:", error.message);
-          else console.log("[IssueCometChat] update ok, rows affected:", count);
-        });
     } catch (err) {
       console.error("Send issue message error:", err);
     } finally {
@@ -261,17 +237,12 @@ async function _getOrCreateIssueGroup(
   issueTitle: string,
   profile: any,
 ): Promise<CometChat.Group> {
-  const { data: existing } = await supabase
-    .from("issue_chats")
-    .select("cometchat_group_id, first_message_text")
-    .eq("issue_id", issueId)
-    .single();
+  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+  const deterministicGuid = `issue_${safeId}`;
 
-  if (existing?.cometchat_group_id) {
-    try {
-      return await CometChat.getGroup(existing.cometchat_group_id);
-    } catch {}
-  }
+  try {
+    return await CometChat.getGroup(deterministicGuid);
+  } catch {}
 
   const memberUids = new Set<string>();
   if (profile?.id) memberUids.add(profile.id);
@@ -330,11 +301,9 @@ async function _getOrCreateIssueGroup(
     }),
   );
 
-  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-  const guid = `issue_${safeId}_${Date.now()}`;
   const groupName = await resolveGroupName(issueTitle);
   const group = new CometChat.Group(
-    guid,
+    deterministicGuid,
     groupName,
     CometChat.GROUP_TYPE.PUBLIC,
     "",
@@ -345,13 +314,7 @@ async function _getOrCreateIssueGroup(
   );
 
   const response = await CometChat.createGroupWithMembers(group, members, []);
-  const created = (response as any).group ?? response;
-
-  await supabase
-    .from("issue_chats")
-    .upsert({ issue_id: issueId, cometchat_group_id: created.getGuid() });
-
-  return created;
+  return (response as any).group ?? response;
 }
 
 export function IssueCometChat({ issueId, issueTitle, linearPostedAt }: { readonly issueId: string; readonly issueTitle: string; readonly linearPostedAt?: number }) {

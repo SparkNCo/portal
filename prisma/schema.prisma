@@ -18,7 +18,7 @@ model assignments {
   role               String   @default("developer")
   allocation         Int      @default(0)
   joined             DateTime @default(now()) @db.Date
-  teamMemberLinearId String? // just call it linearId and move it to the users table
+  linearId String? 
 
   user     users  @relation("AssignmentUser", fields: [user_id], references: [id])
   customer users? @relation("AssignmentCustomer", fields: [customer_id], references: [id])
@@ -42,7 +42,7 @@ model customers {
 
 model cycle_metrics {
   id                            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id                   String // should be uuid not string if this is a foreign key
+  customer_id                   String   @db.Uuid 
   project_id                    String
   cycle_id                      String
   name                          String?
@@ -62,12 +62,12 @@ model cycle_metrics {
 }
 
 // Shouldn't need this table. All user_activity can be tracked on a single table if that's needed
-model decision_reads {
+/* model decision_reads {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   issue_id   String
   user_email String
   read_at    DateTime @default(now()) @db.Timestamptz(6)
-}
+} */
 
 model decisions {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -79,10 +79,12 @@ model decisions {
   answers          Json     @default(dbgenerated("'[]'::jsonb"))
   // single decision needed. can be updated. can have a separate field to maintain decision history
   decisions        Json     @default(dbgenerated("'[]'::jsonb"))
+  decision         String?
+  decision_by      String?
+  decided_at       DateTime? @db.Timestamptz(6)
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   updated_at       DateTime @default(now()) @db.Timestamptz(6)
   posted_to_linear Boolean  @default(false)
-  cometchat_id     String?
 }
 
 

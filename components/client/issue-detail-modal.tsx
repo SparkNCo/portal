@@ -27,13 +27,6 @@ const API_JSON_HEADERS = {
   "Content-Type": "application/json",
 };
 
-async function markRead(issueId: string, email: string): Promise<void> {
-  await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/read`, {
-    method: "POST",
-    headers: API_JSON_HEADERS,
-    body: JSON.stringify({ issue_id: issueId, user_email: email }),
-  });
-}
 
 function getNextState(current: string | undefined): string | undefined {
   if (!current) return undefined;
@@ -239,23 +232,23 @@ function DecisionsTab({
             <p className="text-sm text-foreground">{d.question}</p>
           </div>
 
-          {d.decisions?.body && (
+          {d.decision && (
             <div className="rounded bg-success/10 p-2.5 space-y-0.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-success/70 mb-0.5">
                 Decision
               </p>
               <p className="text-xs text-success whitespace-pre-wrap">
-                {d.decisions.body}
+                {d.decision}
               </p>
               <p className="text-[10px] text-success/60">
-                {d.decisions.email} ·{" "}
-                {new Date(d.decisions.created_at).toLocaleDateString()}
+                {d.decision_by} ·{" "}
+                {d.decided_at ? new Date(d.decided_at).toLocaleDateString() : ""}
               </p>
             </div>
           )}
 
           {canAnswer &&
-            !d.decisions?.body &&
+            !d.decision &&
             (activeAnswerForm === d.id ? (
               <div className="flex flex-col gap-1.5">
                 <textarea
@@ -304,7 +297,7 @@ function DecisionsTab({
               </Button>
             ))}
 
-          {canAsk && !d.decisions?.body && (
+          {canAsk && !d.decision && (
             <p className="text-[10px] text-muted-foreground italic">
               Awaiting client decision…
             </p>
@@ -628,13 +621,9 @@ function TestsTab({
 export function IssueDetailModal({
   issue,
   onClose,
-  questionCount: _questionCount = 0,
-  onMarkedRead,
 }: {
   issue: Issue;
   onClose: () => void;
-  questionCount?: number;
-  onMarkedRead?: () => void;
 }) {
   const { profile } = useUser();
   const role = profile?.role;
@@ -682,9 +671,6 @@ export function IssueDetailModal({
       })
       .finally(() => setLoadingTests(false));
 
-    if (profile?.email) {
-      markRead(issue.id, profile.email).then(() => onMarkedRead?.());
-    }
   }, [issue.id]);
 
   const handleClose = useCallback(() => {

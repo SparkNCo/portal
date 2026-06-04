@@ -21,7 +21,6 @@ export function PriorityTasks({
   filterState,
   onOpenChat,
   title = "Priority Tasks",
-  questionCounts = {},
   compact = false,
   headerAction,
 }: PriorityTasksProps) {
@@ -30,8 +29,6 @@ export function PriorityTasks({
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
-  const [locallyRead, setLocallyRead] = useState<Set<string>>(new Set());
-
   const {
     selectedStatuses,
     onlyActive,
@@ -50,17 +47,10 @@ export function PriorityTasks({
       )
     : issuesData;
 
-  const effectiveCount = (issue: Issue) =>
-    locallyRead.has(issue.id) ? 0 : (questionCounts[issue.id] ?? 0);
-
   const modal = selectedIssue && (
     <IssueDetailModal
       issue={selectedIssue}
       onClose={() => setSelectedIssue(null)}
-      questionCount={questionCounts[selectedIssue.id] ?? 0}
-      onMarkedRead={() =>
-        setLocallyRead((prev) => new Set([...prev, selectedIssue.id]))
-      }
     />
   );
 
@@ -92,7 +82,6 @@ export function PriorityTasks({
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
                   onOpenChat={onOpenChat}
-                  questionCount={effectiveCount(issue)}
                 />
               ))}
             </div>
@@ -222,7 +211,6 @@ export function PriorityTasks({
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
                 onOpenChat={onOpenChat}
-                questionCount={effectiveCount(issue)}
               />
             ))}
           </div>

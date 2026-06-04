@@ -58,31 +58,6 @@ export default function ClientDashboard() {
     enabled: !!slug,
   });
 
-  // 🔹 Decision notification counts
-  const userEmail = profile?.email;
-  const { data: questionsData } = useQuery<{
-    countByIssue: Record<string, number>;
-  }>({
-    queryKey: ["decision-counts", userEmail],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/counts?user_email=${encodeURIComponent(userEmail!)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          },
-        },
-      );
-      if (!res.ok) throw new Error("Failed to fetch decision counts");
-      return res.json();
-    },
-    enabled: !!userEmail,
-    refetchInterval: 30_000,
-  });
-
-  const questionCounts = questionsData?.countByIssue ?? {};
-
   // 🔹 Policies approval query
   const { data: policiesStatus, isLoading: policiesLoading } = useQuery<
     { approved: boolean },
@@ -126,18 +101,10 @@ export default function ClientDashboard() {
   const businessReviewIssues = allIssues
     .filter(
       (i: any) => i.state?.name === "Business Review" && issueMatchesProject(i),
-    )
-    .sort(
-      (a: any, b: any) =>
-        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
     );
 
   const uatIssues = allIssues
-    .filter((i: any) => i.state?.name === "UAT" && issueMatchesProject(i))
-    .sort(
-      (a: any, b: any) =>
-        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
-    );
+    .filter((i: any) => i.state?.name === "UAT" && issueMatchesProject(i));
 
   const noopFilterState = {
     selectedStatuses: [],
@@ -213,7 +180,6 @@ export default function ClientDashboard() {
             filterState={noopFilterState}
             onOpenChat={handleOpenChat}
             title="Product Decisions"
-            questionCounts={questionCounts}
             compact
           />
           <PriorityTasks
@@ -221,7 +187,6 @@ export default function ClientDashboard() {
             filterState={noopFilterState}
             onOpenChat={handleOpenChat}
             title="Acceptance Testing"
-            questionCounts={questionCounts}
             compact
           />
         </div>

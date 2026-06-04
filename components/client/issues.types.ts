@@ -41,7 +41,9 @@ export type Decision = {
   issue_id: string;
   owner_email: string;
   question: string;
-  decisions: { body: string; email: string; created_at: string } | null;
+  decision: string | null;
+  decision_by: string | null;
+  decided_at: string | null;
   posted_to_linear: boolean;
   created_at: string;
 };
@@ -101,7 +103,6 @@ export type PriorityTasksProps = {
   filterState: FilterState;
   onOpenChat?: (title: string) => void;
   title?: string;
-  questionCounts?: Record<string, number>;
   compact?: boolean;
   headerAction?: ReactNode;
 };

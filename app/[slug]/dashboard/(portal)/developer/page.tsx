@@ -43,36 +43,8 @@ export default function DeveloperDashboard() {
     enabled: projects.length > 0,
   });
 
-  const userEmail = profile?.email;
-  const { data: questionsData } = useQuery<{
-    countByIssue: Record<string, number>;
-  }>({
-    queryKey: ["decision-counts", userEmail],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/counts?user_email=${encodeURIComponent(userEmail!)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          },
-        },
-      );
-      if (!res.ok) throw new Error("Failed to fetch decision counts");
-      return res.json();
-    },
-    enabled: !!userEmail,
-    refetchInterval: 30_000,
-  });
-
-  const questionCounts = questionsData?.countByIssue ?? {};
-
   const allIssues: any[] = (issuesData ?? [])
-    .filter((i: any) => i?.state?.name !== "Done")
-    .sort(
-      (a: any, b: any) =>
-        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
-    );
+    .filter((i: any) => i?.state?.name !== "Done");
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
 
@@ -169,7 +141,6 @@ export default function DeveloperDashboard() {
             filterState={filterState}
             onOpenChat={() => {}}
             title={selectedProject ?? "All Tasks"}
-            questionCounts={questionCounts}
           />
         </div>
 

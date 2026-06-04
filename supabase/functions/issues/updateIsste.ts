@@ -201,16 +201,6 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
     body: JSON.stringify({ posted_to_linear: true }),
   });
 
-  await fetch(`${supabaseUrl}/rest/v1/issue_chats?issue_id=eq.${issueId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({ first_message_text: null }),
-  });
-
   return Response.json(json.data.commentCreate);
 }
 
@@ -227,12 +217,6 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
-  const decisionObj = {
-    body: decision,
-    email: decisionEmail,
-    created_at: new Date().toISOString(),
-  };
-
   // Save answer, mark as closed and posted
   const res = await fetch(
     `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`,
@@ -244,7 +228,13 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
       },
-      body: JSON.stringify({ decisions: decisionObj, status: true, posted_to_linear: true }),
+      body: JSON.stringify({
+        decision,
+        decision_by: decisionEmail,
+        decided_at: new Date().toISOString(),
+        status: true,
+        posted_to_linear: true,
+      }),
     },
   );
 
