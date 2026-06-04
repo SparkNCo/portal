@@ -14,6 +14,8 @@ export async function getClientData(req: Request) {
 
   try {
     const url = new URL(req.url);
+    console.log("[getClientData] incoming request:", req.method, url.pathname + url.search);
+    console.log("[getClientData] STRIPE_SECRET_KEY present:", !!Deno.env.get("STRIPE_SECRET_KEY"));
 
     const rawCustomerId = url.searchParams.get("customer_id");
     console.log("[getClientData] raw customer_id param:", rawCustomerId);
@@ -32,65 +34,86 @@ export async function getClientData(req: Request) {
     const { customer_id } = parseResult.data;
     console.log("[getClientData] validated customer_id:", customer_id);
 
-    // 🔹 STEP 1: Find active subscription from Stripe
-    const subscriptions = await stripe.subscriptions.list({
+    // 🔹 STEP 1: Find active subscription, fall back to most recent canceled one
+    console.log("[getClientData] fetching active subscriptions...");
+    const activeSubscriptions = await stripe.subscriptions.list({
       customer: customer_id,
       status: "active",
       limit: 1,
     });
 
-    console.log("[getClientData] subscriptions found:", subscriptions.data.length);
+    let subscription = activeSubscriptions.data[0] ?? null;
 
-    if (!subscriptions.data.length) {
-      console.log("[getClientData] no active subscription for customer:", customer_id);
-      return new Response(
-        JSON.stringify({ error: "No active subscription found for this customer" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
+    if (subscription) {
+      console.log("[getClientData] active subscription id:", subscription.id, "status:", subscription.status);
+    } else {
+      console.log("[getClientData] no active subscription, fetching most recent canceled subscription...");
+      const canceledSubscriptions = await stripe.subscriptions.list({
+        customer: customer_id,
+        status: "canceled",
+        limit: 1,
+      });
+      subscription = canceledSubscriptions.data[0] ?? null;
+      if (subscription) {
+        console.log("[getClientData] found canceled subscription id:", subscription.id, "status:", subscription.status);
+      } else {
+        console.log("[getClientData] no subscriptions found at all for customer:", customer_id);
+      }
     }
-
-    const subscription = subscriptions.data[0];
 
     let upcomingInvoice = null;
-    try {
-      upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-        customer: customer_id,
-        subscription: subscription.id,
-      });
-    } catch {
-      upcomingInvoice = null;
+    if (subscription?.status === "active") {
+      try {
+        console.log("[getClientData] fetching upcoming invoice...");
+        upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+          customer: customer_id,
+          subscription: subscription.id,
+        });
+        console.log("[getClientData] upcoming invoice amount_due:", upcomingInvoice.amount_due);
+      } catch (upcomingErr) {
+        console.log("[getClientData] no upcoming invoice:", upcomingErr?.message);
+        upcomingInvoice = null;
+      }
     }
 
+    console.log("[getClientData] fetching invoice history...");
     const invoices = await stripe.invoices.list({
       customer: customer_id,
       limit: 100,
     });
+    console.log("[getClientData] invoices fetched:", invoices.data.length);
 
+    console.log("[getClientData] fetching payment methods...");
     const paymentMethods = await stripe.paymentMethods.list({
       customer: customer_id,
       type: "card",
     });
+    console.log("[getClientData] payment methods found:", paymentMethods.data.length);
 
+    console.log("[getClientData] fetching customer record...");
     const customer = await stripe.customers.retrieve(customer_id);
+    console.log("[getClientData] customer balance:", (customer as any).balance);
 
+    console.log("[getClientData] fetching open invoices...");
     const openInvoices = await stripe.invoices.list({
       customer: customer_id,
       status: "open",
       limit: 5,
     });
+    console.log("[getClientData] open invoices:", openInvoices.data.length);
 
+    console.log("[getClientData] building response...");
     const response = {
-      subscription: subscriptionSchema.parse({
-        id: subscription.id,
-        status: subscription.status,
-        currentPeriodStart: subscription.current_period_start,
-        currentPeriodEnd: subscription.current_period_end,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-        price: subscription.items.data[0]?.price,
-      }),
+      subscription: subscription
+        ? subscriptionSchema.parse({
+            id: subscription.id,
+            status: subscription.status,
+            currentPeriodStart: subscription.current_period_start,
+            currentPeriodEnd: subscription.current_period_end,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            price: subscription.items.data[0]?.price,
+          })
+        : null,
       balance: balanceSchema.parse({
         amount: customer.balance,
         currency: customer.currency || "usd",
@@ -130,15 +153,18 @@ export async function getClientData(req: Request) {
         : null,
     };
 
+    console.log("[getClientData] response ready, returning 200");
     return new Response(JSON.stringify(response), {
-      headers: { 
-        ...corsHeaders, 
-        "Content-Type": "application/json" 
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json"
       },
     });
   } catch (err) {
-    console.error("Stripe client error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
+    console.error("[getClientData] unhandled error:", err?.message ?? err);
+    console.error("[getClientData] error type:", err?.constructor?.name);
+    console.error("[getClientData] error stack:", err?.stack);
+    return new Response(JSON.stringify({ error: "Internal server error", detail: err?.message }), {
       status: 500,
       headers: { 
         ...corsHeaders, 
