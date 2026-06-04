@@ -10,22 +10,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model Document {
-  id          BigInt   @id @default(autoincrement()) @db.BigInt
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  file_name  String?
-  link       String?
-  category   String?
-  size       String?
-  owner_id   String?  @db.Uuid
-  project_slug String?
-
-  owner       users? @relation("DocumentOwner", fields: [owner_id], references: [id])
-  permissions document_permissions[]
-
-  @@map("Document")
-}
-
 model assignments {
   id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id            String   @db.Uuid
@@ -34,7 +18,7 @@ model assignments {
   role               String   @default("developer")
   allocation         Int      @default(0)
   joined             DateTime @default(now()) @db.Date
-  teamMemberLinearId String?
+  teamMemberLinearId String? // just call it linearId and move it to the users table
 
   user     users  @relation("AssignmentUser", fields: [user_id], references: [id])
   customer users? @relation("AssignmentCustomer", fields: [customer_id], references: [id])
@@ -47,16 +31,18 @@ model customers {
   stripe_customer_id   String?
   linear_name          String?
   linear_slug          String?
-  email                String?
+  email                String? // not needed, should be on user object already
   linear_initiative_id String?
   linear_projects      String[]
+  // is this self referential? there's already an id at the top
   customer_id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // is this a copy of linear_projects? if so please delete
   project_url          String[]
 }
 
 model cycle_metrics {
   id                            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id                   String
+  customer_id                   String // should be uuid not string if this is a foreign key
   project_id                    String
   cycle_id                      String
   name                          String?
@@ -75,6 +61,7 @@ model cycle_metrics {
   cycle_issue_ids               Json     @default(dbgenerated("'[]'::jsonb"))
 }
 
+// Shouldn't need this table. All user_activity can be tracked on a single table if that's needed
 model decision_reads {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   issue_id   String
@@ -88,12 +75,34 @@ model decisions {
   status           Boolean?
   owner_email      String
   question         String
+  // no answers needed
   answers          Json     @default(dbgenerated("'[]'::jsonb"))
+  // single decision needed. can be updated. can have a separate field to maintain decision history
   decisions        Json     @default(dbgenerated("'[]'::jsonb"))
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   updated_at       DateTime @default(now()) @db.Timestamptz(6)
   posted_to_linear Boolean  @default(false)
   cometchat_id     String?
+}
+
+
+model document {
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  file_name  String?
+  link       String?
+  category   String?
+  size       String?
+  project_slug String?
+  permissions document_permissions[]
+  
+  // You shouldn't need owner for anything. 
+  // You can have a permission for "owner" on document permissions if needed
+  owner_id   String?  @db.Uuid
+  owner       users? @relation("DocumentOwner", fields: [owner_id], references: [id])
+  
+
+  @@map("Document") // should be lowercase like the other tables. also make it plural for convention "documents"
 }
 
 model document_permissions {
@@ -105,8 +114,10 @@ model document_permissions {
   document Document @relation(fields: [document_id], references: [id])
 }
 
+// rename to dora_metrics
 model dorametrics {
   dorametrics_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // where is customer id? should have the same structure as issue_metrics and cycle_metrics in how its referenced
   averages           Json
   cfr_details        Json?
   lead_time_details  Json?
@@ -114,26 +125,16 @@ model dorametrics {
   deploy_freq_details Json?
   created_at         DateTime? @default(now()) @db.Timestamptz(6)
   last_called        DateTime? @db.Timestamptz(6)
-  user_id            String?   @db.Uuid
+  user_id            String?   @db.Uuid // this should be removed in place of customer
   linear_slug        String?
   url                String?
 
   user users? @relation(fields: [user_id], references: [id])
 }
 
-model ig_posts {
-  blog_id           String   @id @db.Uuid
-  title             String
-  img               String?
-  author            String?
-  tags              String[]
-  slide_two         String?
-  slide_three       String?
-  contentful_id     String?  @db.Uuid
-  created_at        DateTime? @default(now()) @db.Timestamptz(6)
-  slide_three_title String?
-}
 
+// Is this needed for anything?
+// See if you can attach metadata in cometchat itself, delete this table entirely
 model issue_chats {
   issue_id          String   @id
   cometchat_group_id String
@@ -144,7 +145,7 @@ model issue_chats {
 
 model issue_metrics {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customer_id    String
+  customer_id    String // should be uuid not string if this is a foreign key
   project_id     String
   status         String?
   label          String?
@@ -156,6 +157,42 @@ model issue_metrics {
   title          String[]
 }
 
+
+// users table should only have details specific to the user, and not to any other objects
+// See comments on fields below
+model users {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  email             String?
+  role              String?  @default("user")
+  customer_id       String?
+  subscription_id   String?
+  project_ids       String[]
+  initiative_ids    String[]
+  auth_id           String?
+  proposal_id       String?
+  linear_slug       String? // shouldn't be on a user level, should be on a client object
+  linear_projects   String[] // shouldn't be on a user level, should be on a client object
+  policies_approved Boolean? // shouldn't be on a user level, should be on a developer object
+  policy_notion_url String? // shouldn't be on a user level, should be on a developer object
+  userName          String?
+  assignment_id     String[] // not sure this is needed, should be using an assignment table xref
+  clientName        String? // shouldn't be on a user level, should be on a client object
+  phoneNumber       String?
+  firstName         String?
+  lastName          String?
+  project_url       String[] // shouldn't be on a user level, should be on a client object
+  documents              Document[]     @relation("DocumentOwner")
+
+  // Could you confirm that there's just a single assignments table, and that these keys aren't actually in the table?
+  assignments_as_user     assignments[]  @relation("AssignmentUser")
+  assignments_as_customer assignments[]  @relation("AssignmentCustomer") 
+  dorametrics             dorametrics[] // shouldn't be on a user level, should be on a client object
+}
+
+
+// could you move everything for the marketing site and everything for the portal to separate schemas?
+// instead of "public", marketing tables should be under "marketing" and portal tables should be in "portal"
 model leads {
   id               BigInt   @id @default(autoincrement()) @db.BigInt
   created_at       DateTime @default(now()) @db.Timestamptz(6)
@@ -181,6 +218,19 @@ model leads {
   build_scale      String?
 
   proposals proposals[]
+}
+
+model ig_posts {
+  blog_id           String   @id @db.Uuid
+  title             String
+  img               String?
+  author            String?
+  tags              String[]
+  slide_two         String?
+  slide_three       String?
+  contentful_id     String?  @db.Uuid
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  slide_three_title String?
 }
 
 model proposals {
@@ -234,33 +284,4 @@ model requirements {
   tech_constraints String?
 
   proposal proposals? @relation(fields: [submission_id], references: [passcode])
-}
-
-model users {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  email             String?
-  role              String?  @default("user")
-  customer_id       String?
-  subscription_id   String?
-  project_ids       String[]
-  initiative_ids    String[]
-  auth_id           String?
-  proposal_id       String?
-  linear_slug       String?
-  linear_projects   String[]
-  policies_approved Boolean?
-  policy_notion_url String?
-  userName          String?
-  assignment_id     String[]
-  clientName        String?
-  phoneNumber       String?
-  firstName         String?
-  lastName          String?
-  project_url       String[]
-
-  documents              Document[]     @relation("DocumentOwner")
-  assignments_as_user     assignments[]  @relation("AssignmentUser")
-  assignments_as_customer assignments[]  @relation("AssignmentCustomer")
-  dorametrics             dorametrics[]
 }
