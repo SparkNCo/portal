@@ -26,7 +26,7 @@ export const approvePolicy = async (req: Request) => {
     const { userId, notionUrl } = parsedBody.data;
 
     // 1️⃣ Mark user as approved and save the policy URL
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("portal")
       .from("users")
       .update({ policies_approved: true, policy_notion_url: notionUrl ?? null })
       .eq("id", userId)

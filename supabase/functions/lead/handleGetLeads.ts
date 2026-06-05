@@ -7,7 +7,7 @@ export async function handleGetLeads(req: Request) {
 
   const leadId = searchParams.get("lead_id");
 
-  let query = supabase.from("leads").select("*");
+  let query = supabase.schema("marketing").from("leads").select("*");
 
   if (leadId) {
     query = query.eq("lead_id", leadId);

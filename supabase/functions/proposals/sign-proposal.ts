@@ -65,7 +65,7 @@ export async function signProposal(req: Request): Promise<Response> {
     ----------------------------------- */
     console.log("[signProposal] 🔍 Fetching proposal...");
 
-    const { data: proposal, error: proposalError } = await supabase
+    const { data: proposal, error: proposalError } = await supabase.schema("marketing")
       .from("proposals")
       .select("passcode, stage")
       .eq("passcode", proposalId)
@@ -190,7 +190,7 @@ export async function signProposal(req: Request): Promise<Response> {
 
     console.log("[signProposal] 📝 Updating proposal...");
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabase.schema("marketing")
       .from("proposals")
       .update({
         signature_url: publicUrlData.publicUrl,

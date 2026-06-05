@@ -6,7 +6,7 @@ import { PROJECTS_QUERY } from "./query.ts";
 async function getCustomerBySlug(slug: string) {
   console.log("getCustomerBySlug", slug);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select(
       `

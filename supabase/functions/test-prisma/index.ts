@@ -10,7 +10,7 @@ const supabase = createClient(
 Deno.serve(async (_req) => {
   console.log("Fetching leads...");
 
-  const { data, error } = await supabase.from("proposals").select("*");
+  const { data, error } = await supabase.schema("marketing").from("proposals").select("*");
 
   if (error) {
     console.error(error);

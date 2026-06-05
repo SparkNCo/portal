@@ -62,7 +62,7 @@ export const createUser = async (body: any) => {
     inviteLink = inviteData.properties.action_link;
   }
 
-  const { data, error: upsertError } = await supabase
+  const { data, error: upsertError } = await supabase.schema("portal")
     .from("users")
     .upsert(
       [{

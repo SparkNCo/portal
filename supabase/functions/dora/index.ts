@@ -101,7 +101,7 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
 
 async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<ReturnType<typeof handleAll>>) {
   console.log("🔍 Fetching existing dorametrics row for slug:", linearSlug);
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await supabase.schema("portal")
     .from("dora_metrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
     .eq("linear_slug", linearSlug)
@@ -116,8 +116,8 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
   const payload = { ...merged, url, last_called: new Date().toISOString() };
 
   const { error } = existing
-    ? await supabase.from("dora_metrics").update(payload).eq("linear_slug", linearSlug)
-    : await supabase.from("dora_metrics").insert({ linear_slug: linearSlug, ...payload });
+    ? await supabase.schema("portal").from("dora_metrics").update(payload).eq("linear_slug", linearSlug)
+    : await supabase.schema("portal").from("dora_metrics").insert({ linear_slug: linearSlug, ...payload });
 
   if (error) {
     console.error("❌ Supabase write error:", error.message, error.details);

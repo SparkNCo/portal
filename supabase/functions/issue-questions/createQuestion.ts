@@ -12,7 +12,7 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 async function getUserLinearToken(profileId: string): Promise<string> {
-  const { data } = await supabase
+  const { data } = await supabase.schema("portal")
     .from("users")
     .select("linear_access_token")
     .eq("id", profileId)
@@ -60,7 +60,7 @@ export const createQuestion = async (req: Request) => {
 
     if (role === "customer") {
       // Customer is asking → notify all developers assigned to them
-      const { data, error } = await supabase
+      const { data, error } = await supabase.schema("portal")
         .from("assignments")
         .select("user_id")
         .eq("customer_id", profile_id)
@@ -70,7 +70,7 @@ export const createQuestion = async (req: Request) => {
       assigneeIds = (data ?? []).map((row: any) => row.user_id).filter(Boolean);
     } else {
       // Developer is asking → notify the customer(s) assigned to them
-      const { data, error } = await supabase
+      const { data, error } = await supabase.schema("portal")
         .from("assignments")
         .select("customer_id")
         .eq("user_id", profile_id);

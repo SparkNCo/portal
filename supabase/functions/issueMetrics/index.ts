@@ -24,19 +24,19 @@ async function handleGet(searchParams: URLSearchParams) {
   if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
   console.log("hi");
 
-  const { data: userRow, error: userError } = await supabase
+  const { data: userRow, error: userError } = await supabase.schema("portal")
     .from("users")
-    .select("linear_slug")
+    .select("id, linear_slug")
     .eq("clientName", slug)
     .maybeSingle();
 
   if (userError) throw new Error(`User lookup error: ${userError.message}`);
   if (!userRow?.linear_slug)
-    return jsonResponse({ error: `No linear_slug found for: ${slug}` }, 404);
+    return jsonResponse({ error: `No user found with clientName: ${slug}` }, 404);
 
   const [issue_metrics, cycle_metrics] = await Promise.all([
-    getIssueMetricsByCustomerId(userRow.linear_slug),
-    getCycleMetricsByCustomerId(userRow.linear_slug),
+    getIssueMetricsByCustomerId(userRow.id),
+    getCycleMetricsByCustomerId(userRow.id),
   ]);
 
   return jsonResponse({ issue_metrics, cycle_metrics });
@@ -122,7 +122,7 @@ async function handlePut(req: Request) {
 }
 
 async function triggerDoraForAllCustomers() {
-  const { data: users, error } = await supabase
+  const { data: users, error } = await supabase.schema("portal")
     .from("users")
     .select("linear_slug, project_url")
     .eq("role", "customer")
@@ -181,10 +181,10 @@ async function handlePost() {
 
     const cycleIssues = await resolveCycleIssues(cyclesByProject);
 
-    const metrics = buildIssueMetrics(cycleIssues, customer.linear_slug);
+    const metrics = buildIssueMetrics(cycleIssues, customer.id);
     const cycles = buildCycleMetrics(
       cyclesByProject,
-      customer.linear_slug,
+      customer.id,
       metrics,
       cycleIssues,
     );

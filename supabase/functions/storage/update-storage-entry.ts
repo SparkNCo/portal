@@ -36,7 +36,7 @@ export async function updateStorageEntry(req: Request) {
      * 🔒 1. CHECK PERMISSIONS
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase
+    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -68,7 +68,7 @@ export async function updateStorageEntry(req: Request) {
      * ✅ 2. UPDATE DOCUMENT
      * ---------------------------------------
      */
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("portal")
       .from("documents")
       .update(updates)
       .eq("id", id)

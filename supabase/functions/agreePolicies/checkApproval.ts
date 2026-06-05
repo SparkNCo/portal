@@ -14,7 +14,7 @@ export const checkApproval = async (req: Request) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("portal")
       .from("users")
       .select("policies_approved")
       .eq("id", userId)

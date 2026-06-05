@@ -24,7 +24,7 @@ export async function handleCreateLead(req: Request) {
     lead_id: parsed.data.lead_id ?? crypto.randomUUID(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("marketing")
     .from("leads")
     .insert(payload)
     .select()

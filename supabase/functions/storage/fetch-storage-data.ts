@@ -25,7 +25,7 @@ export async function getStorageData(req: Request) {
     }
 
 
-    let query = supabase
+    let query = supabase.schema("portal")
       .from("document_permissions")
       .select(
         `

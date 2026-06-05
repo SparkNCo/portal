@@ -47,7 +47,7 @@ export const createCustomerFlow = async (body: any) => {
   }
 
   // Upsert users table — insert on new, update columns on existing
-  const { data: customerUser, error: upsertError } = await supabase
+  const { data: customerUser, error: upsertError } = await supabase.schema("portal")
     .from("users")
     .upsert(
       [{ id: authUserId, email, role: "customer", customer_id, linear_slug, firstName, lastName, clientName, phoneNumber }],

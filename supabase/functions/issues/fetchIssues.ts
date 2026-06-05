@@ -17,7 +17,7 @@ const INITIATIVE_PROJECTS_QUERY = `
 async function getCustomerBySlug(slug: string) {
   console.log("getCustomerBySlug", slug);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select(
       `
@@ -64,7 +64,7 @@ async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<st
 }
 
 async function saveLinearProjects(userId: string, projectIds: string[]) {
-  const { error } = await supabase
+  const { error } = await supabase.schema("portal")
     .from("users")
     .update({ linear_projects: projectIds })
     .eq("id", userId);

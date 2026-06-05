@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 
 export async function getCustomerBySlug(slug: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select(
       `
@@ -22,7 +22,7 @@ export async function getCustomerBySlug(slug: string) {
 }
 
 export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select("linear_projects")
     .eq("linear_slug", slug)
@@ -35,9 +35,9 @@ export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
 }
 
 export async function getAllCustomers() {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
-    .select("linear_projects, linear_slug")
+    .select("id, linear_projects, linear_slug")
     .eq("role", "customer")
     .not("linear_projects", "is", null);
 
@@ -52,7 +52,7 @@ export async function upsertCycleMetrics(cycles: any[]) {
   if (!cycles.length) return;
 
   const cycleIds = cycles.map((c) => c.cycle_id);
-  const { data: existing } = await supabase
+  const { data: existing } = await supabase.schema("portal")
     .from("cycle_metrics")
     .select("project_id, cycle_id, issues_averages")
     .in("cycle_id", cycleIds);
@@ -70,7 +70,7 @@ export async function upsertCycleMetrics(cycles: any[]) {
     return { ...cycle, issues_averages: merged };
   });
 
-  const { error } = await supabase
+  const { error } = await supabase.schema("portal")
     .from("cycle_metrics")
     .upsert(payload, { onConflict: "customer_id,project_id,cycle_id" });
 
@@ -81,12 +81,12 @@ export async function upsertCycleMetrics(cycles: any[]) {
 
 export async function getMetricsBySlug(projectIds: string[]) {
   const [cycleResult, issueResult] = await Promise.all([
-    supabase
+    supabase.schema("portal")
       .from("cycle_metrics")
       .select("*")
       .in("project_id", projectIds)
       .order("number", { ascending: true }),
-    supabase.from("issue_metrics").select("*").in("project_id", projectIds),
+    supabase.schema("portal").from("issue_metrics").select("*").in("project_id", projectIds),
   ]);
 
   if (cycleResult.error) {
@@ -103,7 +103,7 @@ export async function getMetricsBySlug(projectIds: string[]) {
 }
 
 export async function getCycleMetricsByCustomerId(slug: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("cycle_metrics")
     .select("*")
     .eq("customer_id", slug)
@@ -117,7 +117,7 @@ export async function getCycleMetricsByCustomerId(slug: string) {
 }
 
 export async function getIssueMetricsByCustomerId(slug: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("issue_metrics")
     .select("*")
     .eq("customer_id", slug);
@@ -132,7 +132,7 @@ export async function getIssueMetricsByCustomerId(slug: string) {
 export async function upsertIssueMetrics(metrics: any[]) {
   if (!metrics.length) return;
 
-  const { error } = await supabase
+  const { error } = await supabase.schema("portal")
     .from("issue_metrics")
     .upsert(metrics, { onConflict: "cycle_issue_id" });
 

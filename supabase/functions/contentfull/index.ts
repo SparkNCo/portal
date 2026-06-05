@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       if (slide_three_title !== undefined)
         updateData.slide_three_title = slide_three_title;
 
-      const { data, error } = await supabase
+      const { data, error } = await supabase.schema("marketing")
         .from("ig_posts")
         .update(updateData)
         .eq("blog_id", url)

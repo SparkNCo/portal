@@ -34,7 +34,7 @@ export async function downloadDocument(req: Request) {
       );
     }
 
-    const { data: permissionData, error: permissionError } = await supabase
+    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -63,7 +63,7 @@ export async function downloadDocument(req: Request) {
 
     console.log("Document id:", document_id);
 
-    const { data: document, error: docError } = await supabase
+    const { data: document, error: docError } = await supabase.schema("portal")
       .from("documents")
       .select("link")
       .eq("id", Number(document_id))

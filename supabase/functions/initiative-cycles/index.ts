@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
     const projectIds = [...new Set(rows.map((r) => r.project_id))];
     const numbers = [...new Set(rows.map((r) => r.number))];
 
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await supabase.schema("portal")
       .from("cycle_metrics")
       .select("project_id, number")
       .eq("customer_id", linearSlug)
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
     const skipped = rows.length - newRows.length;
 
     if (newRows.length) {
-      const { error: insertError } = await supabase.from("cycle_metrics").insert(newRows);
+      const { error: insertError } = await supabase.schema("portal").from("cycle_metrics").insert(newRows);
       if (insertError) throw new Error(`Supabase insert failed: ${insertError.message}`);
     }
 

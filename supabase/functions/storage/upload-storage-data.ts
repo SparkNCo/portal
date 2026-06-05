@@ -46,7 +46,7 @@ export async function uploadStorageData(req: Request) {
      * ✅ 1. Get user from DB
      * ---------------------------------------
      */
-    const { data: matchedUser, error: supabaseUserError } = await supabase
+    const { data: matchedUser, error: supabaseUserError } = await supabase.schema("portal")
       .from("users")
       .select("id")
       .eq("email", email)
@@ -98,7 +98,7 @@ export async function uploadStorageData(req: Request) {
      * ✅ 4. Insert Document
      * ---------------------------------------
      */
-    const { data: document, error: dbError } = await supabase
+    const { data: document, error: dbError } = await supabase.schema("portal")
       .from("documents")
       .insert({
         link: fileUrl,
@@ -124,7 +124,7 @@ export async function uploadStorageData(req: Request) {
      * ✅ 5. 🔥 INSERT PERMISSION (NEW)
      * ---------------------------------------
      */
-    const { error: permissionError } = await supabase
+    const { error: permissionError } = await supabase.schema("portal")
       .from("document_permissions")
       .insert({
         user_id: owner_id,
@@ -136,7 +136,7 @@ export async function uploadStorageData(req: Request) {
       console.error("[Permission Insert Error]", permissionError);
 
       // Optional rollback (recommended)
-      await supabase.from("documents").delete().eq("id", document.id);
+      await supabase.schema("portal").from("documents").delete().eq("id", document.id);
 
       return new Response(
         JSON.stringify({ error: "Failed to assign permissions", details: permissionError.message }),

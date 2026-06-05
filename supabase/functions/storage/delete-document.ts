@@ -33,7 +33,7 @@ export async function deleteDocument(req: Request) {
      * ✅ 1. CHECK OWNER PERMISSION
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase
+    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -62,7 +62,7 @@ export async function deleteDocument(req: Request) {
      * ✅ 2. DELETE DOCUMENT
      * ---------------------------------------
      */
-    const { error } = await supabase
+    const { error } = await supabase.schema("portal")
       .from("documents")
       .delete()
       .eq("id", document_id);

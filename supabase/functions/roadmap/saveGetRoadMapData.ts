@@ -8,7 +8,7 @@ import { RoadmapResponseSchema } from "./zod.ts";
 async function getCustomerBySlug(slug: string) {
   console.log("[getCustomerBySlug] Fetching customer for slug:", slug);
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select(
       `

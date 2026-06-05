@@ -18,7 +18,7 @@ export async function getCustomerData(req: Request) {
     });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select(
       `

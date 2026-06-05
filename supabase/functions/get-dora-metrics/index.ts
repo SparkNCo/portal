@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: userRow, error: userError } = await supabase
+    const { data: userRow, error: userError } = await supabase.schema("portal")
       .from("users")
       .select("linear_slug")
       .eq("clientName", userName)
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("portal")
       .from("dora_metrics")
       .select("*")
       .eq("linear_slug", userRow.linear_slug)

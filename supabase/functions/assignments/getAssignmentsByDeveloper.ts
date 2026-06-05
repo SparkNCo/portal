@@ -20,7 +20,7 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
     /**
      * 1. Get all assignments where user_id = developer_id
      */
-    const { data: assignments, error: assignmentsError } = await supabase
+    const { data: assignments, error: assignmentsError } = await supabase.schema("portal")
       .from("assignments")
       .select("id, role, allocation, joined, customer_id")
       .eq("user_id", developer_id);
@@ -39,7 +39,7 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
      */
     const customerIds = assignments.map((a) => a.customer_id);
 
-    const { data: customers, error: customersError } = await supabase
+    const { data: customers, error: customersError } = await supabase.schema("portal")
       .from("users")
       .select("id, email, linear_slug, clientName")
       .in("id", customerIds);

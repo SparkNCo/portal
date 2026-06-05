@@ -39,7 +39,7 @@ const handleGet = async (url: URL) => {
   const email = url.searchParams.get("email");
 
   if (type === "customers") {
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("portal")
       .from("users")
       .select("id, clientName, linear_slug, email, customer_id")
       .eq("role", "customer");
@@ -98,7 +98,7 @@ const jsonResponse = (data: any, status = 200) => {
 // =========================
 
 const fetchUser = async (email: string) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .select("*")
     .eq("email", email)
@@ -108,7 +108,7 @@ const fetchUser = async (email: string) => {
   if (!data) return data;
 
   if (data.assignment_id?.length > 0) {
-    const { data: assignments, error: assignmentError } = await supabase
+    const { data: assignments, error: assignmentError } = await supabase.schema("portal")
       .from("assignments")
       .select("*")
       .in("id", data.assignment_id)
@@ -118,7 +118,7 @@ const fetchUser = async (email: string) => {
 
     const enrichedAssignments = await Promise.all(
       (assignments ?? []).map(async (assignment: any) => {
-        const { data: customer } = await supabase
+        const { data: customer } = await supabase.schema("portal")
           .from("users")
           .select("clientName, linear_slug")
           .eq("id", assignment.customer_id)
