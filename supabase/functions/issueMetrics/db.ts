@@ -23,9 +23,10 @@ export async function getCustomerBySlug(slug: string) {
 
 export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select("linear_projects")
     .eq("linear_slug", slug)
+    .eq("role", "customer")
     .maybeSingle();
 
   if (error) throw new Error(`Failed to fetch customer: ${error.message}`);
@@ -35,8 +36,9 @@ export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
 
 export async function getAllCustomers() {
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select("linear_projects, linear_slug")
+    .eq("role", "customer")
     .not("linear_projects", "is", null);
 
   if (error) {

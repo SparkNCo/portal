@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     }
 
     const { data, error } = await supabase
-      .from("dorametrics")
+      .from("dora_metrics")
       .select("*")
       .eq("linear_slug", userRow.linear_slug)
       .order("created_at", { ascending: false });

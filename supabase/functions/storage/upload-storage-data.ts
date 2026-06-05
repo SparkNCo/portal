@@ -129,7 +129,7 @@ export async function uploadStorageData(req: Request) {
       .insert({
         user_id: owner_id,
         document_id: document.id,
-        permission: "write",
+        permission: "owner",
       });
 
     if (permissionError) {

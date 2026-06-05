@@ -36,7 +36,7 @@ export async function updateDocumentCategory(req: Request) {
 
     console.log("[updateDocumentCategory] ✅ Body parsed successfully");
 
-    const { document_id, category } = parsedBody.data;
+    const { user_id, document_id, category } = parsedBody.data;
 
     console.log("[updateDocumentCategory] 🔍 Extracted values:", {
       document_id,
@@ -45,7 +45,36 @@ export async function updateDocumentCategory(req: Request) {
 
     /**
      * ---------------------------------------
-     * ✅ UPDATE DOCUMENT CATEGORY
+     * ✅ 1. CHECK PERMISSION
+     * ---------------------------------------
+     */
+    const { data: permissionData, error: permissionError } = await supabase
+      .from("document_permissions")
+      .select("permission")
+      .eq("user_id", user_id)
+      .eq("document_id", document_id)
+      .single();
+
+    if (permissionError || !permissionData) {
+      return new Response(JSON.stringify({ error: "No access" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!["write", "owner"].includes(permissionData.permission)) {
+      return new Response(
+        JSON.stringify({ error: "Write permission required" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 2. UPDATE DOCUMENT CATEGORY
      * ---------------------------------------
      */
     console.log("[updateDocumentCategory] 📝 Updating category...", {

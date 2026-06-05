@@ -19,17 +19,18 @@ export async function getCustomerData(req: Request) {
   }
 
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select(
       `
       id,
       email,
       linear_slug,
-      linear_name,
-      linear_initiative_id
+      clientName,
+      initiative_ids
       `,
     )
     .eq("email", email)
+    .eq("role", "customer")
     .maybeSingle();
 
   if (error) {
@@ -53,7 +54,14 @@ export async function getCustomerData(req: Request) {
       },
     });
   }
-  return new Response(JSON.stringify(data), {
+
+  const response = {
+    ...data,
+    linear_name: data.clientName,
+    linear_initiative_id: data.initiative_ids?.[0] ?? null,
+  };
+
+  return new Response(JSON.stringify(response), {
     status: 200,
     headers: {
       ...corsHeaders,

@@ -9,17 +9,18 @@ async function getCustomerBySlug(slug: string) {
   console.log("[getCustomerBySlug] Fetching customer for slug:", slug);
 
   const { data, error } = await supabase
-    .from("customers")
+    .from("users")
     .select(
       `
       linear_projects,
-      linear_initiative_id,
+      initiative_ids,
       linear_slug,
       proposal_id,
-      stripe_customer_id
+      customer_id
     `,
     )
-    .eq("linear_name", slug)
+    .eq("linear_slug", slug)
+    .eq("role", "customer")
     .maybeSingle();
 
   if (error) {
@@ -34,7 +35,11 @@ async function getCustomerBySlug(slug: string) {
 
   console.log("[getCustomerBySlug] Customer found:", data);
 
-  return data;
+  return {
+    ...data,
+    linear_initiative_id: data.initiative_ids?.[0] ?? null,
+    stripe_customer_id: data.customer_id,
+  };
 }
 
 async function fetchFromLinear(initiativeId: string) {

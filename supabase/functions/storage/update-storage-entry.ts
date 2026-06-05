@@ -53,7 +53,7 @@ export async function updateStorageEntry(req: Request) {
       );
     }
 
-    if (permissionData.permission !== "write") {
+    if (!["write", "owner"].includes(permissionData.permission)) {
       return new Response(
         JSON.stringify({ error: "Write permission required" }),
         {

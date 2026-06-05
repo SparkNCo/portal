@@ -26,11 +26,40 @@ export async function deleteDocument(req: Request) {
       );
     }
 
-    const { document_id } = parsedBody.data;
+    const { document_id, user_id } = parsedBody.data;
 
     /**
      * ---------------------------------------
-     * ✅ DELETE DOCUMENT
+     * ✅ 1. CHECK OWNER PERMISSION
+     * ---------------------------------------
+     */
+    const { data: permissionData, error: permissionError } = await supabase
+      .from("document_permissions")
+      .select("permission")
+      .eq("user_id", user_id)
+      .eq("document_id", document_id)
+      .single();
+
+    if (permissionError || !permissionData) {
+      return new Response(JSON.stringify({ error: "No access" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (permissionData.permission !== "owner") {
+      return new Response(
+        JSON.stringify({ error: "Only the owner can delete this document" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 2. DELETE DOCUMENT
      * ---------------------------------------
      */
     const { error } = await supabase

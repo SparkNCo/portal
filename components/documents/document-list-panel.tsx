@@ -142,7 +142,7 @@ export function DocumentRow({
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {/* Category settings */}
 
-              {doc.permission === "write" && (
+              {["write", "owner"].includes(doc.permission) && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -190,7 +190,7 @@ export function DocumentRow({
                 />
               </Button>
 
-              {doc.permission === "write" && (
+              {["write", "owner"].includes(doc.permission) && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -218,7 +218,7 @@ export function DocumentRow({
                 />{" "}
               </Button>
 
-              {doc.permission === "write" && (
+              {doc.permission === "owner" && (
                 <Button
                   variant="ghost"
                   size="icon"

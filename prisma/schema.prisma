@@ -89,16 +89,22 @@ model decisions {
 
 
 model document {
-  id           BigInt                 @id @default(autoincrement()) @db.BigInt
-  created_at   DateTime               @default(now()) @db.Timestamptz(6)
-  file_name    String?
-  link         String?
-  category     String?
-  size         String?
+  id          BigInt   @id @default(autoincrement()) @db.BigInt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  file_name  String?
+  link       String?
+  category   String?
+  size       String?
   project_slug String?
-  permissions  document_permissions[]
+  permissions document_permissions[]
+  
+  // You shouldn't need owner for anything. 
+  // You can have a permission for "owner" on document permissions if needed
+  owner_id   String?  @db.Uuid
+  owner       users? @relation("DocumentOwner", fields: [owner_id], references: [id])
+  
 
-  @@map("documents")
+  @@map("Document") // should be lowercase like the other tables. also make it plural for convention "documents"
 }
 
 model document_permissions {
@@ -107,7 +113,7 @@ model document_permissions {
   document_id BigInt @db.BigInt
   permission  String
 
-  document document @relation(fields: [document_id], references: [id])
+  document Document @relation(fields: [document_id], references: [id])
 }
 
 // rename to dora_metrics
@@ -178,6 +184,8 @@ model users {
   firstName         String?
   lastName          String?
   project_url       String[] // shouldn't be on a user level, should be on a client object
+  documents              Document[]     @relation("DocumentOwner")
+
   // Could you confirm that there's just a single assignments table, and that these keys aren't actually in the table?
   assignments_as_user     assignments[]  @relation("AssignmentUser")
   assignments_as_customer assignments[]  @relation("AssignmentCustomer") 
