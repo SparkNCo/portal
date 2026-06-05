@@ -30,7 +30,7 @@ export async function getStorageData(req: Request) {
       .select(
         `
         permission,
-        Document (
+        documents (
           id,
           file_name,
           link,
@@ -42,10 +42,10 @@ export async function getStorageData(req: Request) {
       `,
       )
       .eq("user_id", user_id)
-      .order("created_at", { foreignTable: "Document", ascending: false });
+      .order("created_at", { foreignTable: "documents", ascending: false });
 
     if (category) {
-      query = query.eq("Document.category", category);
+      query = query.eq("documents.category", category);
     }
 
     const { data, error } = await query;
@@ -68,15 +68,15 @@ export async function getStorageData(req: Request) {
      * ---------------------------------------
      */
     const documents = (data || [])
-      .filter((item) => item.Document) // 🔥 avoid null joins
+      .filter((item) => item.documents) // 🔥 avoid null joins
       .map((item) => ({
-        id: item.Document.id,
-        file_name: item.Document.file_name,
-        link: item.Document.link,
-        category: item.Document.category,
-        size: item.Document.size,
-        created_at: item.Document.created_at,
-        project_slug: item.Document.project_slug,
+        id: item.documents.id,
+        file_name: item.documents.file_name,
+        link: item.documents.link,
+        category: item.documents.category,
+        size: item.documents.size,
+        created_at: item.documents.created_at,
+        project_slug: item.documents.project_slug,
         permission: item.permission,
       }));
     /**

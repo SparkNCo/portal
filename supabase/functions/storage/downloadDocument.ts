@@ -64,7 +64,7 @@ export async function downloadDocument(req: Request) {
     console.log("Document id:", document_id);
 
     const { data: document, error: docError } = await supabase
-      .from("Document")
+      .from("documents")
       .select("link")
       .eq("id", Number(document_id))
       .single();

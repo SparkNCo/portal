@@ -54,7 +54,7 @@ export async function updateDocumentCategory(req: Request) {
     });
 
     const { data, error } = await supabase
-      .from("Document")
+      .from("documents")
       .update({ category })
       .eq("id", document_id)
       .select()

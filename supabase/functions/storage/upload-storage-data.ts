@@ -38,7 +38,7 @@ export async function uploadStorageData(req: Request) {
       );
     }
 
-    const { file, bucket, path, user_id, email, category, project_slug } =
+    const { file, bucket, path, email, category, project_slug } =
       parsedInput.data;
 
     /**
@@ -99,12 +99,11 @@ export async function uploadStorageData(req: Request) {
      * ---------------------------------------
      */
     const { data: document, error: dbError } = await supabase
-      .from("Document")
+      .from("documents")
       .insert({
         link: fileUrl,
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
         category,
-        owner_id,
         file_name: file.name,
         project_slug,
       })
@@ -137,10 +136,10 @@ export async function uploadStorageData(req: Request) {
       console.error("[Permission Insert Error]", permissionError);
 
       // Optional rollback (recommended)
-      await supabase.from("Document").delete().eq("id", document.id);
+      await supabase.from("documents").delete().eq("id", document.id);
 
       return new Response(
-        JSON.stringify({ error: "Failed to assign permissions" }),
+        JSON.stringify({ error: "Failed to assign permissions", details: permissionError.message }),
         {
           status: 500,
           headers: corsHeaders,

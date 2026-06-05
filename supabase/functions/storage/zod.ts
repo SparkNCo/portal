@@ -6,9 +6,9 @@ export const DocumentSchema = z.object({
   link: z.string().url(),
   size: z.string(),
   category: z.string().nullable(),
-  owner_id: z.string().uuid(),
   file_name: z.string(),
   created_at: z.string(),
+  project_slug: z.string().nullable().optional(),
 });
 
 export const GetStorageDataQuerySchema = z.object({
@@ -70,7 +70,6 @@ export const UploadStorageInputSchema = z.object({
   file: z.instanceof(File),
   bucket: z.string().min(1),
   path: z.string().min(1),
-  user_id: z.string().uuid(),
   email: z.string(),
   category: z.string().min(1),
   project_slug: z.string().optional(),

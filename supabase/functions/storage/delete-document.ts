@@ -34,7 +34,7 @@ export async function deleteDocument(req: Request) {
      * ---------------------------------------
      */
     const { error } = await supabase
-      .from("Document")
+      .from("documents")
       .delete()
       .eq("id", document_id);
 

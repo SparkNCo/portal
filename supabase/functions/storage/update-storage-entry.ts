@@ -69,7 +69,7 @@ export async function updateStorageEntry(req: Request) {
      * ---------------------------------------
      */
     const { data, error } = await supabase
-      .from("Document")
+      .from("documents")
       .update(updates)
       .eq("id", id)
       .select()
