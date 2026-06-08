@@ -33,8 +33,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
         users!user_id (
           id,
           email,
-          role,
-          clientName
+          role
         )
       `,
       )

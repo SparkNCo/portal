@@ -8,37 +8,46 @@ import { RoadmapResponseSchema } from "./zod.ts";
 async function getCustomerBySlug(slug: string) {
   console.log("[getCustomerBySlug] Fetching customer for slug:", slug);
 
-  const { data, error } = await supabase.schema("portal")
-    .from("users")
+  const { data: client, error: clientError } = await supabase.schema("portal")
+    .from("customers")
     .select(
       `
+      customer_id,
       linear_projects,
-      initiative_ids,
       linear_slug,
-      proposal_id,
-      customer_id
+      stripe_customer_id
     `,
     )
     .eq("linear_slug", slug)
-    .eq("role", "customer")
     .maybeSingle();
 
-  if (error) {
-    console.error("[getCustomerBySlug] Supabase error:", error);
+  if (clientError) {
+    console.error("[getCustomerBySlug] Supabase error:", clientError);
     throw new Error("Customer not found");
   }
 
-  if (!data) {
+  if (!client) {
     console.warn("[getCustomerBySlug] No customer found for slug:", slug);
     throw new Error("Customer not found");
   }
 
-  console.log("[getCustomerBySlug] Customer found:", data);
+  const { data: customerUser, error: userError } = await supabase.schema("portal")
+    .from("users")
+    .select("initiative_ids")
+    .eq("customer_id", client.customer_id)
+    .eq("role", "customer")
+    .maybeSingle();
+
+  if (userError) {
+    console.error("[getCustomerBySlug] User lookup error:", userError);
+  }
+
+  console.log("[getCustomerBySlug] Customer found:", client);
 
   return {
-    ...data,
-    linear_initiative_id: data.initiative_ids?.[0] ?? null,
-    stripe_customer_id: data.customer_id,
+    ...client,
+    initiative_ids: customerUser?.initiative_ids ?? [],
+    linear_initiative_id: customerUser?.initiative_ids?.[0] ?? null,
   };
 }
 

@@ -15,10 +15,10 @@ export const checkApproval = async (req: Request) => {
     }
 
     const { data, error } = await supabase.schema("portal")
-      .from("users")
+      .from("developers")
       .select("policies_approved")
-      .eq("id", userId)
-      .single();
+      .eq("user_id", userId)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
 

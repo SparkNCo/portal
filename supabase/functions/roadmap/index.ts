@@ -7,12 +7,11 @@ async function getCustomerBySlug(slug: string) {
   console.log("getCustomerBySlug", slug);
 
   const { data, error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .select(
       `
       linear_projects,
-      linear_slug,
-      proposal_id
+      linear_slug
     `,
     )
     .eq("clientName", slug)

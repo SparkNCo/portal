@@ -3,11 +3,11 @@ import { supabase } from "../client.ts";
 
 export async function getCustomerBySlug(slug: string) {
   const { data, error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .select(
       `
+      customer_id,
       linear_projects,
-      linear_initiative_id,
       linear_slug
     `,
     )
@@ -23,10 +23,9 @@ export async function getCustomerBySlug(slug: string) {
 
 export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
   const { data, error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .select("linear_projects")
     .eq("linear_slug", slug)
-    .eq("role", "customer")
     .maybeSingle();
 
   if (error) throw new Error(`Failed to fetch customer: ${error.message}`);
@@ -34,18 +33,40 @@ export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
   return data.linear_projects ?? [];
 }
 
+// issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
+// not the customers table's own customer_id, so each client record is paired with its user.
 export async function getAllCustomers() {
-  const { data, error } = await supabase.schema("portal")
-    .from("users")
-    .select("id, linear_projects, linear_slug")
-    .eq("role", "customer")
+  const { data: clients, error: clientsError } = await supabase.schema("portal")
+    .from("customers")
+    .select("customer_id, linear_projects, linear_slug")
     .not("linear_projects", "is", null);
 
-  if (error) {
-    throw new Error(`Failed to fetch customers: ${error.message}`);
+  if (clientsError) {
+    throw new Error(`Failed to fetch customers: ${clientsError.message}`);
   }
 
-  return data ?? [];
+  const clientIds = (clients ?? []).map((c) => c.customer_id);
+  if (!clientIds.length) return [];
+
+  const { data: customerUsers, error: usersError } = await supabase.schema("portal")
+    .from("users")
+    .select("id, customer_id")
+    .eq("role", "customer")
+    .in("customer_id", clientIds);
+
+  if (usersError) {
+    throw new Error(`Failed to fetch customer users: ${usersError.message}`);
+  }
+
+  const userByClientId = new Map((customerUsers ?? []).map((u) => [u.customer_id, u.id]));
+
+  return (clients ?? [])
+    .filter((c) => userByClientId.has(c.customer_id))
+    .map((c) => ({
+      id: userByClientId.get(c.customer_id),
+      linear_projects: c.linear_projects,
+      linear_slug: c.linear_slug,
+    }));
 }
 
 export async function upsertCycleMetrics(cycles: any[]) {

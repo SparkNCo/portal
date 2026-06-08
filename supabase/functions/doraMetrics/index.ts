@@ -8,7 +8,7 @@ async function getCustomerBySlug(slug: string) {
   console.log(`Fetching customer by slug: ${slug}`);
 
   const { data, error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .select("linear_projects, linear_slug")
     .eq("linear_slug", slug)
     .maybeSingle();

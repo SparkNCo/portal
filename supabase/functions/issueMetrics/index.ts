@@ -24,19 +24,32 @@ async function handleGet(searchParams: URLSearchParams) {
   if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
   console.log("hi");
 
-  const { data: userRow, error: userError } = await supabase.schema("portal")
-    .from("users")
-    .select("id, linear_slug")
+  const { data: customerRow, error: customerError } = await supabase.schema("portal")
+    .from("customers")
+    .select("customer_id, linear_slug")
     .eq("clientName", slug)
     .maybeSingle();
 
-  if (userError) throw new Error(`User lookup error: ${userError.message}`);
-  if (!userRow?.linear_slug)
-    return jsonResponse({ error: `No user found with clientName: ${slug}` }, 404);
+  if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);
+  if (!customerRow?.linear_slug)
+    return jsonResponse({ error: `No customer found with clientName: ${slug}` }, 404);
+
+  // issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
+  // not the customers table's own customer_id
+  const { data: customerUser, error: customerUserError } = await supabase.schema("portal")
+    .from("users")
+    .select("id")
+    .eq("customer_id", customerRow.customer_id)
+    .eq("role", "customer")
+    .maybeSingle();
+
+  if (customerUserError) throw new Error(`Customer user lookup error: ${customerUserError.message}`);
+  if (!customerUser?.id)
+    return jsonResponse({ error: `No customer user linked to clientName: ${slug}` }, 404);
 
   const [issue_metrics, cycle_metrics] = await Promise.all([
-    getIssueMetricsByCustomerId(userRow.id),
-    getCycleMetricsByCustomerId(userRow.id),
+    getIssueMetricsByCustomerId(customerUser.id),
+    getCycleMetricsByCustomerId(customerUser.id),
   ]);
 
   return jsonResponse({ issue_metrics, cycle_metrics });
@@ -122,24 +135,23 @@ async function handlePut(req: Request) {
 }
 
 async function triggerDoraForAllCustomers() {
-  const { data: users, error } = await supabase.schema("portal")
-    .from("users")
+  const { data: clients, error } = await supabase.schema("portal")
+    .from("customers")
     .select("linear_slug, project_url")
-    .eq("role", "customer")
     .not("linear_slug", "is", null)
     .not("project_url", "is", null);
 
-  if (error) throw new Error(`Users lookup error: ${error.message}`);
+  if (error) throw new Error(`Customers lookup error: ${error.message}`);
 
-  const eligible = (users ?? []).filter(
-    (u) => Array.isArray(u.project_url) && u.project_url.length > 0,
+  const eligible = (clients ?? []).filter(
+    (c) => Array.isArray(c.project_url) && c.project_url.length > 0,
   );
 
   const doraUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/dora`;
   const authHeader = `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}`;
 
   await Promise.all(
-    eligible.map((user) =>
+    eligible.map((client) =>
       fetch(doraUrl, {
         method: "POST",
         headers: {
@@ -148,8 +160,8 @@ async function triggerDoraForAllCustomers() {
         },
         body: JSON.stringify({
           method: "all",
-          url: user.project_url,
-          linear_slug: user.linear_slug,
+          url: client.project_url,
+          linear_slug: client.linear_slug,
         }),
       }),
     ),

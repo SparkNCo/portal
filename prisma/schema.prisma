@@ -88,6 +88,16 @@ model decisions {
 }
 
 
+model developers {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  user_id           String   @unique @db.Uuid
+  policies_approved Boolean? @default(false)
+  policy_notion_url String?
+
+  user users @relation("UserDeveloper", fields: [user_id], references: [id])
+}
+
 model document {
   id          BigInt   @id @default(autoincrement()) @db.BigInt
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -175,8 +185,6 @@ model users {
   proposal_id       String?
   linear_slug       String? // shouldn't be on a user level, should be on a client object
   linear_projects   String[] // shouldn't be on a user level, should be on a client object
-  policies_approved Boolean? // shouldn't be on a user level, should be on a developer object
-  policy_notion_url String? // shouldn't be on a user level, should be on a developer object
   userName          String?
   assignment_id     String[] // not sure this is needed, should be using an assignment table xref
   clientName        String? // shouldn't be on a user level, should be on a client object
@@ -185,6 +193,7 @@ model users {
   lastName          String?
   project_url       String[] // shouldn't be on a user level, should be on a client object
   documents              Document[]     @relation("DocumentOwner")
+  developer              developers?    @relation("UserDeveloper")
 
   // Could you confirm that there's just a single assignments table, and that these keys aren't actually in the table?
   assignments_as_user     assignments[]  @relation("AssignmentUser")

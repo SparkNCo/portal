@@ -25,17 +25,19 @@ export const approvePolicy = async (req: Request) => {
 
     const { userId, notionUrl } = parsedBody.data;
 
-    // 1️⃣ Mark user as approved and save the policy URL
+    // 1️⃣ Mark developer as approved and save the policy URL
     const { data, error } = await supabase.schema("portal")
-      .from("users")
-      .update({ policies_approved: true, policy_notion_url: notionUrl ?? null })
-      .eq("id", userId)
+      .from("developers")
+      .upsert(
+        { user_id: userId, policies_approved: true, policy_notion_url: notionUrl ?? null },
+        { onConflict: "user_id" },
+      )
       .select()
       .single();
 
     if (error) throw new Error(error.message);
 
-    const responsePayload = { success: true, user: data };
+    const responsePayload = { success: true, developer: data };
 
     const parsedOutput = ApprovePolicyResponseSchema.safeParse(responsePayload);
 

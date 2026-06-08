@@ -2,6 +2,10 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
+// `users.customer_id` may still hold legacy Stripe customer IDs (e.g. "cus_...")
+// for rows that predate the customers table migration; only UUIDs match `customers.customer_id`.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const getAssignmentsByDeveloper = async (req: Request) => {
   try {
     const url = new URL(req.url);
@@ -35,26 +39,44 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
     }
 
     /**
-     * 2. Fetch customer emails for each customer_id
+     * 2. Fetch customer users (email + link to client record)
      */
     const customerIds = assignments.map((a) => a.customer_id);
 
-    const { data: customers, error: customersError } = await supabase.schema("portal")
+    const { data: customerUsers, error: customersError } = await supabase.schema("portal")
       .from("users")
-      .select("id, email, linear_slug, clientName")
+      .select("id, email, customer_id")
       .in("id", customerIds);
 
     if (customersError) throw new Error(customersError.message);
 
+    /**
+     * 3. Fetch client info (linear_slug, clientName) from the customers table
+     */
+    const clientIds = customerUsers
+      .map((u) => u.customer_id)
+      .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
+
+    const { data: clients, error: clientsError } = await supabase.schema("portal")
+      .from("customers")
+      .select("customer_id, linear_slug, clientName")
+      .in("customer_id", clientIds);
+
+    if (clientsError) throw new Error(clientsError.message);
+
+    const clientMap = Object.fromEntries(
+      clients.map((c) => [c.customer_id, c]),
+    );
+
     const customerMap = Object.fromEntries(
-      customers.map((c) => [c.id, {
-        email: c.email,
-        linear_slug: c.linear_slug,
-        clientName: c.clientName,
+      customerUsers.map((u) => [u.id, {
+        email: u.email,
+        linear_slug: clientMap[u.customer_id]?.linear_slug ?? null,
+        clientName: clientMap[u.customer_id]?.clientName ?? null,
       }]),
     );
 
-    // 3. Merge and return
+    // 4. Merge and return
     const result = assignments.map((a) => ({
       ...a,
       customer_email: customerMap[a.customer_id]?.email ?? null,

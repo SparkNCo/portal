@@ -18,13 +18,12 @@ async function getCustomerBySlug(slug: string) {
   console.log("getCustomerBySlug", slug);
 
   const { data, error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .select(
       `
-      id,
+      customer_id,
       linear_projects,
-      linear_slug,
-      proposal_id
+      linear_slug
     `,
     )
     .eq("clientName", slug)
@@ -63,11 +62,11 @@ async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<st
   return projectIds;
 }
 
-async function saveLinearProjects(userId: string, projectIds: string[]) {
+async function saveLinearProjects(customerId: string, projectIds: string[]) {
   const { error } = await supabase.schema("portal")
-    .from("users")
+    .from("customers")
     .update({ linear_projects: projectIds })
-    .eq("id", userId);
+    .eq("customer_id", customerId);
 
   if (error) {
     console.error("Failed to save linear_projects:", error);
@@ -182,7 +181,7 @@ export async function handleGetIssues(req: Request): Promise<Response> {
       throw new Error(`No projects found in Linear for initiative: ${customer.linear_slug}`);
     }
 
-    await saveLinearProjects(customer.id, projectIds);
+    await saveLinearProjects(customer.customer_id, projectIds);
     console.log(`Saved ${projectIds.length} projects for ${slug}`);
   }
 
