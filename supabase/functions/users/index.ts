@@ -50,7 +50,7 @@ const handleGet = async (url: URL) => {
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
     const { data: clients, error: clientsError } = await supabase.schema("portal")
       .from("customers")
-      .select("customer_id, clientName, linear_slug")
+      .select("customer_id, clientName, linear_slug, stripe_customer_id")
       .in("customer_id", clientIds);
     if (clientsError) throw new Error(clientsError.message);
 
@@ -62,6 +62,7 @@ const handleGet = async (url: URL) => {
       customer_id: u.customer_id,
       clientName: clientMap.get(u.customer_id)?.clientName ?? null,
       linear_slug: clientMap.get(u.customer_id)?.linear_slug ?? null,
+      stripe_customer_id: clientMap.get(u.customer_id)?.stripe_customer_id ?? null,
     }));
 
     return jsonResponse(data);

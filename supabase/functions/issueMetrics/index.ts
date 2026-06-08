@@ -36,16 +36,20 @@ async function handleGet(searchParams: URLSearchParams) {
 
   // issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
   // not the customers table's own customer_id
-  const { data: customerUser, error: customerUserError } = await supabase.schema("portal")
+  const { data: customerUsers, error: customerUserError } = await supabase.schema("portal")
     .from("users")
     .select("id")
     .eq("customer_id", customerRow.customer_id)
     .eq("role", "customer")
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   if (customerUserError) throw new Error(`Customer user lookup error: ${customerUserError.message}`);
+  const customerUser = customerUsers?.[0];
   if (!customerUser?.id)
     return jsonResponse({ error: `No customer user linked to clientName: ${slug}` }, 404);
+  if (customerUsers.length > 1) {
+    console.warn(`[issueMetrics] Multiple customer users linked to customer_id ${customerRow.customer_id}; using oldest (${customerUser.id})`);
+  }
 
   const [issue_metrics, cycle_metrics] = await Promise.all([
     getIssueMetricsByCustomerId(customerUser.id),

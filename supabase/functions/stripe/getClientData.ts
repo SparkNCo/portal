@@ -31,13 +31,13 @@ export async function getClientData(req: Request) {
         }
       );
     }
-    const { customer_id } = parseResult.data;
-    console.log("[getClientData] validated customer_id:", customer_id);
+    const { customer_id: stripeCustomerId } = parseResult.data;
+    console.log("[getClientData] validated customer_id:", stripeCustomerId);
 
     // 🔹 STEP 1: Find active subscription, fall back to most recent canceled one
     console.log("[getClientData] fetching active subscriptions...");
     const activeSubscriptions = await stripe.subscriptions.list({
-      customer: customer_id,
+      customer: stripeCustomerId,
       status: "active",
       limit: 1,
     });
@@ -49,7 +49,7 @@ export async function getClientData(req: Request) {
     } else {
       console.log("[getClientData] no active subscription, fetching most recent canceled subscription...");
       const canceledSubscriptions = await stripe.subscriptions.list({
-        customer: customer_id,
+        customer: stripeCustomerId,
         status: "canceled",
         limit: 1,
       });
@@ -57,7 +57,7 @@ export async function getClientData(req: Request) {
       if (subscription) {
         console.log("[getClientData] found canceled subscription id:", subscription.id, "status:", subscription.status);
       } else {
-        console.log("[getClientData] no subscriptions found at all for customer:", customer_id);
+        console.log("[getClientData] no subscriptions found at all for customer:", stripeCustomerId);
       }
     }
 
@@ -66,7 +66,7 @@ export async function getClientData(req: Request) {
       try {
         console.log("[getClientData] fetching upcoming invoice...");
         upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-          customer: customer_id,
+          customer: stripeCustomerId,
           subscription: subscription.id,
         });
         console.log("[getClientData] upcoming invoice amount_due:", upcomingInvoice.amount_due);
@@ -78,25 +78,25 @@ export async function getClientData(req: Request) {
 
     console.log("[getClientData] fetching invoice history...");
     const invoices = await stripe.invoices.list({
-      customer: customer_id,
+      customer: stripeCustomerId,
       limit: 100,
     });
     console.log("[getClientData] invoices fetched:", invoices.data.length);
 
     console.log("[getClientData] fetching payment methods...");
     const paymentMethods = await stripe.paymentMethods.list({
-      customer: customer_id,
+      customer: stripeCustomerId,
       type: "card",
     });
     console.log("[getClientData] payment methods found:", paymentMethods.data.length);
 
     console.log("[getClientData] fetching customer record...");
-    const customer = await stripe.customers.retrieve(customer_id);
+    const customer = await stripe.customers.retrieve(stripeCustomerId);
     console.log("[getClientData] customer balance:", (customer as any).balance);
 
     console.log("[getClientData] fetching open invoices...");
     const openInvoices = await stripe.invoices.list({
-      customer: customer_id,
+      customer: stripeCustomerId,
       status: "open",
       limit: 5,
     });
