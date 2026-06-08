@@ -38,8 +38,8 @@ interface IssueFields {
   expected?: string;
   actual?: string;
   // feature
-  userStory?: string;
-  acceptanceCriteria?: string;
+  featureDescription?: string;
+  successLooksLike?: string;
   // project
   projectDescription?: string;
   projectDueDate?: string;
@@ -70,9 +70,9 @@ ${data.actual || ""}
 
     case "feature":
       return [
-        `### User Story\n${data.userStory || ""}`,
-        data.acceptanceCriteria
-          ? `### Acceptance Criteria\n${data.acceptanceCriteria}`
+        `### Feature Description\n${data.featureDescription || ""}`,
+        data.successLooksLike
+          ? `### What Success Looks Like\n${data.successLooksLike}`
           : null,
       ]
         .filter(Boolean)
@@ -269,7 +269,7 @@ export function CreateIssue({
     queryKey: ["milestones", selectedProjectId],
     queryFn: () => fetchMilestones(selectedProjectId),
     enabled:
-      !!selectedProjectId && (issueType === "bug" || issueType === "feature" || issueType === "uat"),
+      !!selectedProjectId && (issueType === "bug" || issueType === "uat"),
   });
 
   const issueMutation = useMutation({
@@ -348,7 +348,7 @@ export function CreateIssue({
       </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {step === "type"
@@ -432,31 +432,30 @@ export function CreateIssue({
               {issueType === "feature" && (
                 <>
                   <div className="space-y-1.5">
-                    <Label>User Story</Label>
-                    <p className="text-xs text-muted-foreground -mt-0.5">
-                      As a [user type], I want to [goal], so that [value]
-                    </p>
+                    <Label>Description</Label>
                     <Textarea
-                      placeholder="As a client, I want to see my invoice history, so that I can track my payments."
-                      value={fields.userStory ?? ""}
-                      onChange={(e) => setField("userStory", e.target.value)}
-                      className="bg-secondary border-0 min-h-[80px] resize-none"
+                      placeholder="Describe the feature you'd like in plain language..."
+                      value={fields.featureDescription ?? ""}
+                      onChange={(e) =>
+                        setField("featureDescription", e.target.value)
+                      }
+                      className="bg-secondary border-0 min-h-[90px] resize-none"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label>
-                      Acceptance Criteria{" "}
+                      Requirements{" "}
                       <span className="text-muted-foreground font-normal">
                         (optional)
                       </span>
                     </Label>
                     <Textarea
-                      placeholder="- Given... When... Then...&#10;- The user should be able to..."
-                      value={fields.acceptanceCriteria ?? ""}
+                      placeholder="How will you know this feature is working well?"
+                      value={fields.successLooksLike ?? ""}
                       onChange={(e) =>
-                        setField("acceptanceCriteria", e.target.value)
+                        setField("successLooksLike", e.target.value)
                       }
-                      className="bg-secondary border-0 min-h-[80px] resize-none"
+                      className="bg-secondary border-0 min-h-[70px] resize-none"
                     />
                   </div>
                 </>
@@ -635,68 +634,97 @@ export function CreateIssue({
                 </>
               )}
 
-              {(issueType === "bug" || issueType === "feature") && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>
-                      Milestone{" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </Label>
+              {issueType === "feature" && (
+                <div className="space-y-1.5">
+                  <Label>
+                    Project{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Select
+                    value={selectedProjectId}
+                    onValueChange={setSelectedProjectId}
+                  >
+                    <SelectTrigger className="bg-secondary border-0">
+                      <SelectValue
+                        placeholder={
+                          projects.length
+                            ? "Select a project…"
+                            : "Loading projects…"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
+              {issueType === "bug" && (
+                <div className="space-y-1.5">
+                  <Label>
+                    Milestone{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Select
+                    value={selectedProjectId}
+                    onValueChange={(v) => {
+                      setSelectedProjectId(v);
+                      setSelectedMilestoneId("");
+                    }}
+                  >
+                    <SelectTrigger className="bg-secondary border-0">
+                      <SelectValue
+                        placeholder={
+                          projects.length
+                            ? "Select a project…"
+                            : "Loading projects…"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedProjectId && (
                     <Select
-                      value={selectedProjectId}
-                      onValueChange={(v) => {
-                        setSelectedProjectId(v);
-                        setSelectedMilestoneId("");
-                      }}
+                      value={selectedMilestoneId}
+                      onValueChange={setSelectedMilestoneId}
                     >
-                      <SelectTrigger className="bg-secondary border-0">
+                      <SelectTrigger className="bg-secondary border-0 mt-1.5">
                         <SelectValue
                           placeholder={
-                            projects.length
-                              ? "Select a project…"
-                              : "Loading projects…"
+                            milestones.length
+                              ? "Select a milestone…"
+                              : "No milestones found"
                           }
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
+                        {milestones.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                            {m.targetDate
+                              ? ` — ${new Date(m.targetDate).toLocaleDateString()}`
+                              : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {selectedProjectId && (
-                      <Select
-                        value={selectedMilestoneId}
-                        onValueChange={setSelectedMilestoneId}
-                      >
-                        <SelectTrigger className="bg-secondary border-0 mt-1.5">
-                          <SelectValue
-                            placeholder={
-                              milestones.length
-                                ? "Select a milestone…"
-                                : "No milestones found"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {milestones.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.name}
-                              {m.targetDate
-                                ? ` — ${new Date(m.targetDate).toLocaleDateString()}`
-                                : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                </>
+                  )}
+                </div>
               )}
 
               {issueType !== "milestone" && (

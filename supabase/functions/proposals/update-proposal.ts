@@ -11,7 +11,7 @@ export async function updateProposal(req: Request): Promise<Response> {
 
     const { lead, ...proposalUpdates } = updates;
 
-    const { data: updatedRows, error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase.schema("marketing")
       .from("proposals")
       .update({
         ...proposalUpdates,

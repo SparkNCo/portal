@@ -10,7 +10,7 @@ import { useAuth } from "../AuthContext";
 
 export async function fetchBillingData({ user }: { user: any }) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${user?.customer_id}`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${user?.stripe_customer_id ?? user?.customer_id}`,
   );
 
   if (!res.ok) {

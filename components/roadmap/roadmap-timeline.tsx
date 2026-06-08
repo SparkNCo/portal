@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
-import { IssueDetailModal, Issue } from "@/components/client/priority-tasks";
+import { IssueDetailModal } from "@/components/client/issue-detail-modal";
+import type { Issue } from "@/components/client/issues.types";
 import { X } from "lucide-react";
 
 export type MilestoneStatus =
@@ -41,20 +42,31 @@ type RoadmapTimelineProps = {
 };
 
 const priorityColors: Record<string, string> = {
-  Urgent: "bg-destructive/20 border-destructive/40 text-destructive",
-  High: "bg-warning/20 border-warning/40 text-warning",
-  Medium: "bg-chart-1/20 border-chart-1/40 text-chart-1",
-  Low: "bg-muted border-border text-muted-foreground",
-  "No priority": "bg-muted border-border text-muted-foreground",
+  Urgent: "bg-destructive/20 text-destructive border-destructive/30",
+  High: "bg-warning/20 text-warning border-warning/30",
+  Medium: "bg-accent/20 text-accent border-accent/30",
+  Low: "bg-muted/50 text-muted-foreground border-muted",
+  "No priority": "bg-muted/50 text-muted-foreground border-muted",
 };
 
 const stateColors: Record<string, string> = {
-  Done: "bg-success/20 border-success/40 text-success",
-  Completed: "bg-success/20 border-success/40 text-success",
-  "In Progress": "bg-chart-1/20 border-chart-1/40 text-chart-1",
-  Todo: "bg-muted border-border text-muted-foreground",
-  Backlog: "bg-muted border-border text-muted-foreground",
-  Cancelled: "bg-destructive/20 border-destructive/40 text-destructive",
+  "needs-input": "bg-chart-1/20 text-chart-1",
+  Backlog: "bg-muted/50 text-muted-foreground",
+  Todo: "bg-slate-500/20 text-slate-600",
+  "In Progress": "bg-warning/20 text-warning",
+  "In Review": "bg-blue-500/20 text-blue-600",
+  Blocked: "bg-destructive/20 text-destructive",
+  "Not Started": "bg-muted/50 text-muted-foreground",
+  Canceled: "bg-destructive/20 text-destructive",
+  Cancelled: "bg-destructive/20 text-destructive",
+  waiting: "bg-muted text-muted-foreground",
+  Done: "bg-success/20 text-success",
+  Completed: "bg-success/20 text-success",
+  QA: "bg-blue-700/20 text-blue-700",
+  "Business Review": "bg-orange-500/20 text-orange-600",
+  Development: "bg-orange-500/20 text-orange-600",
+  UAT: "bg-teal-500/20 text-teal-600",
+  Planning: "bg-yellow-500/20 text-yellow-600",
 };
 
 export function RoadmapTimeline({

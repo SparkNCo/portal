@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { LeadUpdateSchema } from "./zod.ts";
 
@@ -19,7 +20,7 @@ export async function handleUpdateLead(req: Request) {
 
   const { id, lead_id, ...updates } = parsed.data;
 
-  let query = supabase.from("leads").update(updates);
+  let query = supabase.schema("marketing").from("leads").update(updates);
 
   if (id) {
     query = query.eq("id", id);

@@ -45,8 +45,8 @@ async function linearRequest(query: string, variables: Record<string, any> = {})
 }
 
 async function resolveTeamId(slug: string): Promise<string> {
-  const { data, error } = await supabase
-    .from("users")
+  const { data, error } = await supabase.schema("portal")
+    .from("customers")
     .select("linear_projects")
     .eq("clientName", slug)
     .maybeSingle();

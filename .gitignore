@@ -2,9 +2,11 @@
 node_modules/
 /.pnp
 .pnp.js
+.claude
 
 # Environment variables
 .env
+.env.test
 .env.local
 .env.development.local
 .env.test.local
@@ -59,3 +61,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Playwright
+/blob-report/
+/playwright/.auth/

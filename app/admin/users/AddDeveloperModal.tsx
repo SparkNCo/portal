@@ -35,7 +35,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
-            ...(userName && { clientName: userName }),
+            ...(userName && { userName }),
             ...(phoneNumber && { phoneNumber }),
           }),
         },

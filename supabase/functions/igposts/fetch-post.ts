@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 
 export async function getPostById(id: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("marketing")
     .from("ig_posts")
     .select(
       `

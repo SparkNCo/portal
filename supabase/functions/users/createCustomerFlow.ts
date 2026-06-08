@@ -3,10 +3,20 @@ import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
 export const createCustomerFlow = async (body: any) => {
-  const { email, customer_id, linear_slug, origin, firstName = null, lastName = null, clientName = null, phoneNumber = null } = body;
+  const {
+    email,
+    customer_id: stripeCustomerId,
+    linear_slug,
+    origin,
+    firstName = null,
+    lastName = null,
+    clientName = null,
+    phoneNumber = null,
+  } = body;
 
   if (!email) throw new Error("Email required");
   if (!linear_slug) throw new Error("linear_slug required");
+  if (!clientName) throw new Error("clientName required");
 
   const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
 
@@ -46,23 +56,35 @@ export const createCustomerFlow = async (body: any) => {
     inviteLink = inviteData.properties.action_link;
   }
 
-  // Upsert users table — insert on new, update columns on existing
-  const { data: customerUser, error: upsertError } = await supabase
+  // Create the client record (linear_slug, clientName, stripe id) in `customers`
+  const { data: clientRecord, error: clientError } = await supabase.schema("portal")
+    .from("customers")
+    .insert([{ stripe_customer_id: stripeCustomerId, linear_slug, clientName }])
+    .select()
+    .single();
+
+  if (clientError) {
+    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    throw new Error(clientError.message);
+  }
+
+  // Upsert users table, linking to the client record via customer_id
+  const { data: customerUser, error: upsertError } = await supabase.schema("portal")
     .from("users")
     .upsert(
-      [{ id: authUserId, email, role: "customer", customer_id, linear_slug, firstName, lastName, clientName, phoneNumber }],
+      [{ id: authUserId, email, role: "customer", customer_id: clientRecord.customer_id, firstName, lastName, phoneNumber }],
       { onConflict: "id" }
     )
     .select()
     .single();
 
   if (upsertError) {
-    // Only clean up the auth user if we just created them (invite path)
     if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    await supabase.schema("portal").from("customers").delete().eq("customer_id", clientRecord.customer_id);
     throw new Error(upsertError.message);
   }
 
   await sendInviteCustomerMail(email, inviteLink);
 
-  return { customer: customerUser };
+  return { customer: customerUser, client: clientRecord };
 };

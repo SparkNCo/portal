@@ -31,7 +31,7 @@ export async function fetchFeatures(req: Request): Promise<Response> {
 
     const { submission_id } = parsedQuery.data;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabase.schema("marketing")
       .from("requirements")
       .select(
         `

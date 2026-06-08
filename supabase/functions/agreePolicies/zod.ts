@@ -8,8 +8,9 @@ export const ApprovePolicySchema = z.object({
 
 export const ApprovePolicyResponseSchema = z.object({
   success: z.literal(true),
-  user: z.object({
+  developer: z.object({
     id: z.string().uuid(),
+    user_id: z.string().uuid(),
     policies_approved: z.boolean(),
     policy_notion_url: z.string().url().nullable(),
   }),

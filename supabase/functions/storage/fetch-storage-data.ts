@@ -25,40 +25,47 @@ export async function getStorageData(req: Request) {
     }
 
 
-    let query = supabase
+    // 1. Get permissions for this user
+    const { data: permissions, error: permError } = await supabase.schema("portal")
       .from("document_permissions")
-      .select(
-        `
-        permission,
-        Document (
-          id,
-          file_name,
-          link,
-          category,
-          size,
-          created_at,
-          project_slug
-        )
-      `,
-      )
-      .eq("user_id", user_id)
-      .order("created_at", { foreignTable: "Document", ascending: false });
+      .select("document_id, permission")
+      .eq("user_id", user_id);
 
-    if (category) {
-      query = query.eq("Document.category", category);
+    if (permError) {
+      console.error("[Get Permissions Error]", permError);
+      return new Response(JSON.stringify({ error: permError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { data, error } = await query;
+    if (!permissions?.length) {
+      return new Response(JSON.stringify({ success: true, count: 0, documents: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const documentIds = permissions.map((p) => p.document_id);
+    const permissionMap = new Map(permissions.map((p) => [p.document_id, p.permission]));
+
+    // 2. Fetch the actual documents
+    let docQuery = supabase.schema("portal")
+      .from("documents")
+      .select("id, file_name, link, category, size, created_at, project_slug")
+      .in("id", documentIds)
+      .order("created_at", { ascending: false });
+
+    if (category) {
+      docQuery = docQuery.eq("category", category);
+    }
+
+    const { data, error } = await docQuery;
     console.log("RAW DATA:", JSON.stringify(data, null, 2));
     if (error) {
       console.error("[Get Documents Error]", error);
-
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -67,18 +74,16 @@ export async function getStorageData(req: Request) {
      * ✅ 3. Flatten result
      * ---------------------------------------
      */
-    const documents = (data || [])
-      .filter((item) => item.Document) // 🔥 avoid null joins
-      .map((item) => ({
-        id: item.Document.id,
-        file_name: item.Document.file_name,
-        link: item.Document.link,
-        category: item.Document.category,
-        size: item.Document.size,
-        created_at: item.Document.created_at,
-        project_slug: item.Document.project_slug,
-        permission: item.permission,
-      }));
+    const documents = (data || []).map((doc) => ({
+      id: doc.id,
+      file_name: doc.file_name,
+      link: doc.link,
+      category: doc.category,
+      size: doc.size,
+      created_at: doc.created_at,
+      project_slug: doc.project_slug,
+      permission: permissionMap.get(doc.id) ?? null,
+    }));
     /**
      * ---------------------------------------
      * ✅ 4. Response (no validation)

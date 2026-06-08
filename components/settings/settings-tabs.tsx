@@ -51,12 +51,12 @@ export function SettingsTabs() {
 
   // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise
   const effectiveUserId = targetCustomer?.id ?? profile?.id;
-  const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
+  const effectiveStripeId = targetCustomer?.stripe_customer_id ?? (profile as any)?.stripe_customer_id;
 
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ["billing", effectiveCustomerId],
-    queryFn: () => fetchBillingData({ user: { customer_id: effectiveCustomerId } }),
-    enabled: !!effectiveCustomerId,
+    queryKey: ["billing", effectiveStripeId],
+    queryFn: () => fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } }),
+    enabled: !!effectiveStripeId,
     staleTime: 1000 * 30,
   });
 

@@ -14,7 +14,7 @@ export async function getByPasscode(req: Request): Promise<Response> {
       });
     }
 
-    const { data: proposal, error } = await supabase
+    const { data: proposal, error } = await supabase.schema("marketing")
       .from("proposals")
       .select(
         `
@@ -85,7 +85,7 @@ export async function getByPasscode(req: Request): Promise<Response> {
       });
     }
 
-    const { data: features, error: featuresError } = await supabase
+    const { data: features, error: featuresError } = await supabase.schema("marketing")
       .from("requirements")
       .select(
         `

@@ -53,7 +53,7 @@ export async function saveUserProjects(
   linearUserId: string,
   projectIds: string[],
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .update({
       project_ids: projectIds,
@@ -72,7 +72,7 @@ export async function saveUserProjectsByEmail(
   projectIds: string[],
   initiativeIds: string[],
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .update({
       project_ids: projectIds,

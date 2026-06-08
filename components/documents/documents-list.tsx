@@ -171,37 +171,34 @@ export function DocumentsList() {
 
         {Array.from(groupedDocs.entries()).map(([slug, docs]) => {
           const isCollapsed = !expandedGroups.has(slug);
-          const isGrouped = groupedDocs.size > 1;
 
           return (
             <div key={slug} className="mb-4">
-              {isGrouped && (
-                <button
-                  onClick={() => toggleGroup(slug)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
-                >
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4 text-accent shrink-0" />
-                    <span className="text-sm font-medium text-foreground capitalize">
-                      {slug}
-                    </span>
-                    <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
-                      {docs.length} {docs.length === 1 ? "file" : "files"}
-                    </span>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                      isCollapsed && "-rotate-90",
-                    )}
-                  />
-                </button>
-              )}
+              <button
+                onClick={() => toggleGroup(slug)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
+              >
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-accent shrink-0" />
+                  <span className="text-sm font-medium text-foreground capitalize">
+                    {slug}
+                  </span>
+                  <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
+                    {docs.length} {docs.length === 1 ? "file" : "files"}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                    isCollapsed && "-rotate-90",
+                  )}
+                />
+              </button>
 
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-200",
-                  isGrouped && isCollapsed ? "max-h-0" : "max-h-[9999px]",
+                  isCollapsed ? "max-h-0" : "max-h-[9999px]",
                 )}
               >
                 <DocumentRow filteredDocs={docs} userId={profile?.id} />

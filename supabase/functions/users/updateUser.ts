@@ -8,7 +8,7 @@ export const updateUser = async (body: any) => {
     throw new Error("User id is required for update");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("portal")
     .from("users")
     .update(fields)
     .eq("id", id)

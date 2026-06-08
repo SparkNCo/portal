@@ -1,6 +1,6 @@
 
 // @ts-nocheck
-import { Redis } from "https://deno.land/x/upstash_redis@v1.19.3/mod.ts";
+import { Redis } from "npm:@upstash/redis";
 
 export const redis = new Redis({
   url: Deno.env.get("UPSTASH_REDIS_REST_URL")!,

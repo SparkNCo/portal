@@ -15,6 +15,7 @@ export default function DeveloperDashboard() {
   const { profile } = useUser();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
 
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
@@ -42,35 +43,8 @@ export default function DeveloperDashboard() {
     enabled: projects.length > 0,
   });
 
-  const userEmail = profile?.email;
-  const { data: questionsData } = useQuery<{
-    countByIssue: Record<string, number>;
-  }>({
-    queryKey: ["decision-counts", userEmail],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/decisions/counts?user_email=${encodeURIComponent(userEmail!)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          },
-        },
-      );
-      if (!res.ok) throw new Error("Failed to fetch decision counts");
-      return res.json();
-    },
-    enabled: !!userEmail,
-  });
-
-  const questionCounts = questionsData?.countByIssue ?? {};
-
   const allIssues: any[] = (issuesData ?? [])
-    .filter((i: any) => i?.state?.name !== "Done")
-    .sort(
-      (a: any, b: any) =>
-        (questionCounts[b.id] ?? 0) - (questionCounts[a.id] ?? 0),
-    );
+    .filter((i: any) => i?.state?.name !== "Done");
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
 
@@ -78,9 +52,18 @@ export default function DeveloperDashboard() {
     ? allIssues.filter((i: any) => i._project === selectedProject)
     : allIssues;
 
-  const visibleIssues = selectedStatuses.length > 0
+  const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
+
+  const statusFiltered = selectedStatuses.length > 0
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
+
+  const visibleIssues = [...statusFiltered].sort((a: any, b: any) => {
+    if (sortBy === "priority")
+      return PRIORITY_ORDER.indexOf(a.priorityLabel) - PRIORITY_ORDER.indexOf(b.priorityLabel);
+    // default: last updated
+    return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+  });
 
   const filterState = {
     selectedStatuses,
@@ -135,21 +118,37 @@ export default function DeveloperDashboard() {
           </div>
         )}
 
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Sort by:</span>
+          {(["updated", "priority"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setSortBy(opt)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                sortBy === opt
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {opt === "updated" ? "Last Updated" : "Priority"}
+            </button>
+          ))}
+        </div>
+
         <div className="w-full max-w-full overflow-hidden">
           <PriorityTasks
             issuesData={visibleIssues}
             filterState={filterState}
             onOpenChat={() => {}}
             title={selectedProject ?? "All Tasks"}
-            questionCounts={questionCounts}
           />
         </div>
 
-        <CreateIssue
+        {/* <CreateIssue
           slug={projects[0]?.clientName ?? ""}
           projectId=""
           profile={profile}
-        />
+        /> */}
       </div>
     </div>
   );
