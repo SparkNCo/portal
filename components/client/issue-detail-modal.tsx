@@ -700,13 +700,17 @@ export function IssueDetailModal({
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-all duration-200 ${
         visible ? "bg-black/60 backdrop-blur-sm" : "bg-transparent backdrop-blur-none"
       }`}
-      onClick={handleClose}
     >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        onClick={handleClose}
+        aria-label="Close modal"
+      />
       <div
-        className={`relative bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:mx-6 flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all duration-200 ${
+        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:mx-6 flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all duration-200 ${
           visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
         }`}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 p-5 border-b border-border">

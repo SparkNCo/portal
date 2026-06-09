@@ -15,19 +15,19 @@ export function IssueCard({
 }) {
   const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
-    <div
-      className="flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150 cursor-pointer"
-      onClick={onOpen}
-    >
+    <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
+      <button
+        type="button"
+        className="absolute inset-0 rounded-lg cursor-pointer"
+        onClick={onOpen}
+        aria-label={issue.title}
+      />
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
-          <Badge
-            variant="outline"
-            className={priorityColors[issue.priorityLabel as keyof typeof priorityColors]}
-          >
+          <Badge variant="outline" className={priorityColors[issue.priorityLabel]}>
             {issue.priorityLabel}
           </Badge>
         </div>
@@ -50,11 +50,9 @@ export function IssueCard({
           </Badge>
           {onOpenChat && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenChat(chatTitle);
-              }}
-              className="text-muted-foreground hover:text-accent transition-colors"
+              type="button"
+              className="relative z-10 text-muted-foreground hover:text-accent transition-colors"
+              onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
               title="Open chat about this issue"
             >
               <MessageSquare className="h-3.5 w-3.5" />
@@ -77,16 +75,19 @@ export function IssueListRow({
 }) {
   const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
-    <div
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 cursor-pointer transition-all border border-transparent hover:border-border group"
-      onClick={onOpen}
-    >
+    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border group">
+      <button
+        type="button"
+        className="absolute inset-0 rounded-lg cursor-pointer"
+        onClick={onOpen}
+        aria-label={issue.title}
+      />
       <span className="text-[10px] font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
       <Badge
         variant="outline"
-        className={`text-[10px] flex-shrink-0 ${priorityColors[issue.priorityLabel as keyof typeof priorityColors]}`}
+        className={`text-[10px] flex-shrink-0 ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
@@ -95,11 +96,9 @@ export function IssueListRow({
       </p>
       {onOpenChat && (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenChat(chatTitle);
-          }}
-          className="text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
+          type="button"
+          className="relative z-10 text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
           title="Open chat about this issue"
         >
           <MessageSquare className="h-3.5 w-3.5" />
