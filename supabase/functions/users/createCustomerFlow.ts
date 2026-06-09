@@ -2,6 +2,41 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
+async function resolveAuthUser(
+  email: string,
+  redirectTo: string,
+): Promise<{ authUserId: string; inviteLink: string; isNew: boolean }> {
+  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
+
+  if (!inviteError) {
+    return { authUserId: inviteData.user.id, inviteLink: inviteData.properties.action_link, isNew: true };
+  }
+
+  if (!inviteError.message.includes("already been registered")) {
+    throw new Error(`Auth invite failed: ${inviteError.message}`);
+  }
+
+  // User already exists in auth — find them and generate a recovery link instead
+  const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
+  if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
+
+  const existingAuthUser = listData.users.find((u: any) => u.email === email);
+  if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
+
+  const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo },
+  });
+  if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
+
+  return { authUserId: existingAuthUser.id, inviteLink: recoveryData.properties.action_link, isNew: false };
+}
+
 export const createCustomerFlow = async (body: any) => {
   const {
     email,
@@ -19,42 +54,7 @@ export const createCustomerFlow = async (body: any) => {
   if (!clientName) throw new Error("clientName required");
 
   const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
-
-  let authUserId: string;
-  let inviteLink: string;
-
-  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  });
-
-  if (inviteError) {
-    if (!inviteError.message.includes("already been registered")) {
-      throw new Error(`Auth invite failed: ${inviteError.message}`);
-    }
-
-    // User already exists in auth — find them and generate a recovery link instead
-    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
-
-    const existingAuthUser = listData.users.find((u: any) => u.email === email);
-    if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
-
-    authUserId = existingAuthUser.id;
-
-    const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo },
-    });
-    if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
-
-    inviteLink = recoveryData.properties.action_link;
-  } else {
-    authUserId = inviteData.user.id;
-    inviteLink = inviteData.properties.action_link;
-  }
+  const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
 
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const { data: clientRecord, error: clientError } = await supabase.schema("portal")
@@ -64,7 +64,7 @@ export const createCustomerFlow = async (body: any) => {
     .single();
 
   if (clientError) {
-    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    if (isNew) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(clientError.message);
   }
 
@@ -79,7 +79,7 @@ export const createCustomerFlow = async (body: any) => {
     .single();
 
   if (upsertError) {
-    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    if (isNew) await supabase.auth.admin.deleteUser(authUserId);
     await supabase.schema("portal").from("customers").delete().eq("customer_id", clientRecord.customer_id);
     throw new Error(upsertError.message);
   }
