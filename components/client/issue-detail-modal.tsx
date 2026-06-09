@@ -645,6 +645,7 @@ export function IssueDetailModal({
     setLoadingTests(true);
 
     supabase
+      .schema("portal")
       .from("decisions")
       .select("*")
       .eq("issue_id", issue.id)

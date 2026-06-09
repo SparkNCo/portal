@@ -11,11 +11,13 @@ import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { API_HEADERS } from "@/lib/api-headers";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { Button } from "@/components/components/ui/button";
 
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
+  console.log("CALLING");
 
   const params = new URLSearchParams({
     slug,
@@ -23,7 +25,10 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   });
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/issues?${params.toString()}`,
+    { headers: API_HEADERS },
   );
+  console.log("END CCALL");
+
   if (!res.ok) throw new Error("Failed to fetch issues");
   return res.json();
 }

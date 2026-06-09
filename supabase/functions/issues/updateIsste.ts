@@ -139,6 +139,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
       Prefer: "return=representation",
+      "Content-Profile": "portal",
     },
     body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question }),
   });
@@ -197,6 +198,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
       "Content-Type": "application/json",
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
+      "Content-Profile": "portal",
     },
     body: JSON.stringify({ posted_to_linear: true }),
   });
@@ -227,6 +229,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
+        "Content-Profile": "portal",
       },
       body: JSON.stringify({
         decision,
@@ -250,7 +253,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
     const getRes = await fetch(
       `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
       {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": "portal" },
       },
     );
     const [decisionRow] = await getRes.json();
