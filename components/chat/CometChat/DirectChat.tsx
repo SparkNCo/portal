@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Bot } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
+import { extractChatMessage, formatMessageTime } from "./chatUtils";
 
 type Props = Readonly<{
   user: CometChat.User;
@@ -111,14 +112,14 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
         )}
 
         {messages.map((msg, i) => {
-          const senderUid = msg.getSender?.()?.getUid?.() ?? msg.sender?.uid ?? "";
+          const data = extractChatMessage(msg, i);
+          if (!data) return null;
+          const { id, senderUid, text, sentAt } = data;
           const isMe = senderUid === user.getUid();
-          const text = msg.getText?.() ?? msg.text ?? msg?.aiAssistantMessageData?.text;
-          const sentAt: number | undefined = msg.getSentAt?.() ?? msg.sentAt;
 
           return (
             <div
-              key={msg.getId?.() ?? i}
+              key={id}
               className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
             >
               {!isMe && (
@@ -138,10 +139,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
                 </div>
                 {!!sentAt && (
                   <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                    {new Date(sentAt * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatMessageTime(sentAt)}
                   </span>
                 )}
               </div>

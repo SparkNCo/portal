@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Users } from "lucide-react";
-import { MessageAvatar } from "./MessageAvatar";
 import { ChatSpinner } from "./ChatSpinner";
+import { MessageBubble } from "./MessageBubble";
 
 type Props = Readonly<{
   user: CometChat.User;
@@ -108,55 +108,9 @@ export default function GroupChat({ user, group }: Props) {
           </div>
         )}
 
-        {messages.map((msg, i) => {
-          const senderUid =
-            msg.getSender?.()?.getUid?.() ?? msg.sender?.uid ?? "";
-          const isMe = senderUid === user.getUid();
-          const senderName =
-            msg.getSender?.()?.getName?.() ?? msg.sender?.name ?? "Unknown";
-          const text =
-            msg.getText?.() ?? msg.text ?? msg?.aiAssistantMessageData?.text;
-
-          if (!text?.trim()) return null;
-          const sentAt: number | undefined =
-            msg.getSentAt?.() ?? msg.sentAt;
-
-          return (
-            <div
-              key={msg.getId?.() ?? i}
-              className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
-            >
-              {!isMe && <MessageAvatar name={senderName} />}
-
-              <div
-                className={`flex flex-col max-w-[65%] ${isMe ? "items-end" : "items-start"}`}
-              >
-                {!isMe && (
-                  <span className="text-xs text-muted-foreground mb-1 px-1">
-                    {senderName}
-                  </span>
-                )}
-                <div
-                  className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                    isMe
-                      ? "bg-accent text-accent-foreground rounded-tr-sm"
-                      : "bg-secondary text-secondary-foreground rounded-tl-sm"
-                  }`}
-                >
-                  {text}
-                </div>
-                {!!sentAt && (
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                    {new Date(sentAt * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((msg, i) => (
+          <MessageBubble key={msg.getId?.() ?? i} msg={msg} index={i} user={user} />
+        ))}
         <div ref={bottomRef} />
       </div>
 

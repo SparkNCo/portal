@@ -5,10 +5,10 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send } from "lucide-react";
 import { COMETCHAT_CONSTANTS } from "./constants";
 import { useUser } from "context/UserContext";
-import { supabase } from "@/lib/supabase-client";
-import { MessageAvatar } from "./MessageAvatar";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChatSpinner } from "./ChatSpinner";
+import { initCometChatUser } from "./initCometChatUser";
+import { MessageBubble } from "./MessageBubble";
 
 function IssueGroupChat({
   user,
@@ -104,52 +104,9 @@ function IssueGroupChat({
             No messages yet. Start the conversation.
           </p>
         )}
-        {messages.map((msg, i) => {
-          const senderUid =
-            msg.getSender?.()?.getUid?.() ?? msg.sender?.uid ?? "";
-          const isMe = senderUid === user.getUid();
-          const senderName =
-            msg.getSender?.()?.getName?.() ?? msg.sender?.name ?? "Unknown";
-          const text =
-            msg.getText?.() ?? msg.text ?? msg?.aiAssistantMessageData?.text;
-          if (!text?.trim()) return null;
-          const sentAt: number | undefined = msg.getSentAt?.() ?? msg.sentAt;
-
-          return (
-            <div
-              key={msg.getId?.() ?? i}
-              className={`flex gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}
-            >
-              {!isMe && <MessageAvatar name={senderName} className="w-6 h-6 text-[10px]" />}
-              <div
-                className={`flex flex-col max-w-[70%] ${isMe ? "items-end" : "items-start"}`}
-              >
-                {!isMe && (
-                  <span className="text-[10px] text-muted-foreground mb-0.5 px-1">
-                    {senderName}
-                  </span>
-                )}
-                <div
-                  className={`px-2.5 py-1.5 rounded-xl text-xs leading-relaxed ${
-                    isMe
-                      ? "bg-accent text-accent-foreground rounded-tr-sm"
-                      : "bg-secondary text-secondary-foreground rounded-tl-sm"
-                  }`}
-                >
-                  {text}
-                </div>
-                {!!sentAt && (
-                  <span className="text-[9px] text-muted-foreground mt-0.5 px-1">
-                    {new Date(sentAt * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {messages.map((msg, i) => (
+          <MessageBubble key={msg.getId?.() ?? i} msg={msg} index={i} user={user} compact />
+        ))}
         <div ref={bottomRef} />
       </div>
 
@@ -308,43 +265,8 @@ export function IssueCometChat({ issueId, issueTitle, linearPostedAt }: { readon
     try {
       (globalThis as any).window.CometChat =
         require("@cometchat/chat-sdk-javascript").CometChat;
-
-      await CometChat.init(
-        COMETCHAT_CONSTANTS.APP_ID,
-        new CometChat.AppSettingsBuilder()
-          .setRegion(COMETCHAT_CONSTANTS.REGION)
-          .subscribePresenceForAllUsers()
-          .build(),
-      );
-
-      const { data } = await supabase.auth.getUser();
-      const supaUser = data.user;
-      if (!supaUser) throw new Error("Not logged in");
-
-      let cometUser = await CometChat.getLoggedinUser();
-      if (cometUser && cometUser.getUid() !== supaUser.id) {
-        await CometChat.logout();
-        cometUser = null;
-      }
-      if (!cometUser) {
-        try {
-          cometUser = await CometChat.login(
-            supaUser.id,
-            COMETCHAT_CONSTANTS.AUTH_KEY,
-          );
-        } catch (loginErr: any) {
-          if (loginErr?.code !== "ERR_UID_NOT_FOUND") throw loginErr;
-          const newUser = new CometChat.User(supaUser.id);
-          newUser.setName(supaUser.email ?? supaUser.id);
-          await CometChat.createUser(newUser, COMETCHAT_CONSTANTS.AUTH_KEY);
-          cometUser = await CometChat.login(
-            supaUser.id,
-            COMETCHAT_CONSTANTS.AUTH_KEY,
-          );
-        }
-      }
+      const cometUser = await initCometChatUser();
       setUser(cometUser);
-
       const grp = await getOrCreateIssueGroup(issueId, issueTitle, profile);
       setGroup(grp);
       setReady(true);

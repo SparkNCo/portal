@@ -1,0 +1,55 @@
+"use client";
+
+import { CometChat } from "@cometchat/chat-sdk-javascript";
+import { MessageAvatar } from "./MessageAvatar";
+import { extractChatMessage, formatMessageTime } from "./chatUtils";
+
+export function MessageBubble({
+  msg,
+  index,
+  user,
+  compact = false,
+}: {
+  readonly msg: any;
+  readonly index: number;
+  readonly user: CometChat.User;
+  readonly compact?: boolean;
+}) {
+  const data = extractChatMessage(msg, index);
+  if (!data) return null;
+
+  const { senderUid, senderName, text, sentAt } = data;
+  const isMe = senderUid === user.getUid();
+
+  return (
+    <div className={`flex ${compact ? "gap-1.5" : "gap-2"} ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+      {!isMe && (
+        <MessageAvatar
+          name={senderName}
+          className={compact ? "w-6 h-6 text-[10px]" : undefined}
+        />
+      )}
+      <div className={`flex flex-col ${compact ? "max-w-[70%]" : "max-w-[65%]"} ${isMe ? "items-end" : "items-start"}`}>
+        {!isMe && (
+          <span className={`${compact ? "text-[10px] mb-0.5" : "text-xs mb-1"} text-muted-foreground px-1`}>
+            {senderName}
+          </span>
+        )}
+        <div
+          className={`${compact ? "px-2.5 py-1.5 rounded-xl text-xs" : "px-3 py-2 rounded-2xl text-sm"} leading-relaxed ${
+            isMe
+              ? "bg-accent text-accent-foreground rounded-tr-sm"
+              : "bg-secondary text-secondary-foreground rounded-tl-sm"
+          }`}
+        >
+          {text}
+        </div>
+        {!!sentAt && (
+          <span className={`${compact ? "text-[9px] mt-0.5" : "text-[10px] mt-1"} text-muted-foreground px-1`}>
+            {formatMessageTime(sentAt)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
