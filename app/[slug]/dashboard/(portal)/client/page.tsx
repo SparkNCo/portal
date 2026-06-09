@@ -171,8 +171,6 @@ export default function ClientDashboard() {
             compact
           />
         </div>
-        <div onClick={() => console.log({ profile })}>VER profile</div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <ProgressPieChart issuesData={allIssues} />
           <SoftwareKPIs linearName={slug} />
