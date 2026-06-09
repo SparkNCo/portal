@@ -8,6 +8,7 @@ import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { MessageAvatar } from "./MessageAvatar";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { ChatSpinner } from "./ChatSpinner";
 
 function IssueGroupChat({
   user,
@@ -93,13 +94,7 @@ function IssueGroupChat({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <ChatSpinner size="sm" />;
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -365,16 +360,7 @@ export function IssueCometChat({ issueId, issueTitle, linearPostedAt }: { readon
     }
   };
 
-  if (!ready && !error) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs">Loading chat…</span>
-        </div>
-      </div>
-    );
-  }
+  if (!ready && !error) return <ChatSpinner size="sm" label="Loading chat…" />;
 
   if (error) {
     return (

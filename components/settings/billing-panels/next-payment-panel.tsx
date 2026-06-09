@@ -3,6 +3,7 @@ import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
+import { formatDateFromUnix, formatAmountFromCents } from "@/lib/formatters";
 
 /* =========================
    Types
@@ -32,24 +33,6 @@ export interface NextPaymentPanelProps {
    Helpers
 ========================= */
 
-function formatDateFromUnix(seconds?: number): string {
-  if (!seconds) return "—";
-
-  return new Date(seconds * 1000).toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatAmountFromCents(cents?: number, currency?: string): string {
-  if (cents == null) return "—";
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency?.toUpperCase() || "USD",
-  }).format(cents / 100);
-}
 
 export function NextPaymentPanel({
   billingData,

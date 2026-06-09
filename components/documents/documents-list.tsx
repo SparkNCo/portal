@@ -5,16 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  FileText,
-  Search,
-  Filter,
-  FileSpreadsheet,
-  FileImage,
-  File,
-  ChevronDown,
-  FolderOpen,
-} from "lucide-react";
+import { FileText, Search, Filter, ChevronDown, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
@@ -23,16 +14,6 @@ import { useUser } from "context/UserContext";
 /* -----------------------------
    Helpers
 --------------------------------*/
-
-const formatIcons = {
-  pdf: FileText,
-  png: FileImage,
-  jpg: FileImage,
-  jpeg: FileImage,
-  docx: FileText,
-  xlsx: FileSpreadsheet,
-  zip: File,
-};
 
 const categories = ["All", "Reports", "Technical", "Design"];
 

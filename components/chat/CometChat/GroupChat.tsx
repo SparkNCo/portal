@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Users } from "lucide-react";
 import { MessageAvatar } from "./MessageAvatar";
+import { ChatSpinner } from "./ChatSpinner";
 
 type Props = Readonly<{
   user: CometChat.User;
@@ -81,16 +82,7 @@ export default function GroupChat({ user, group }: Props) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm">Loading messages...</span>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <ChatSpinner label="Loading messages..." />;
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
