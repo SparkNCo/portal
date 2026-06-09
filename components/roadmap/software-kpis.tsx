@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { API_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Activity,
@@ -52,10 +53,7 @@ async function fetchDoraMetrics(linearName: string): Promise<DoraMetric[]> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/get-dora-metrics?linear_name=${encodeURIComponent(linearName)}`,
     {
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-        apikey: process.env.NEXT_PUBLIC_APIKEY!,
-      },
+      headers: API_HEADERS,
     },
   );
   if (!res.ok) throw new Error("Failed to fetch DORA metrics");

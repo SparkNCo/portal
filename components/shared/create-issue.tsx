@@ -115,11 +115,7 @@ ${data.actual || ""}
   }
 }
 
-const API_HEADERS = {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-};
+import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
 
 async function postCreateIssue(payload: {
   title: string;

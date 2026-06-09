@@ -78,8 +78,6 @@ export default function DeveloperDashboard() {
     onClearFilters: () => setSelectedStatuses([]),
   };
 
-  if (issuesLoading) return <LoadingDataPanel />;
-
   return (
     <div className="min-h-screen">
       <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
@@ -136,12 +134,16 @@ export default function DeveloperDashboard() {
         </div>
 
         <div className="w-full max-w-full overflow-hidden">
-          <PriorityTasks
-            issuesData={visibleIssues}
-            filterState={filterState}
-            onOpenChat={() => {}}
-            title={selectedProject ?? "All Tasks"}
-          />
+          {issuesLoading ? (
+            <LoadingDataPanel />
+          ) : (
+            <PriorityTasks
+              issuesData={visibleIssues}
+              filterState={filterState}
+              onOpenChat={() => {}}
+              title={selectedProject ?? "All Tasks"}
+            />
+          )}
         </div>
 
         {/* <CreateIssue

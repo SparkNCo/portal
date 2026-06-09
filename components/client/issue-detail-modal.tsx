@@ -17,15 +17,7 @@ import {
   STATUS_ORDER,
 } from "./issues.types";
 
-const API_HEADERS = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-};
-
-const API_JSON_HEADERS = {
-  ...API_HEADERS,
-  "Content-Type": "application/json",
-};
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 
 function getNextState(current: string | undefined): string | undefined {

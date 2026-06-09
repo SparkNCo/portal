@@ -6,20 +6,8 @@ import { Send } from "lucide-react";
 import { COMETCHAT_CONSTANTS } from "./constants";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
-
-function MessageAvatar({ name }: { readonly name: string }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <div className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center text-[10px] font-semibold flex-shrink-0 mt-0.5">
-      {initials}
-    </div>
-  );
-}
+import { MessageAvatar } from "./MessageAvatar";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 function IssueGroupChat({
   user,
@@ -137,7 +125,7 @@ function IssueGroupChat({
               key={msg.getId?.() ?? i}
               className={`flex gap-1.5 ${isMe ? "flex-row-reverse" : "flex-row"}`}
             >
-              {!isMe && <MessageAvatar name={senderName} />}
+              {!isMe && <MessageAvatar name={senderName} className="w-6 h-6 text-[10px]" />}
               <div
                 className={`flex flex-col max-w-[70%] ${isMe ? "items-end" : "items-start"}`}
               >
@@ -247,11 +235,7 @@ async function _getOrCreateIssueGroup(
   const memberUids = new Set<string>();
   if (profile?.id) memberUids.add(profile.id);
 
-  const headers = {
-    Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-    apikey: process.env.NEXT_PUBLIC_APIKEY!,
-    "Content-Type": "application/json",
-  };
+  const headers = API_JSON_HEADERS;
 
   try {
     if (profile?.role === "stakeholder") {

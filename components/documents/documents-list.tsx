@@ -127,7 +127,7 @@ export function DocumentsList() {
                 className="w-48 bg-secondary border-0 pl-9 text-sm"
               />
             </div>
-            <Button variant="outline" size="icon" className="bg-transparent">
+            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn">
               <Filter className="h-4 w-4" />
             </Button>
           </div>
@@ -140,6 +140,7 @@ export function DocumentsList() {
               variant="ghost"
               size="sm"
               onClick={() => setActiveCategory(category)}
+              data-testid={`category-tab-${category.toLowerCase()}`}
               className={cn(
                 "text-sm",
                 activeCategory === category
@@ -173,7 +174,7 @@ export function DocumentsList() {
           const isCollapsed = !expandedGroups.has(slug);
 
           return (
-            <div key={slug} className="mb-4">
+            <div key={slug} data-testid={`document-folder-${slug}`} className="mb-4">
               <button
                 onClick={() => toggleGroup(slug)}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"

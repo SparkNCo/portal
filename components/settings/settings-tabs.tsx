@@ -12,17 +12,12 @@ import { StaffingSection } from "@/components/settings/staffing-section";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const tabs = [
   { id: "staffing", label: "Staffing", icon: Users },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
-
-const apiHeaders = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-  "Content-Type": "application/json",
-};
 
 export function SettingsTabs() {
   const [activeTab, setActiveTab] = useState("staffing");
@@ -37,10 +32,10 @@ export function SettingsTabs() {
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
-        { headers: apiHeaders },
+        { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
-      return res.json() as Promise<{ id: string; clientName: string; email: string; customer_id: string }[]>;
+      return res.json() as Promise<{ id: string; clientName: string; email: string; customer_id: string; stripe_customer_id: string }[]>;
     },
     enabled: isAdminViewingCustomer,
   });

@@ -3,25 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Users } from "lucide-react";
+import { MessageAvatar } from "./MessageAvatar";
 
 type Props = Readonly<{
   user: CometChat.User;
   group: CometChat.Group;
 }>;
-
-function MessageAvatar({ name }: { name: string }) {
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <div className="w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5">
-      {initials}
-    </div>
-  );
-}
 
 export default function GroupChat({ user, group }: Props) {
   const [messages, setMessages] = useState<any[]>([]);

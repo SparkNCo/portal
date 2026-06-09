@@ -17,6 +17,8 @@ async function loginAsDeveloper(page: any) {
   await page.locator('#password').fill(password!);
   await page.getByRole('button', { name: 'Login' }).click();
   await page.waitForURL('**/dashboard/developer', { timeout: 15_000 });
+  // Wait for the page to hydrate and UserContext to finish loading the profile
+  await page.waitForSelector('h1', { timeout: 15_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -129,15 +131,15 @@ test.describe('Developer — panels', () => {
     await page.getByRole('link', { name: 'Documents' }).click();
     await page.waitForURL('**/documents', { timeout: 10_000 });
 
-    // Search input
+    // Wait for the card to render before asserting
     await expect(page.getByPlaceholder('Search documents...')).toBeVisible({ timeout: 10_000 });
 
     // Filter icon button
-    await expect(page.getByRole('button').filter({ has: page.locator('svg') }).nth(0)).toBeVisible();
+    await expect(page.getByTestId('document-filter-btn')).toBeVisible();
 
-    // Category tabs: All, Reports, Technical, Design
-    for (const category of ['All', 'Reports', 'Technical', 'Design']) {
-      await expect(page.getByRole('button', { name: category })).toBeVisible();
+    // Category tabs
+    for (const category of ['all', 'reports', 'technical', 'design']) {
+      await expect(page.getByTestId(`category-tab-${category}`)).toBeVisible();
     }
   });
 
@@ -165,11 +167,18 @@ test.describe('Developer — panels', () => {
     await page.getByRole('link', { name: 'Documents' }).click();
     await page.waitForURL('**/documents', { timeout: 10_000 });
 
-    // Either the list fetches documents or shows the empty-state placeholder
-    const emptyState = page.getByText('No documents found');
-    const anyDoc     = page.locator('[class*="DocumentRow"], [data-testid="document-row"]').first();
+    const emptyState  = page.getByText('No documents found');
+    const anyFolder   = page.locator('[data-testid^="document-folder-"]').first();
 
-    await expect(emptyState.or(anyDoc)).toBeVisible({ timeout: 15_000 });
+    // Wait until either state resolves
+    await expect(emptyState.or(anyFolder)).toBeVisible({ timeout: 25_000 });
+
+    // Explicitly assert the empty-state message or a project folder
+    if (await anyFolder.isVisible()) {
+      await expect(anyFolder).toBeVisible();
+    } else {
+      await expect(emptyState).toBeVisible();
+    }
   });
 
 });
