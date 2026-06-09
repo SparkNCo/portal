@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { performLogin } from './helpers';
 
 async function loginAsAdmin(page: any) {
   const email = process.env.TEST_ADMIN_EMAIL;
@@ -12,11 +9,7 @@ async function loginAsAdmin(page: any) {
     test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set in .env.test');
   }
 
-  await page.goto('/');
-  await page.locator('#email').fill(email!);
-  await page.locator('#password').fill(password!);
-  await page.getByRole('button', { name: 'Login' }).click();
-  await page.waitForURL('**/dashboard/admin', { timeout: 15_000 });
+  await performLogin(page, email!, password!, '/dashboard/admin');
 }
 
 // ---------------------------------------------------------------------------
@@ -35,12 +28,7 @@ test.describe('Admin — login', () => {
       test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await page.goto('/');
-    await page.locator('#email').fill(email!);
-    await page.locator('#password').fill(password!);
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    await page.waitForURL('**/dashboard/admin', { timeout: 15_000 });
+    await performLogin(page, email!, password!, '/dashboard/admin');
     expect(page.url()).toContain('/dashboard/admin');
   });
 

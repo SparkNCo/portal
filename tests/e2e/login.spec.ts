@@ -1,18 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function fillLoginForm(
-  page: any,
-  email: string,
-  password: string,
-) {
-  await page.locator('#email').fill(email);
-  await page.locator('#password').fill(password);
-  await page.getByRole('button', { name: 'Login' }).click();
-}
+import { fillLoginForm } from './helpers';
 
 // ---------------------------------------------------------------------------
 // Tests

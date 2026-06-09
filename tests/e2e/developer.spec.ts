@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { performLogin } from './helpers';
 
 async function loginAsDeveloper(page: any) {
   const email = process.env.TEST_DEVELOPER_EMAIL;
@@ -12,13 +9,7 @@ async function loginAsDeveloper(page: any) {
     test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set in .env.test');
   }
 
-  await page.goto('/');
-  await page.locator('#email').fill(email!);
-  await page.locator('#password').fill(password!);
-  await page.getByRole('button', { name: 'Login' }).click();
-  await page.waitForURL('**/dashboard/developer', { timeout: 15_000 });
-  // Wait for the page to hydrate and UserContext to finish loading the profile
-  await page.waitForSelector('h1', { timeout: 15_000 });
+  await performLogin(page, email!, password!, '/dashboard/developer');
 }
 
 // ---------------------------------------------------------------------------
@@ -37,12 +28,7 @@ test.describe('Developer — login', () => {
       test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await page.goto('/');
-    await page.locator('#email').fill(email!);
-    await page.locator('#password').fill(password!);
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    await page.waitForURL('**/dashboard/developer', { timeout: 15_000 });
+    await performLogin(page, email!, password!, '/dashboard/developer');
     expect(page.url()).toContain('/dashboard/developer');
   });
 

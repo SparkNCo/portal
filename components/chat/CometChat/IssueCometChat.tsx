@@ -215,6 +215,12 @@ async function getOrCreateIssueGroup(
   return promise;
 }
 
+async function fetchAssigneeUids(url: string, memberUids: Set<string>) {
+  const res = await fetch(url, { headers: API_JSON_HEADERS });
+  const assignees: any[] = await res.json();
+  assignees.filter((a) => a.user_id).forEach((a) => memberUids.add(a.user_id));
+}
+
 async function _getOrCreateIssueGroup(
   issueId: string,
   issueTitle: string,
@@ -230,39 +236,27 @@ async function _getOrCreateIssueGroup(
   const memberUids = new Set<string>();
   if (profile?.id) memberUids.add(profile.id);
 
-  const headers = API_JSON_HEADERS;
-
   try {
     if (profile?.role === "stakeholder") {
       const stakeholderRes = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
-        { headers },
+        { headers: API_JSON_HEADERS },
       );
       const stakeholderAssignments: any[] = await stakeholderRes.json();
-      const customerIds = stakeholderAssignments
-        .map((a) => a.customer_id)
-        .filter(Boolean);
+      const customerIds = stakeholderAssignments.map((a) => a.customer_id).filter(Boolean);
 
       if (customerIds.length > 0) {
         customerIds.forEach((id: string) => memberUids.add(id));
-        const devRes = await fetch(
+        await fetchAssigneeUids(
           `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
-          { headers },
+          memberUids,
         );
-        const assignees: any[] = await devRes.json();
-        assignees
-          .filter((a) => a.user_id)
-          .forEach((a) => memberUids.add(a.user_id));
       }
     } else if (profile?.id) {
-      const res = await fetch(
+      await fetchAssigneeUids(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
-        { headers },
+        memberUids,
       );
-      const assignees: any[] = await res.json();
-      assignees
-        .filter((a) => a.user_id)
-        .forEach((a) => memberUids.add(a.user_id));
     }
   } catch {}
 

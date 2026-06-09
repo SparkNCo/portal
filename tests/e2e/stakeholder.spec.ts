@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { performLogin } from './helpers';
 
 async function loginAsStakeholder(page: any) {
   const email    = process.env.TEST_HOLDER_EMAIL;
@@ -12,11 +9,18 @@ async function loginAsStakeholder(page: any) {
     test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
   }
 
-  await page.goto('/');
-  await page.locator('#email').fill(email!);
-  await page.locator('#password').fill(password!);
-  await page.getByRole('button', { name: 'Login' }).click();
-  await page.waitForURL('**/dashboard/client', { timeout: 15_000 });
+  await performLogin(page, email!, password!, '/dashboard/client');
+}
+
+async function navigateToRoadmap(page: any) {
+  await page.getByRole('link', { name: 'Roadmap' }).click();
+  await page.waitForURL('**/roadmap', { timeout: 10_000 });
+}
+
+async function expandFirstProject(page: any) {
+  const expandBtn = page.getByRole('button', { name: 'Expand' }).first();
+  await expandBtn.waitFor({ state: 'visible', timeout: 15_000 });
+  await expandBtn.click();
 }
 
 // ---------------------------------------------------------------------------
@@ -35,12 +39,7 @@ test.describe('Stakeholder — login', () => {
       test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
     }
 
-    await page.goto('/');
-    await page.locator('#email').fill(email!);
-    await page.locator('#password').fill(password!);
-    await page.getByRole('button', { name: 'Login' }).click();
-
-    await page.waitForURL('**/dashboard/client', { timeout: 15_000 });
+    await performLogin(page, email!, password!, '/dashboard/client');
     expect(page.url()).toContain('/dashboard/client');
   });
 
@@ -81,23 +80,20 @@ test.describe('Stakeholder — panels', () => {
   // ── Roadmap panel ──────────────────────────────────────────────────────────
 
   test('Roadmap — page header and subtitle are visible', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Roadmap')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Project timeline and progress')).toBeVisible();
   });
 
   test('Roadmap — "Projects Timeline" card title is visible', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
   });
 
   test('Roadmap — year navigation controls render with the current year', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     const currentYear = new Date().getFullYear().toString();
     await expect(page.getByRole('button', { name: currentYear })).toBeVisible({ timeout: 10_000 });
@@ -108,8 +104,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — all 12 month abbreviations are rendered in the timeline header', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
@@ -119,8 +114,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — clicking Prev decrements the year; clicking Next increments it back', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     const currentYear  = new Date().getFullYear();
     const previousYear = (currentYear - 1).toString();
@@ -138,8 +132,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — project rows or empty state render after data loads', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
@@ -150,12 +143,9 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — Expand button expands a project row and Collapse button collapses it', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
-    const expandBtn = page.getByRole('button', { name: 'Expand' }).first();
-    await expandBtn.waitFor({ state: 'visible', timeout: 15_000 });
-    await expandBtn.click();
+    await expandFirstProject(page);
 
     // After expanding the button label should change to "Collapse"
     await expect(page.getByRole('button', { name: 'Collapse' }).first()).toBeVisible({ timeout: 5_000 });
@@ -167,12 +157,9 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — expanding a project shows individual milestone rows', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
-    const expandBtn = page.getByRole('button', { name: 'Expand' }).first();
-    await expandBtn.waitFor({ state: 'visible', timeout: 15_000 });
-    await expandBtn.click();
+    await expandFirstProject(page);
 
     // Milestone rows contain a progress value or a target date inside the expanded view
     const milestoneRow = page.locator('[class*="MilestoneRow"], [class*="milestone"], [class*="rounded-full"]').first();
@@ -180,8 +167,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — clicking a milestone opens the detail card', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await page.getByRole('button', { name: 'Expand' }).first().waitFor({ state: 'visible', timeout: 15_000 });
     await page.getByRole('button', { name: 'Expand' }).first().click();
@@ -196,8 +182,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — closing the milestone detail card removes it', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await page.getByRole('button', { name: 'Expand' }).first().waitFor({ state: 'visible', timeout: 15_000 });
     await page.getByRole('button', { name: 'Expand' }).first().click();
@@ -216,8 +201,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — MetricsPanel shows project selector and date range filters', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     // Wait for metrics to finish loading
     await expect(page.getByText('Loading metrics…')).not.toBeVisible({ timeout: 20_000 });
@@ -231,8 +215,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — MetricsPanel date range filter shows Clear button when a date is set', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Loading metrics…')).not.toBeVisible({ timeout: 20_000 });
 
@@ -245,8 +228,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — "Cycle Scope vs Completed" card title is visible', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Loading metrics…')).not.toBeVisible({ timeout: 20_000 });
 
@@ -254,8 +236,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — "Cycle Scope vs Completed" renders a chart or empty state', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Cycle Scope vs Completed')).toBeVisible({ timeout: 20_000 });
 
@@ -267,8 +248,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — "Issues by Status" card title is visible', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Loading metrics…')).not.toBeVisible({ timeout: 20_000 });
 
@@ -276,8 +256,7 @@ test.describe('Stakeholder — panels', () => {
   });
 
   test('Roadmap — "Issues by Status" renders a chart or empty state', async ({ page }) => {
-    await page.getByRole('link', { name: 'Roadmap' }).click();
-    await page.waitForURL('**/roadmap', { timeout: 10_000 });
+    await navigateToRoadmap(page);
 
     await expect(page.getByText('Issues by Status')).toBeVisible({ timeout: 20_000 });
 
