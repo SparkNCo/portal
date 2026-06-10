@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Mail, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const statusColors = {
   active: "bg-success/20 text-success",
@@ -29,11 +30,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${resolvedId}`,
         {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
         },
       );
 

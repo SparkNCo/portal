@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
-import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { initCometChatUser } from "./initCometChatUser";
 
 export function useCometChat() {
   const { profile, loading: profileLoading } = useUser();
@@ -20,40 +21,7 @@ export function useCometChat() {
 
   const init = async () => {
     try {
-      await CometChat.init(
-        COMETCHAT_CONSTANTS.APP_ID,
-        new CometChat.AppSettingsBuilder()
-          .setRegion(COMETCHAT_CONSTANTS.REGION)
-          .subscribePresenceForAllUsers()
-          .build(),
-      );
-
-      const { data } = await supabase.auth.getUser();
-      const supaUser = data.user;
-      if (!supaUser) throw new Error("Not logged in");
-
-      let cometUser = await CometChat.getLoggedinUser();
-      if (cometUser && cometUser.getUid() !== supaUser.id) {
-        await CometChat.logout();
-        cometUser = null;
-      }
-      if (!cometUser) {
-        try {
-          cometUser = await CometChat.login(
-            supaUser.id,
-            COMETCHAT_CONSTANTS.AUTH_KEY,
-          );
-        } catch (loginErr: any) {
-          if (loginErr?.code !== "ERR_UID_NOT_FOUND") throw loginErr;
-          const newUser = new CometChat.User(supaUser.id);
-          newUser.setName(supaUser.email ?? supaUser.id);
-          await CometChat.createUser(newUser, COMETCHAT_CONSTANTS.AUTH_KEY);
-          cometUser = await CometChat.login(
-            supaUser.id,
-            COMETCHAT_CONSTANTS.AUTH_KEY,
-          );
-        }
-      }
+      const cometUser = await initCometChatUser();
       setUser(cometUser);
       setGroups(await fetchGroups());
       setReady(true);
@@ -82,12 +50,6 @@ export function useCometChat() {
   ): Promise<CometChat.Group | null> => {
     if (!profile) return null;
     try {
-      const headers = {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-        apikey: process.env.NEXT_PUBLIC_APIKEY!,
-        "Content-Type": "application/json",
-      };
-
       const memberUids = new Set<string>();
       memberUids.add(profile.id);
       let assignees: any[] = [];
@@ -96,7 +58,7 @@ export function useCometChat() {
         // Step 1: find the customer this stakeholder is assigned to
         const stakeholderRes = await fetch(
           `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
-          { headers },
+          { headers: API_JSON_HEADERS },
         );
         const stakeholderAssignments: any[] = await stakeholderRes.json();
         const customerIds = stakeholderAssignments
@@ -110,7 +72,7 @@ export function useCometChat() {
           // Step 2: fetch developers assigned to that customer
           const devRes = await fetch(
             `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
-            { headers },
+            { headers: API_JSON_HEADERS },
           );
           assignees = await devRes.json();
           (assignees ?? [])
@@ -121,7 +83,7 @@ export function useCometChat() {
         // Customer: fetch all assignees (developers + stakeholders)
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
-          { headers },
+          { headers: API_JSON_HEADERS },
         );
         assignees = await res.json();
         (assignees ?? [])

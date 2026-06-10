@@ -5,16 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  FileText,
-  Search,
-  Filter,
-  FileSpreadsheet,
-  FileImage,
-  File,
-  ChevronDown,
-  FolderOpen,
-} from "lucide-react";
+import { FileText, Search, Filter, ChevronDown, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
@@ -23,16 +14,6 @@ import { useUser } from "context/UserContext";
 /* -----------------------------
    Helpers
 --------------------------------*/
-
-const formatIcons = {
-  pdf: FileText,
-  png: FileImage,
-  jpg: FileImage,
-  jpeg: FileImage,
-  docx: FileText,
-  xlsx: FileSpreadsheet,
-  zip: File,
-};
 
 const categories = ["All", "Reports", "Technical", "Design"];
 
@@ -127,7 +108,7 @@ export function DocumentsList() {
                 className="w-48 bg-secondary border-0 pl-9 text-sm"
               />
             </div>
-            <Button variant="outline" size="icon" className="bg-transparent">
+            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn">
               <Filter className="h-4 w-4" />
             </Button>
           </div>
@@ -140,6 +121,7 @@ export function DocumentsList() {
               variant="ghost"
               size="sm"
               onClick={() => setActiveCategory(category)}
+              data-testid={`category-tab-${category.toLowerCase()}`}
               className={cn(
                 "text-sm",
                 activeCategory === category
@@ -171,37 +153,34 @@ export function DocumentsList() {
 
         {Array.from(groupedDocs.entries()).map(([slug, docs]) => {
           const isCollapsed = !expandedGroups.has(slug);
-          const isGrouped = groupedDocs.size > 1;
 
           return (
-            <div key={slug} className="mb-4">
-              {isGrouped && (
-                <button
-                  onClick={() => toggleGroup(slug)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
-                >
-                  <div className="flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4 text-accent shrink-0" />
-                    <span className="text-sm font-medium text-foreground capitalize">
-                      {slug}
-                    </span>
-                    <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
-                      {docs.length} {docs.length === 1 ? "file" : "files"}
-                    </span>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                      isCollapsed && "-rotate-90",
-                    )}
-                  />
-                </button>
-              )}
+            <div key={slug} data-testid={`document-folder-${slug}`} className="mb-4">
+              <button
+                onClick={() => toggleGroup(slug)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
+              >
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-accent shrink-0" />
+                  <span className="text-sm font-medium text-foreground capitalize">
+                    {slug}
+                  </span>
+                  <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
+                    {docs.length} {docs.length === 1 ? "file" : "files"}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                    isCollapsed && "-rotate-90",
+                  )}
+                />
+              </button>
 
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-200",
-                  isGrouped && isCollapsed ? "max-h-0" : "max-h-[9999px]",
+                  isCollapsed ? "max-h-0" : "max-h-[9999px]",
                 )}
               >
                 <DocumentRow filteredDocs={docs} userId={profile?.id} />

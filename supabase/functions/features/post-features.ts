@@ -31,7 +31,7 @@ const insertRequirements = async (payload) => {
     payload.length,
   );
 
-  const { error, count } = await supabase
+  const { error, count } = await supabase.schema("marketing")
     .from("requirements")
     .insert(payload, { count: "exact" });
 
@@ -47,7 +47,7 @@ const insertRequirements = async (payload) => {
 const updateLead = async (lead_id, data) => {
   console.log("[createRequirements] 🔄 Updating lead:", lead_id);
 
-  const { error } = await supabase
+  const { error } = await supabase.schema("marketing")
     .from("leads")
     .update(data)
     .eq("lead_id", lead_id);
@@ -63,7 +63,7 @@ const updateLead = async (lead_id, data) => {
 const updateProposalStage = async (lead_id) => {
   console.log("[createRequirements] 🔄 Updating proposal stage:", lead_id);
 
-  const { error } = await supabase
+  const { error } = await supabase.schema("marketing")
     .from("proposals")
     .update({ stage: "draft" })
     .eq("lead_id", lead_id);
@@ -78,7 +78,7 @@ const updateProposalStage = async (lead_id) => {
 };
 
 const getProposalPasscode = async (lead_id) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabase.schema("marketing")
     .from("proposals")
     .select("passcode")
     .eq("lead_id", lead_id)

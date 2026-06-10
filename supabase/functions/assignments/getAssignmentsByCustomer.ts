@@ -21,7 +21,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     const customer_ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
     const onlyDev = url.searchParams.get("onlyDev") === "true";
 
-    let query = supabase
+    let query = supabase.schema("portal")
       .from("assignments")
       .select(
         `
@@ -33,8 +33,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
         users!user_id (
           id,
           email,
-          role,
-          clientName
+          role
         )
       `,
       )

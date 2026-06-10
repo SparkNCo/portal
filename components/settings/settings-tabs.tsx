@@ -12,17 +12,12 @@ import { StaffingSection } from "@/components/settings/staffing-section";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const tabs = [
   { id: "staffing", label: "Staffing", icon: Users },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
-
-const apiHeaders = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-  "Content-Type": "application/json",
-};
 
 export function SettingsTabs() {
   const [activeTab, setActiveTab] = useState("staffing");
@@ -37,10 +32,10 @@ export function SettingsTabs() {
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
-        { headers: apiHeaders },
+        { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
-      return res.json() as Promise<{ id: string; clientName: string; email: string; customer_id: string }[]>;
+      return res.json() as Promise<{ id: string; clientName: string; email: string; customer_id: string; stripe_customer_id: string }[]>;
     },
     enabled: isAdminViewingCustomer,
   });
@@ -51,12 +46,12 @@ export function SettingsTabs() {
 
   // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise
   const effectiveUserId = targetCustomer?.id ?? profile?.id;
-  const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
+  const effectiveStripeId = targetCustomer?.stripe_customer_id ?? (profile as any)?.stripe_customer_id;
 
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ["billing", effectiveCustomerId],
-    queryFn: () => fetchBillingData({ user: { customer_id: effectiveCustomerId } }),
-    enabled: !!effectiveCustomerId,
+    queryKey: ["billing", effectiveStripeId],
+    queryFn: () => fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } }),
+    enabled: !!effectiveStripeId,
     staleTime: 1000 * 30,
   });
 

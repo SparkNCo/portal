@@ -34,26 +34,26 @@ export async function downloadDocument(req: Request) {
       );
     }
 
-    // const { data: permissionData, error: permissionError } = await supabase
-    //   .from("document_permissions")
-    //   .select("permission")
-    //   .eq("user_id", user_id)
-    //   .eq("document_id", document_id)
-    //   .single();
+    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
+      .from("document_permissions")
+      .select("permission")
+      .eq("user_id", user_id)
+      .eq("document_id", document_id)
+      .single();
 
-    // if (permissionError || !permissionData) {
-    //   return new Response(JSON.stringify({ error: "No access" }), {
-    //     status: 403,
-    //     headers: corsHeaders,
-    //   });
-    // }
+    if (permissionError || !permissionData) {
+      return new Response(JSON.stringify({ error: "No access" }), {
+        status: 403,
+        headers: corsHeaders,
+      });
+    }
 
-    // if (!["read", "write"].includes(permissionData.permission)) {
-    //   return new Response(JSON.stringify({ error: "Unauthorized" }), {
-    //     status: 403,
-    //     headers: corsHeaders,
-    //   });
-    // }
+    if (!["read", "write", "owner"].includes(permissionData.permission)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 403,
+        headers: corsHeaders,
+      });
+    }
 
     /**
      * ---------------------------------------
@@ -63,8 +63,8 @@ export async function downloadDocument(req: Request) {
 
     console.log("Document id:", document_id);
 
-    const { data: document, error: docError } = await supabase
-      .from("Document")
+    const { data: document, error: docError } = await supabase.schema("portal")
+      .from("documents")
       .select("link")
       .eq("id", Number(document_id))
       .single();

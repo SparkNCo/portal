@@ -131,6 +131,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
+  // Save to Supabase
   const res = await fetch(`${supabaseUrl}/rest/v1/decisions`, {
     method: "POST",
     headers: {
@@ -138,6 +139,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
       Prefer: "return=representation",
+      "Content-Profile": "portal",
     },
     body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question }),
   });
@@ -161,18 +163,19 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 export async function handlePostToLinear(req: Request): Promise<Response> {
-  const { issueId, decisionId, question, questionEmail, decisionBody, decisionEmail } = await req.json();
+  const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
 
-  if (!issueId || !decisionId || !question || !decisionBody) {
+  if (!issueId || !decisionId || !decisionBody) {
     return Response.json(
-      { error: "Missing issueId, decisionId, question, or decisionBody" },
+      { error: "Missing issueId, decisionId, or decisionBody" },
       { status: 400 },
     );
   }
 
-  const quotedQuestion = question.split("\n").map((l: string) => `> ${l}`).join("\n");
-  const quotedDecision = decisionBody.split("\n").map((l: string) => `> ${l}`).join("\n");
-  const body = `**Question** _(${questionEmail})_:\n${quotedQuestion}\n\n**Decision** _(${decisionEmail})_:\n${quotedDecision}`;
+  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+  const body = `${decisionBody}\n\n— ${decisionEmail}`;
 
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
@@ -189,15 +192,13 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
   const json = await res.json();
   if (json.errors) throw new Error(JSON.stringify(json.errors));
 
-  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
-
   await fetch(`${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
+      "Content-Profile": "portal",
     },
     body: JSON.stringify({ posted_to_linear: true }),
   });
@@ -218,12 +219,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
-  const decisionObj = {
-    body: decision,
-    email: decisionEmail,
-    created_at: new Date().toISOString(),
-  };
-
+  // Save answer, mark as closed and posted
   const res = await fetch(
     `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`,
     {
@@ -233,75 +229,55 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
+        "Content-Profile": "portal",
       },
-      body: JSON.stringify({ decisions: decisionObj }),
+      body: JSON.stringify({
+        decision,
+        decision_by: decisionEmail,
+        decided_at: new Date().toISOString(),
+        status: true,
+        posted_to_linear: true,
+      }),
     },
   );
 
   const updated = await res.json();
-
   if (!res.ok) {
     return Response.json({ error: "Failed to set decision", details: updated }, { status: 500 });
   }
 
-  return Response.json(updated[0] ?? updated);
-}
+  const row = updated[0] ?? updated;
 
-export async function handleAddAnswer(req: Request): Promise<Response> {
-  const { decisionId, answer, answererEmail } = await req.json();
-
-  if (!decisionId || !answer || !answererEmail) {
-    return Response.json(
-      { error: "Missing decisionId, answer, or answererEmail" },
-      { status: 400 },
+  // Fetch question + owner so we can post both together (non-fatal if Linear fails)
+  try {
+    const getRes = await fetch(
+      `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
+      {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": "portal" },
+      },
     );
+    const [decisionRow] = await getRes.json();
+
+    const question = decisionRow?.question ?? "";
+    const ownerEmail = decisionRow?.owner_email ?? "";
+
+    const commentBody =
+      `❓ **Question** from ${ownerEmail}:\n\n${question}\n\n` +
+      `✅ **Decision** from ${decisionEmail}:\n\n${decision}`;
+
+    await fetch(LINEAR_GRAPHQL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: Deno.env.get("LINEAR_API_KEY")! },
+      body: JSON.stringify({
+        query: CREATE_COMMENT_MUTATION,
+        variables: { issueId: row.issue_id, body: commentBody },
+      }),
+    });
+  } catch (err) {
+    console.error("[handleSetDecision] Linear sync error (non-fatal):", err);
   }
 
-  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
-
-  // Fetch current answers
-  const getRes = await fetch(
-    `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=answers`,
-    {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-    },
-  );
-  const [current] = await getRes.json();
-
-  if (!current) {
-    return Response.json({ error: "Decision not found" }, { status: 404 });
-  }
-
-  const newAnswers = [
-    ...(current.answers ?? []),
-    { email: answererEmail, body: answer, created_at: new Date().toISOString() },
-  ];
-
-  const patchRes = await fetch(
-    `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({ answers: newAnswers }),
-    },
-  );
-
-  const updated = await patchRes.json();
-
-  if (!patchRes.ok) {
-    return Response.json({ error: "Failed to add answer", details: updated }, { status: 500 });
-  }
-
-  return Response.json(updated[0] ?? updated);
+  return Response.json(row);
 }
 
 // ─── Projects & Milestones ───────────────────────────────────────────────────

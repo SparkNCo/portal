@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     }
 
     // Store token on the user row
-    const { error } = await supabase
+    const { error } = await supabase.schema("portal")
       .from("users")
       .update({ linear_access_token: tokenData.access_token })
       .eq("id", userId);

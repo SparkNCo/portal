@@ -33,7 +33,7 @@ export const createProposal = async (
   const cover = proposalMockData["Cover Page"];
   const timeline = proposalMockData["Timeline & Milestones"];
 
-  const { data: proposal, error } = await supabase
+  const { data: proposal, error } = await supabase.schema("marketing")
     .from("proposals")
     .insert({
       // Required metadata

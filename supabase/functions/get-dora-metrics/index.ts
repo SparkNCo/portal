@@ -25,14 +25,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: userRow, error: userError } = await supabase
-      .from("users")
+    const { data: customerRow, error: customerError } = await supabase.schema("portal")
+      .from("customers")
       .select("linear_slug")
       .eq("clientName", userName)
       .maybeSingle();
 
-    if (userError) throw new Error(`User lookup error: ${userError.message}`);
-    if (!userRow?.linear_slug) {
+    if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);
+    if (!customerRow?.linear_slug) {
       return new Response(
         JSON.stringify({
           error: `No linear_slug found for userName: ${userName}`,
@@ -44,10 +44,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data, error } = await supabase
-      .from("dorametrics")
+    const { data, error } = await supabase.schema("portal")
+      .from("dora_metrics")
       .select("*")
-      .eq("linear_slug", userRow.linear_slug)
+      .eq("linear_slug", customerRow.linear_slug)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(`Supabase error: ${error.message}`);

@@ -24,7 +24,7 @@ export async function createCustomerPortal(req: Request) {
 
     const { email } = parseResult.data;
 
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabase.schema("portal")
       .from("users")
       .select("customer_id")
       .eq("email", email)

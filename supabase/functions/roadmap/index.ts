@@ -6,13 +6,12 @@ import { PROJECTS_QUERY } from "./query.ts";
 async function getCustomerBySlug(slug: string) {
   console.log("getCustomerBySlug", slug);
 
-  const { data, error } = await supabase
-    .from("users")
+  const { data, error } = await supabase.schema("portal")
+    .from("customers")
     .select(
       `
       linear_projects,
-      linear_slug,
-      proposal_id
+      linear_slug
     `,
     )
     .eq("clientName", slug)

@@ -5,6 +5,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+
+const inputClass =
+  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
 
 type Props = {
   onClose: () => void;
@@ -24,18 +28,14 @@ export default function AddDeveloperModal({ onClose }: Props) {
         `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=developer`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({
             email,
             role: "developer",
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
-            ...(userName && { clientName: userName }),
+            ...(userName && { userName }),
             ...(phoneNumber && { phoneNumber }),
           }),
         },
@@ -64,33 +64,33 @@ export default function AddDeveloperModal({ onClose }: Props) {
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <input
-              className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+              className={inputClass}
               placeholder="First name (optional)"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
             <input
-              className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+              className={inputClass}
               placeholder="Last name (optional)"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
             />
           </div>
           <input
-            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            className={inputClass}
             placeholder="Username (optional)"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
           />
           <input
-            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            className={inputClass}
             placeholder="Developer email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
           />
           <input
-            className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+            className={inputClass}
             placeholder="Phone number (optional)"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}

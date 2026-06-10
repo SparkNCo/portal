@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Bot } from "lucide-react";
+import { ChatSpinner } from "./ChatSpinner";
+import { extractChatMessage, formatMessageTime } from "./chatUtils";
 
 type Props = Readonly<{
   user: CometChat.User;
@@ -85,16 +87,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm">Loading messages...</span>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <ChatSpinner label="Loading messages..." />;
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
@@ -119,14 +112,14 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
         )}
 
         {messages.map((msg, i) => {
-          const senderUid = msg.getSender?.()?.getUid?.() ?? msg.sender?.uid ?? "";
+          const data = extractChatMessage(msg, i);
+          if (!data) return null;
+          const { id, senderUid, text, sentAt } = data;
           const isMe = senderUid === user.getUid();
-          const text = msg.getText?.() ?? msg.text ?? msg?.aiAssistantMessageData?.text;
-          const sentAt: number | undefined = msg.getSentAt?.() ?? msg.sentAt;
 
           return (
             <div
-              key={msg.getId?.() ?? i}
+              key={id}
               className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
             >
               {!isMe && (
@@ -146,10 +139,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
                 </div>
                 {!!sentAt && (
                   <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                    {new Date(sentAt * 1000).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatMessageTime(sentAt)}
                   </span>
                 )}
               </div>

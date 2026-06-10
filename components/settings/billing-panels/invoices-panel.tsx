@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditCard, Download } from "lucide-react";
+import { formatDateFromUnix, formatAmountFromCents } from "@/lib/formatters";
 
 const statusColors = {
   paid: "bg-green-100 text-green-800",
@@ -21,24 +22,6 @@ type Invoice = {
   invoicePdf?: string;
   currency?: string;
 };
-function formatDateFromUnix(seconds?: number) {
-  if (!seconds) return "—";
-
-  return new Date(seconds * 1000).toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatAmountFromCents(cents?: number, currency = "usd") {
-  if (cents == null) return "—";
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(cents / 100);
-}
 
 export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
   const [showAll, setShowAll] = useState(false);

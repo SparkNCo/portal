@@ -1,0 +1,83 @@
+flowchart TD
+    subgraph Providers["Providers (Layout)"]
+        UC["UserContext\nGET /users?email → profile{id,role,customer_id}"]
+        CSC["CustomerSlugContext\nslug string"]
+        RQ["TanStack QueryClient\nrefetchOnWindowFocus: false"]
+    end
+
+    subgraph PageLoad["Page Load — useQuery"]
+        Q1["GET /issues\n?slug&ticket_statuses\n[apikey]"]
+        Q2["GET /issue-questions\n?user_id\n[Bearer+apikey]"]
+        Q3["GET /agreePolicies/check\n?user_id\n[apikey]\n⚠ developer role only"]
+    end
+
+    subgraph Filter["Client-side Filtering"]
+        BR["businessReviewIssues\nstate = 'Business Review'"]
+        UAT["uatIssues\nstate = 'UAT'"]
+        MAIN["PriorityTasks list\nother states\nsorted by question count"]
+    end
+
+    subgraph Components["Rendered Components"]
+        HDR["Header\ntitle + subtitle + mobile menu"]
+        PPC["ProgressPieChart\ndistribution donut chart"]
+        PT["PriorityTasks\ncard list + title search"]
+        CI["CreateIssue dialog"]
+        PAM["PolicyApprovalModal"]
+        LDP["LoadingDataPanel\nshown while isLoading"]
+    end
+
+    subgraph ModalFlow["IssueDetailModal (inside PriorityTasks)"]
+        OPEN["click card → modal opens + animate in"]
+        READ["POST /issue-questions/read\n{issue_id, user_id}"]
+        ADV["PATCH /issues\n{issueId, stateName}\nadvance state"]
+        CMT["POST /issue-questions\n{issue_id,body,role,profile_id,email}\noptimistic update"]
+        CHAT["router.push /chat?newChat=title"]
+        CLOSE["Escape / outside click → animate out"]
+    end
+
+    subgraph CreateFlow["CreateIssue Dialog"]
+        TYPE["Step 1 — select type\nbug / feature / data / admin"]
+        FORM["Step 2 — fill form\n(fields vary by type)"]
+        SUBMIT["POST /issues/create\n{title,description,priority,slug,\nassigneeId?,labelIds?}\n[Bearer+apikey]"]
+        DONE["toast success + reset + close"]
+    end
+
+    subgraph PolicyFlow["Developer Policy Flow"]
+        PCHECK{"approved?"}
+        SHOW["show PolicyApprovalModal\n+ Notion link"]
+        APPROVE["POST /agreePolicies/approve\n{userId, notionUrl}"]
+        INVAL["invalidate 'policies-status'\n→ modal closes"]
+    end
+
+    %% Provider → PageLoad
+    UC --> Q1 & Q2 & Q3
+    CSC --> Q1
+    RQ --> Q1 & Q2 & Q3
+
+    %% PageLoad → Filter
+    Q1 --> BR & UAT & MAIN
+    Q2 --> MAIN
+
+    %% Filter → Components
+    BR & UAT --> PPC
+    MAIN --> PT
+    Q3 --> PCHECK
+
+    %% Components render
+    Providers --> HDR
+    BR & UAT & MAIN --> PPC
+    PT --> OPEN
+
+    %% Modal flow
+    OPEN --> READ
+    OPEN --> ADV
+    OPEN --> CMT
+    OPEN --> CHAT
+    OPEN --> CLOSE
+
+    %% Create issue flow
+    CI --> TYPE --> FORM --> SUBMIT --> DONE
+
+    %% Policy flow
+    PCHECK -->|false| SHOW --> APPROVE --> INVAL
+    PCHECK -->|true| Components

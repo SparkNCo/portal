@@ -38,7 +38,7 @@ export async function uploadStorageData(req: Request) {
       );
     }
 
-    const { file, bucket, path, user_id, email, category, project_slug } =
+    const { file, bucket, path, email, category, project_slug } =
       parsedInput.data;
 
     /**
@@ -46,7 +46,7 @@ export async function uploadStorageData(req: Request) {
      * ✅ 1. Get user from DB
      * ---------------------------------------
      */
-    const { data: matchedUser, error: supabaseUserError } = await supabase
+    const { data: matchedUser, error: supabaseUserError } = await supabase.schema("portal")
       .from("users")
       .select("id")
       .eq("email", email)
@@ -98,13 +98,12 @@ export async function uploadStorageData(req: Request) {
      * ✅ 4. Insert Document
      * ---------------------------------------
      */
-    const { data: document, error: dbError } = await supabase
-      .from("Document")
+    const { data: document, error: dbError } = await supabase.schema("portal")
+      .from("documents")
       .insert({
         link: fileUrl,
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
         category,
-        owner_id,
         file_name: file.name,
         project_slug,
       })
@@ -125,22 +124,22 @@ export async function uploadStorageData(req: Request) {
      * ✅ 5. 🔥 INSERT PERMISSION (NEW)
      * ---------------------------------------
      */
-    const { error: permissionError } = await supabase
+    const { error: permissionError } = await supabase.schema("portal")
       .from("document_permissions")
       .insert({
         user_id: owner_id,
         document_id: document.id,
-        permission: "write",
+        permission: "owner",
       });
 
     if (permissionError) {
       console.error("[Permission Insert Error]", permissionError);
 
       // Optional rollback (recommended)
-      await supabase.from("Document").delete().eq("id", document.id);
+      await supabase.schema("portal").from("documents").delete().eq("id", document.id);
 
       return new Response(
-        JSON.stringify({ error: "Failed to assign permissions" }),
+        JSON.stringify({ error: "Failed to assign permissions", details: permissionError.message }),
         {
           status: 500,
           headers: corsHeaders,

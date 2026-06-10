@@ -80,7 +80,16 @@ Deno.serve(async (req) => {
 
     if (!bookingRes.ok) {
       console.error("❌ Booking API failed:", bookingData);
-      throw new Error("Booking failed");
+      return new Response(
+        JSON.stringify({
+          error: bookingData?.error?.message ?? "Booking failed",
+          code: bookingData?.error?.code ?? "BOOKING_FAILED",
+        }),
+        {
+          status: bookingData?.error?.details?.statusCode ?? 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     const schedulingUrl = bookingData?.data?.meetingUrl || body.scheduling_url;
@@ -92,7 +101,7 @@ Deno.serve(async (req) => {
      * ------------------------------------------------- */
     console.log("💾 Updating lead in Supabase...");
 
-    const { data: lead, error: leadError } = await supabase
+    const { data: lead, error: leadError } = await supabase.schema("marketing")
       .from("leads")
       .update({
         first_name: data.name,
@@ -164,7 +173,7 @@ Deno.serve(async (req) => {
 
       await sendAdminsEmail(proposalData.passcode);
 
-      await supabase
+      await supabase.schema("marketing")
         .from("leads")
         .update({
           email_sent: true,

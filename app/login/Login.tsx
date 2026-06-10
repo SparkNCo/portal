@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase-client";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -19,6 +20,7 @@ export default function LoginForm({
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Forgot password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -59,18 +61,31 @@ export default function LoginForm({
   useEffect(() => {
     if (customer) {
       if (customer?.role === "stakeholder") {
-        const clientName = customer.assignment_id?.[0]?.clientName;
+        const clientName =
+          customer.assignment_id?.[0]?.clientName ??
+          customer.assignment_id?.[0]?.linear_slug ??
+          customer.clientName;
         if (clientName) {
           router.push(`/${clientName}/dashboard/client`);
           onLoginSuccess(customer.email);
+        } else {
+          setErrorMessage("No client assigned to this account. Contact your administrator.");
+          setLoading(false);
         }
         return;
       }
       if (customer?.role === "admin") {
         router.push(`/${customer.clientName}/dashboard/admin`);
       } else if (customer?.role === "developer") {
-        const clientName = customer.assignment_id?.[0]?.clientName;
-        router.push(`/${clientName}/dashboard/developer`);
+        const clientName =
+          customer.assignment_id?.[0]?.clientName ??
+          customer.assignment_id?.[0]?.linear_slug;
+        if (clientName) {
+          router.push(`/${clientName}/dashboard/developer`);
+        } else {
+          setErrorMessage("No client assigned to this account. Contact your administrator.");
+          setLoading(false);
+        }
       } else {
         router.push(`/${customer.clientName}/dashboard/client`);
       }
@@ -254,13 +269,22 @@ export default function LoginForm({
           >
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 bg-foreground text-background selection:bg-primary selection:text-background"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              className="w-full rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 pr-10 bg-foreground text-background selection:bg-primary selection:text-background"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-background/50 hover:text-background transition-colors"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         {/* Error */}

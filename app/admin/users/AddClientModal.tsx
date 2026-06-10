@@ -36,10 +36,10 @@ export default function AddClientModal({ onClose }: Props) {
             email,
             customer_id: stripeId,
             linear_slug: linearSlug,
+            clientName: userName,
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
-            ...(userName && { clientName: userName }),
             ...(phoneNumber && { phoneNumber }),
           }),
         },
@@ -128,7 +128,7 @@ export default function AddClientModal({ onClose }: Props) {
             </Button>
             <Button
               size="sm"
-              disabled={isPending || !email || !stripeId || !linearSlug}
+              disabled={isPending || !email || !stripeId || !linearSlug || !userName}
               onClick={() => mutate()}
             >
               {isPending ? "Creating..." : "Create"}

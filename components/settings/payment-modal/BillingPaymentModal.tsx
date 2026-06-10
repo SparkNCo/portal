@@ -44,6 +44,7 @@ export function BillingPaymentModal({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
+        aria-describedby={undefined}
         className="
           max-w-md
           max-h-[90vh]

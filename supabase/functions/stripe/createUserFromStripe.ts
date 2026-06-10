@@ -21,7 +21,7 @@ export async function createUserFromStripe({
     subscriptionId,
   });
 
-  const { data: existingUser, error: lookupError } = await supabase
+  const { data: existingUser, error: lookupError } = await supabase.schema("portal")
     .from("users")
     .select("id")
     .eq("customer_id", customerId)
@@ -37,7 +37,7 @@ export async function createUserFromStripe({
     return;
   }
 
-  const { error: insertError } = await supabase.from("users").insert({
+  const { error: insertError } = await supabase.schema("portal").from("users").insert({
     email,
     customer_id: customerId,
     subscription_id: subscriptionId,

@@ -10,7 +10,7 @@ export async function sendAdminsEmail(passcode: string) {
   const proposalLink = `${redirectUrl}/proposal?mode=features&passcode=${passcode}`;
 
   // Fetch all admins
-  const { data: admins, error } = await supabase
+  const { data: admins, error } = await supabase.schema("portal")
     .from("users")
     .select("email, role")
     .eq("role", "admin"); // Removed the email filter

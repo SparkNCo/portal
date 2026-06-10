@@ -19,6 +19,7 @@ import {
   CycleTable,
   UncompletedIssuesList,
 } from "./cycle-metrics";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -46,11 +47,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/issueMetrics/?slug=${slug}`,
         {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
         },
       );
       if (!res.ok) throw new Error("Failed to fetch metrics");
