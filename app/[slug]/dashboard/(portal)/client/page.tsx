@@ -23,6 +23,7 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
     slug,
     ticket_statuses: statuses.join(","),
   });
+  console.log("hola");
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/issues?${params.toString()}`,
     { headers: API_HEADERS },
