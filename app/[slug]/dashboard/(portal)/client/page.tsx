@@ -5,10 +5,9 @@ import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
 import { CreateIssue } from "@/components/shared/create-issue";
-import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_HEADERS } from "@/lib/api-headers";
@@ -49,10 +48,7 @@ export default function ClientDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
-  const userId = profile?.id;
   const linearProjectId = "";
-  const notionUrl = "https://www.notion.so/YOUR_POLICIES";
-  const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
     new Set(),
   );
@@ -63,23 +59,6 @@ export default function ClientDashboard() {
     queryFn: () => fetchIssues(slug),
     enabled: !!slug,
   });
-
-  // 🔹 Policies approval query
-  const { data: policiesStatus, isLoading: policiesLoading } = useQuery<
-    { approved: boolean },
-    Error
-  >({
-    queryKey: ["policies-status", userId],
-    queryFn: () => fetchPoliciesStatus(userId!),
-    enabled: !!userId && profile?.role === "developer",
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (policiesStatus && !policiesStatus.approved) {
-      setShowPoliciesModal(true);
-    }
-  }, [policiesStatus]);
 
   const allIssues: any[] = issuesData ?? [];
 
@@ -127,16 +106,10 @@ export default function ClientDashboard() {
     router.push(`${chatPath}?newChat=${encodeURIComponent(title)}`);
   };
 
-  if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
+  if (issuesLoading) return <LoadingDataPanel />;
 
   return (
     <div className="min-h-screen">
-      <PolicyApprovalModal
-        open={showPoliciesModal}
-        userId={userId!}
-        notionUrl={notionUrl}
-        onApproved={() => setShowPoliciesModal(false)}
-      />
       <Header
         title="Client Dashboard"
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}

@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
+import { isValidPhone } from "@/lib/phone";
 
 type Props = {
   onClose: () => void;
@@ -16,7 +17,10 @@ export default function AddStakeholderModal({ onClose }: Props) {
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const queryClient = useQueryClient();
+
+  const isPhoneValid = isValidPhone(phoneNumber);
 
   const inputClass =
     "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
@@ -96,8 +100,15 @@ export default function AddStakeholderModal({ onClose }: Props) {
             className={inputClass}
             placeholder="Phone number (optional)"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={(e) =>
+              setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
+            }
           />
+          {submitted && !isPhoneValid && (
+            <p className="text-sm text-destructive">
+              Enter a valid phone number.
+            </p>
+          )}
 
           {error && (
             <p className="text-sm text-destructive">{(error as Error).message}</p>
@@ -110,7 +121,10 @@ export default function AddStakeholderModal({ onClose }: Props) {
             <Button
               size="sm"
               disabled={isPending || !email}
-              onClick={() => mutate()}
+              onClick={() => {
+                setSubmitted(true);
+                if (isPhoneValid) mutate();
+              }}
             >
               {isPending ? "Creating..." : "Create"}
             </Button>

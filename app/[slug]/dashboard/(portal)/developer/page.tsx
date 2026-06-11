@@ -6,16 +6,34 @@ import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
+import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
-import { useState } from "react";
-import { fetchIssues } from "../client/page";
+import { useState, useEffect } from "react";
+import { fetchIssues, fetchPoliciesStatus } from "../client/page";
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
+  const userId = profile?.id;
+  const notionUrl = "https://www.notion.so/YOUR_POLICIES";
+  const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
+
+  // 🔹 Policies approval query
+  const { data: policiesStatus } = useQuery<{ approved: boolean }, Error>({
+    queryKey: ["policies-status", userId],
+    queryFn: () => fetchPoliciesStatus(userId!),
+    enabled: !!userId,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (policiesStatus && !policiesStatus.approved) {
+      setShowPoliciesModal(true);
+    }
+  }, [policiesStatus]);
 
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
@@ -80,6 +98,12 @@ export default function DeveloperDashboard() {
 
   return (
     <div className="min-h-screen">
+      <PolicyApprovalModal
+        open={showPoliciesModal}
+        userId={userId!}
+        notionUrl={notionUrl}
+        onApproved={() => setShowPoliciesModal(false)}
+      />
       <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
 
       <div className="p-4 md:p-6 space-y-6">

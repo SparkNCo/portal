@@ -147,37 +147,55 @@ async function triggerDoraForAllCustomers() {
 
   if (error) throw new Error(`Customers lookup error: ${error.message}`);
 
+  console.log(`🔍 [dora] customers with linear_slug + project_url:`, clients?.length ?? 0, clients);
+
   const eligible = (clients ?? []).filter(
     (c) => Array.isArray(c.project_url) && c.project_url.length > 0,
   );
+
+  console.log(`📋 [dora] eligible customers:`, eligible.length, eligible.map((c) => c.linear_slug));
 
   const doraUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/dora`;
   const authHeader = `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}`;
 
   await Promise.all(
-    eligible.map((client) =>
-      fetch(doraUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: authHeader,
-        },
-        body: JSON.stringify({
-          method: "all",
-          url: client.project_url,
-          linear_slug: client.linear_slug,
-        }),
-      }),
-    ),
+    eligible.map(async (client) => {
+      console.log(`➡️ [dora] calling dora for slug=${client.linear_slug} url=${JSON.stringify(client.project_url)}`);
+      try {
+        const res = await fetch(doraUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader,
+          },
+          body: JSON.stringify({
+            method: "all",
+            url: client.project_url,
+            linear_slug: client.linear_slug,
+          }),
+        });
+        const text = await res.text();
+        console.log(`⬅️ [dora] response for slug=${client.linear_slug}: status=${res.status} body=${text.slice(0, 500)}`);
+      } catch (err) {
+        console.error(`❌ [dora] request failed for slug=${client.linear_slug}:`, String(err));
+      }
+    }),
   );
 }
 
 async function handlePost() {
   const customers = await getAllCustomers();
 
+  console.log(`🚀 [issueMetrics] handlePost started, customers found:`, customers.length);
+
   for (const customer of customers) {
     const linearProjects: string[] = customer.linear_projects ?? [];
-    if (!linearProjects.length) continue;
+    if (!linearProjects.length) {
+      console.log(`⏭️ [issueMetrics] skipping customer ${customer.id}: no linear_projects`);
+      continue;
+    }
+
+    console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
 
     const projects = await fetchProjectDetails(linearProjects);
 
@@ -209,9 +227,13 @@ async function handlePost() {
       upsertIssueMetrics(metrics),
       upsertCycleMetrics(cycles),
     ]);
+
+    console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
   }
 
+  console.log(`🚀 [issueMetrics] triggering dora for all customers...`);
   await triggerDoraForAllCustomers();
+  console.log(`✅ [issueMetrics] handlePost finished`);
 
   return jsonResponse({ ok: true });
 }

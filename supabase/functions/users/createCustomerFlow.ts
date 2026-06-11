@@ -72,7 +72,7 @@ export const createCustomerFlow = async (body: any) => {
   const { data: customerUser, error: upsertError } = await supabase.schema("portal")
     .from("users")
     .upsert(
-      [{ id: authUserId, email, role: "customer", customer_id: clientRecord.customer_id, firstName, lastName, phoneNumber }],
+      [{ id: authUserId, email, role: "customer", customer_id: clientRecord.customer_id, firstName, lastName, phoneNumber, userName: clientName }],
       { onConflict: "id" }
     )
     .select()

@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
+import { isValidPhone } from "@/lib/phone";
 
 type Props = {
   onClose: () => void;
@@ -18,6 +19,9 @@ export default function AddClientModal({ onClose }: Props) {
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const isPhoneValid = isValidPhone(phoneNumber);
 
   const queryClient = useQueryClient();
 
@@ -103,6 +107,11 @@ export default function AddClientModal({ onClose }: Props) {
               setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
             }
           />
+          {submitted && !isPhoneValid && (
+            <p className="text-sm text-destructive">
+              Enter a valid phone number.
+            </p>
+          )}
           <input
             className={inputClass}
             placeholder="Stripe Customer ID"
@@ -129,7 +138,10 @@ export default function AddClientModal({ onClose }: Props) {
             <Button
               size="sm"
               disabled={isPending || !email || !stripeId || !linearSlug || !userName}
-              onClick={() => mutate()}
+              onClick={() => {
+                setSubmitted(true);
+                if (isPhoneValid) mutate();
+              }}
             >
               {isPending ? "Creating..." : "Create"}
             </Button>

@@ -115,9 +115,37 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
 
   const payload = { ...merged, url, last_called: new Date().toISOString() };
 
-  const { error } = existing
-    ? await supabase.schema("portal").from("dora_metrics").update(payload).eq("linear_slug", linearSlug)
-    : await supabase.schema("portal").from("dora_metrics").insert({ linear_slug: linearSlug, ...payload });
+  let error;
+  if (existing) {
+    ({ error } = await supabase.schema("portal").from("dora_metrics").update(payload).eq("linear_slug", linearSlug));
+  } else {
+    const { data: customers, error: customerError } = await supabase.schema("portal")
+      .from("customers")
+      .select("customer_id")
+      .eq("linear_slug", linearSlug)
+      .limit(1);
+
+    if (customerError) console.error("❌ Customer lookup error:", customerError.message);
+    const customer = customers?.[0];
+    if (!customer?.customer_id) throw new Error(`No customer found for linear_slug: ${linearSlug}`);
+
+    // dora_metrics.customer_id is a FK to portal.users.id (the customer's user row),
+    // not portal.customers.customer_id
+    const { data: customerUsers, error: userError } = await supabase.schema("portal")
+      .from("users")
+      .select("id")
+      .eq("customer_id", customer.customer_id)
+      .eq("role", "customer")
+      .order("created_at", { ascending: true });
+
+    if (userError) console.error("❌ Customer user lookup error:", userError.message);
+    const customerUserId = customerUsers?.[0]?.id;
+    if (!customerUserId) throw new Error(`No customer user found for linear_slug: ${linearSlug}`);
+
+    ({ error } = await supabase.schema("portal")
+      .from("dora_metrics")
+      .insert({ linear_slug: linearSlug, customer_id: customerUserId, ...payload }));
+  }
 
   if (error) {
     console.error("❌ Supabase write error:", error.message, error.details);
@@ -196,6 +224,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    console.error("❌ [dora] Unhandled error:", error.message, error.stack);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: corsHeaders,
