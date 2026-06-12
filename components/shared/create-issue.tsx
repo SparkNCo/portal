@@ -222,12 +222,14 @@ export function CreateIssue({
   slug,
   projectId,
   profile: profileProp,
+  linearSlug: linearSlugProp,
   compact,
   defaultType,
 }: {
   slug: string;
   projectId?: string;
   profile?: any;
+  linearSlug?: string;
   compact?: boolean;
   defaultType?: IssueType;
 }) {
@@ -253,7 +255,7 @@ export function CreateIssue({
   const needsProjectSelector =
     issueType === "bug" || issueType === "feature" || issueType === "milestone" || issueType === "uat";
 
-  const linearSlug = profile?.linear_slug ?? "";
+  const linearSlug = linearSlugProp ?? profile?.linear_slug ?? "";
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", linearSlug],

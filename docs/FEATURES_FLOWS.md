@@ -34,6 +34,12 @@ These permissions are derived from `profile.role` (UserContext) and evaluated as
 
 > The same flow applies to **Bug Report**, **UAT Test Case**, and **Project** types — only the form fields differ. **Milestone** goes through a separate `POST /issues/milestone` endpoint and requires a project to be selected first.
 
+**How the Project dropdown gets populated:** `CreateIssue` calls `GET /issues/projects?initiativeId={linearSlug}`, where `linearSlug` is resolved as follows:
+- A `linearSlug` prop, if passed explicitly by the parent page, takes priority.
+- Otherwise falls back to `profile.linear_slug`.
+
+`profile.linear_slug` is only set directly on the profile for `role: "customer"` users (their `users.customer_id` points to a `customers` row, which has `linear_slug`). Stakeholders/developers don't have it at the top level — their customer associations live in `profile.assignment_id[].linear_slug`, keyed by `clientName`. Pages rendering `CreateIssue` for non-customer roles (e.g. `app/[slug]/dashboard/(portal)/client/page.tsx`) must compute `linearSlug` by matching `profile.assignment_id[].clientName` against the currently selected customer slug and pass it as the `linearSlug` prop — otherwise the Project dropdown stays empty for stakeholders.
+
 ---
 
 ## 2. Issue State Machine
