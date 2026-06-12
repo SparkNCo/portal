@@ -441,7 +441,7 @@ function TestsTab({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
       {loadingTests && (
         <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
       )}
@@ -621,7 +621,7 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
-  const canAdvanceState = role === "admin" || role === "stakeholder" || role === "customer";
+  const canAdvanceState = role === "admin";
 
   const [visible, setVisible] = useState(false);
   const [advancing, setAdvancing] = useState(false);
