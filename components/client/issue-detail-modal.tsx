@@ -68,7 +68,7 @@ function TabButton({
 function DescriptionTab({
   issue,
   canAnswer,
-  canAsk,
+  canAdvanceState,
   currentStateName,
   advancing,
   nextState,
@@ -76,7 +76,7 @@ function DescriptionTab({
 }: {
   issue: Issue;
   canAnswer: boolean;
-  canAsk: boolean;
+  canAdvanceState: boolean;
   currentStateName: string | undefined;
   advancing: boolean;
   nextState: string | undefined;
@@ -113,7 +113,7 @@ function DescriptionTab({
         </Button>
       )}
 
-      {canAsk && nextState && (
+      {canAdvanceState && nextState && (
         <Button
           size="sm"
           variant="outline"
@@ -621,6 +621,7 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
+  const canAdvanceState = role === "admin" || role === "stakeholder" || role === "customer";
 
   const [visible, setVisible] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -755,7 +756,7 @@ export function IssueDetailModal({
           <DescriptionTab
             issue={issue}
             canAnswer={canAnswer}
-            canAsk={canAsk}
+            canAdvanceState={canAdvanceState}
             currentStateName={currentStateName}
             advancing={advancing}
             nextState={nextState}

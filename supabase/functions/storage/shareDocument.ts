@@ -45,7 +45,7 @@ export async function shareDocument(req: Request) {
       });
     }
 
-    if (permissionData.permission !== "write") {
+    if (!["write", "owner"].includes(permissionData.permission)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 403,
         headers: corsHeaders,

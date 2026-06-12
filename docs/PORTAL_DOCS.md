@@ -480,6 +480,40 @@ Donut chart of issues by status with legend, total task count, and completion pe
 | MTTR | Average recovery time from incidents |
 | Change Failure Rate | % of deployments that caused failures |
 
+**How DORA metrics are calculated** (`supabase/functions/dora/`)
+
+All four metrics are computed from the repo's **merged pull requests** via the GitHub API (`base=main`).
+
+**Deploy Frequency & Change Failure Rate** — these don't use branch names. To classify a PR as a "fix"/hotfix (which excludes it from Deploy Frequency and counts toward Change Failure Rate), the PR title, its labels, or any of its commit messages must **start with** one of these keywords (`ERROR_SIGNALS` in `supabase/functions/dora/github.ts`):
+
+- `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, `fix:`
+
+Additionally, for Change Failure Rate, a PR title matching `fix: SPA-<id>` is also treated as a fix. A PR only counts toward Deploy Frequency if its CI status is `success` (via the GitHub commit Status API, not Checks/Actions).
+
+**Lead Time for Changes** (`leadTime.ts`) and **MTTR** (`mttr.ts`) have stricter requirements — both PR title prefix AND branch naming matter:
+
+| Metric | PR title must start with | Branch (`pr.head.ref`) must start with |
+|---|---|---|
+| Lead Time for Changes | `feat/` or `release/` | `<github-issue-number>-` |
+| MTTR | `fix/` (in title or any commit message) | `<github-issue-number>-` |
+
+For each matching PR, the branch prefix number is used to fetch a **GitHub Issue** (`GET /repos/{repo}/issues/{number}`) — not a Linear ticket. The metric is then:
+
+- Lead Time: `pr.merged_at - issue.created_at` (hours), averaged across all matching `feat/`/`release/` PRs.
+- MTTR: `pr.merged_at - issue.created_at` (hours), averaged across all matching `fix/` PRs.
+
+If no PR satisfies both the title prefix and the `<number>-` branch naming pointing to a real GitHub Issue, `avg_lead_hours` / `average_resolution_hours` come back as `null` and the card shows no data for that metric. Note: if the team uses Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names, these two metrics will never populate.
+
+For correct metrics overall, PRs/commits should follow this naming convention: `feat/<github-issue-number>-...` for features, `fix/<github-issue-number>-...` for bug fixes, and `fix:`/`hotfix`/`revert`/`rollback`/`bugfix` prefixes for hotfix detection.
+
+**How `dora` gets triggered & how Deploy Frequency accumulates over time**
+
+`dora` is not called directly on a schedule. It's triggered once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`), which calls `dora` with `method: "all"` for every customer that has a `linear_slug` and `project_url`.
+
+- **Change Failure Rate** is recomputed from scratch on every run — it always re-fetches the most recent `limit` merged PRs (default 100, no date filter), so it's a sliding window over PR history, not a cumulative store.
+- **Deploy Frequency** is cumulative and stored in `dora_metrics.deploy_freq_details.deployments`. Each run only fetches PRs merged in the **last 24 hours** (`since`) and appends new, deduped entries (by `pr_number`) to the existing list — it never overwrites or drops old entries. `total_deployments`, `deployments_last_30_days`, and `deployments_last_90_days` are all computed from this accumulated list.
+- **Implication:** as long as the daily cron runs without gaps, every merged PR (that passes the hotfix/CI filters) eventually gets captured into `deploy_freq_details.deployments`, and Deploy Frequency numbers will be complete and accurate over time. If the cron misses a run for more than 24 hours, any PRs merged during that gap fall outside the `since` window of the next run and are **permanently missed** from Deploy Frequency (they still show up in CFR's sliding-window scan, since that doesn't depend on accumulation).
+
 **Product Decisions — `PriorityTasks` (Business Review)**  
 Issues in Business Review state, sorted by unanswered question count. Client reviews and approves user stories here.
 

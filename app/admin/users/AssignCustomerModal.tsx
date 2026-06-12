@@ -125,7 +125,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                   id="allocation-input"
                   type="number"
                   min={1}
-                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                   value={allocation}
                   onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}

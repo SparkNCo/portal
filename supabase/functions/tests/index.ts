@@ -13,6 +13,8 @@ function headers(extra: Record<string, string> = {}) {
     apikey: serviceKey(),
     Authorization: `Bearer ${serviceKey()}`,
     "Content-Type": "application/json",
+    "Accept-Profile": "portal",
+    "Content-Profile": "portal",
     ...extra,
   };
 }

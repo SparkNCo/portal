@@ -107,6 +107,16 @@ Shows the four **DORA engineering metrics** for the customer's team, fetched fro
 
 If no metrics are available yet, the card shows "No metrics available."
 
+**Calculation notes — Deploy Frequency / Change Failure Rate:** derived from merged pull requests, not branch names. A PR/commit is treated as a "fix" (excluded from Deploy Frequency, counted toward Change Failure Rate) when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:` (or match `fix: SPA-<id>` for CFR). A PR only counts toward Deploy Frequency if its CI status is `success`. See `supabase/functions/dora/github.ts` (`ERROR_SIGNALS`, `isHotfix`).
+
+**Calculation notes — Lead Time for Changes / MTTR:** these require BOTH:
+- PR title starts with `feat/` or `release/` (Lead Time) or `fix/` (MTTR, can also be in a commit message), AND
+- the PR's branch name starts with `<github-issue-number>-` (e.g. `42-add-login`), used to look up a **GitHub Issue** (not a Linear ticket) via `GET /repos/{repo}/issues/{number}`.
+
+The metric value is `pr.merged_at - issue.created_at` in hours, averaged across all matching PRs. If no PR matches both conditions, the card shows no value for that metric. Repos using Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names will never populate these two metrics. See `supabase/functions/dora/leadTime.ts` and `supabase/functions/dora/mttr.ts`.
+
+**How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Deploy Frequency is cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries to `dora_metrics.deploy_freq_details.deployments` (deduped, never overwritten). If the daily cron runs without gaps, Deploy Frequency eventually captures all merges; a gap of more than 24 hours causes PRs merged in that gap to be permanently missed from Deploy Frequency (though they still appear in CFR's scan).
+
 ### 3. Product Decisions — `PriorityTasks` (Business Review)
 
 **Source:** `components/client/priority-tasks.tsx` + `components/client/issue-detail-modal.tsx`

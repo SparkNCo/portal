@@ -42,7 +42,7 @@ Each document in the response has the following fields used by the UI:
 | `category` | One of: Reports, Technical, Design |
 | `created_at` | Shown as a formatted date |
 | `size` | File size string shown in the row |
-| `permission` | `"write"` or `"read"` — controls which actions are available |
+| `permission` | `"owner"`, `"write"`, or `"read"` — controls which actions are available |
 | `project_slug` | Groups the document under a project folder (null → "Other") |
 
 ### Search
@@ -67,9 +67,9 @@ Each document row shows its file-type icon, name, category badge, date, and size
 |---|---|---|---|
 | **Open** | ExternalLink | Everyone | Calls `GET /storage/download?document_id=...&user_id=...&inline=true` to get a signed URL, then opens it in a new tab (inline view) |
 | **Download** | Download | Everyone | Calls `GET /storage/download?document_id=...&user_id=...` (no `inline` param) to get a signed download URL, then opens it |
-| **Share** | Share2 | `write` only | Opens the Share Document modal |
-| **Category** | Settings | `write` only | Opens a popover with the three category options — clicking one calls `PUT /storage` to update the document's category |
-| **Delete** | Trash2 | `write` only | Calls `DELETE /storage` with `{ document_id, user_id }`. On success, the documents list refreshes automatically |
+| **Share** | Share2 | `write` or `owner` | Opens the Share Document modal |
+| **Category** | Settings | `write` or `owner` | Opens a popover with the three category options — clicking one calls `PUT /storage` to update the document's category |
+| **Delete** | Trash2 | `owner` only | Calls `DELETE /storage` with `{ document_id, user_id }`. On success, the documents list refreshes automatically |
 
 Both Open and Download fetch a fresh **signed URL** from the backend each time they are clicked — the URL is not stored or cached in the UI.
 
@@ -79,7 +79,7 @@ Both Open and Download fetch a fresh **signed URL** from the backend each time t
 
 **Source:** `components/documents/ShareDocumentModal.tsx`
 
-Opened by clicking the Share icon on a document row. Only available for documents with `permission === "write"`.
+Opened by clicking the Share icon on a document row. Only available for documents with `permission` equal to `"write"` or `"owner"`.
 
 The user types one or more email addresses, separated by commas. Clicking **Share** calls `POST /storage/share` with:
 
@@ -92,6 +92,8 @@ The user types one or more email addresses, separated by commas. Clicking **Shar
 ```
 
 On success the modal closes and the email input resets. The backend handles sending the share notification and granting access to the recipients.
+
+**Backend permission check** (`supabase/functions/storage/shareDocument.ts`): the request is rejected with `403 { error: "Unauthorized" }` unless the caller's `document_permissions` row for that document has `permission` equal to `"write"` or `"owner"`. This must match the frontend's gating condition above — if they ever diverge (e.g. backend only allowed `"write"` while the frontend showed Share for `"owner"` too), document owners would get an `"Unauthorized"` error when trying to share.
 
 ---
 
@@ -144,9 +146,10 @@ The `permission` field on each document determines what a user can do with it:
 | Permission | Open | Download | Share | Change Category | Delete |
 |---|---|---|---|---|---|
 | `read` | ✅ | ✅ | ✗ | ✗ | ✗ |
-| `write` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `write` | ✅ | ✅ | ✅ | ✅ | ✗ |
+| `owner` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Documents uploaded by a user have `write` permission for that user. Documents shared with a user have `read` permission.
+Documents uploaded by a user have `owner` permission for that user. Documents shared with a user have `read` permission (granted as `read` by `POST /storage/share`, see above).
 
 ---
 
