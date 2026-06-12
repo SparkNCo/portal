@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
+import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
 
 async function resolveAuthUser(
   email: string,
@@ -37,6 +38,48 @@ async function resolveAuthUser(
   return { authUserId: existingAuthUser.id, inviteLink: recoveryData.properties.action_link, isNew: false };
 }
 
+// Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
+// and fill in linear_projects / project_url so DORA metrics can pick this client up.
+// Returns true if usable project data was saved.
+async function fillProjectData(clientRecord: any, linear_slug: string): Promise<boolean> {
+  try {
+    const { linearProjects, projectUrls } = await fetchProjectUrlsFromLinear(linear_slug);
+    if (!linearProjects.length && !projectUrls.length) return false;
+
+    const { error: updateError } = await supabase.schema("portal")
+      .from("customers")
+      .update({ linear_projects: linearProjects, project_url: projectUrls })
+      .eq("customer_id", clientRecord.customer_id);
+
+    if (updateError) {
+      console.error("Failed to save linear_projects/project_url:", updateError.message);
+      return false;
+    }
+
+    clientRecord.linear_projects = linearProjects;
+    clientRecord.project_url = projectUrls;
+    return linearProjects.length > 0;
+  } catch (err) {
+    console.error("Failed to fetch project URLs from Linear:", String(err));
+    return false;
+  }
+}
+
+// Best-effort: kick off issueMetrics now that linear_projects/project_url are set.
+// issueMetrics also triggers /dora for every eligible customer once it's done.
+async function triggerIssueMetrics() {
+  try {
+    const issueMetricsUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/issueMetrics`;
+    const res = await fetch(issueMetricsUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}` },
+    });
+    console.log(`[createCustomerFlow] issueMetrics trigger status=${res.status}`);
+  } catch (err) {
+    console.error("Failed to trigger issueMetrics:", String(err));
+  }
+}
+
 export const createCustomerFlow = async (body: any) => {
   const {
     email,
@@ -68,6 +111,8 @@ export const createCustomerFlow = async (body: any) => {
     throw new Error(clientError.message);
   }
 
+  const projectDataReady = await fillProjectData(clientRecord, linear_slug);
+
   // Upsert users table, linking to the client record via customer_id
   const { data: customerUser, error: upsertError } = await supabase.schema("portal")
     .from("users")
@@ -85,6 +130,8 @@ export const createCustomerFlow = async (body: any) => {
   }
 
   await sendInviteCustomerMail(email, inviteLink);
+
+  if (projectDataReady) await triggerIssueMetrics();
 
   return { customer: customerUser, client: clientRecord };
 };
