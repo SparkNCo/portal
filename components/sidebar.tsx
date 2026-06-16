@@ -44,7 +44,7 @@ const adminNavItems = [
 
 const stakeholderNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Roadmap", icon: Map },
+  { href: "roadmap", label: "Monitor", icon: Map },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
 ];

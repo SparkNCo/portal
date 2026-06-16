@@ -72,7 +72,19 @@ At the top of the dashboard there is a row of **project filter buttons** — one
 
 ## Create Issue button
 
-To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens the issue creation dialog. See `app/docs/FEATURES_FLOWS.md` for the full issue creation flow.
+To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens a type-picker dialog with the following options:
+
+| Type | Who sees it | Outcome |
+|---|---|---|
+| Bug Report | All roles | Creates a Linear issue |
+| Feature Request | All roles | Creates a Linear issue |
+| UAT Test Case | All roles | Creates a Linear issue |
+| **Project** | **`customer` only** | Creates a new Linear project under the customer's initiative |
+| Milestone | All roles | Creates a Linear project milestone |
+
+The **Project** type is hidden for stakeholders, developers, and admins. When a customer creates a project, it is automatically linked to their initiative (`customers.linear_slug`) and the new project ID is appended to `customers.linear_projects` so it appears immediately in all project dropdowns.
+
+See `docs/FEATURES_FLOWS.md` for the full flow of each type.
 
 ---
 

@@ -8,7 +8,8 @@ Reference for how the main customer-developer collaboration flows work end to en
 
 | Role | What they can do |
 |---|---|
-| `customer` / `stakeholder` | Approve tests, submit decisions, record UAT results, approve Business Review |
+| `customer` | Approve tests, submit decisions, record UAT results, approve Business Review, **create Linear projects** |
+| `stakeholder` | Approve tests, submit decisions, record UAT results, approve Business Review |
 | `developer` / `admin` | Create issues, ask questions, advance issue state, create test cases |
 
 These permissions are derived from `profile.role` (UserContext) and evaluated as `canAnswer` (customer/stakeholder) and `canAsk` (developer/admin) inside `IssueDetailModal`.
@@ -32,13 +33,45 @@ These permissions are derived from `profile.role` (UserContext) and evaluated as
 6. The issue is created in Linear and returns an identifier (e.g. `SPA-42`).
 7. A success toast shows the identifier. The dialog closes and resets.
 
-> The same flow applies to **Bug Report**, **UAT Test Case**, and **Project** types — only the form fields differ. **Milestone** goes through a separate `POST /issues/milestone` endpoint and requires a project to be selected first.
+> The same flow applies to **Bug Report** and **UAT Test Case** types — only the form fields differ. **Milestone** goes through a separate `POST /issues/milestone` endpoint and requires a project to be selected first. **Project** goes through its own `POST /issues/project` endpoint — see section below.
 
-**How the Project dropdown gets populated:** `CreateIssue` calls `GET /issues/projects?initiativeId={linearSlug}`, where `linearSlug` is resolved as follows:
-- A `linearSlug` prop, if passed explicitly by the parent page, takes priority.
-- Otherwise falls back to `profile.linear_slug`.
+**How the Project dropdown gets populated:** `CreateIssue` calls `GET /issues/projects?slug={slug}`, which reads the `linear_projects` array from `portal.customers` and fetches their names from Linear. This means the dropdown always reflects `customers.linear_projects` as the source of truth — including any projects created via the portal.
 
 `profile.linear_slug` is only set directly on the profile for `role: "customer"` users (their `users.customer_id` points to a `customers` row, which has `linear_slug`). Stakeholders/developers don't have it at the top level — their customer associations live in `profile.assignment_id[].linear_slug`, keyed by `clientName`. Pages rendering `CreateIssue` for non-customer roles (e.g. `app/[slug]/dashboard/(portal)/client/page.tsx`) must compute `linearSlug` by matching `profile.assignment_id[].clientName` against the currently selected customer slug and pass it as the `linearSlug` prop — otherwise the Project dropdown stays empty for stakeholders.
+
+---
+
+## 1b. Create a Project *(customers only)*
+
+**Entry point:** "Create Issue" button → type picker → **Project** card.
+
+> The **Project** type is only shown in the type picker for users with `role === "customer"`. Other roles do not see this option.
+
+1. User clicks **Create Issue** and selects **Project**.
+2. The form asks for:
+   - **Title** — required, becomes the Linear project name
+   - **Description** *(optional)* — project overview
+   - **Due Date** *(optional)* — maps to `targetDate` in Linear
+   - **Milestones** *(optional)* — free-text planning notes, informational only
+3. User clicks **Create Project**.
+4. `POST /issues/project` is called with `{ name, slug, description?, targetDate? }`.
+
+**What happens on the backend (`handleCreateProject`, `supabase/functions/issues/createIssue.ts`):**
+
+1. Resolves the customer's `teamId` and `linear_slug` from `portal.customers` using the `slug`.
+2. Calls Linear's `projectCreate` mutation with `name`, `teamIds`, and optional `description` / `targetDate`.
+3. Resolves the full initiative UUID by querying `initiative(id: $linear_slug) { id }` — `linear_slug` may be a short ID, not the full UUID.
+4. Calls Linear's `initiativeToProjectCreate` mutation to link the new project to the customer's initiative.
+5. Appends the new project's Linear ID to `customers.linear_projects` in Supabase so it immediately appears in project dropdowns without waiting for a re-sync.
+
+**API endpoint:** `POST /issues/project`
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | ✅ Yes | Project title |
+| `slug` | ✅ Yes | Customer slug — used to resolve `teamId` and `linear_slug` |
+| `description` | No | Project description |
+| `targetDate` | No | `YYYY-MM-DD` format |
 
 ---
 

@@ -134,6 +134,24 @@ async function postCreateIssue(payload: {
   return res.json();
 }
 
+async function postCreateProject(payload: {
+  name: string;
+  slug: string;
+  description?: string;
+  targetDate?: string;
+}) {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/project`,
+    {
+      method: "POST",
+      headers: API_HEADERS,
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to create project");
+  return res.json();
+}
+
 async function postCreateMilestone(payload: {
   projectId: string;
   name: string;
@@ -152,9 +170,9 @@ async function postCreateMilestone(payload: {
   return res.json();
 }
 
-async function fetchProjects(initiativeId: string) {
+async function fetchProjects(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?initiativeId=${initiativeId}`,
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?slug=${slug}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch projects");
@@ -258,9 +276,9 @@ export function CreateIssue({
   const linearSlug = linearSlugProp ?? profile?.linear_slug ?? "";
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects", linearSlug],
-    queryFn: () => fetchProjects(linearSlug),
-    enabled: open && !!linearSlug && needsProjectSelector,
+    queryKey: ["projects", slug],
+    queryFn: () => fetchProjects(slug),
+    enabled: open && !!slug && needsProjectSelector,
   });
 
   const { data: milestones = [] } = useQuery({
@@ -279,6 +297,15 @@ export function CreateIssue({
     onError: () => toast.error("Failed to create issue. Please try again."),
   });
 
+  const projectMutation = useMutation({
+    mutationFn: postCreateProject,
+    onSuccess: (data) => {
+      toast.success(`Project created: ${data.project?.name ?? ""}`);
+      handleClose();
+    },
+    onError: () => toast.error("Failed to create project. Please try again."),
+  });
+
   const milestoneMutation = useMutation({
     mutationFn: postCreateMilestone,
     onSuccess: () => {
@@ -288,7 +315,7 @@ export function CreateIssue({
     onError: () => toast.error("Failed to create milestone. Please try again."),
   });
 
-  const isPending = issueMutation.isPending || milestoneMutation.isPending;
+  const isPending = issueMutation.isPending || milestoneMutation.isPending || projectMutation.isPending;
 
   function handleClose() {
     setOpen(false);
@@ -307,6 +334,16 @@ export function CreateIssue({
 
   function handleSubmit() {
     if (!issueType || !title.trim()) return;
+
+    if (issueType === "project") {
+      projectMutation.mutate({
+        name: title.trim(),
+        slug,
+        description: fields.projectDescription,
+        targetDate: fields.projectDueDate,
+      });
+      return;
+    }
 
     if (issueType === "milestone") {
       if (!selectedProjectId) return;
@@ -357,7 +394,7 @@ export function CreateIssue({
 
           {step === "type" && (
             <div className="grid grid-cols-2 gap-3 pt-2">
-              {TYPE_OPTIONS.map(
+              {TYPE_OPTIONS.filter((t) => t.type !== "project" || profile?.role === "customer").map(
                 ({ type, label, description, icon: Icon, color }) => (
                   <button
                     key={type}
@@ -725,7 +762,7 @@ export function CreateIssue({
                 </div>
               )}
 
-              {issueType !== "milestone" && (
+              {issueType !== "milestone" && issueType !== "project" && (
                 <div className="space-y-1.5">
                   <Label>Priority</Label>
                   <Select value={priority} onValueChange={setPriority}>
@@ -764,6 +801,8 @@ export function CreateIssue({
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : issueType === "milestone" ? (
                     "Create Milestone"
+                  ) : issueType === "project" ? (
+                    "Create Project"
                   ) : (
                     "Submit Issue"
                   )}

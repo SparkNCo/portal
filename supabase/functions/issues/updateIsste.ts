@@ -292,6 +292,14 @@ const GET_INITIATIVE_PROJECTS_QUERY = `
   }
 `;
 
+const GET_PROJECTS_BY_IDS_QUERY = `
+  query GetProjectsByIds($filter: ProjectFilter) {
+    projects(filter: $filter, first: 50) {
+      nodes { id name }
+    }
+  }
+`;
+
 const GET_MILESTONES_QUERY = `
   query GetMilestones($projectId: String!) {
     project(id: $projectId) {
@@ -312,8 +320,36 @@ const CREATE_MILESTONE_MUTATION = `
 `;
 
 export async function handleGetProjects(req: Request): Promise<Response> {
-  const initiativeId = new URL(req.url).searchParams.get("initiativeId");
-  if (!initiativeId) return Response.json({ error: "Missing initiativeId" }, { status: 400 });
+  const url = new URL(req.url);
+  const slug = url.searchParams.get("slug");
+  const initiativeId = url.searchParams.get("initiativeId");
+
+  if (slug) {
+    const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+    const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Accept-Profile": "portal",
+        },
+      },
+    );
+    const [customer] = await res.json();
+    const projectIds: string[] = customer?.linear_projects ?? [];
+
+    if (!projectIds.length) return Response.json([]);
+
+    const data = await linearRequest(GET_PROJECTS_BY_IDS_QUERY, {
+      filter: { id: { in: projectIds } },
+    });
+    return Response.json(data.projects?.nodes ?? []);
+  }
+
+  if (!initiativeId) return Response.json({ error: "Missing slug or initiativeId" }, { status: 400 });
 
   const data = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId });
   return Response.json(data.initiative?.projects?.nodes ?? []);

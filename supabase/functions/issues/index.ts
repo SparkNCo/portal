@@ -2,7 +2,7 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { handleGetIssues } from "./fetchIssues.ts";
 import { handleAddComment, handlePostToLinear, handleSetDecision, handleUpdateState, handleGetProjects, handleGetMilestones, handleCreateMilestone } from "./updateIsste.ts";
-import { handleCreateIssue } from "./createIssue.ts";
+import { handleCreateIssue, handleCreateProject } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,6 +21,8 @@ Deno.serve(async (req) => {
       res = await handleGetIssues(req);
     } else if (req.method === "POST" && pathname.endsWith("/milestone")) {
       res = await handleCreateMilestone(req);
+    } else if (req.method === "POST" && pathname.endsWith("/project")) {
+      res = await handleCreateProject(req);
     } else if (req.method === "POST" && pathname.endsWith("/create")) {
       res = await handleCreateIssue(req);
     } else if (req.method === "POST" && pathname.endsWith("/linear-comment")) {

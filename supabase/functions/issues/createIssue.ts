@@ -44,25 +44,34 @@ async function linearRequest(query: string, variables: Record<string, any> = {})
   return json.data;
 }
 
-async function resolveTeamId(slug: string): Promise<string> {
+async function resolveCustomer(slug: string): Promise<{ teamId: string; linearSlug: string | null }> {
   const { data, error } = await supabase.schema("portal")
     .from("customers")
-    .select("linear_projects")
+    .select("linear_projects, linear_slug")
     .eq("clientName", slug)
     .maybeSingle();
+
+  let teamId: string | null = null;
 
   if (!error && data?.linear_projects?.length) {
     const projectData = await linearRequest(GET_PROJECT_TEAM_QUERY, {
       id: data.linear_projects[0],
     });
-    const teamId = projectData?.project?.teams?.nodes?.[0]?.id;
-    if (teamId) return teamId;
+    teamId = projectData?.project?.teams?.nodes?.[0]?.id ?? null;
   }
 
-  // fallback: first team in the workspace
-  const teamsData = await linearRequest(GET_FIRST_TEAM_QUERY);
-  const teamId = teamsData?.teams?.nodes?.[0]?.id;
+  if (!teamId) {
+    const teamsData = await linearRequest(GET_FIRST_TEAM_QUERY);
+    teamId = teamsData?.teams?.nodes?.[0]?.id ?? null;
+  }
+
   if (!teamId) throw new Error("No teams found in Linear workspace");
+
+  return { teamId, linearSlug: data?.linear_slug ?? null };
+}
+
+async function resolveTeamId(slug: string): Promise<string> {
+  const { teamId } = await resolveCustomer(slug);
   return teamId;
 }
 
@@ -72,6 +81,95 @@ const PRIORITY_MAP: Record<string, number> = {
   medium: 3,
   low: 4,
 };
+
+const CREATE_PROJECT_MUTATION = `
+  mutation CreateProject($input: ProjectCreateInput!) {
+    projectCreate(input: $input) {
+      success
+      project { id name url }
+    }
+  }
+`;
+
+const GET_INITIATIVE_UUID_QUERY = `
+  query GetInitiativeUUID($id: String!) {
+    initiative(id: $id) {
+      id
+    }
+  }
+`;
+
+const LINK_PROJECT_TO_INITIATIVE_MUTATION = `
+  mutation InitiativeToProjectCreate($initiativeId: String!, $projectId: String!) {
+    initiativeToProjectCreate(input: { initiativeId: $initiativeId, projectId: $projectId }) {
+      success
+      initiativeToProject { id }
+    }
+  }
+`;
+
+export async function handleCreateProject(req: Request): Promise<Response> {
+  const { name, description, targetDate, slug } = await req.json();
+
+  if (!name?.trim()) {
+    return Response.json({ error: "Missing project name" }, { status: 400 });
+  }
+  if (!slug) {
+    return Response.json({ error: "Missing slug" }, { status: 400 });
+  }
+
+  const { teamId, linearSlug } = await resolveCustomer(slug);
+
+  const input: Record<string, any> = {
+    name: name.trim(),
+    teamIds: [teamId],
+  };
+
+  if (description?.trim()) input.description = description.trim();
+  if (targetDate) input.targetDate = targetDate;
+
+  const data = await linearRequest(CREATE_PROJECT_MUTATION, { input });
+  const project = data.projectCreate?.project;
+
+  let linkError: string | null = null;
+  if (project && linearSlug) {
+    try {
+      const initiativeData = await linearRequest(GET_INITIATIVE_UUID_QUERY, { id: linearSlug });
+      const initiativeUUID = initiativeData?.initiative?.id;
+
+      if (!initiativeUUID) throw new Error(`Initiative not found for slug: ${linearSlug}`);
+
+      await linearRequest(LINK_PROJECT_TO_INITIATIVE_MUTATION, {
+        initiativeId: initiativeUUID,
+        projectId: project.id,
+      });
+    } catch (err) {
+      linkError = String(err);
+      console.error("[handleCreateProject] Failed to link project to initiative:", err);
+    }
+  }
+
+  if (project) {
+    const { data: customer } = await supabase.schema("portal")
+      .from("customers")
+      .select("linear_projects")
+      .eq("clientName", slug)
+      .maybeSingle();
+
+    const current: string[] = customer?.linear_projects ?? [];
+
+    const { error } = await supabase.schema("portal")
+      .from("customers")
+      .update({ linear_projects: [...current, project.id] })
+      .eq("clientName", slug);
+
+    if (error) {
+      console.error("[handleCreateProject] Failed to update customers.linear_projects:", error);
+    }
+  }
+
+  return Response.json({ ...data.projectCreate, linkError });
+}
 
 export async function handleCreateIssue(req: Request): Promise<Response> {
   const body = await req.json();

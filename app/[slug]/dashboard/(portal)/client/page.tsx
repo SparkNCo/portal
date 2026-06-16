@@ -52,7 +52,8 @@ export default function ClientDashboard() {
   // only have it per-assignment, so look it up by matching the selected clientName.
   const linearSlug =
     profile?.linear_slug ||
-    profile?.assignment_id?.find((a: any) => a.clientName === slug)?.linear_slug ||
+    profile?.assignment_id?.find((a: any) => a.clientName === slug)
+      ?.linear_slug ||
     "";
   const linearProjectId = "";
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
@@ -116,8 +117,14 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen">
+      <div onClick={() => console.log({ profile })}>VER profile</div>
+
       <Header
-        title="Client Dashboard"
+        title={
+          profile?.role === "stakeholder"
+            ? "Stakeholder Dashboard"
+            : "Client Dashboard"
+        }
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
