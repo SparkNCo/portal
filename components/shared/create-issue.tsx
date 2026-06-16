@@ -122,6 +122,7 @@ async function postCreateIssue(payload: {
   description: string;
   priority: string;
   slug: string;
+  type?: string;
   projectId?: string;
   projectMilestoneId?: string;
 }) {
@@ -178,6 +179,7 @@ async function fetchProjects(slug: string) {
   if (!res.ok) throw new Error("Failed to fetch projects");
   return res.json() as Promise<{ id: string; name: string }[]>;
 }
+
 
 async function fetchMilestones(projectId: string) {
   const res = await fetch(
@@ -361,6 +363,7 @@ export function CreateIssue({
       description: buildDescription(issueType, fields),
       priority,
       slug,
+      type: issueType,
       ...(projectId && { projectId }),
       ...(selectedProjectId && { projectId: selectedProjectId }),
       ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),

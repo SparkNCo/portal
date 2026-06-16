@@ -86,6 +86,7 @@ export type Issue = {
   cycle?: { number: number; isActive: boolean; name?: string };
   comments?: { nodes: Comment[] };
   description?: string | null;
+  labels?: { nodes: { id: string; name: string; color: string }[] };
 };
 
 export type FilterState = {

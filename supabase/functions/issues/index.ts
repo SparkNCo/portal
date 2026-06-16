@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { handleGetIssues } from "./fetchIssues.ts";
-import { handleAddComment, handlePostToLinear, handleSetDecision, handleUpdateState, handleGetProjects, handleGetMilestones, handleCreateMilestone } from "./updateIsste.ts";
+import { handleAddComment, handlePostToLinear, handleSetDecision, handleUpdateState, handleGetProjects, handleGetMilestones, handleCreateMilestone, handleGetLabels } from "./updateIsste.ts";
 import { handleCreateIssue, handleCreateProject } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
@@ -17,6 +17,8 @@ Deno.serve(async (req) => {
       res = await handleGetProjects(req);
     } else if (req.method === "GET" && pathname.endsWith("/milestones")) {
       res = await handleGetMilestones(req);
+    } else if (req.method === "GET" && pathname.endsWith("/labels")) {
+      res = await handleGetLabels(req);
     } else if (req.method === "GET") {
       res = await handleGetIssues(req);
     } else if (req.method === "POST" && pathname.endsWith("/milestone")) {

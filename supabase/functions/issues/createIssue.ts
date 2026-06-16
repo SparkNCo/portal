@@ -16,6 +16,14 @@ const GET_FIRST_TEAM_QUERY = `
   }
 `;
 
+const GET_TEAM_LABELS_QUERY = `
+  query GetTeamLabels($teamId: String!) {
+    team(id: $teamId) {
+      labels { nodes { id name } }
+    }
+  }
+`;
+
 const CREATE_ISSUE_MUTATION = `
   mutation IssueCreate($input: IssueCreateInput!) {
     issueCreate(input: $input) {
@@ -178,6 +186,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
     description,
     priority,
     slug,
+    type,
     teamId: bodyTeamId,
     projectId,
     assigneeId,
@@ -208,8 +217,23 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
 
   if (projectId) input.projectId = projectId;
   if (assigneeId) input.assigneeId = assigneeId;
-  if (labelIds?.length) input.labelIds = labelIds;
   if (body.projectMilestoneId) input.projectMilestoneId = body.projectMilestoneId;
+
+  const resolvedLabelIds: string[] = labelIds ? [...labelIds] : [];
+
+  if (type === "bug") {
+    try {
+      const labelsData = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
+      const bugLabel = labelsData?.team?.labels?.nodes?.find(
+        (l: { id: string; name: string }) => l.name.toLowerCase().includes("bug"),
+      );
+      if (bugLabel) resolvedLabelIds.push(bugLabel.id);
+    } catch (err) {
+      console.error("[handleCreateIssue] Failed to resolve bug label:", err);
+    }
+  }
+
+  if (resolvedLabelIds.length) input.labelIds = resolvedLabelIds;
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
 

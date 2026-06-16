@@ -4,6 +4,28 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
+const LABEL_COLORS: Record<string, string> = {
+  bug: "hsl(var(--destructive))",
+  improvement: "hsl(210, 70%, 35%)",
+  feature: "hsl(var(--success))",
+};
+
+function getLabelColor(name: string, fallback: string): string {
+  return LABEL_COLORS[name.toLowerCase()] ?? fallback;
+}
+
+function LabelPill({ label }: { readonly label: { id: string; name: string; color: string } }) {
+  return (
+    <span
+      key={label.id}
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+      style={{ backgroundColor: getLabelColor(label.name, label.color) }}
+    >
+      {label.name}
+    </span>
+  );
+}
+
 export function IssueCard({
   issue,
   onOpen,
@@ -41,6 +63,13 @@ export function IssueCard({
         ) : (
           <div className="mb-3" />
         )}
+        {issue.labels?.nodes?.length ? (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {issue.labels.nodes.map((l) => (
+              <LabelPill key={l.id} label={l} />
+            ))}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between">
           <Badge
             variant="secondary"
@@ -67,15 +96,12 @@ export function IssueCard({
 export function IssueListRow({
   issue,
   onOpen,
-  onOpenChat,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onOpenChat?: (title: string) => void;
 }) {
-  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
-    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border group">
+    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -94,16 +120,9 @@ export function IssueListRow({
       <p className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}>
         {issue.title}
       </p>
-      {onOpenChat && (
-        <button
-          type="button"
-          className="relative z-10 text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
-          onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
-          title="Open chat about this issue"
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-        </button>
-      )}
+      {issue.labels?.nodes?.map((l) => (
+        <LabelPill key={l.id} label={l} />
+      ))}
     </div>
   );
 }

@@ -282,6 +282,14 @@ export async function handleSetDecision(req: Request): Promise<Response> {
 
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
+const GET_PROJECT_TEAM_QUERY = `
+  query GetProjectTeam($id: String!) {
+    project(id: $id) {
+      teams(first: 1) { nodes { id } }
+    }
+  }
+`;
+
 const GET_INITIATIVE_PROJECTS_QUERY = `
   query GetInitiativeProjects($initiativeId: String!) {
     initiative(id: $initiativeId) {
@@ -296,6 +304,16 @@ const GET_PROJECTS_BY_IDS_QUERY = `
   query GetProjectsByIds($filter: ProjectFilter) {
     projects(filter: $filter, first: 50) {
       nodes { id name }
+    }
+  }
+`;
+
+const GET_TEAM_LABELS_QUERY = `
+  query GetTeamLabels($teamId: String!) {
+    team(id: $teamId) {
+      labels {
+        nodes { id name color }
+      }
     }
   }
 `;
@@ -361,6 +379,35 @@ export async function handleGetMilestones(req: Request): Promise<Response> {
 
   const data = await linearRequest(GET_MILESTONES_QUERY, { projectId });
   return Response.json(data.project?.projectMilestones?.nodes ?? []);
+}
+
+export async function handleGetLabels(req: Request): Promise<Response> {
+  const slug = new URL(req.url).searchParams.get("slug");
+  if (!slug) return Response.json({ error: "Missing slug" }, { status: 400 });
+
+  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Accept-Profile": "portal",
+      },
+    },
+  );
+  const [customer] = await res.json();
+  const projectIds: string[] = customer?.linear_projects ?? [];
+  if (!projectIds.length) return Response.json([]);
+
+  const projectData = await linearRequest(GET_PROJECT_TEAM_QUERY, { id: projectIds[0] });
+  const teamId = projectData?.project?.teams?.nodes?.[0]?.id;
+  if (!teamId) return Response.json([]);
+
+  const data = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
+  return Response.json(data.team?.labels?.nodes ?? []);
 }
 
 export async function handleCreateMilestone(req: Request): Promise<Response> {
