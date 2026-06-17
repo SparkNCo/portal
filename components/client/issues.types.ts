@@ -53,7 +53,7 @@ export type TestCase = {
   title: string;
   steps: { order: number; description: string }[];
   expected: string;
-  actual?: string;
+  actual?: { text: string; recorded_by?: string | null; recorded_at?: string }[];
   status: "draft" | "approved" | "passed" | "failed";
   created_by: string;
   approved_by?: string;
@@ -97,6 +97,12 @@ export type FilterState = {
   onToggleStatus: (s: string) => void;
   onToggleActive: () => void;
   onClearFilters: () => void;
+  selectedLabels?: string[];
+  availableLabels?: string[];
+  onToggleLabel?: (l: string) => void;
+  selectedPriorities?: string[];
+  availablePriorities?: string[];
+  onTogglePriority?: (p: string) => void;
 };
 
 export type PriorityTasksProps = {

@@ -34,6 +34,8 @@ Deno.serve(async (req) => {
       res = await handleCreateTest(req);
     } else if (req.method === "PATCH" && pathname.endsWith("/approve")) {
       res = await handleApproveTest(req);
+    } else if (req.method === "PATCH" && pathname.endsWith("/update")) {
+      res = await handleUpdateTest(req);
     } else if (req.method === "PATCH" && pathname.endsWith("/uat")) {
       res = await handleUatTest(req);
     } else if (req.method === "DELETE") {
@@ -112,17 +114,72 @@ async function handleApproveTest(req: Request): Promise<Response> {
   return Response.json(data[0] ?? data);
 }
 
-// PATCH /tests/uat — stakeholder fills in actual result during UAT
-async function handleUatTest(req: Request): Promise<Response> {
-  const { test_id, actual, passed } = await req.json();
-  if (!test_id || actual === undefined) {
-    return Response.json({ error: "Missing test_id or actual" }, { status: 400 });
+// PATCH /tests/update — admin edits a test case while it's still in draft
+async function handleUpdateTest(req: Request): Promise<Response> {
+  const { test_id, title, steps, expected } = await req.json();
+  if (!test_id || !title) {
+    return Response.json({ error: "Missing test_id or title" }, { status: 400 });
+  }
+
+  const getRes = await fetch(`${db("tests")}?id=eq.${test_id}&select=status`, {
+    headers: headers(),
+  });
+  const [row] = await getRes.json();
+  if (!row) return Response.json({ error: "Test not found" }, { status: 404 });
+  if (row.status !== "draft") {
+    return Response.json({ error: "Only draft tests can be edited" }, { status: 400 });
   }
 
   const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
     method: "PATCH",
     headers: headers({ Prefer: "return=representation" }),
-    body: JSON.stringify({ actual, status: passed ? "passed" : "failed" }),
+    body: JSON.stringify({
+      title,
+      steps: steps ?? [],
+      expected: expected ?? "",
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) return Response.json({ error: "Failed to update test", details: data }, { status: 500 });
+  return Response.json(data[0] ?? data);
+}
+
+// PATCH /tests/uat — record the actual UAT result and/or toggle passed status
+async function handleUatTest(req: Request): Promise<Response> {
+  const { test_id, actual, passed, recorded_by } = await req.json();
+  if (!test_id || (actual === undefined && passed === undefined)) {
+    return Response.json({ error: "Missing test_id, and at least one of actual or passed" }, { status: 400 });
+  }
+
+  const updatePayload: Record<string, unknown> = {};
+
+  if (actual !== undefined) {
+    const getRes = await fetch(`${db("tests")}?id=eq.${test_id}&select=actual`, {
+      headers: headers(),
+    });
+    const [row] = await getRes.json();
+    const current: unknown[] = Array.isArray(row?.actual) ? row.actual : [];
+
+    updatePayload.actual = [
+      ...current,
+      {
+        text: actual,
+        recorded_by: recorded_by ?? null,
+        recorded_at: new Date().toISOString(),
+      },
+    ];
+  }
+
+  if (passed !== undefined) {
+    updatePayload.status = passed ? "passed" : "approved";
+  }
+
+  const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
+    method: "PATCH",
+    headers: headers({ Prefer: "return=representation" }),
+    body: JSON.stringify(updatePayload),
   });
 
   const data = await res.json();

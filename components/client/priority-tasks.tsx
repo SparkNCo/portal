@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import {
   type Issue,
@@ -19,7 +19,6 @@ export { IssueDetailModal } from "./issue-detail-modal";
 export function PriorityTasks({
   issuesData,
   filterState,
-  onOpenChat,
   title = "Priority Tasks",
   compact = false,
   headerAction,
@@ -37,9 +36,19 @@ export function PriorityTasks({
     onToggleStatus,
     onToggleActive,
     onClearFilters,
+    selectedLabels = [],
+    availableLabels = [],
+    onToggleLabel,
+    selectedPriorities = [],
+    availablePriorities = [],
+    onTogglePriority,
   } = filterState;
 
-  const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
+  const activeFilters =
+    selectedStatuses.length +
+    selectedLabels.length +
+    selectedPriorities.length +
+    (onlyActive ? 1 : 0);
 
   const visibleIssues = titleFilter.trim()
     ? issuesData.filter((i) =>
@@ -81,7 +90,6 @@ export function PriorityTasks({
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
-                  onOpenChat={onOpenChat}
                 />
               ))}
             </div>
@@ -108,6 +116,23 @@ export function PriorityTasks({
             className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterOpen((v) => !v);
+              }}
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              Filter
+              {activeFilters > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
             {filterOpen && (
               <div
                 className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
@@ -123,7 +148,7 @@ export function PriorityTasks({
                     </p>
                     <button
                       onClick={onToggleActive}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
+                      className={`text-xs px-3 py-1.5 rounded-md border transition-colors font-medium ${
                         onlyActive
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -146,13 +171,65 @@ export function PriorityTasks({
                           <button
                             key={status}
                             onClick={() => onToggleStatus(status)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-all ${
+                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
                               active
                                 ? `${statusColors[status as keyof typeof statusColors]} border-current opacity-100`
-                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted opacity-70 hover:opacity-100"
+                                : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
                             }`}
                           >
                             {status}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {availablePriorities.length > 0 && onTogglePriority && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Priority
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availablePriorities.map((priority) => {
+                        const active = selectedPriorities.includes(priority);
+                        return (
+                          <button
+                            key={priority}
+                            onClick={() => onTogglePriority(priority)}
+                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                              active
+                                ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
+                                : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
+                            }`}
+                          >
+                            {priority}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {availableLabels.length > 0 && onToggleLabel && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Labels
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableLabels.map((label) => {
+                        const active = selectedLabels.includes(label);
+                        return (
+                          <button
+                            key={label}
+                            onClick={() => onToggleLabel(label)}
+                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                              active
+                                ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
+                                : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
+                            }`}
+                          >
+                            {label}
                           </button>
                         );
                       })}
@@ -210,7 +287,6 @@ export function PriorityTasks({
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
-                onOpenChat={onOpenChat}
               />
             ))}
           </div>

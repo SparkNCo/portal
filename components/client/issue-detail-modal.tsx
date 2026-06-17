@@ -357,6 +357,7 @@ function TestsTab({
   issue,
   userEmail,
   canAnswer,
+  canRecordUat,
   role,
   currentStateName,
   tests,
@@ -366,6 +367,7 @@ function TestsTab({
   issue: Issue;
   userEmail: string | undefined;
   canAnswer: boolean;
+  canRecordUat: boolean;
   role: string | undefined;
   currentStateName: string | undefined;
   tests: TestCase[];
@@ -376,6 +378,9 @@ function TestsTab({
   const [showNewTestForm, setShowNewTestForm] = useState(false);
   const [testForm, setTestForm] = useState({ title: "", steps: "", expected: "" });
   const [uatForm, setUatForm] = useState<{ testId: string; actual: string } | null>(null);
+  const [editForm, setEditForm] = useState<
+    { testId: string; title: string; steps: string; expected: string } | null
+  >(null);
 
   async function handleCreateTest() {
     if (!testForm.title.trim() || submitting) return;
@@ -407,6 +412,44 @@ function TestsTab({
     }
   }
 
+  function handleStartEdit(test: TestCase) {
+    setEditForm({
+      testId: test.id,
+      title: test.title,
+      steps: test.steps.map((s) => s.description).join("\n"),
+      expected: test.expected,
+    });
+  }
+
+  async function handleSaveEdit() {
+    if (!editForm || !editForm.title.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const steps = editForm.steps.trim()
+        ? editForm.steps
+            .split("\n")
+            .filter(Boolean)
+            .map((d, i) => ({ order: i + 1, description: d }))
+        : [];
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/update`, {
+        method: "PATCH",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          test_id: editForm.testId,
+          title: editForm.title.trim(),
+          steps,
+          expected: editForm.expected.trim(),
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id)
+        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setEditForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleApproveTest(testId: string) {
     const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`, {
       method: "PATCH",
@@ -428,13 +471,33 @@ function TestsTab({
         body: JSON.stringify({
           test_id: uatForm.testId,
           actual: uatForm.actual,
-          passed: true,
+          recorded_by: userEmail,
         }),
       });
       const updated = await res.json();
       if (updated.id)
         setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       setUatForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleTogglePassed(test: TestCase) {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+        method: "PATCH",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          test_id: test.id,
+          passed: test.status !== "passed",
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id)
+        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     } finally {
       setSubmitting(false);
     }
@@ -469,47 +532,113 @@ function TestsTab({
             </span>
           </div>
 
-          {t.steps.length > 0 && (
+          {editForm?.testId === t.id ? (
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Test case title…"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                autoFocus
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                placeholder="Steps (one per line)…"
+                value={editForm.steps}
+                onChange={(e) => setEditForm({ ...editForm, steps: e.target.value })}
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={2}
+                placeholder="Expected result…"
+                value={editForm.expected}
+                onChange={(e) => setEditForm({ ...editForm, expected: e.target.value })}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setEditForm(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!editForm.title.trim() || submitting}
+                  onClick={handleSaveEdit}
+                >
+                  {submitting ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {t.steps.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                    Steps
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-0.5">
+                    {t.steps.map((s) => (
+                      <li key={s.order} className="text-xs text-foreground">
+                        {s.description}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {t.expected && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Expected
+                  </p>
+                  <p className="text-xs text-foreground">{t.expected}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {t.actual && t.actual.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                Steps
-              </p>
-              <ol className="list-decimal pl-4 space-y-0.5">
-                {t.steps.map((s) => (
-                  <li key={s.order} className="text-xs text-foreground">
-                    {s.description}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {t.expected && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                Expected
-              </p>
-              <p className="text-xs text-foreground">{t.expected}</p>
-            </div>
-          )}
-
-          {t.actual && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                 Actual
               </p>
-              <p className="text-xs text-foreground">{t.actual}</p>
+              <div className="space-y-1.5">
+                {t.actual.map((entry, i) => (
+                  <div key={`${entry.recorded_at}-${i}`} className="border-l-2 border-border pl-2">
+                    <p className="text-xs text-foreground">{entry.text}</p>
+                    {(entry.recorded_by || entry.recorded_at) && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {entry.recorded_by}
+                        {entry.recorded_by && entry.recorded_at ? " · " : ""}
+                        {entry.recorded_at
+                          ? new Date(entry.recorded_at).toLocaleString()
+                          : ""}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {canAnswer && t.status === "draft" && (
+          {role === "admin" && t.status === "draft" && editForm?.testId !== t.id && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleStartEdit(t)}
+            >
+              Edit test case
+            </Button>
+          )}
+
+          {canAnswer && t.status === "draft" && editForm?.testId !== t.id && (
             <Button size="sm" className="w-full" onClick={() => handleApproveTest(t.id)}>
               Approve test case
             </Button>
           )}
 
-          {canAnswer &&
-            t.status === "approved" &&
+          {canRecordUat &&
+            (t.status === "approved" || t.status === "passed") &&
             currentStateName === "UAT" &&
             (uatForm?.testId === t.id ? (
               <div className="flex flex-col gap-1.5">
@@ -529,9 +658,8 @@ function TestsTab({
                     size="sm"
                     disabled={!uatForm.actual.trim() || submitting}
                     onClick={handleSubmitUat}
-                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
-                    {submitting ? "Saving…" : "Mark as passed"}
+                    {submitting ? "Saving…" : "Save UAT"}
                   </Button>
                 </div>
               </div>
@@ -542,9 +670,27 @@ function TestsTab({
                 className="w-full"
                 onClick={() => setUatForm({ testId: t.id, actual: "" })}
               >
-                Record UAT result
+                Record UAT
               </Button>
             ))}
+
+          {role === "stakeholder" &&
+            (t.status === "approved" || t.status === "passed") &&
+            currentStateName === "UAT" && (
+              <Button
+                size="sm"
+                variant={t.status === "passed" ? "outline" : "default"}
+                disabled={submitting}
+                className={
+                  t.status === "passed"
+                    ? "w-full"
+                    : "w-full bg-green-600 hover:bg-green-700 text-white"
+                }
+                onClick={() => handleTogglePassed(t)}
+              >
+                {t.status === "passed" ? "Revert to Approved" : "Mark as Passed"}
+              </Button>
+            )}
         </div>
       ))}
 
@@ -622,6 +768,8 @@ export function IssueDetailModal({
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
   const canAdvanceState = role === "admin";
+  const canRecordUat =
+    role === "customer" || role === "stakeholder" || role === "developer";
 
   const [visible, setVisible] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -787,6 +935,7 @@ export function IssueDetailModal({
             issue={issue}
             userEmail={profile?.email}
             canAnswer={canAnswer}
+            canRecordUat={canRecordUat}
             role={role}
             currentStateName={currentStateName}
             tests={tests}

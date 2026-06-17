@@ -1,41 +1,47 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
-const LABEL_COLORS: Record<string, string> = {
-  bug: "hsl(var(--destructive))",
-  improvement: "hsl(210, 70%, 35%)",
-  feature: "hsl(var(--success))",
+const LABEL_COLOR_CLASSES: Record<string, string> = {
+  bug: "bg-destructive text-white",
+  improvement: "bg-[hsl(210,70%,35%)] text-white",
+  feature: "bg-success text-white",
 };
 
-function getLabelColor(name: string, fallback: string): string {
-  return LABEL_COLORS[name.toLowerCase()] ?? fallback;
-}
+function LabelPill({
+  label,
+}: {
+  readonly label: { id: string; name: string; color: string };
+}) {
+  const knownClass = LABEL_COLOR_CLASSES[label.name.toLowerCase()];
 
-function LabelPill({ label }: { readonly label: { id: string; name: string; color: string } }) {
+  if (knownClass) {
+    return (
+      <Badge variant="secondary" className={`border-transparent ${knownClass}`}>
+        {label.name}
+      </Badge>
+    );
+  }
+
   return (
-    <span
-      key={label.id}
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
-      style={{ backgroundColor: getLabelColor(label.name, label.color) }}
+    <Badge
+      variant="secondary"
+      className="border-transparent text-white"
+      style={{ backgroundColor: label.color }}
     >
       {label.name}
-    </span>
+    </Badge>
   );
 }
 
 export function IssueCard({
   issue,
   onOpen,
-  onOpenChat,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onOpenChat?: (title: string) => void;
 }) {
-  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
     <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
       <button
@@ -49,7 +55,10 @@ export function IssueCard({
           <span className="text-xs font-mono text-muted-foreground">
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
-          <Badge variant="outline" className={priorityColors[issue.priorityLabel]}>
+          <Badge
+            variant="outline"
+            className={priorityColors[issue.priorityLabel]}
+          >
             {issue.priorityLabel}
           </Badge>
         </div>
@@ -63,30 +72,18 @@ export function IssueCard({
         ) : (
           <div className="mb-3" />
         )}
-        {issue.labels?.nodes?.length ? (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {issue.labels.nodes.map((l) => (
-              <LabelPill key={l.id} label={l} />
-            ))}
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 flex-wrap">
           <Badge
             variant="secondary"
-            className={statusColors[issue?.state?.name as keyof typeof statusColors]}
+            className={
+              statusColors[issue?.state?.name as keyof typeof statusColors]
+            }
           >
             {issue?.state?.name}
           </Badge>
-          {onOpenChat && (
-            <button
-              type="button"
-              className="relative z-10 text-muted-foreground hover:text-accent transition-colors"
-              onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
-              title="Open chat about this issue"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-            </button>
-          )}
+          {issue.labels?.nodes?.map((l) => (
+            <LabelPill key={l.id} label={l} />
+          ))}
         </div>
       </div>
     </div>
@@ -117,7 +114,9 @@ export function IssueListRow({
       >
         {issue.priorityLabel}
       </Badge>
-      <p className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}>
+      <p
+        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
+      >
         {issue.title}
       </p>
       {issue.labels?.nodes?.map((l) => (
