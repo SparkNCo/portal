@@ -118,6 +118,46 @@ export async function handleUpdateState(req: Request): Promise<Response> {
   }
 }
 
+const UPDATE_ISSUE_MUTATION = `
+  mutation IssueUpdate($issueId: String!, $input: IssueUpdateInput!) {
+    issueUpdate(id: $issueId, input: $input) {
+      success
+      issue { id title description priorityLabel }
+    }
+  }
+`;
+
+const EDIT_PRIORITY_MAP: Record<string, number> = {
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+  none: 0,
+};
+
+export async function handleUpdateIssue(req: Request): Promise<Response> {
+  const body = await req.json();
+  const { issueId, title, description, priority } = body;
+
+  if (!issueId) {
+    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  }
+
+  const input: Record<string, any> = {};
+  if (title !== undefined && title !== null) input.title = String(title).trim();
+  if (description !== undefined) input.description = description;
+  if (priority !== undefined && priority !== null) {
+    input.priority = EDIT_PRIORITY_MAP[String(priority).toLowerCase()] ?? 0;
+  }
+
+  if (Object.keys(input).length === 0) {
+    return Response.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  const data = await linearRequest(UPDATE_ISSUE_MUTATION, { issueId, input });
+  return Response.json(data.issueUpdate);
+}
+
 export async function handleAddComment(req: Request): Promise<Response> {
   const { issueId, question, ownerEmail } = await req.json();
 

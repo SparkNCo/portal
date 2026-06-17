@@ -191,6 +191,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
     projectId,
     assigneeId,
     labelIds,
+    estimate,
   } = body;
 
   if (!title?.trim()) {
@@ -218,6 +219,9 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   if (projectId) input.projectId = projectId;
   if (assigneeId) input.assigneeId = assigneeId;
   if (body.projectMilestoneId) input.projectMilestoneId = body.projectMilestoneId;
+  if (estimate !== undefined && estimate !== null && estimate !== "") {
+    input.estimate = Number(estimate);
+  }
 
   const resolvedLabelIds: string[] = labelIds ? [...labelIds] : [];
 

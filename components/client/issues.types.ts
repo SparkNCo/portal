@@ -87,6 +87,7 @@ export type Issue = {
   comments?: { nodes: Comment[] };
   description?: string | null;
   labels?: { nodes: { id: string; name: string; color: string }[] };
+  estimate?: number | null;
 };
 
 export type FilterState = {
@@ -109,6 +110,7 @@ export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
   onOpenChat?: (title: string) => void;
+  onEditIssue?: (issue: Issue) => void;
   title?: string;
   compact?: boolean;
   headerAction?: ReactNode;

@@ -11,6 +11,8 @@ import {
   Loader2,
   FlaskConical,
   FolderKanban,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,7 @@ interface IssueFields {
   // feature
   featureDescription?: string;
   successLooksLike?: string;
+  estimate?: string;
   // project
   projectDescription?: string;
   projectDueDate?: string;
@@ -125,6 +128,7 @@ async function postCreateIssue(payload: {
   type?: string;
   projectId?: string;
   projectMilestoneId?: string;
+  estimate?: number;
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/create`, {
     method: "POST",
@@ -238,6 +242,52 @@ const TYPE_OPTIONS: {
   },
 ];
 
+function EstimateInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const numeric = Number(value) || 0;
+
+  function step(delta: number) {
+    onChange(String(Math.max(0, numeric + delta)));
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        type="number"
+        min="0"
+        step="1"
+        placeholder="e.g. 3"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-secondary border-0 pr-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
+        <button
+          type="button"
+          onClick={() => step(1)}
+          aria-label="Increase estimate"
+          className="flex h-4 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-accent hover:bg-accent/15 transition-colors"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onClick={() => step(-1)}
+          aria-label="Decrease estimate"
+          className="flex h-4 w-5 items-center justify-center rounded-sm text-muted-foreground hover:text-accent hover:bg-accent/15 transition-colors"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CreateIssue({
   slug,
   projectId,
@@ -245,6 +295,7 @@ export function CreateIssue({
   linearSlug: linearSlugProp,
   compact,
   defaultType,
+  label = "Create Issue",
 }: {
   slug: string;
   projectId?: string;
@@ -252,6 +303,7 @@ export function CreateIssue({
   linearSlug?: string;
   compact?: boolean;
   defaultType?: IssueType;
+  label?: string;
 }) {
   const { profile: contextProfile } = useUser();
   const profile = profileProp ?? contextProfile;
@@ -367,6 +419,7 @@ export function CreateIssue({
       ...(projectId && { projectId }),
       ...(selectedProjectId && { projectId: selectedProjectId }),
       ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),
+      ...(fields.estimate && { estimate: Number(fields.estimate) }),
     });
   }
 
@@ -381,7 +434,7 @@ export function CreateIssue({
           className={`${compact ? "" : "flex-1 "}bg-accent text-accent-foreground hover:bg-accent/90`}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Create Issue
+          {label}
         </Button>
       </div>
 
@@ -494,6 +547,18 @@ export function CreateIssue({
                         setField("successLooksLike", e.target.value)
                       }
                       className="bg-secondary border-0 min-h-[70px] resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>
+                      Estimate (points){" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </Label>
+                    <EstimateInput
+                      value={fields.estimate ?? ""}
+                      onChange={(v) => setField("estimate", v)}
                     />
                   </div>
                 </>

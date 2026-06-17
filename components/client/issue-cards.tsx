@@ -1,7 +1,20 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Pencil, Gauge } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
+
+function EstimateBadge({ estimate }: { readonly estimate: number }) {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-chart-1/30 bg-chart-1/10 text-chart-1"
+    >
+      <Gauge className="h-3 w-3" />
+      {estimate}
+    </Badge>
+  );
+}
 
 const LABEL_COLOR_CLASSES: Record<string, string> = {
   bug: "bg-destructive text-white",
@@ -38,9 +51,11 @@ function LabelPill({
 export function IssueCard({
   issue,
   onOpen,
+  onEdit,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  readonly onEdit?: () => void;
 }) {
   return (
     <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
@@ -50,6 +65,19 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {onEdit && (
+        <button
+          type="button"
+          className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit ticket"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">
@@ -61,6 +89,7 @@ export function IssueCard({
           >
             {issue.priorityLabel}
           </Badge>
+          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
         <p className="text-sm font-medium text-background-foreground mb-1 line-clamp-2">
           {issue.title}
@@ -93,9 +122,11 @@ export function IssueCard({
 export function IssueListRow({
   issue,
   onOpen,
+  onEdit,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  readonly onEdit?: () => void;
 }) {
   return (
     <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
@@ -114,6 +145,15 @@ export function IssueListRow({
       >
         {issue.priorityLabel}
       </Badge>
+      {issue.estimate != null && (
+        <Badge
+          variant="outline"
+          className="gap-1 text-[10px] flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
+        >
+          <Gauge className="h-3 w-3" />
+          {issue.estimate}
+        </Badge>
+      )}
       <p
         className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
       >
@@ -122,6 +162,19 @@ export function IssueListRow({
       {issue.labels?.nodes?.map((l) => (
         <LabelPill key={l.id} label={l} />
       ))}
+      {onEdit && (
+        <button
+          type="button"
+          className="relative z-10 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit ticket"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   ChevronLeft,
   MessageCircle,
+  Hammer,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
@@ -45,6 +46,7 @@ const adminNavItems = [
 const stakeholderNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
   { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "build", label: "Build", icon: Hammer },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
 ];

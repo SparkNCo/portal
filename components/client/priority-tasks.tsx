@@ -19,6 +19,7 @@ export { IssueDetailModal } from "./issue-detail-modal";
 export function PriorityTasks({
   issuesData,
   filterState,
+  onEditIssue,
   title = "Priority Tasks",
   compact = false,
   headerAction,
@@ -90,6 +91,7 @@ export function PriorityTasks({
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
+                  onEdit={onEditIssue ? () => onEditIssue(issue) : undefined}
                 />
               ))}
             </div>
@@ -287,6 +289,7 @@ export function PriorityTasks({
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
+                onEdit={onEditIssue ? () => onEditIssue(issue) : undefined}
               />
             ))}
           </div>
