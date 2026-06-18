@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -137,7 +138,7 @@ const EDIT_PRIORITY_MAP: Record<string, number> = {
 
 export async function handleUpdateIssue(req: Request): Promise<Response> {
   const body = await req.json();
-  const { issueId, title, description, priority } = body;
+  const { issueId, title, description, priority, actorEmail } = body;
 
   if (!issueId) {
     return Response.json({ error: "Missing issueId" }, { status: 400 });
@@ -155,7 +156,23 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   }
 
   const data = await linearRequest(UPDATE_ISSUE_MUTATION, { issueId, input });
+
+  if (actorEmail) {
+    await markIssueUpdated(issueId, actorEmail);
+  }
+
   return Response.json(data.issueUpdate);
+}
+
+export async function handleMarkIssueSeen(req: Request): Promise<Response> {
+  const { issueId } = await req.json();
+
+  if (!issueId) {
+    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  }
+
+  await markIssueSeen(issueId);
+  return Response.json({ success: true });
 }
 
 export async function handleAddComment(req: Request): Promise<Response> {

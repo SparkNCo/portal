@@ -6,14 +6,14 @@ import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchIssues } from "../client/page";
 import type { Issue } from "@/components/client/issues.types";
 
-export default function BuildPage() {
+export default function BugsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
@@ -26,10 +26,11 @@ export default function BuildPage() {
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
-  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"updated" | "estimate">("updated");
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues", slug],
@@ -39,9 +40,13 @@ export default function BuildPage() {
 
   const allIssues: any[] = issuesData ?? [];
 
+  const bugIssues = allIssues.filter((i: any) =>
+    (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
+  );
+
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
-      allIssues
+      bugIssues
         .filter((i: any) => i.project?.id && i.project?.name)
         .map((i: any) => [
           i.project.id,
@@ -51,16 +56,11 @@ export default function BuildPage() {
   );
 
   const projectFiltered = selectedProject
-    ? allIssues.filter((i: any) => i.project?.id === selectedProject)
-    : allIssues;
+    ? bugIssues.filter((i: any) => i.project?.id === selectedProject)
+    : bugIssues;
 
   const availableStatuses = [
     ...new Set(projectFiltered.map((i: any) => i?.state?.name).filter(Boolean)),
-  ] as string[];
-  const availableLabels = [
-    ...new Set(
-      projectFiltered.flatMap((i: any) => (i.labels?.nodes ?? []).map((l: any) => l.name)),
-    ),
   ] as string[];
   const availablePriorities = [
     ...new Set(projectFiltered.map((i: any) => i.priorityLabel).filter(Boolean)),
@@ -70,22 +70,37 @@ export default function BuildPage() {
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
 
-  const labelFiltered = selectedLabels.length > 0
-    ? statusFiltered.filter((i: any) =>
-        (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
-      )
+  const priorityFiltered = selectedPriorities.length > 0
+    ? statusFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
     : statusFiltered;
 
-  const priorityFiltered = selectedPriorities.length > 0
-    ? labelFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
-    : labelFiltered;
-
-  const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
-    if (sortBy === "estimate") {
-      return (b.estimate ?? -1) - (a.estimate ?? -1);
-    }
-    return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+  const dateFiltered = priorityFiltered.filter((i: any) => {
+    if (!i.createdAt) return true;
+    const created = new Date(i.createdAt).getTime();
+    if (dateFrom && created < new Date(dateFrom).getTime()) return false;
+    if (dateTo && created > new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1) return false;
+    return true;
   });
+
+  const PRIORITY_RANK: Record<string, number> = {
+    Urgent: 4,
+    High: 3,
+    Medium: 2,
+    Low: 1,
+  };
+
+  const visibleIssues = useMemo(() => {
+    return [...dateFiltered].sort((a: any, b: any) => {
+      const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
+      const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
+      if (rankA !== rankB) return rankB - rankA;
+
+      if (sortBy === "estimate") {
+        return (b.estimate ?? -1) - (a.estimate ?? -1);
+      }
+      return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+    });
+  }, [dateFiltered, sortBy]);
 
   const filterState = {
     selectedStatuses,
@@ -97,30 +112,27 @@ export default function BuildPage() {
         prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
       ),
     onToggleActive: () => {},
-    selectedLabels,
-    availableLabels,
-    onToggleLabel: (l: string) =>
-      setSelectedLabels((prev) =>
-        prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l],
-      ),
     selectedPriorities,
     availablePriorities,
     onTogglePriority: (p: string) =>
       setSelectedPriorities((prev) =>
         prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
       ),
+    dateFrom,
+    dateTo,
+    onDateFromChange: setDateFrom,
+    onDateToChange: setDateTo,
     onClearFilters: () => {
       setSelectedStatuses([]);
-      setSelectedLabels([]);
       setSelectedPriorities([]);
+      setDateFrom("");
+      setDateTo("");
     },
   };
 
-  const selectedProjectName = projects.find((p) => p.id === selectedProject)?.name;
-
   return (
     <div className="min-h-screen">
-      <Header title="Build" subtitle="Guide new features" />
+      <Header title="Bugs" subtitle="Tickets labeled as bugs" />
 
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -154,8 +166,8 @@ export default function BuildPage() {
             slug={slug}
             profile={profile}
             linearSlug={linearSlug}
-            defaultType="feature"
-            label="Request Feature"
+            defaultType="bug"
+            label="Bug Report"
             compact
           />
         </div>
@@ -177,7 +189,7 @@ export default function BuildPage() {
           ))}
         </div>
 
-        <div className="w-full max-w-full overflow-hidden ">
+        <div className="w-full max-w-full overflow-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (
@@ -186,7 +198,7 @@ export default function BuildPage() {
               filterState={filterState}
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
-              title={selectedProjectName ?? "All Tasks"}
+              title="Bugs"
             />
           )}
         </div>

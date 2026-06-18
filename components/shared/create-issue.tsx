@@ -439,7 +439,10 @@ export function CreateIssue({
       </div>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent
+          className="w-[95vw] sm:w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] overflow-y-auto"
+          aria-describedby={undefined}
+        >
           <DialogHeader>
             <DialogTitle>
               {step === "type"
@@ -449,7 +452,7 @@ export function CreateIssue({
           </DialogHeader>
 
           {step === "type" && (
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">
               {TYPE_OPTIONS.filter((t) => t.type !== "project" || profile?.role === "customer").map(
                 ({ type, label, description, icon: Icon, color }) => (
                   <button

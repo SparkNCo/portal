@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { handleGetIssues } from "./fetchIssues.ts";
-import { handleAddComment, handlePostToLinear, handleSetDecision, handleUpdateState, handleUpdateIssue, handleGetProjects, handleGetMilestones, handleCreateMilestone, handleGetLabels } from "./updateIsste.ts";
+import { handleAddComment, handlePostToLinear, handleSetDecision, handleUpdateState, handleUpdateIssue, handleGetProjects, handleGetMilestones, handleCreateMilestone, handleGetLabels, handleMarkIssueSeen } from "./updateIsste.ts";
 import { handleCreateIssue, handleCreateProject } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
@@ -29,6 +29,8 @@ Deno.serve(async (req) => {
       res = await handleCreateIssue(req);
     } else if (req.method === "POST" && pathname.endsWith("/linear-comment")) {
       res = await handlePostToLinear(req);
+    } else if (req.method === "POST" && pathname.endsWith("/seen")) {
+      res = await handleMarkIssueSeen(req);
     } else if (req.method === "POST") {
       res = await handleAddComment(req);
     } else if (req.method === "PATCH" && pathname.endsWith("/decision")) {

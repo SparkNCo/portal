@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsRight, MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -814,6 +815,20 @@ export function IssueDetailModal({
       .finally(() => setLoadingTests(false));
 
   }, [issue.id]);
+
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/seen`, {
+      method: "POST",
+      headers: API_JSON_HEADERS,
+      body: JSON.stringify({ issueId: issue.id }),
+    })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
+      })
+      .catch(() => {});
+  }, [issue.id, queryClient]);
 
   const handleClose = useCallback(() => {
     setVisible(false);

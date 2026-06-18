@@ -88,6 +88,7 @@ export type Issue = {
   description?: string | null;
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
+  createdAt?: string;
 };
 
 export type FilterState = {
@@ -104,6 +105,10 @@ export type FilterState = {
   selectedPriorities?: string[];
   availablePriorities?: string[];
   onTogglePriority?: (p: string) => void;
+  dateFrom?: string;
+  dateTo?: string;
+  onDateFromChange?: (date: string) => void;
+  onDateToChange?: (date: string) => void;
 };
 
 export type PriorityTasksProps = {

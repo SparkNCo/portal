@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
 
@@ -29,6 +30,7 @@ async function patchIssue(payload: {
   title: string;
   description: string;
   priority: string;
+  actorEmail?: string;
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/edit`, {
     method: "PATCH",
@@ -51,6 +53,7 @@ export function EditIssueModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { profile } = useUser();
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
   const [priority, setPriority] = useState(
@@ -62,6 +65,7 @@ export function EditIssueModal({
     onSuccess: () => {
       toast.success("Ticket updated");
       queryClient.invalidateQueries({ queryKey: ["linear-issues", slug] });
+      queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
       onClose();
     },
     onError: () => toast.error("Failed to update ticket. Please try again."),
@@ -74,12 +78,16 @@ export function EditIssueModal({
       title: title.trim(),
       description,
       priority,
+      ...(profile?.email ? { actorEmail: profile.email } : {}),
     });
   }
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+      <DialogContent
+        className="w-[95vw] sm:w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] overflow-y-auto"
+        aria-describedby={undefined}
+      >
         <DialogHeader>
           <DialogTitle>Edit Ticket</DialogTitle>
         </DialogHeader>

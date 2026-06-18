@@ -11,6 +11,11 @@ import {
 } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
+import { useIssueUpdateBadge } from "./use-issue-update-badge";
+
+function canEditIssue(issue: Issue) {
+  return issue.state?.name !== "Done";
+}
 
 export type { Decision, TestCase, Issue, FilterState, PriorityTasksProps } from "./issues.types";
 export { STATUS_ORDER } from "./issues.types";
@@ -29,6 +34,8 @@ export function PriorityTasks({
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
+  const hasUnseenUpdate = useIssueUpdateBadge();
+
   const {
     selectedStatuses,
     onlyActive,
@@ -43,12 +50,18 @@ export function PriorityTasks({
     selectedPriorities = [],
     availablePriorities = [],
     onTogglePriority,
+    dateFrom = "",
+    dateTo = "",
+    onDateFromChange,
+    onDateToChange,
   } = filterState;
 
   const activeFilters =
     selectedStatuses.length +
     selectedLabels.length +
     selectedPriorities.length +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
     (onlyActive ? 1 : 0);
 
   const visibleIssues = titleFilter.trim()
@@ -63,10 +76,9 @@ export function PriorityTasks({
       onClose={() => setSelectedIssue(null)}
     />
   );
-
   if (compact) {
     return (
-      <Card className="bg-background border-border flex flex-col w-full h-full">
+      <Card className="bg-background border-border flex flex-col w-full h-full ">
         <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -91,7 +103,12 @@ export function PriorityTasks({
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
-                  onEdit={onEditIssue ? () => onEditIssue(issue) : undefined}
+                  onEdit={
+                    onEditIssue && canEditIssue(issue)
+                      ? () => onEditIssue(issue)
+                      : undefined
+                  }
+                  hasUpdate={hasUnseenUpdate(issue)}
                 />
               ))}
             </div>
@@ -213,6 +230,29 @@ export function PriorityTasks({
                   </div>
                 )}
 
+                {(onDateFromChange || onDateToChange) && (
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Date
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => onDateFromChange?.(e.target.value)}
+                        className="h-7 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      <span className="text-[11px] text-muted-foreground">to</span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => onDateToChange?.(e.target.value)}
+                        className="h-7 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {availableLabels.length > 0 && onToggleLabel && (
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -275,7 +315,7 @@ export function PriorityTasks({
           <div
             ref={scrollRef}
             className={`
-              grid gap-4 pb-2
+              grid gap-4 py-2
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
               ${
                 expanded
@@ -289,7 +329,12 @@ export function PriorityTasks({
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
-                onEdit={onEditIssue ? () => onEditIssue(issue) : undefined}
+                onEdit={
+                  onEditIssue && canEditIssue(issue)
+                    ? () => onEditIssue(issue)
+                    : undefined
+                }
+                hasUpdate={hasUnseenUpdate(issue)}
               />
             ))}
           </div>

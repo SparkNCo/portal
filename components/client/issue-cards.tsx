@@ -52,10 +52,12 @@ export function IssueCard({
   issue,
   onOpen,
   onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
 }) {
   return (
     <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
@@ -65,6 +67,12 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {hasUpdate && (
+        <span
+          className="absolute -top-1.5 -right-1.5 z-10 h-3 w-3 rounded-full bg-orange-500 ring-2 ring-background"
+          title="Recently updated"
+        />
+      )}
       {onEdit && (
         <button
           type="button"
@@ -123,10 +131,12 @@ export function IssueListRow({
   issue,
   onOpen,
   onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
 }) {
   return (
     <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
@@ -136,6 +146,12 @@ export function IssueListRow({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {hasUpdate && (
+        <span
+          className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0"
+          title="Recently updated"
+        />
+      )}
       <span className="text-[10px] font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
