@@ -1,6 +1,7 @@
 import { Header } from "@/components/headerDashboard"
 import { DocumentsList } from "@/components/documents/documents-list"
 import { UploadDocument } from "@/components/documents/upload-document"
+import { DeveloperDocumentRequests } from "@/components/documents/developer-document-requests"
 
 export default function DocumentsPage() {
   return (
@@ -8,6 +9,8 @@ export default function DocumentsPage() {
       <Header title="Documents" subtitle="Artifacts, reports, and uploads" />
 
       <div className="p-4 md:p-6 space-y-6">
+        <DeveloperDocumentRequests />
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <DocumentsList />
