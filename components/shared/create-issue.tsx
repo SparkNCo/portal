@@ -18,6 +18,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -75,7 +76,7 @@ ${data.actual || ""}
       return [
         `### Feature Description\n${data.featureDescription || ""}`,
         data.successLooksLike
-          ? `### What Success Looks Like\n${data.successLooksLike}`
+          ? `### Requirement\n${data.successLooksLike}`
           : null,
       ]
         .filter(Boolean)
@@ -558,13 +559,14 @@ export function CreateIssue({
                 <>
                   <div className="space-y-1.5">
                     <Label>Description</Label>
-                    <Textarea
+                    <RichTextEditor
                       placeholder="Describe the feature you'd like in plain language..."
                       value={fields.featureDescription ?? ""}
-                      onChange={(e) =>
-                        setField("featureDescription", e.target.value)
+                      onChange={(markdown) =>
+                        setField("featureDescription", markdown)
                       }
-                      className="bg-secondary border-0 min-h-[90px] resize-none"
+                      className="border-0"
+                      minHeight="90px"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -574,13 +576,14 @@ export function CreateIssue({
                         (optional)
                       </span>
                     </Label>
-                    <Textarea
+                    <RichTextEditor
                       placeholder="How will you know this feature is working well?"
                       value={fields.successLooksLike ?? ""}
-                      onChange={(e) =>
-                        setField("successLooksLike", e.target.value)
+                      onChange={(markdown) =>
+                        setField("successLooksLike", markdown)
                       }
-                      className="bg-secondary border-0 min-h-[70px] resize-none"
+                      className="border-0"
+                      minHeight="70px"
                     />
                   </div>
                 </>

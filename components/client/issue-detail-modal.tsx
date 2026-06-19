@@ -9,6 +9,7 @@ import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
 import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import {
   type Decision,
   type TestCase,
@@ -95,11 +96,13 @@ function DescriptionTab({
           [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
           [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
           [&_strong]:font-semibold
-          [&_p]:mb-2 [&_p:last-child]:mb-0
+          [&_p]:mb-5 [&_p:last-child]:mb-0
           [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
           [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
         >
-          <ReactMarkdown>{issue.description}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+            {issue.description}
+          </ReactMarkdown>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground italic">No description yet.</p>

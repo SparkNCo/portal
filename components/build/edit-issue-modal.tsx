@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -102,13 +102,15 @@ export function EditIssueModal({
               autoFocus
             />
           </div>
+          <div onClick={() => console.log({description})}>VER description</div>
 
           <div className="space-y-1.5">
             <Label>Description</Label>
-            <Textarea
+            <RichTextEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="bg-secondary border-0 min-h-[140px] resize-none"
+              onChange={setDescription}
+              className="border-0"
+              minHeight="140px"
             />
           </div>
 
@@ -121,7 +123,9 @@ export function EditIssueModal({
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {p === "none" ? "No priority" : p.charAt(0).toUpperCase() + p.slice(1)}
+                    {p === "none"
+                      ? "No priority"
+                      : p.charAt(0).toUpperCase() + p.slice(1)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -129,7 +133,12 @@ export function EditIssueModal({
           </div>
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" onClick={onClose} disabled={mutation.isPending} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={mutation.isPending}
+              className="flex-1"
+            >
               Cancel
             </Button>
             <Button
@@ -137,7 +146,11 @@ export function EditIssueModal({
               disabled={!title.trim() || mutation.isPending}
               className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
             >
-              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
+              {mutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save changes"
+              )}
             </Button>
           </div>
         </div>

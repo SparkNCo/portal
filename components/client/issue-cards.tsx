@@ -99,16 +99,9 @@ export function IssueCard({
           </Badge>
           {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
-        <p className="text-sm font-medium text-background-foreground mb-1 line-clamp-2">
+        <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
           {issue.title}
         </p>
-        {issue.description ? (
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-            {issue.description}
-          </p>
-        ) : (
-          <div className="mb-3" />
-        )}
         <div className="flex items-center gap-1 flex-wrap">
           <Badge
             variant="secondary"
