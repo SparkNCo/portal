@@ -136,13 +136,13 @@ A small **orange dot** appears on an issue card (top-right corner on the grid `I
 3. `markIssueUpdated` (`supabase/functions/utils/issueUpdates.ts`) upserts the row with `seen: false` (`on_conflict=issue_id`, so repeated edits just refresh the timestamp instead of duplicating rows).
 
 **Read path (shows the badge):**
-- `useIssueUpdateBadge()` (`components/client/use-issue-update-badge.ts`) runs one bulk Supabase read — `select issue_id, seen from portal.issue_updates where seen = false` — and exposes `hasUnseenUpdate(issue)`.
-- `PriorityTasks` calls this per issue and passes `hasUpdate` down to `IssueCard` / `IssueListRow` (`components/client/issue-cards.tsx`), which render the dot.
+- `useIssueUpdateBadge()` (`components/client/use-issue-update-badge.ts`) runs one bulk Supabase read — `select issue_id, seen, updated_by from portal.issue_updates where seen = false` — and exposes `hasUnseenUpdate(issue, currentUserEmail)` and `isOwnUnseenUpdate(issue, currentUserEmail)`.
+- `PriorityTasks` calls `hasUnseenUpdate(issue, profile?.email)` per issue and passes `hasUpdate` down to `IssueCard` / `IssueListRow` (`components/client/issue-cards.tsx`), which render the dot. The actor who made the edit never sees their own dot, since `hasUnseenUpdate` returns `false` when `updated_by` matches the current viewer.
 
 **Clear path (flips back to seen):**
-- Opening the full Issue Detail Modal (`components/client/issue-detail-modal.tsx`), regardless of role, fires `POST /issues/seen` → `handleMarkIssueSeen` → `markIssueSeen(issueId)`, which sets `seen: true` for that issue and invalidates the `issue-updates` query so the dot disappears immediately for everyone.
+- Opening the full Issue Detail Modal (`components/client/issue-detail-modal.tsx`) fires `POST /issues/seen` → `handleMarkIssueSeen` → `markIssueSeen(issueId)`, which sets `seen: true` for that issue and invalidates the `issue-updates` query so the dot disappears immediately for everyone — **unless** the viewer opening it is the same person who made the edit (`isOwnUnseenUpdate`), in which case the request is skipped so the flag stays unseen for everyone else.
 
-> This is intentionally **not** per-user — one edit sets the flag for all viewers, and the first person to open the issue clears it for all viewers. There's no record of who has or hasn't seen an update individually.
+> Still **not** per-user in storage — one shared `seen` flag per issue — but the actor's own identity (`updated_by`) is used client-side to suppress both their badge and their ability to silently clear it for others.
 
 ---
 

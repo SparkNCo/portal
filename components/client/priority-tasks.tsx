@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
+import { useUser } from "context/UserContext";
 import {
   type Issue,
   type PriorityTasksProps,
@@ -34,7 +35,8 @@ export function PriorityTasks({
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
-  const hasUnseenUpdate = useIssueUpdateBadge();
+  const { profile } = useUser();
+  const { hasUnseenUpdate } = useIssueUpdateBadge();
 
   const {
     selectedStatuses,
@@ -108,7 +110,7 @@ export function PriorityTasks({
                       ? () => onEditIssue(issue)
                       : undefined
                   }
-                  hasUpdate={hasUnseenUpdate(issue)}
+                  hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                 />
               ))}
             </div>
@@ -315,12 +317,13 @@ export function PriorityTasks({
           <div
             ref={scrollRef}
             className={`
-              grid gap-4 py-2
+              grid gap-2 px-3 py-2 grid-flow-row auto-rows-auto
+              grid-cols-[repeat(auto-fill,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
               ${
                 expanded
-                  ? "grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto"
-                  : "grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full"
+                  ? "overflow-visible h-auto"
+                  : "max-h-[600px] overflow-y-auto"
               }
             `}
           >
@@ -334,7 +337,7 @@ export function PriorityTasks({
                     ? () => onEditIssue(issue)
                     : undefined
                 }
-                hasUpdate={hasUnseenUpdate(issue)}
+                hasUpdate={hasUnseenUpdate(issue, profile?.email)}
               />
             ))}
           </div>

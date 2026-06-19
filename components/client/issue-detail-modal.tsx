@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronsRight, MessageSquare, X } from "lucide-react";
+import { Check, ChevronsRight, RotateCcw, MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -17,6 +17,7 @@ import {
   statusColors,
   STATUS_ORDER,
 } from "./issues.types";
+import { useIssueUpdateBadge } from "./use-issue-update-badge";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -70,6 +71,7 @@ function DescriptionTab({
   issue,
   canAnswer,
   canAdvanceState,
+  canReopenFromDone,
   currentStateName,
   advancing,
   nextState,
@@ -78,10 +80,11 @@ function DescriptionTab({
   issue: Issue;
   canAnswer: boolean;
   canAdvanceState: boolean;
+  canReopenFromDone: boolean;
   currentStateName: string | undefined;
   advancing: boolean;
   nextState: string | undefined;
-  onAdvanceState: () => void;
+  onAdvanceState: (targetState: string) => void;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-[320px]">
@@ -102,12 +105,12 @@ function DescriptionTab({
         <p className="text-xs text-muted-foreground italic">No description yet.</p>
       )}
 
-      {canAnswer && currentStateName === "Business Review" && (
+      {canAnswer && currentStateName === "Business Review" && nextState && (
         <Button
           size="sm"
           className="w-full bg-green-600 hover:bg-green-700 text-white"
           disabled={advancing}
-          onClick={onAdvanceState}
+          onClick={() => onAdvanceState(nextState)}
         >
           <Check className="h-3.5 w-3.5 mr-1.5" />
           {advancing ? "Approving…" : "Approve user stories & acceptance criteria"}
@@ -120,10 +123,23 @@ function DescriptionTab({
           variant="outline"
           className="w-full"
           disabled={advancing}
-          onClick={onAdvanceState}
+          onClick={() => onAdvanceState(nextState)}
         >
           <ChevronsRight className="h-3 w-3 mr-1" />
           {advancing ? "Updating…" : `Move to ${nextState}`}
+        </Button>
+      )}
+
+      {canReopenFromDone && currentStateName === "Done" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={advancing}
+          onClick={() => onAdvanceState("Development")}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          {advancing ? "Updating…" : "Move back to Development"}
         </Button>
       )}
     </div>
@@ -769,6 +785,7 @@ export function IssueDetailModal({
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
   const canAdvanceState = role === "admin";
+  const canReopenFromDone = role === "stakeholder";
   const canRecordUat =
     role === "customer" || role === "stakeholder" || role === "developer";
 
@@ -817,8 +834,11 @@ export function IssueDetailModal({
   }, [issue.id]);
 
   const queryClient = useQueryClient();
+  const { isOwnUnseenUpdate } = useIssueUpdateBadge();
 
   useEffect(() => {
+    if (isOwnUnseenUpdate(issue, profile?.email)) return;
+
     fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/seen`, {
       method: "POST",
       headers: API_JSON_HEADERS,
@@ -828,7 +848,7 @@ export function IssueDetailModal({
         queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
       })
       .catch(() => {});
-  }, [issue.id, queryClient]);
+  }, [issue.id, queryClient, isOwnUnseenUpdate, issue, profile?.email]);
 
   const handleClose = useCallback(() => {
     setVisible(false);
@@ -843,18 +863,18 @@ export function IssueDetailModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [handleClose]);
 
-  async function handleAdvanceState() {
-    if (!nextState || advancing) return;
+  async function handleAdvanceState(targetState: string) {
+    if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
-        body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
+        body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
       });
       const data = await res.json();
       if (data.success)
-        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
+        setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
     } finally {
       setAdvancing(false);
     }
@@ -920,6 +940,7 @@ export function IssueDetailModal({
             issue={issue}
             canAnswer={canAnswer}
             canAdvanceState={canAdvanceState}
+            canReopenFromDone={canReopenFromDone}
             currentStateName={currentStateName}
             advancing={advancing}
             nextState={nextState}

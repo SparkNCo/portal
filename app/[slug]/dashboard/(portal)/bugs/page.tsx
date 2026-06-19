@@ -29,7 +29,6 @@ export default function BugsPage() {
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [sortBy, setSortBy] = useState<"updated" | "estimate">("updated");
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -95,12 +94,12 @@ export default function BugsPage() {
       const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
       if (rankA !== rankB) return rankB - rankA;
 
-      if (sortBy === "estimate") {
-        return (b.estimate ?? -1) - (a.estimate ?? -1);
-      }
-      return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+      return (
+        new Date(a.createdAt ?? 0).getTime() -
+        new Date(b.createdAt ?? 0).getTime()
+      );
     });
-  }, [dateFiltered, sortBy]);
+  }, [dateFiltered]);
 
   const filterState = {
     selectedStatuses,
@@ -170,23 +169,6 @@ export default function BugsPage() {
             label="Bug Report"
             compact
           />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Sort by:</span>
-          {(["updated", "estimate"] as const).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setSortBy(opt)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                sortBy === opt
-                  ? "bg-accent text-accent-foreground border-accent/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              {opt === "updated" ? "Last Updated" : "Estimate Value"}
-            </button>
-          ))}
         </div>
 
         <div className="w-full max-w-full overflow-hidden">

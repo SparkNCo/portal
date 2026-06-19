@@ -129,6 +129,7 @@ async function postCreateIssue(payload: {
   projectId?: string;
   projectMilestoneId?: string;
   estimate?: number;
+  labelIds?: string[];
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/create`, {
     method: "POST",
@@ -197,6 +198,17 @@ async function fetchMilestones(projectId: string) {
     { id: string; name: string; targetDate?: string }[]
   >;
 }
+
+async function fetchLabels(slug: string) {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/labels?slug=${slug}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to fetch labels");
+  return res.json() as Promise<{ id: string; name: string; color: string }[]>;
+}
+
+const FEATURE_LABEL_NAMES = ["feature", "improvement"];
 
 const TYPE_OPTIONS: {
   type: IssueType;
@@ -308,7 +320,7 @@ export function CreateIssue({
   const { profile: contextProfile } = useUser();
   const profile = profileProp ?? contextProfile;
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"type" | "form">("type");
+  const [step, setStep] = useState<"type" | "form" | "feature-review">("type");
   const [issueType, setIssueType] = useState<IssueType | null>(null);
 
   function handleOpen() {
@@ -323,6 +335,7 @@ export function CreateIssue({
   const [fields, setFields] = useState<IssueFields>({});
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
 
   const needsProjectSelector =
     issueType === "bug" || issueType === "feature" || issueType === "milestone" || issueType === "uat";
@@ -334,6 +347,22 @@ export function CreateIssue({
     queryFn: () => fetchProjects(slug),
     enabled: open && !!slug && needsProjectSelector,
   });
+
+  const { data: labels = [] } = useQuery({
+    queryKey: ["labels", slug],
+    queryFn: () => fetchLabels(slug),
+    enabled: open && !!slug && issueType === "feature",
+  });
+
+  const featureLabelOptions = labels.filter((l) =>
+    FEATURE_LABEL_NAMES.includes(l.name.toLowerCase()),
+  );
+
+  function toggleLabel(id: string) {
+    setSelectedLabelIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones", selectedProjectId],
@@ -380,6 +409,7 @@ export function CreateIssue({
     setFields({});
     setSelectedProjectId("");
     setSelectedMilestoneId("");
+    setSelectedLabelIds([]);
   }
 
   function setField(key: keyof IssueFields, value: string) {
@@ -420,6 +450,7 @@ export function CreateIssue({
       ...(selectedProjectId && { projectId: selectedProjectId }),
       ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),
       ...(fields.estimate && { estimate: Number(fields.estimate) }),
+      ...(selectedLabelIds.length && { labelIds: selectedLabelIds }),
     });
   }
 
@@ -550,18 +581,6 @@ export function CreateIssue({
                         setField("successLooksLike", e.target.value)
                       }
                       className="bg-secondary border-0 min-h-[70px] resize-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>
-                      Estimate (points){" "}
-                      <span className="text-muted-foreground font-normal">
-                        (optional)
-                      </span>
-                    </Label>
-                    <EstimateInput
-                      value={fields.estimate ?? ""}
-                      onChange={(v) => setField("estimate", v)}
                     />
                   </div>
                 </>
@@ -740,42 +759,10 @@ export function CreateIssue({
                 </>
               )}
 
-              {issueType === "feature" && (
-                <div className="space-y-1.5">
-                  <Label>
-                    Project{" "}
-                    <span className="text-muted-foreground font-normal">
-                      (optional)
-                    </span>
-                  </Label>
-                  <Select
-                    value={selectedProjectId}
-                    onValueChange={setSelectedProjectId}
-                  >
-                    <SelectTrigger className="bg-secondary border-0">
-                      <SelectValue
-                        placeholder={
-                          projects.length
-                            ? "Select a project…"
-                            : "Loading projects…"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
               {issueType === "bug" && (
                 <div className="space-y-1.5">
                   <Label>
-                    Milestone{" "}
+                    Project{" "}
                     <span className="text-muted-foreground font-normal">
                       (optional)
                     </span>
@@ -804,51 +791,27 @@ export function CreateIssue({
                       ))}
                     </SelectContent>
                   </Select>
-                  {selectedProjectId && (
-                    <Select
-                      value={selectedMilestoneId}
-                      onValueChange={setSelectedMilestoneId}
-                    >
-                      <SelectTrigger className="bg-secondary border-0 mt-1.5">
-                        <SelectValue
-                          placeholder={
-                            milestones.length
-                              ? "Select a milestone…"
-                              : "No milestones found"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {milestones.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                            {m.targetDate
-                              ? ` — ${new Date(m.targetDate).toLocaleDateString()}`
-                              : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
                 </div>
               )}
 
-              {issueType !== "milestone" && issueType !== "project" && (
-                <div className="space-y-1.5">
-                  <Label>Priority</Label>
-                  <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger className="bg-secondary border-0">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {issueType !== "milestone" &&
+                issueType !== "project" &&
+                issueType !== "feature" && (
+                  <div className="space-y-1.5">
+                    <Label>Priority</Label>
+                    <Select value={priority} onValueChange={setPriority}>
+                      <SelectTrigger className="bg-secondary border-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
               <div className="flex gap-2 pt-1">
                 <Button
@@ -860,7 +823,11 @@ export function CreateIssue({
                   Back
                 </Button>
                 <Button
-                  onClick={handleSubmit}
+                  onClick={() =>
+                    issueType === "feature"
+                      ? setStep("feature-review")
+                      : handleSubmit()
+                  }
                   disabled={
                     !title.trim() ||
                     isPending ||
@@ -870,10 +837,121 @@ export function CreateIssue({
                 >
                   {isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : issueType === "feature" ? (
+                    "Next"
                   ) : issueType === "milestone" ? (
                     "Create Milestone"
                   ) : issueType === "project" ? (
                     "Create Project"
+                  ) : (
+                    "Submit Issue"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === "feature-review" && issueType === "feature" && (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label>
+                  Estimate (points){" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <EstimateInput
+                  value={fields.estimate ?? ""}
+                  onChange={(v) => setField("estimate", v)}
+                />
+              </div>
+
+              {featureLabelOptions.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>
+                    Labels{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional)
+                    </span>
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {featureLabelOptions.map((l) => {
+                      const active = selectedLabelIds.includes(l.id);
+                      return (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => toggleLabel(l.id)}
+                          className={`text-xs px-2.5 py-1 rounded-md border font-medium transition-all ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
+                              : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          {l.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>
+                  Project{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </Label>
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="bg-secondary border-0">
+                    <SelectValue
+                      placeholder={
+                        projects.length ? "Select a project…" : "Loading projects…"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="bg-secondary border-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("form")}
+                  disabled={isPending}
+                  className="flex-1"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!title.trim() || isPending}
+                  className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     "Submit Issue"
                   )}

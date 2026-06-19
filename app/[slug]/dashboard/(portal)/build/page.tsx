@@ -39,9 +39,16 @@ export default function BuildPage() {
 
   const allIssues: any[] = issuesData ?? [];
 
+  const featureIssues = allIssues.filter((i: any) =>
+    (i.labels?.nodes ?? []).some((l: any) => {
+      const name = l.name?.toLowerCase();
+      return name === "feature" || name === "improvement";
+    }),
+  );
+
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
-      allIssues
+      featureIssues
         .filter((i: any) => i.project?.id && i.project?.name)
         .map((i: any) => [
           i.project.id,
@@ -51,8 +58,8 @@ export default function BuildPage() {
   );
 
   const projectFiltered = selectedProject
-    ? allIssues.filter((i: any) => i.project?.id === selectedProject)
-    : allIssues;
+    ? featureIssues.filter((i: any) => i.project?.id === selectedProject)
+    : featureIssues;
 
   const availableStatuses = [
     ...new Set(projectFiltered.map((i: any) => i?.state?.name).filter(Boolean)),
