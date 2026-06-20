@@ -15,6 +15,8 @@ export type DocumentRequest = {
   created_at: string;
   completed_at: string | null;
   completed_by: string | null;
+  claimed_by: string | null;
+  claimed_at: string | null;
 };
 
 export function useDocumentRequests(customerSlug?: string) {

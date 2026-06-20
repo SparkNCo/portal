@@ -9,7 +9,6 @@ import {
   Map,
   Settings,
   FileText,
-  BookOpen,
   Building2,
   LogOut,
   Shield,
@@ -50,7 +49,7 @@ const stakeholderNavItems = [
   { href: "roadmap", label: "Monitor", icon: Map },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
-  { href: "wiki", label: "Documents / Wiki", icon: BookOpen },
+  { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
 ];
 
