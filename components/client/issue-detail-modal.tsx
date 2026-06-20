@@ -378,7 +378,8 @@ function TestsTab({
   issue,
   userEmail,
   canAnswer,
-  canRecordUat,
+  canRecordQaEvidence,
+  canRecordUatResult,
   role,
   currentStateName,
   tests,
@@ -388,7 +389,8 @@ function TestsTab({
   issue: Issue;
   userEmail: string | undefined;
   canAnswer: boolean;
-  canRecordUat: boolean;
+  canRecordQaEvidence: boolean;
+  canRecordUatResult: boolean;
   role: string | undefined;
   currentStateName: string | undefined;
   tests: TestCase[];
@@ -402,6 +404,20 @@ function TestsTab({
   const [editForm, setEditForm] = useState<
     { testId: string; title: string; steps: string; expected: string } | null
   >(null);
+
+  // Developers can author/edit test cases while the issue is being built or QA'd,
+  // not once it's gone to the client for UAT.
+  const canManageTests =
+    role === "admin" ||
+    (role === "developer" &&
+      (currentStateName === "Development" || currentStateName === "QA"));
+  const isQaStage = currentStateName === "QA";
+  const isUatStage = currentStateName === "UAT";
+
+  // QA Evidence is recorded by developers while in QA; UAT Result is recorded
+  // by the client (customer/stakeholder) once it's moved to UAT.
+  const canRecordResult =
+    (isQaStage && canRecordQaEvidence) || (isUatStage && canRecordUatResult);
 
   async function handleCreateTest() {
     if (!testForm.title.trim() || submitting) return;
@@ -493,6 +509,7 @@ function TestsTab({
           test_id: uatForm.testId,
           actual: uatForm.actual,
           recorded_by: userEmail,
+          kind: isQaStage ? "qa" : "uat",
         }),
       });
       const updated = await res.json();
@@ -618,30 +635,32 @@ function TestsTab({
           )}
 
           {t.actual && t.actual.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                Actual
-              </p>
-              <div className="space-y-1.5">
-                {t.actual.map((entry, i) => (
-                  <div key={`${entry.recorded_at}-${i}`} className="border-l-2 border-border pl-2">
-                    <p className="text-xs text-foreground">{entry.text}</p>
-                    {(entry.recorded_by || entry.recorded_at) && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {entry.recorded_by}
-                        {entry.recorded_by && entry.recorded_at ? " · " : ""}
-                        {entry.recorded_at
-                          ? new Date(entry.recorded_at).toLocaleString()
-                          : ""}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div className="space-y-2">
+              {t.actual.map((entry, i) => (
+                <div key={`${entry.recorded_at}-${i}`} className="border-l-2 border-border pl-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                    {entry.kind === "qa"
+                      ? "QA Evidence"
+                      : entry.kind === "uat"
+                        ? "UAT Result"
+                        : "Actual"}
+                  </p>
+                  <p className="text-xs text-foreground">{entry.text}</p>
+                  {(entry.recorded_by || entry.recorded_at) && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {entry.recorded_by}
+                      {entry.recorded_by && entry.recorded_at ? " · " : ""}
+                      {entry.recorded_at
+                        ? new Date(entry.recorded_at).toLocaleString()
+                        : ""}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
-          {role === "admin" && t.status === "draft" && editForm?.testId !== t.id && (
+          {canManageTests && t.status === "draft" && editForm?.testId !== t.id && (
             <Button
               size="sm"
               variant="outline"
@@ -658,9 +677,9 @@ function TestsTab({
             </Button>
           )}
 
-          {canRecordUat &&
-            (t.status === "approved" || t.status === "passed") &&
-            currentStateName === "UAT" &&
+          {canRecordResult &&
+            (t.status === "approved" ||
+              (isQaStage && (t.status === "draft" || t.status === "passed"))) &&
             (uatForm?.testId === t.id ? (
               <div className="flex flex-col gap-1.5">
                 <textarea
@@ -680,7 +699,7 @@ function TestsTab({
                     disabled={!uatForm.actual.trim() || submitting}
                     onClick={handleSubmitUat}
                   >
-                    {submitting ? "Saving…" : "Save UAT"}
+                    {submitting ? "Saving…" : isQaStage ? "Save QA" : "Save UAT"}
                   </Button>
                 </div>
               </div>
@@ -691,13 +710,15 @@ function TestsTab({
                 className="w-full"
                 onClick={() => setUatForm({ testId: t.id, actual: "" })}
               >
-                Record UAT
+                {isQaStage ? "Record QA" : "Record UAT"}
               </Button>
             ))}
 
           {role === "stakeholder" &&
             (t.status === "approved" || t.status === "passed") &&
-            currentStateName === "UAT" && (
+            currentStateName === "UAT" &&
+            (t.status === "passed" ||
+              t.actual?.some((entry) => entry.kind === "uat")) && (
               <Button
                 size="sm"
                 variant={t.status === "passed" ? "outline" : "default"}
@@ -715,7 +736,7 @@ function TestsTab({
         </div>
       ))}
 
-      {role === "admin" && (
+      {canManageTests && (
         <div className="pt-1">
           {showNewTestForm ? (
             <div className="flex flex-col gap-2">
@@ -790,8 +811,10 @@ export function IssueDetailModal({
   const canAsk = role === "developer" || role === "admin";
   const canAdvanceState = role === "admin";
   const canReopenFromDone = role === "stakeholder";
-  const canRecordUat =
-    role === "customer" || role === "stakeholder" || role === "developer";
+  // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
+  // are two distinct recording steps — see TestsTab.
+  const canRecordQaEvidence = role === "developer";
+  const canRecordUatResult = role === "customer" || role === "stakeholder";
 
   const [visible, setVisible] = useState(false);
   const [advancing, setAdvancing] = useState(false);
@@ -980,7 +1003,8 @@ export function IssueDetailModal({
             issue={issue}
             userEmail={profile?.email}
             canAnswer={canAnswer}
-            canRecordUat={canRecordUat}
+            canRecordQaEvidence={canRecordQaEvidence}
+            canRecordUatResult={canRecordUatResult}
             role={role}
             currentStateName={currentStateName}
             tests={tests}

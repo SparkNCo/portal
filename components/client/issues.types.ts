@@ -53,7 +53,12 @@ export type TestCase = {
   title: string;
   steps: { order: number; description: string }[];
   expected: string;
-  actual?: { text: string; recorded_by?: string | null; recorded_at?: string }[];
+  actual?: {
+    text: string;
+    recorded_by?: string | null;
+    recorded_at?: string;
+    kind?: "qa" | "uat";
+  }[];
   status: "draft" | "approved" | "passed" | "failed";
   created_by: string;
   approved_by?: string;
