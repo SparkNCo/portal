@@ -2,7 +2,7 @@
 
 import { Header } from "@/components/headerDashboard";
 import { PriorityTasks } from "@/components/client/priority-tasks";
-import { CreateIssue } from "@/components/shared/create-issue";
+import { BugReportPanel } from "@/components/bugs/bug-report-panel";
 import { LoadingDataPanel } from "@/components/loader";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
@@ -18,11 +18,6 @@ export default function BugsPage() {
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
-  const linearSlug =
-    profile?.linear_slug ||
-    profile?.assignment_id?.find((a: any) => a.clientName === slug)
-      ?.linear_slug ||
-    "";
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -134,41 +129,32 @@ export default function BugsPage() {
       <Header title="Bugs" subtitle="Tickets labeled as bugs" />
 
       <div className="p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+        <BugReportPanel slug={slug} />
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setSelectedProject(null)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              selectedProject === null
+                ? "bg-accent text-accent-foreground border-accent/40"
+                : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            All Projects
+          </button>
+          {projects.map((p) => (
             <button
-              onClick={() => setSelectedProject(null)}
+              key={p.id}
+              onClick={() => setSelectedProject(p.id)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                selectedProject === null
+                selectedProject === p.id
                   ? "bg-accent text-accent-foreground border-accent/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >
-              All Projects
+              {p.name}
             </button>
-            {projects.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedProject(p.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                  selectedProject === p.id
-                    ? "bg-accent text-accent-foreground border-accent/40"
-                    : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-
-          <CreateIssue
-            slug={slug}
-            profile={profile}
-            linearSlug={linearSlug}
-            defaultType="bug"
-            label="Bug Report"
-            compact
-          />
+          ))}
         </div>
 
         <div className="w-full max-w-full overflow-hidden">

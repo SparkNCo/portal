@@ -369,6 +369,8 @@ On submit, all types except Milestone call `POST /issues/create` with `{ title, 
 
 A success toast shows the Linear identifier (e.g. `SPA-42`). The dialog closes and resets.
 
+> Note: the **Project** type's entry point above is no longer reachable from the UI. The Client Dashboard — the only page that rendered the full type-picker for `role === "customer"` — now uses a separate "New project Request" button instead (see section 5.2b).
+
 ### 4.2 Issue State Machine
 
 ```
@@ -466,6 +468,10 @@ Users with `role === "customer"` or `role === "stakeholder"` after login. URL: `
 
 A row of filter buttons at the top — one "All" button plus one per unique project found in the issues list. Multiple projects can be selected. Filter is local state only (no API call). All four cards respect the active filter.
 
+### 5.2b New project Request
+
+The **New project Request** button (`components/client/request-project-dialog.tsx`), next to the project filters, opens a dialog with a Title field and an optional rich-text Description. It does **not** create anything in Linear — submitting calls `POST /project-requests`, which looks up every `portal.users` row with `role === "admin"` and emails each one the request via Resend (`supabase/functions/project-requests/`). A success toast confirms the email was sent.
+
 ### 5.3 Dashboard Cards (2-column grid)
 
 **Project Stats — `ProgressPieChart`**  
@@ -550,7 +556,9 @@ User lands on /{slug}/dashboard/client
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Issue list (Product Decisions + Acceptance Testing) |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal |
-| `components/shared/create-issue.tsx` | Create Issue dialog |
+| `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
+| `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
+| `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 
 ---
 

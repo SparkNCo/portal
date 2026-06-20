@@ -8,12 +8,25 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useQuery } from "@tanstack/react-query";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { useParams } from "next/navigation";
+import { ProgressPieChart } from "@/components/client/progress-pie-chart";
+import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
+import { fetchIssues } from "../client/page";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+
+  const { data: issuesData } = useQuery({
+    queryKey: ["linear-issues", slug],
+    queryFn: () => fetchIssues(slug),
+    enabled: !!slug,
+  });
+
+  const allIssues: any[] = issuesData ?? [];
+
+  const pageTitle = profile?.role === "stakeholder" ? "Monitor" : "Roadmap";
 
   const {
     data: roadmap,
@@ -64,7 +77,7 @@ export default function RoadmapPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <Header title="Roadmap" subtitle="Project timeline and progress" />
+        <Header title={pageTitle} subtitle="Project timeline and progress" />
         <LoadingDataPanel />
       </div>
     );
@@ -73,7 +86,7 @@ export default function RoadmapPage() {
   if (error) {
     return (
       <div className="min-h-screen">
-        <Header title="Roadmap" subtitle="Project timeline and progress" />
+        <Header title={pageTitle} subtitle="Project timeline and progress" />
         <p className="p-6 text-destructive">Failed to load roadmap</p>
       </div>
     );
@@ -81,8 +94,12 @@ export default function RoadmapPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Roadmap" subtitle="Project timeline and progress" />
+      <Header title={pageTitle} subtitle="Project timeline and progress" />
       <div className="p-4 md:p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <ProgressPieChart issuesData={allIssues} />
+          <SoftwareKPIs linearName={slug} />
+        </div>
         <RoadmapTimeline projectMilestones={allMilestones} />
       </div>
       <div className="px-4 md:px-6 pb-6">

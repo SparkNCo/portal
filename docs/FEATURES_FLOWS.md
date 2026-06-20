@@ -41,37 +41,31 @@ These permissions are derived from `profile.role` (UserContext) and evaluated as
 
 ---
 
-## 1b. Create a Project *(customers only)*
+## 1b. New Project Request *(Client Dashboard)*
 
-**Entry point:** "Create Issue" button → type picker → **Project** card.
+**Entry point:** "New project Request" button — `components/client/request-project-dialog.tsx` — rendered next to the project filters on the Client Dashboard (`app/[slug]/dashboard/(portal)/client/page.tsx`).
 
-> The **Project** type is only shown in the type picker for users with `role === "customer"`. Other roles do not see this option.
+Unlike Bug/Feature/UAT, this does **not** create anything in Linear. It notifies the agency's admins by email so they can scope and create the project manually.
 
-1. User clicks **Create Issue** and selects **Project**.
-2. The form asks for:
-   - **Title** — required, becomes the Linear project name
-   - **Description** *(optional)* — project overview
-   - **Due Date** *(optional)* — maps to `targetDate` in Linear
-   - **Milestones** *(optional)* — free-text planning notes, informational only
-3. User clicks **Create Project**.
-4. `POST /issues/project` is called with `{ name, slug, description?, targetDate? }`.
+1. User clicks **New project Request**.
+2. A dialog opens with an info banner ("Tell us about your idea and we'll email our team the details…") and a form:
+   - **Title** — required
+   - **Description** *(optional)* — rich text editor (`RichTextEditor`, same component used for Feature Request descriptions)
+3. User clicks **Send Request**.
+4. `POST /project-requests` is called with `{ title, description?, requestedBy, slug }`.
+5. Backend (`supabase/functions/project-requests/createProjectRequest.ts`) queries `portal.users` for every row with `role === "admin"` and emails each one via Resend (`sendProjectRequestMail.ts`) with the title, description, requester email, and client slug.
+6. A success toast confirms the request was sent; the dialog closes and resets.
 
-**What happens on the backend (`handleCreateProject`, `supabase/functions/issues/createIssue.ts`):**
-
-1. Resolves the customer's `teamId` and `linear_slug` from `portal.customers` using the `slug`.
-2. Calls Linear's `projectCreate` mutation with `name`, `teamIds`, and optional `description` / `targetDate`.
-3. Resolves the full initiative UUID by querying `initiative(id: $linear_slug) { id }` — `linear_slug` may be a short ID, not the full UUID.
-4. Calls Linear's `initiativeToProjectCreate` mutation to link the new project to the customer's initiative.
-5. Appends the new project's Linear ID to `customers.linear_projects` in Supabase so it immediately appears in project dropdowns without waiting for a re-sync.
-
-**API endpoint:** `POST /issues/project`
+**API endpoint:** `POST /project-requests`
 
 | Field | Required | Notes |
 |---|---|---|
-| `name` | ✅ Yes | Project title |
-| `slug` | ✅ Yes | Customer slug — used to resolve `teamId` and `linear_slug` |
-| `description` | No | Project description |
-| `targetDate` | No | `YYYY-MM-DD` format |
+| `title` | ✅ Yes | Project idea title |
+| `description` | No | Rich-text/markdown description |
+| `requestedBy` | No | Email of the requesting user |
+| `slug` | No | Customer slug, included in the email for context |
+
+> Historical note: `components/shared/create-issue.tsx` still has a **Project** type in its type-picker that calls `POST /issues/project` to create a Linear project directly (see `handleCreateProject` in `supabase/functions/issues/createIssue.ts`). That entry point is no longer wired up anywhere in the UI — the Client Dashboard used to expose it via the "Create Issue" button, but that button was replaced by the email-based flow above.
 
 ---
 
@@ -181,6 +175,9 @@ Each issue has its own CometChat **group** keyed to `issue.id`.
 | File | Responsibility |
 |---|---|
 | `components/shared/create-issue.tsx` | Create Issue dialog (all types) |
+| `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
+| `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
+| `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
 | `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |

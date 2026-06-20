@@ -8,6 +8,7 @@ import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
+import { LabelPill } from "./issue-cards";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import {
@@ -920,7 +921,12 @@ export function IssueDetailModal({
                 {currentStateName}
               </Badge>
             </div>
-            <h2 className="text-base font-semibold leading-snug">{issue.title}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-semibold leading-snug">{issue.title}</h2>
+              {issue.labels?.nodes?.map((l) => (
+                <LabelPill key={l.id} label={l} />
+              ))}
+            </div>
           </div>
           <button
             onClick={handleClose}

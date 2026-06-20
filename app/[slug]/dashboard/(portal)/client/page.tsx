@@ -7,7 +7,7 @@ import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
-import { CreateIssue } from "@/components/shared/create-issue";
+import { RequestProjectDialog } from "@/components/client/request-project-dialog";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_HEADERS } from "@/lib/api-headers";
@@ -46,14 +46,6 @@ export default function ClientDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
-  // Customers get linear_slug directly on their profile. Stakeholders/developers
-  // only have it per-assignment, so look it up by matching the selected clientName.
-  const linearSlug =
-    profile?.linear_slug ||
-    profile?.assignment_id?.find((a: any) => a.clientName === slug)
-      ?.linear_slug ||
-    "";
-  const linearProjectId = "";
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
     new Set(),
   );
@@ -154,11 +146,9 @@ export default function ClientDashboard() {
               </Button>
             ))}
           </div>
-          <CreateIssue
+          <RequestProjectDialog
             slug={slug}
-            projectId={linearProjectId}
-            profile={profile}
-            linearSlug={linearSlug}
+            requestedBy={profile?.email}
             compact
           />
         </div>

@@ -70,21 +70,17 @@ At the top of the dashboard there is a row of **project filter buttons** — one
 
 ---
 
-## Create Issue button
+## New project Request button
 
-To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens a type-picker dialog with the following options:
+To the right of the project filters sits the **New project Request** button (`components/client/request-project-dialog.tsx`). Unlike the Build/Bugs pages, the Dashboard does not use `CreateIssue` — this button opens its own lightweight dialog instead:
 
-| Type | Who sees it | Outcome |
-|---|---|---|
-| Bug Report | All roles | Creates a Linear issue |
-| Feature Request | All roles | Creates a Linear issue |
-| UAT Test Case | All roles | Creates a Linear issue |
-| **Project** | **`customer` only** | Creates a new Linear project under the customer's initiative |
-| Milestone | All roles | Creates a Linear project milestone |
+- A blue info banner explains the flow: *"Tell us about your idea and we'll email our team the details — no need to set anything up yourself."*
+- **Title** — required
+- **Description** *(optional)* — rich text editor (same `RichTextEditor` used for Feature Request descriptions), so the client can format their idea
 
-The **Project** type is hidden for stakeholders, developers, and admins. When a customer creates a project, it is automatically linked to their initiative (`customers.linear_slug`) and the new project ID is appended to `customers.linear_projects` so it appears immediately in all project dropdowns.
+On submit, it calls `POST /project-requests` with `{ title, description?, requestedBy, slug }`. The backend (`supabase/functions/project-requests/`) does **not** touch Linear — it fetches every `portal.users` row with `role === "admin"` and emails each one the request details via Resend. A success toast confirms the email was sent and the dialog resets.
 
-See `docs/FEATURES_FLOWS.md` for the full flow of each type.
+See `docs/FEATURES_FLOWS.md` (section "New Project Request") for the full flow, including the API contract.
 
 ---
 
@@ -201,6 +197,8 @@ User lands on /{slug}/dashboard/client
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Product Decisions and Acceptance Testing |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
-| `components/shared/create-issue.tsx` | Create Issue dialog |
+| `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
+| `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
+| `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `context/UserContext.tsx` | Provides `profile` (role, email, id, linear_slug) |
 | `context/CustomerSlugContext.tsx` | Provides the active customer slug when admin/dev is previewing a customer |

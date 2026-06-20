@@ -22,7 +22,7 @@ const LABEL_COLOR_CLASSES: Record<string, string> = {
   feature: "bg-success text-white",
 };
 
-function LabelPill({
+export function LabelPill({
   label,
 }: {
   readonly label: { id: string; name: string; color: string };
