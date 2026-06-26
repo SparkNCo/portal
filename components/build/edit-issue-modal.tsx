@@ -102,7 +102,6 @@ export function EditIssueModal({
               autoFocus
             />
           </div>
-          <div onClick={() => console.log({description})}>VER description</div>
 
           <div className="space-y-1.5">
             <Label>Description</Label>

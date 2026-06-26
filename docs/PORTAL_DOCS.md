@@ -386,19 +386,34 @@ Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
 
 **Where:** Tests tab inside the Issue Detail Modal.
 
-**Creating a test (Admin only)**
+**Full flow:** `draft → Stakeholder approves → Developer records QA Evidence (QA stage) → Stakeholder records UAT Result (UAT stage) → Stakeholder marks Passed`
+
+**Creating/editing a test (`canManageTests`: Admin always, or Developer only while issue state is Development/QA)**
 1. Tests tab → "+ Add test case"
 2. Fill: title, steps (one per line → saved as `{ order, description }[]`), expected result
 3. `POST /tests` → test created with status `draft`
+4. Draft tests can be edited the same way via `PATCH /tests/update`
 
 **Approving a test (Customer / Stakeholder)**
 1. Tests tab → "Approve test case" button on any `draft` test
 2. `PATCH /tests/approve` → status moves to `approved`
 
-**Recording UAT result (Customer / Stakeholder — only when issue is in UAT state)**
-1. Tests tab → "Record UAT result" on any `approved` test
-2. Type what actually happened → "Mark as passed"
-3. `PATCH /tests/uat` → status moves to `passed`
+**Recording QA Evidence (Developer — only when issue is in QA state)**
+1. Tests tab → "Record QA" on any `draft`, `approved`, or `passed` test
+2. Type what actually happened → "Save QA"
+3. `PATCH /tests/uat` with `{ ..., kind: "qa" }` → entry appended to `test.actual[]`, shown as "QA Evidence"
+
+**Recording UAT Result (Customer / Stakeholder — only when issue is in UAT state)**
+1. Tests tab → "Record UAT" on any `approved` test (hidden once `passed`)
+2. Type what actually happened → "Save UAT"
+3. `PATCH /tests/uat` with `{ ..., kind: "uat" }` → entry appended to `test.actual[]`, shown as "UAT Result"
+
+> Each recording action is gated to both the right role *and* the right stage — developers can't record UAT, customers/stakeholders can't record QA evidence.
+
+**Marking Passed (Stakeholder only — only when issue is in UAT state, and only after at least one UAT Result is recorded)**
+1. Tests tab → "Mark as Passed" on an `approved`/`passed` test that has a `kind: "uat"` entry in `actual`
+2. `PATCH /tests/uat` with `{ passed: true }` → status moves to `passed`
+3. Reversible via "Revert to Approved" → `{ passed: false }`
 
 ```
 draft → approved → passed

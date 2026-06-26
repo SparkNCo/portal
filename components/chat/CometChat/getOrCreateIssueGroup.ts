@@ -23,13 +23,26 @@ async function fetchAssigneeUids(url: string, memberUids: Set<string>) {
   assignees.filter((a) => a.user_id).forEach((a) => memberUids.add(a.user_id));
 }
 
+function buildGroupGuid(issueId: string): string {
+  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+  return `issue_${safeId}`;
+}
+
+/** Looks up the issue's CometChat group without creating one. Returns null if no one has sent a message yet. */
+export async function getExistingIssueGroup(issueId: string): Promise<CometChat.Group | null> {
+  try {
+    return await CometChat.getGroup(buildGroupGuid(issueId));
+  } catch {
+    return null;
+  }
+}
+
 async function buildIssueGroup(
   issueId: string,
   issueTitle: string,
   profile: any,
 ): Promise<CometChat.Group> {
-  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-  const deterministicGuid = `issue_${safeId}`;
+  const deterministicGuid = buildGroupGuid(issueId);
 
   try {
     return await CometChat.getGroup(deterministicGuid);

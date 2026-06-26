@@ -25,7 +25,9 @@ import { useSidebar } from "@/lib/sidebar-context";
 
 const clientNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Roadmap", icon: Map },
+  { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "settings", label: "Settings", icon: Settings },
@@ -69,7 +71,9 @@ export function Sidebar() {
 
   const customerPanelItems = [
     { href: "client", label: "Dashboard", icon: LayoutDashboard },
-    { href: "roadmap", label: "Roadmap", icon: Map },
+    { href: "roadmap", label: "Monitor", icon: Map },
+    { href: "build", label: "Build", icon: Hammer },
+    { href: "bugs", label: "Bugs", icon: Bug },
     //{ href: "developer", label: "Developer", icon: Code2 },
     { href: "chat", label: "Chat", icon: MessageCircle },
     { href: "documents", label: "Documents", icon: FileText },

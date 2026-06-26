@@ -9,6 +9,7 @@ import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
 import { LabelPill } from "./issue-cards";
+import { DesignTab } from "./design-tab";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import {
@@ -405,12 +406,14 @@ function TestsTab({
     { testId: string; title: string; steps: string; expected: string } | null
   >(null);
 
-  // Developers can author/edit test cases while the issue is being built or QA'd,
+  // Developers can author/edit test cases while the issue is being scoped, built, or QA'd,
   // not once it's gone to the client for UAT.
   const canManageTests =
     role === "admin" ||
     (role === "developer" &&
-      (currentStateName === "Development" || currentStateName === "QA"));
+      (currentStateName === "Business Review" ||
+        currentStateName === "Development" ||
+        currentStateName === "QA"));
   const isQaStage = currentStateName === "QA";
   const isUatStage = currentStateName === "UAT";
 
@@ -823,9 +826,9 @@ export function IssueDetailModal({
   const [loadingDecisions, setLoadingDecisions] = useState(true);
   const [tests, setTests] = useState<TestCase[]>([]);
   const [loadingTests, setLoadingTests] = useState(true);
-  const [activeTab, setActiveTab] = useState<"description" | "chat" | "decisions" | "tests">(
-    "description",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "description" | "chat" | "decisions" | "tests" | "design"
+  >("description");
 
   const nextState = getNextState(currentStateName);
 
@@ -963,8 +966,9 @@ export function IssueDetailModal({
         <div className="flex border-b border-border px-5 flex-shrink-0">
           <TabButton label="Description" tab="description" activeTab={activeTab} onClick={() => setActiveTab("description")} className="mr-5" />
           <TabButton label="Chat" tab="chat" activeTab={activeTab} onClick={() => setActiveTab("chat")} className="mr-5" />
-          <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} />
-          <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="ml-5" />
+          <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} className="mr-5" />
+          <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="mr-5" />
+          <TabButton label="Design" tab="design" activeTab={activeTab} onClick={() => setActiveTab("design")} />
         </div>
 
         {activeTab === "description" && (
@@ -1012,6 +1016,8 @@ export function IssueDetailModal({
             loadingTests={loadingTests}
           />
         )}
+
+        {activeTab === "design" && <DesignTab />}
       </div>
     </div>
   );

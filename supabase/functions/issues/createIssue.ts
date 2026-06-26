@@ -52,6 +52,87 @@ async function linearRequest(query: string, variables: Record<string, any> = {})
   return json.data;
 }
 
+const FILE_UPLOAD_MUTATION = `
+  mutation FileUpload($contentType: String!, $filename: String!, $size: Int!) {
+    fileUpload(contentType: $contentType, filename: $filename, size: $size) {
+      success
+      uploadFile {
+        uploadUrl
+        assetUrl
+        headers { key value }
+      }
+    }
+  }
+`;
+
+const ATTACHMENT_CREATE_MUTATION = `
+  mutation AttachmentCreate($input: AttachmentCreateInput!) {
+    attachmentCreate(input: $input) {
+      success
+      attachment { id url title }
+    }
+  }
+`;
+
+// POST /issues/upload — takes a file (multipart/form-data), uploads it to Linear's
+// storage on the server side, and returns its public asset URL.
+//
+// Linear's presigned GCS upload URLs aren't CORS-enabled for browser-direct PUTs
+// from third-party origins, so the PUT has to happen server-to-server here rather
+// than from the client.
+export async function handleRequestUpload(req: Request): Promise<Response> {
+  const formData = await req.formData();
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
+    return Response.json({ error: "Missing file" }, { status: 400 });
+  }
+
+  const data = await linearRequest(FILE_UPLOAD_MUTATION, {
+    filename: file.name,
+    contentType: file.type || "application/octet-stream",
+    size: file.size,
+  });
+  const uploadFile = data?.fileUpload?.uploadFile;
+
+  if (!data?.fileUpload?.success || !uploadFile) {
+    return Response.json({ error: "Failed to request upload URL" }, { status: 500 });
+  }
+
+  const putHeaders: Record<string, string> = {};
+  (uploadFile.headers ?? []).forEach((h: { key: string; value: string }) => {
+    putHeaders[h.key] = h.value;
+  });
+
+  const putRes = await fetch(uploadFile.uploadUrl, {
+    method: "PUT",
+    headers: putHeaders,
+    body: file,
+  });
+
+  if (!putRes.ok) {
+    console.error("[handleRequestUpload] Linear storage PUT failed:", putRes.status, await putRes.text());
+    return Response.json({ error: "Failed to upload file to Linear" }, { status: 500 });
+  }
+
+  return Response.json({ name: file.name, url: uploadFile.assetUrl });
+}
+
+// POST /issues/attachment — attaches an already-uploaded file (by its Linear assetUrl) to an issue
+export async function handleCreateAttachment(req: Request): Promise<Response> {
+  const { issueId, url, title } = await req.json();
+
+  if (!issueId || !url) {
+    return Response.json({ error: "Missing issueId or url" }, { status: 400 });
+  }
+
+  const data = await linearRequest(ATTACHMENT_CREATE_MUTATION, {
+    input: { issueId, url, title: title ?? url },
+  });
+
+  return Response.json(data.attachmentCreate);
+}
+
 async function resolveCustomer(slug: string): Promise<{ teamId: string; linearSlug: string | null }> {
   const { data, error } = await supabase.schema("portal")
     .from("customers")

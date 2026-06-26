@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUser } from "context/UserContext";
 import { ChatSpinner } from "./ChatSpinner";
 import { initCometChatUser } from "./initCometChatUser";
-import { getOrCreateIssueGroup } from "./getOrCreateIssueGroup";
+import { getExistingIssueGroup, getOrCreateIssueGroup } from "./getOrCreateIssueGroup";
 import { IssueGroupChat } from "./IssueGroupChat";
 
 export function IssueCometChat({
@@ -35,7 +35,9 @@ export function IssueCometChat({
         require("@cometchat/chat-sdk-javascript").CometChat;
       const cometUser = await initCometChatUser();
       setUser(cometUser);
-      const grp = await getOrCreateIssueGroup(issueId, issueTitle, profile);
+      // Don't create the group (and add all members) just for opening the tab —
+      // only look up whether one already exists from a prior message.
+      const grp = await getExistingIssueGroup(issueId);
       setGroup(grp);
       setReady(true);
     } catch (err) {
@@ -46,7 +48,14 @@ export function IssueCometChat({
 
   if (!ready && !error) return <ChatSpinner size="sm" label="Loading chat…" />;
   if (error) return <p className="text-xs text-destructive text-center py-4">{error}</p>;
-  if (!user || !group) return null;
+  if (!user) return null;
 
-  return <IssueGroupChat user={user} group={group} />;
+  return (
+    <IssueGroupChat
+      user={user}
+      group={group}
+      onCreateGroup={() => getOrCreateIssueGroup(issueId, issueTitle, profile)}
+      onGroupCreated={setGroup}
+    />
+  );
 }

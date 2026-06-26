@@ -107,7 +107,6 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen">
-      <div onClick={() => console.log({ profile })}>VER profile</div>
 
       <Header
         title={

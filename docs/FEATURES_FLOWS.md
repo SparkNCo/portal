@@ -89,9 +89,20 @@ Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
 
 **Where:** Tests tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `TestsTab`).
 
-### 3a. Creating a test (Admin only)
+**Full flow:**
 
-1. Admin opens an issue → **Tests** tab → **+ Add test case**.
+```
+draft → Stakeholder approves → Developer records QA Evidence (QA stage)
+      → Stakeholder records UAT Result (UAT stage) → Stakeholder marks Passed
+```
+
+### 3a. Creating / editing a test (`canManageTests`)
+
+Allowed for:
+- **Admin** — always.
+- **Developer** — only while the issue's current state is **Development** or **QA**.
+
+1. Opens an issue → **Tests** tab → **+ Add test case**.
 2. Fills in:
    - **Title** — what is being tested
    - **Steps** — one per line; saved as `{ order, description }[]`
@@ -99,21 +110,41 @@ Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
 3. Submits → `POST /tests` with `{ issue_id, title, steps, expected, created_by }`.
 4. Test is created with status **`draft`**.
 
+Draft tests can also be edited (title/steps/expected) by the same role gate, via **"Edit test case"** → `PATCH /tests/update`.
+
 ### 3b. Approving a test (Customer / Stakeholder)
 
-1. Customer opens the issue → **Tests** tab.
+1. Customer/stakeholder opens the issue → **Tests** tab.
 2. Sees test cases with status `draft` and an **"Approve test case"** button.
 3. Clicks it → `PATCH /tests/approve` with `{ test_id, approved_by }`.
 4. Status moves to **`approved`**.
 
-### 3c. Recording UAT result (Customer / Stakeholder, only when issue is in UAT state)
+### 3c. Recording QA Evidence (Developer, only while issue is in QA state)
+
+1. Issue must be in **QA** state.
+2. Developer opens the issue → **Tests** tab.
+3. Tests with status `draft`, `approved`, or `passed` show a **"Record QA"** button (drafts are included so a developer can attach evidence before the stakeholder has approved the test case).
+4. Developer clicks it, types what actually happened, clicks **"Save QA"**.
+5. `PATCH /tests/uat` is called with `{ test_id, actual, recorded_by, kind: "qa" }`.
+6. The entry is appended to `test.actual[]` and rendered under a **"QA Evidence"** label. Status is unchanged by this action.
+
+> Developers cannot record UAT results, and customers/stakeholders cannot record QA evidence — each recording action is gated to both the right role **and** the right issue stage (`canRecordResult` in `TestsTab`).
+
+### 3d. Recording UAT Result (Customer / Stakeholder, only while issue is in UAT state)
 
 1. Issue must be in **UAT** state.
-2. Customer opens the issue → **Tests** tab.
-3. Approved tests show a **"Record UAT result"** button.
-4. Customer clicks it, types what actually happened, clicks **"Mark as passed"**.
-5. `PATCH /tests/uat` is called with `{ test_id, actual, passed: true }`.
-6. Status moves to **`passed`**.
+2. Customer/stakeholder opens the issue → **Tests** tab.
+3. Approved tests show a **"Record UAT"** button. It disappears once the test is `passed` (no need to re-record after sign-off).
+4. Customer/stakeholder clicks it, types what actually happened, clicks **"Save UAT"**.
+5. `PATCH /tests/uat` is called with `{ test_id, actual, recorded_by, kind: "uat" }`.
+6. The entry is appended to `test.actual[]` and rendered under a **"UAT Result"** label (older entries recorded before `kind` existed fall back to a generic "Actual" label).
+
+### 3e. Marking a test Passed (Stakeholder only, final approval)
+
+1. Issue must be in **UAT** state and the test must already be `approved` or `passed`.
+2. The test must have **at least one recorded UAT Result** (`test.actual` contains an entry with `kind: "uat"`) — a stakeholder cannot mark a test passed without first recording a UAT result.
+3. Stakeholder clicks **"Mark as Passed"** → `PATCH /tests/uat` with `{ test_id, passed: true }`. Status moves to **`passed`**.
+4. Can be reverted via **"Revert to Approved"** → `{ test_id, passed: false }` (this button isn't gated by the UAT-record check).
 
 **Test status flow:**
 
@@ -179,7 +210,8 @@ Each issue has its own CometChat **group** keyed to `issue.id`.
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
 | `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating lives here |
+| `supabase/functions/tests/index.ts` | Test CRUD, approve, and `/uat` (QA Evidence / UAT Result recording, `passed` toggle) |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |

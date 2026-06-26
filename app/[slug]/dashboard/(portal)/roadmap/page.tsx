@@ -26,7 +26,7 @@ export default function RoadmapPage() {
 
   const allIssues: any[] = issuesData ?? [];
 
-  const pageTitle = profile?.role === "stakeholder" ? "Monitor" : "Roadmap";
+  const pageTitle = "Monitor";
 
   const {
     data: roadmap,
