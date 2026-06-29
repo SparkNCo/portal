@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../client/page";
+import { PinButton } from "@/components/dashboard/pin-button";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
@@ -97,13 +98,25 @@ export default function RoadmapPage() {
       <Header title={pageTitle} subtitle="Project timeline and progress" />
       <div className="p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <ProgressPieChart issuesData={allIssues} />
-          <SoftwareKPIs linearName={slug} />
+          <div className="relative">
+            <PinButton panelId="progress_pie_chart" />
+            <ProgressPieChart issuesData={allIssues} />
+          </div>
+          <div className="relative">
+            <PinButton panelId="software_kpis" />
+            <SoftwareKPIs linearName={slug} />
+          </div>
         </div>
-        <RoadmapTimeline projectMilestones={allMilestones} />
+        <div className="relative">
+          <PinButton panelId="roadmap_timeline" />
+          <RoadmapTimeline projectMilestones={allMilestones} />
+        </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
-        <MetricsPanel slug={slug} />
+        <div className="relative">
+          <PinButton panelId="metrics_panel" />
+          <MetricsPanel slug={slug} />
+        </div>
       </div>
     </div>
   );

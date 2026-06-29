@@ -45,7 +45,10 @@ export default function AddDeveloperModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to create developer");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create developer");
+      }
 
       return res.json();
     },

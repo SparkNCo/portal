@@ -12,6 +12,7 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchIssues } from "../client/page";
 import type { Issue } from "@/components/client/issues.types";
+import { PinButton } from "@/components/dashboard/pin-button";
 
 export default function BugsPage() {
   const { profile } = useUser();
@@ -157,17 +158,20 @@ export default function BugsPage() {
           ))}
         </div>
 
-        <div className="w-full max-w-full overflow-hidden">
+        <div className="relative w-full max-w-full overflow-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (
-            <PriorityTasks
-              issuesData={visibleIssues}
-              filterState={filterState}
-              onOpenChat={() => {}}
-              onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Bugs"
-            />
+            <>
+              <PinButton panelId="bugs_list" />
+              <PriorityTasks
+                issuesData={visibleIssues}
+                filterState={filterState}
+                onOpenChat={() => {}}
+                onEditIssue={(issue) => setEditingIssue(issue)}
+                title="Bugs"
+              />
+            </>
           )}
         </div>
       </div>

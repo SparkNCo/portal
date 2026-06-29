@@ -96,8 +96,11 @@ export const createCustomerFlow = async (body: any) => {
   if (!linear_slug) throw new Error("linear_slug required");
   if (!clientName) throw new Error("clientName required");
 
+  console.log("[createCustomerFlow] start", { email, linear_slug, clientName });
+
   const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
   const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
+  console.log("[createCustomerFlow] auth user resolved", { authUserId, isNew, hasInviteLink: !!inviteLink });
 
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const { data: clientRecord, error: clientError } = await supabase.schema("portal")
@@ -107,9 +110,11 @@ export const createCustomerFlow = async (body: any) => {
     .single();
 
   if (clientError) {
+    console.error("[createCustomerFlow] customers insert failed", clientError.message);
     if (isNew) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(clientError.message);
   }
+  console.log("[createCustomerFlow] customer record created", { customer_id: clientRecord.customer_id });
 
   const projectDataReady = await fillProjectData(clientRecord, linear_slug);
 
@@ -124,12 +129,20 @@ export const createCustomerFlow = async (body: any) => {
     .single();
 
   if (upsertError) {
+    console.error("[createCustomerFlow] users upsert failed", upsertError.message);
     if (isNew) await supabase.auth.admin.deleteUser(authUserId);
     await supabase.schema("portal").from("customers").delete().eq("customer_id", clientRecord.customer_id);
     throw new Error(upsertError.message);
   }
+  console.log("[createCustomerFlow] user upserted", { authUserId });
 
+  console.log("[createCustomerFlow] sending invite email", {
+    email,
+    hasResendKey: !!Deno.env.get("RESEND_KEY"),
+    fromEmail: Deno.env.get("FROM_EMAIL"),
+  });
   await sendInviteCustomerMail(email, inviteLink);
+  console.log("[createCustomerFlow] invite email sent");
 
   if (projectDataReady) await triggerIssueMetrics();
 

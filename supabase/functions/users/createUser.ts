@@ -81,11 +81,14 @@ export const createUser = async (body: any) => {
     .single();
 
   if (upsertError) {
+    console.error("[createUser] users upsert failed", upsertError.message);
     if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(upsertError.message);
   }
+  console.log("[createUser] user upserted, sending invite email", { authUserId, email });
 
   await sendInviteCustomerMail(email, inviteLink);
+  console.log("[createUser] invite email sent");
 
   return data;
 };

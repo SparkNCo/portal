@@ -48,7 +48,10 @@ export default function AddStakeholderModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to create stakeholder");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create stakeholder");
+      }
 
       return res.json();
     },

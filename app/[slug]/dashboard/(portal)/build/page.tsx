@@ -9,6 +9,7 @@ import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchIssues } from "../client/page";
+import { PinButton } from "@/components/dashboard/pin-button";
 
 export default function BuildPage() {
   const { profile } = useUser();
@@ -95,20 +96,26 @@ export default function BuildPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <PriorityTasks
-            issuesData={visibleBusinessReviewIssues}
-            filterState={noopFilterState}
-            onOpenChat={() => {}}
-            title="Product Decisions"
-            compact
-          />
-          <PriorityTasks
-            issuesData={visibleUatIssues}
-            filterState={noopFilterState}
-            onOpenChat={() => {}}
-            title="Acceptance Testing"
-            compact
-          />
+          <div className="relative">
+            <PinButton panelId="build_product_decisions" />
+            <PriorityTasks
+              issuesData={visibleBusinessReviewIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              title="Product Decisions"
+              compact
+            />
+          </div>
+          <div className="relative">
+            <PinButton panelId="build_acceptance_testing" />
+            <PriorityTasks
+              issuesData={visibleUatIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              title="Acceptance Testing"
+              compact
+            />
+          </div>
         </div>
       </div>
     </div>

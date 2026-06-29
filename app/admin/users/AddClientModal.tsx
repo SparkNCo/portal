@@ -49,7 +49,10 @@ export default function AddClientModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to create client");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create client");
+      }
 
       return res.json();
     },

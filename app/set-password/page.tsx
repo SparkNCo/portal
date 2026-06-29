@@ -37,15 +37,16 @@ function SetPasswordForm() {
     setUserId(session.user.id);
 
     const { data } = await supabase
+      .schema("portal")
       .from("users")
-      .select("role, firstName, lastName, clientName, phoneNumber")
+      .select("role, firstName, lastName, userName, phoneNumber")
       .eq("id", session.user.id)
       .maybeSingle();
 
     setRole(data?.role ?? null);
     if (data?.firstName) setFirstName(data.firstName);
     if (data?.lastName) setLastName(data.lastName);
-    if (data?.clientName) setClientName(data.clientName);
+    if (data?.userName) setClientName(data.userName);
     if (data?.phoneNumber) setPhoneNumber(data.phoneNumber);
     setReady(true);
   }
@@ -106,7 +107,7 @@ function SetPasswordForm() {
     const profileUpdate: Record<string, string> = {
       firstName,
       lastName,
-      clientName: slugifiedClientName,
+      userName: slugifiedClientName,
     };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
