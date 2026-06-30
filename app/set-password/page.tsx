@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
+import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound } from "lucide-react";
@@ -37,7 +37,7 @@ function SetPasswordForm() {
     setUserId(session.user.id);
 
     const { data } = await supabase
-      .schema("portal")
+      .schema(PORTAL_SCHEMA)
       .from("users")
       .select("role, firstName, lastName, userName, phoneNumber")
       .eq("id", session.user.id)

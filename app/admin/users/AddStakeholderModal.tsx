@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
 import { isValidPhone } from "@/lib/phone";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 type Props = {
   onClose: () => void;
@@ -31,11 +32,7 @@ export default function AddStakeholderModal({ onClose }: Props) {
         `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=stakeholder`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({
             email,
             role: "stakeholder",

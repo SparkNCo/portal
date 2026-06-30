@@ -19,6 +19,7 @@ import {
   Search,
   FolderKanban,
 } from "lucide-react";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 type User = {
   id: string;
@@ -48,11 +49,7 @@ function getInitials(email: string) {
   return email.slice(0, 2).toUpperCase();
 }
 
-const apiHeaders = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-  "Content-Type": "application/json",
-};
+const apiHeaders = API_JSON_HEADERS;
 
 export default function AdminUsersPage() {
   const { profile, loading } = useUser();
@@ -125,13 +122,7 @@ export default function AdminUsersPage() {
       queryFn: async () => {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${expandedUser!.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-              apikey: process.env.NEXT_PUBLIC_APIKEY!,
-              "Content-Type": "application/json",
-            },
-          },
+          { headers: API_JSON_HEADERS },
         );
         const data = await res.json();
         return data;

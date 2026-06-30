@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase-client";
+import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
 import { PINNABLE_PANELS, type PinnablePanelId } from "@/lib/pinnable-panels";
 
 export type PinnedPanel = {
@@ -13,7 +13,7 @@ export type PinnedPanel = {
   created_at: string;
 };
 
-const pinnedPanelsTable = () => supabase.schema("portal").from("pinned_panels");
+const pinnedPanelsTable = () => supabase.schema(PORTAL_SCHEMA).from("pinned_panels");
 
 export function usePinnedPanels(userId: string | undefined) {
   return useQuery({

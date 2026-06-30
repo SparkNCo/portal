@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsRight, RotateCcw, MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
-import { supabase } from "@/lib/supabase-client";
+import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
 import { LabelPill } from "./issue-cards";
 import { DesignTab } from "./design-tab";
@@ -842,7 +842,7 @@ export function IssueDetailModal({
     setLoadingTests(true);
 
     supabase
-      .schema("portal")
+      .schema(PORTAL_SCHEMA)
       .from("decisions")
       .select("*")
       .eq("issue_id", issue.id)

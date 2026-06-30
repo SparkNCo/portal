@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
-export const createUser = async (body: any) => {
+export const createUser = async (body: any, schema: string) => {
   const {
     email,
     role = "developer",
@@ -61,7 +61,7 @@ export const createUser = async (body: any) => {
     inviteLink = inviteData.properties.action_link;
   }
 
-  const { data, error: upsertError } = await supabase.schema("portal")
+  const { data, error: upsertError } = await supabase.schema(schema)
     .from("users")
     .upsert(
       [{

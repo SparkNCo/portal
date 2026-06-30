@@ -1,9 +1,11 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 
 export const getAssignmentsByCustomer = async (req: Request) => {
   try {
+    const schema = resolvePortalSchema(req);
 
     const url = new URL(req.url);
     const raw = url.searchParams.get("customer_id");
@@ -21,7 +23,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     const customer_ids = raw.split(",").map((id) => id.trim()).filter(Boolean);
     const onlyDev = url.searchParams.get("onlyDev") === "true";
 
-    let query = supabase.schema("portal")
+    let query = supabase.schema(schema)
       .from("assignments")
       .select(
         `

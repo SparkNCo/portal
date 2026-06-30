@@ -41,12 +41,12 @@ async function resolveAuthUser(
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
 // and fill in linear_projects / project_url so DORA metrics can pick this client up.
 // Returns true if usable project data was saved.
-async function fillProjectData(clientRecord: any, linear_slug: string): Promise<boolean> {
+async function fillProjectData(clientRecord: any, linear_slug: string, schema: string): Promise<boolean> {
   try {
     const { linearProjects, projectUrls } = await fetchProjectUrlsFromLinear(linear_slug);
     if (!linearProjects.length && !projectUrls.length) return false;
 
-    const { error: updateError } = await supabase.schema("portal")
+    const { error: updateError } = await supabase.schema(schema)
       .from("customers")
       .update({ linear_projects: linearProjects, project_url: projectUrls })
       .eq("customer_id", clientRecord.customer_id);
@@ -80,7 +80,7 @@ async function triggerIssueMetrics() {
   }
 }
 
-export const createCustomerFlow = async (body: any) => {
+export const createCustomerFlow = async (body: any, schema: string) => {
   const {
     email,
     customer_id: stripeCustomerId,
@@ -103,7 +103,7 @@ export const createCustomerFlow = async (body: any) => {
   console.log("[createCustomerFlow] auth user resolved", { authUserId, isNew, hasInviteLink: !!inviteLink });
 
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
-  const { data: clientRecord, error: clientError } = await supabase.schema("portal")
+  const { data: clientRecord, error: clientError } = await supabase.schema(schema)
     .from("customers")
     .insert([{ stripe_customer_id: stripeCustomerId, linear_slug, clientName }])
     .select()
@@ -116,10 +116,10 @@ export const createCustomerFlow = async (body: any) => {
   }
   console.log("[createCustomerFlow] customer record created", { customer_id: clientRecord.customer_id });
 
-  const projectDataReady = await fillProjectData(clientRecord, linear_slug);
+  const projectDataReady = await fillProjectData(clientRecord, linear_slug, schema);
 
   // Upsert users table, linking to the client record via customer_id
-  const { data: customerUser, error: upsertError } = await supabase.schema("portal")
+  const { data: customerUser, error: upsertError } = await supabase.schema(schema)
     .from("users")
     .upsert(
       [{ id: authUserId, email, role: "customer", customer_id: clientRecord.customer_id, firstName, lastName, phoneNumber, userName: clientName }],
@@ -131,7 +131,7 @@ export const createCustomerFlow = async (body: any) => {
   if (upsertError) {
     console.error("[createCustomerFlow] users upsert failed", upsertError.message);
     if (isNew) await supabase.auth.admin.deleteUser(authUserId);
-    await supabase.schema("portal").from("customers").delete().eq("customer_id", clientRecord.customer_id);
+    await supabase.schema(schema).from("customers").delete().eq("customer_id", clientRecord.customer_id);
     throw new Error(upsertError.message);
   }
   console.log("[createCustomerFlow] user upserted", { authUserId });
