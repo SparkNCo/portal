@@ -306,15 +306,16 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
 
   const resolvedLabelIds: string[] = labelIds ? [...labelIds] : [];
 
-  if (type === "bug") {
+  if (type === "bug" || type === "feature") {
     try {
       const labelsData = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
-      const bugLabel = labelsData?.team?.labels?.nodes?.find(
-        (l: { id: string; name: string }) => l.name.toLowerCase().includes("bug"),
+      const labelName = type === "bug" ? "bug" : "feature";
+      const matchedLabel = labelsData?.team?.labels?.nodes?.find(
+        (l: { id: string; name: string }) => l.name.toLowerCase().includes(labelName),
       );
-      if (bugLabel) resolvedLabelIds.push(bugLabel.id);
+      if (matchedLabel) resolvedLabelIds.push(matchedLabel.id);
     } catch (err) {
-      console.error("[handleCreateIssue] Failed to resolve bug label:", err);
+      console.error(`[handleCreateIssue] Failed to resolve ${type} label:`, err);
     }
   }
 

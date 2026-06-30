@@ -192,7 +192,7 @@ export default function DeveloperDashboard() {
             </button>
           ))}
         </div>
-        <div className="w-full max-w-full overflow-hidden ">
+        <div className="w-full max-w-full">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (

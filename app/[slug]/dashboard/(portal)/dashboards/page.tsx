@@ -12,6 +12,8 @@ import { User } from "lucide-react";
 import { CustomerSlugProvider } from "context/CustomerSlugContext";
 import ClientDashboard from "../client/page";
 import RoadmapPage from "../roadmap/page";
+import BuildPage from "../build/page";
+import BugsPage from "../bugs/page";
 import DeveloperPage from "../developer/page";
 import DocumentsPage from "../documents/page";
 import SettingsPage from "../settings/page";
@@ -42,6 +44,10 @@ function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug:
   switch (panel) {
     case "roadmap":
       return <RoadmapPage />;
+    case "build":
+      return <BuildPage />;
+    case "bugs":
+      return <BugsPage />;
     case "developer":
       return <DeveloperPage />;
     case "documents":

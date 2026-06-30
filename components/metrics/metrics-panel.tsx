@@ -24,7 +24,6 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 type LineFilter = "all" | "scope" | "done";
 
 interface Project {
-  id: string;
   name: string;
 }
 
@@ -35,7 +34,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const slug =
     slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectName, setSelectedProjectName] = useState("");
   const [selectedCycleId, setSelectedCycleId] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -67,29 +66,33 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     );
   }
 
-  const projects: Project[] = Array.from(
-    new Map<string, Project>(
+  const projectNames: string[] = Array.from(
+    new Set(
       (data?.cycle_metrics ?? [])
-        .filter(
-          (m: { project_id: string; project_name?: string }) => m.project_name,
-        )
-        .map((m: { project_id: string; project_name: string }) => [
-          m.project_id,
-          { id: m.project_id, name: m.project_name },
-        ]),
-    ).values(),
+        .map((m: { project_name?: string }) => m.project_name)
+        .filter((name: string | undefined): name is string => Boolean(name)),
+    ),
   );
+  const projects: Project[] = projectNames.map((name) => ({ name }));
 
-  const activeProjectId = selectedProjectId || projects[0]?.id || "";
+  const activeProjectName = selectedProjectName || projects[0]?.name || "";
+
+  // issue_metrics rows only carry project_id (no project_name), so derive
+  // which project_ids belong to the selected project's name via cycle_metrics.
+  const projectIdsForActiveName = new Set(
+    (data?.cycle_metrics ?? [])
+      .filter((m: { project_name?: string }) => m.project_name === activeProjectName)
+      .map((m: { project_id: string }) => m.project_id),
+  );
 
   const issueMetrics = (data?.issue_metrics ?? []).filter(
     (m: { project_id: string }) =>
-      !activeProjectId || m.project_id === activeProjectId,
+      !activeProjectName || projectIdsForActiveName.has(m.project_id),
   );
 
   const allCycleMetrics = (data?.cycle_metrics ?? []).filter(
     (m: { project_id: string }) =>
-      !activeProjectId || m.project_id === activeProjectId,
+      !activeProjectName || projectIdsForActiveName.has(m.project_id),
   );
 
   const cycles = [...allCycleMetrics].sort(
@@ -113,19 +116,19 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         className="flex flex-wrap items-center gap-3 
 "
       >
-        <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
+        <Select value={activeProjectName} onValueChange={setSelectedProjectName}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
             {projects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
+              <SelectItem key={p.name} value={p.name}>
                 {p.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        
+
         {cycles.length > 0 && (
           <Select
             value={activeCycleId}

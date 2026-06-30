@@ -143,7 +143,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   selectedPanel === item.href
-                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >
@@ -155,8 +155,8 @@ export function Sidebar() {
         ) : (
           navItems.map((item) => {
             const isActive =
-              pathname === `/dashboard/${item.href}` ||
-              pathname.startsWith(`/dashboard/${item.href}/`);
+              pathname.endsWith(`/dashboard/${item.href}`) ||
+              pathname.includes(`/dashboard/${item.href}/`);
             const hrefWithParams = params
               ? `${item.href}?${params}`
               : item.href;
@@ -168,7 +168,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >

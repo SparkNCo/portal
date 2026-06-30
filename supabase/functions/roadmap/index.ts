@@ -14,7 +14,7 @@ async function getCustomerBySlug(slug: string) {
       linear_slug
     `,
     )
-    .eq("linear_slug", slug)
+    .eq("clientName", slug)
     .maybeSingle();
 
   if (error) {

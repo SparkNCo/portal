@@ -122,7 +122,7 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-border flex flex-col w-full overflow-hidden">
+    <Card className="bg-background border-border flex flex-col w-full">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
