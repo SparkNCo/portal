@@ -1,14 +1,14 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 
-export const updateUser = async (body: any) => {
+export const updateUser = async (body: any, schema: string) => {
   const { id, ...fields } = body;
 
   if (!id) {
     throw new Error("User id is required for update");
   }
 
-  const { data, error } = await supabase.schema("portal")
+  const { data, error } = await supabase.schema(schema)
     .from("users")
     .update(fields)
     .eq("id", id)

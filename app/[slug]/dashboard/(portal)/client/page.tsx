@@ -52,6 +52,7 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/check?user_id=${userId}`,
+    { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch policy status");
   return res.json();

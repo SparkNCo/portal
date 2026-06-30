@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 
-export async function getCustomerBySlug(slug: string) {
-  const { data, error } = await supabase.schema("portal")
+export async function getCustomerBySlug(slug: string, schema: string) {
+  const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select(
       `
@@ -21,8 +21,8 @@ export async function getCustomerBySlug(slug: string) {
   return data;
 }
 
-export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
-  const { data, error } = await supabase.schema("portal")
+export async function getProjectIdsBySlug(slug: string, schema: string): Promise<string[]> {
+  const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_projects")
     .eq("linear_slug", slug)
@@ -35,8 +35,8 @@ export async function getProjectIdsBySlug(slug: string): Promise<string[]> {
 
 // issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
 // not the customers table's own customer_id, so each client record is paired with its user.
-export async function getAllCustomers() {
-  const { data: clients, error: clientsError } = await supabase.schema("portal")
+export async function getAllCustomers(schema: string) {
+  const { data: clients, error: clientsError } = await supabase.schema(schema)
     .from("customers")
     .select("customer_id, linear_projects, linear_slug")
     .not("linear_projects", "is", null);
@@ -48,7 +48,7 @@ export async function getAllCustomers() {
   const clientIds = (clients ?? []).map((c) => c.customer_id);
   if (!clientIds.length) return [];
 
-  const { data: customerUsers, error: usersError } = await supabase.schema("portal")
+  const { data: customerUsers, error: usersError } = await supabase.schema(schema)
     .from("users")
     .select("id, customer_id")
     .eq("role", "customer")
@@ -69,11 +69,11 @@ export async function getAllCustomers() {
     }));
 }
 
-export async function upsertCycleMetrics(cycles: any[]) {
+export async function upsertCycleMetrics(cycles: any[], schema: string) {
   if (!cycles.length) return;
 
   const cycleIds = cycles.map((c) => c.cycle_id);
-  const { data: existing } = await supabase.schema("portal")
+  const { data: existing } = await supabase.schema(schema)
     .from("cycle_metrics")
     .select("project_id, cycle_id, issues_averages")
     .in("cycle_id", cycleIds);
@@ -91,7 +91,7 @@ export async function upsertCycleMetrics(cycles: any[]) {
     return { ...cycle, issues_averages: merged };
   });
 
-  const { error } = await supabase.schema("portal")
+  const { error } = await supabase.schema(schema)
     .from("cycle_metrics")
     .upsert(payload, { onConflict: "customer_id,project_id,cycle_id" });
 
@@ -100,14 +100,14 @@ export async function upsertCycleMetrics(cycles: any[]) {
   }
 }
 
-export async function getMetricsBySlug(projectIds: string[]) {
+export async function getMetricsBySlug(projectIds: string[], schema: string) {
   const [cycleResult, issueResult] = await Promise.all([
-    supabase.schema("portal")
+    supabase.schema(schema)
       .from("cycle_metrics")
       .select("*")
       .in("project_id", projectIds)
       .order("number", { ascending: true }),
-    supabase.schema("portal").from("issue_metrics").select("*").in("project_id", projectIds),
+    supabase.schema(schema).from("issue_metrics").select("*").in("project_id", projectIds),
   ]);
 
   if (cycleResult.error) {
@@ -123,8 +123,8 @@ export async function getMetricsBySlug(projectIds: string[]) {
   };
 }
 
-export async function getCycleMetricsByCustomerId(slug: string) {
-  const { data, error } = await supabase.schema("portal")
+export async function getCycleMetricsByCustomerId(slug: string, schema: string) {
+  const { data, error } = await supabase.schema(schema)
     .from("cycle_metrics")
     .select("*")
     .eq("customer_id", slug)
@@ -137,8 +137,8 @@ export async function getCycleMetricsByCustomerId(slug: string) {
   return data ?? [];
 }
 
-export async function getIssueMetricsByCustomerId(slug: string) {
-  const { data, error } = await supabase.schema("portal")
+export async function getIssueMetricsByCustomerId(slug: string, schema: string) {
+  const { data, error } = await supabase.schema(schema)
     .from("issue_metrics")
     .select("*")
     .eq("customer_id", slug);
@@ -150,10 +150,10 @@ export async function getIssueMetricsByCustomerId(slug: string) {
   return data ?? [];
 }
 
-export async function upsertIssueMetrics(metrics: any[]) {
+export async function upsertIssueMetrics(metrics: any[], schema: string) {
   if (!metrics.length) return;
 
-  const { error } = await supabase.schema("portal")
+  const { error } = await supabase.schema(schema)
     .from("issue_metrics")
     .upsert(metrics, { onConflict: "cycle_issue_id" });
 

@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       });
       return await handleGet(url, schema);
     }
-    if (req.method === "PATCH") return await handlePatch(req);
+    if (req.method === "PATCH") return await handlePatch(req, schema);
     if (req.method === "POST") return await handlePost(req, url, schema);
 
     return new Response("Method not allowed", { status: 405 });
@@ -79,9 +79,9 @@ const handleGet = async (url: URL, schema: string) => {
   return jsonResponse(user);
 };
 
-const handlePatch = async (req: Request) => {
+const handlePatch = async (req: Request, schema: string) => {
   const body = await req.json();
-  const updatedUser = await updateUser(body);
+  const updatedUser = await updateUser(body, schema);
   return jsonResponse(updatedUser);
 };
 

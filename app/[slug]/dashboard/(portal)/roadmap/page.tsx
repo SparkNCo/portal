@@ -12,6 +12,7 @@ import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../client/page";
 import { PinButton } from "@/components/dashboard/pin-button";
+import { API_HEADERS } from "@/lib/api-headers";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
@@ -38,13 +39,7 @@ export default function RoadmapPage() {
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/roadmap/?slug=${slug}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-        },
+        { headers: API_HEADERS },
       );
 
       if (!res.ok) throw new Error("Failed to fetch roadmap");

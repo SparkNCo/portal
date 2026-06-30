@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
 
@@ -14,10 +15,10 @@ const INITIATIVE_PROJECTS_QUERY = `
   }
 `;
 
-async function getCustomerBySlug(slug: string) {
+async function getCustomerBySlug(slug: string, schema: string) {
   console.log("getCustomerBySlug", slug);
 
-  const { data, error } = await supabase.schema("portal")
+  const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select(
       `
@@ -62,8 +63,8 @@ async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<st
   return projectIds;
 }
 
-async function saveLinearProjects(customerId: string, projectIds: string[]) {
-  const { error } = await supabase.schema("portal")
+async function saveLinearProjects(customerId: string, projectIds: string[], schema: string) {
+  const { error } = await supabase.schema(schema)
     .from("customers")
     .update({ linear_projects: projectIds })
     .eq("customer_id", customerId);
@@ -148,6 +149,7 @@ function extractText(bodyData: string): string {
 }
 
 export async function handleGetIssues(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const { searchParams } = new URL(req.url);
 
   const rawSlug = searchParams.get("linear_slug") ?? searchParams.get("slug");
@@ -165,7 +167,7 @@ export async function handleGetIssues(req: Request): Promise<Response> {
         .filter(Boolean)
     : undefined;
 
-  const customer = await getCustomerBySlug(slug);
+  const customer = await getCustomerBySlug(slug, schema);
 
   let projectIds: string[] = customer.linear_projects ?? [];
 
@@ -181,7 +183,7 @@ export async function handleGetIssues(req: Request): Promise<Response> {
       throw new Error(`No projects found in Linear for initiative: ${customer.linear_slug}`);
     }
 
-    await saveLinearProjects(customer.customer_id, projectIds);
+    await saveLinearProjects(customer.customer_id, projectIds, schema);
     console.log(`Saved ${projectIds.length} projects for ${slug}`);
   }
 

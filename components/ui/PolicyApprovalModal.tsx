@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SparkButton } from "@/components/ui/spark-button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 interface PolicyApprovalModalProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function PolicyApprovalModal({
         `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/approve`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({ userId, notionUrl }),
         },
       );

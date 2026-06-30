@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 import {
   getAllCustomers,
   upsertIssueMetrics,
@@ -19,12 +20,12 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
-async function handleGet(searchParams: URLSearchParams) {
+async function handleGet(searchParams: URLSearchParams, schema: string) {
   const slug = searchParams.get("slug");
   if (!slug) return jsonResponse({ error: "Missing slug" }, 400);
   console.log("hi");
 
-  const { data: customerRow, error: customerError } = await supabase.schema("portal")
+  const { data: customerRow, error: customerError } = await supabase.schema(schema)
     .from("customers")
     .select("customer_id, linear_slug")
     .eq("clientName", slug)
@@ -36,7 +37,7 @@ async function handleGet(searchParams: URLSearchParams) {
 
   // issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
   // not the customers table's own customer_id
-  const { data: customerUsers, error: customerUserError } = await supabase.schema("portal")
+  const { data: customerUsers, error: customerUserError } = await supabase.schema(schema)
     .from("users")
     .select("id")
     .eq("customer_id", customerRow.customer_id)
@@ -52,8 +53,8 @@ async function handleGet(searchParams: URLSearchParams) {
   }
 
   const [issue_metrics, cycle_metrics] = await Promise.all([
-    getIssueMetricsByCustomerId(customerUser.id),
-    getCycleMetricsByCustomerId(customerUser.id),
+    getIssueMetricsByCustomerId(customerUser.id, schema),
+    getCycleMetricsByCustomerId(customerUser.id, schema),
   ]);
 
   return jsonResponse({ issue_metrics, cycle_metrics });
@@ -94,12 +95,12 @@ async function resolveCycleIssues(
   return result;
 }
 
-async function handlePut(req: Request) {
+async function handlePut(req: Request, schema: string) {
   const { linear_slug } = await req.json();
   if (!linear_slug) return jsonResponse({ error: "Missing linear_slug" }, 400);
 
   // Step 1: resolve project IDs from Supabase by customer slug
-  const projectIds = await getProjectIdsBySlug(linear_slug);
+  const projectIds = await getProjectIdsBySlug(linear_slug, schema);
   if (!projectIds.length)
     return jsonResponse(
       { error: `No projects found for slug: ${linear_slug}` },
@@ -138,8 +139,8 @@ async function handlePut(req: Request) {
   return jsonResponse({ projects: byProject });
 }
 
-async function triggerDoraForAllCustomers() {
-  const { data: clients, error } = await supabase.schema("portal")
+async function triggerDoraForAllCustomers(schema: string) {
+  const { data: clients, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_slug, project_url")
     .not("linear_slug", "is", null)
@@ -183,8 +184,8 @@ async function triggerDoraForAllCustomers() {
   );
 }
 
-async function handlePost() {
-  const customers = await getAllCustomers();
+async function handlePost(schema: string) {
+  const customers = await getAllCustomers(schema);
 
   console.log(`🚀 [issueMetrics] handlePost started, customers found:`, customers.length);
 
@@ -224,15 +225,15 @@ async function handlePost() {
     );
 
     await Promise.all([
-      upsertIssueMetrics(metrics),
-      upsertCycleMetrics(cycles),
+      upsertIssueMetrics(metrics, schema),
+      upsertCycleMetrics(cycles, schema),
     ]);
 
     console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
   }
 
   console.log(`🚀 [issueMetrics] triggering dora for all customers...`);
-  await triggerDoraForAllCustomers();
+  await triggerDoraForAllCustomers(schema);
   console.log(`✅ [issueMetrics] handlePost finished`);
 
   return jsonResponse({ ok: true });
@@ -243,12 +244,13 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  const schema = resolvePortalSchema(req);
   const { searchParams } = new URL(req.url);
 
   try {
-    if (req.method === "GET") return await handleGet(searchParams);
-    if (req.method === "PUT") return await handlePut(req);
-    return await handlePost();
+    if (req.method === "GET") return await handleGet(searchParams, schema);
+    if (req.method === "PUT") return await handlePut(req, schema);
+    return await handlePost(schema);
   } catch (error) {
     return jsonResponse({ error: error.message }, 500);
   }

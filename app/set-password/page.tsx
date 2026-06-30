@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound } from "lucide-react";
@@ -97,12 +98,6 @@ function SetPasswordForm() {
       return;
     }
 
-    const headers = {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-      apikey: process.env.NEXT_PUBLIC_APIKEY!,
-      "Content-Type": "application/json",
-    };
-
     const slugifiedClientName = clientName.trim().replaceAll(" ", "-");
     const profileUpdate: Record<string, string> = {
       firstName,
@@ -118,7 +113,7 @@ function SetPasswordForm() {
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
       method: "PATCH",
-      headers,
+      headers: API_JSON_HEADERS,
       body: JSON.stringify({ id: userId, ...profileUpdate }),
     });
 

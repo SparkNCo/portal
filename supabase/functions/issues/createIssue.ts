@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 
 const GET_PROJECT_TEAM_QUERY = `
   query GetProjectTeam($id: String!) {
@@ -133,8 +134,8 @@ export async function handleCreateAttachment(req: Request): Promise<Response> {
   return Response.json(data.attachmentCreate);
 }
 
-async function resolveCustomer(slug: string): Promise<{ teamId: string; linearSlug: string | null }> {
-  const { data, error } = await supabase.schema("portal")
+async function resolveCustomer(slug: string, schema: string): Promise<{ teamId: string; linearSlug: string | null }> {
+  const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_projects, linear_slug")
     .eq("clientName", slug)
@@ -159,8 +160,8 @@ async function resolveCustomer(slug: string): Promise<{ teamId: string; linearSl
   return { teamId, linearSlug: data?.linear_slug ?? null };
 }
 
-async function resolveTeamId(slug: string): Promise<string> {
-  const { teamId } = await resolveCustomer(slug);
+async function resolveTeamId(slug: string, schema: string): Promise<string> {
+  const { teamId } = await resolveCustomer(slug, schema);
   return teamId;
 }
 
@@ -198,6 +199,7 @@ const LINK_PROJECT_TO_INITIATIVE_MUTATION = `
 `;
 
 export async function handleCreateProject(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const { name, description, targetDate, slug } = await req.json();
 
   if (!name?.trim()) {
@@ -207,7 +209,7 @@ export async function handleCreateProject(req: Request): Promise<Response> {
     return Response.json({ error: "Missing slug" }, { status: 400 });
   }
 
-  const { teamId, linearSlug } = await resolveCustomer(slug);
+  const { teamId, linearSlug } = await resolveCustomer(slug, schema);
 
   const input: Record<string, any> = {
     name: name.trim(),
@@ -239,7 +241,7 @@ export async function handleCreateProject(req: Request): Promise<Response> {
   }
 
   if (project) {
-    const { data: customer } = await supabase.schema("portal")
+    const { data: customer } = await supabase.schema(schema)
       .from("customers")
       .select("linear_projects")
       .eq("clientName", slug)
@@ -247,7 +249,7 @@ export async function handleCreateProject(req: Request): Promise<Response> {
 
     const current: string[] = customer?.linear_projects ?? [];
 
-    const { error } = await supabase.schema("portal")
+    const { error } = await supabase.schema(schema)
       .from("customers")
       .update({ linear_projects: [...current, project.id] })
       .eq("clientName", slug);
@@ -261,6 +263,7 @@ export async function handleCreateProject(req: Request): Promise<Response> {
 }
 
 export async function handleCreateIssue(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const body = await req.json();
   const {
     title,
@@ -287,7 +290,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
         { status: 400 },
       );
     }
-    teamId = await resolveTeamId(slug);
+    teamId = await resolveTeamId(slug, schema);
   }
 
   const input: Record<string, any> = {
