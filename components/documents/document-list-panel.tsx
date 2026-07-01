@@ -25,6 +25,7 @@ import { useDeleteDocument, useUpdateDocument } from "./update-document-entry";
 import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
+import { API_HEADERS } from "@/lib/api-headers";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -63,6 +64,7 @@ export function DocumentRow({
       setOpeningId(doc.id);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}&inline=true`,
+        { headers: API_HEADERS },
       );
       const { url } = await res.json();
       window.open(url, "_blank");
@@ -79,6 +81,7 @@ export function DocumentRow({
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}`,
+        { headers: API_HEADERS },
       );
 
       const { url } = await res.json();

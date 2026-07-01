@@ -4,10 +4,13 @@ import { supabase } from "../client.ts";
 // PATCH /document-requests { action: "complete" } — developer marks a request
 // as fulfilled. If the request is claimed, only the claimer (or an admin) may
 // complete it — prevents two developers racing to finish the same request.
-export async function markDocumentRequestDone(body: {
-  id?: string;
-  completedBy?: string;
-}): Promise<Response> {
+export async function markDocumentRequestDone(
+  body: {
+    id?: string;
+    completedBy?: string;
+  },
+  schema: string,
+): Promise<Response> {
   const { id, completedBy } = body;
 
   if (!id) {
@@ -15,7 +18,7 @@ export async function markDocumentRequestDone(body: {
   }
 
   const { data: existing, error: fetchError } = await supabase
-    .schema("portal")
+    .schema(schema)
     .from("document_requests")
     .select("claimed_by")
     .eq("id", id)
@@ -30,7 +33,7 @@ export async function markDocumentRequestDone(body: {
 
   if (existing?.claimed_by && existing.claimed_by !== completedBy) {
     const { data: requester } = await supabase
-      .schema("portal")
+      .schema(schema)
       .from("users")
       .select("role")
       .eq("email", completedBy)
@@ -45,7 +48,7 @@ export async function markDocumentRequestDone(body: {
   }
 
   const { data, error } = await supabase
-    .schema("portal")
+    .schema(schema)
     .from("document_requests")
     .update({
       status: "done",

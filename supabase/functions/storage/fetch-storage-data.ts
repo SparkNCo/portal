@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
-export async function getStorageData(req: Request) {
+export async function getStorageData(req: Request, schema: string) {
   try {
     /**
      * ---------------------------------------
@@ -26,7 +26,7 @@ export async function getStorageData(req: Request) {
 
 
     // 1. Get permissions for this user
-    const { data: permissions, error: permError } = await supabase.schema("portal")
+    const { data: permissions, error: permError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("document_id, permission")
       .eq("user_id", user_id);
@@ -49,7 +49,7 @@ export async function getStorageData(req: Request) {
     const permissionMap = new Map(permissions.map((p) => [p.document_id, p.permission]));
 
     // 2. Fetch the actual documents
-    let docQuery = supabase.schema("portal")
+    let docQuery = supabase.schema(schema)
       .from("documents")
       .select("id, file_name, link, category, size, created_at, project_slug")
       .in("id", documentIds)

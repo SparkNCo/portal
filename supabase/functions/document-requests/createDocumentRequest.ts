@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 
 // POST /document-requests — stakeholder asks for a report/technical document
-export async function createDocumentRequest(req: Request): Promise<Response> {
+export async function createDocumentRequest(req: Request, schema: string): Promise<Response> {
   const { customerSlug, requestedBy, title, description, projectId, projectName } =
     await req.json();
 
@@ -14,7 +14,7 @@ export async function createDocumentRequest(req: Request): Promise<Response> {
   }
 
   const { data, error } = await supabase
-    .schema("portal")
+    .schema(schema)
     .from("document_requests")
     .insert({
       customer_slug: customerSlug,

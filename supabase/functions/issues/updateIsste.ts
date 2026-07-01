@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -176,6 +177,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 }
 
 export async function handleAddComment(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const { issueId, question, ownerEmail } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
@@ -196,7 +198,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
       Prefer: "return=representation",
-      "Content-Profile": "portal",
+      "Content-Profile": schema,
     },
     body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question }),
   });
@@ -220,6 +222,7 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 export async function handlePostToLinear(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
 
   if (!issueId || !decisionId || !decisionBody) {
@@ -255,7 +258,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
       "Content-Type": "application/json",
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
-      "Content-Profile": "portal",
+      "Content-Profile": schema,
     },
     body: JSON.stringify({ posted_to_linear: true }),
   });
@@ -264,6 +267,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 }
 
 export async function handleSetDecision(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const { decisionId, decision, decisionEmail } = await req.json();
 
   if (!decisionId || !decision || !decisionEmail) {
@@ -286,7 +290,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
-        "Content-Profile": "portal",
+        "Content-Profile": schema,
       },
       body: JSON.stringify({
         decision,
@@ -310,7 +314,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
     const getRes = await fetch(
       `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
       {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": "portal" },
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": schema },
       },
     );
     const [decisionRow] = await getRes.json();
@@ -395,6 +399,7 @@ const CREATE_MILESTONE_MUTATION = `
 `;
 
 export async function handleGetProjects(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const url = new URL(req.url);
   const slug = url.searchParams.get("slug");
   const initiativeId = url.searchParams.get("initiativeId");
@@ -409,7 +414,7 @@ export async function handleGetProjects(req: Request): Promise<Response> {
         headers: {
           apikey: serviceKey,
           Authorization: `Bearer ${serviceKey}`,
-          "Accept-Profile": "portal",
+          "Accept-Profile": schema,
         },
       },
     );
@@ -439,6 +444,7 @@ export async function handleGetMilestones(req: Request): Promise<Response> {
 }
 
 export async function handleGetLabels(req: Request): Promise<Response> {
+  const schema = resolvePortalSchema(req);
   const slug = new URL(req.url).searchParams.get("slug");
   if (!slug) return Response.json({ error: "Missing slug" }, { status: 400 });
 
@@ -451,7 +457,7 @@ export async function handleGetLabels(req: Request): Promise<Response> {
       headers: {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
-        "Accept-Profile": "portal",
+        "Accept-Profile": schema,
       },
     },
   );

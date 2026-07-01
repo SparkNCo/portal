@@ -11,7 +11,7 @@ function extractPathFromUrl(url: string) {
   return url.substring(index + marker.length);
 }
 
-export async function downloadDocument(req: Request) {
+export async function downloadDocument(req: Request, schema: string) {
   try {
     const { searchParams } = new URL(req.url);
 
@@ -34,7 +34,7 @@ export async function downloadDocument(req: Request) {
       );
     }
 
-    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
+    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -63,7 +63,7 @@ export async function downloadDocument(req: Request) {
 
     console.log("Document id:", document_id);
 
-    const { data: document, error: docError } = await supabase.schema("portal")
+    const { data: document, error: docError } = await supabase.schema(schema)
       .from("documents")
       .select("link")
       .eq("id", Number(document_id))

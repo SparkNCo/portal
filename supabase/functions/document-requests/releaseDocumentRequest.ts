@@ -5,10 +5,13 @@ import { supabase } from "../client.ts";
 // (e.g. the developer closed the upload modal without finishing) so another
 // assigned developer can claim it. Only the original claimer or an admin may
 // release it.
-export async function releaseDocumentRequest(body: {
-  id?: string;
-  releasedBy?: string;
-}): Promise<Response> {
+export async function releaseDocumentRequest(
+  body: {
+    id?: string;
+    releasedBy?: string;
+  },
+  schema: string,
+): Promise<Response> {
   const { id, releasedBy } = body;
 
   if (!id || !releasedBy) {
@@ -16,14 +19,14 @@ export async function releaseDocumentRequest(body: {
   }
 
   const { data: requester } = await supabase
-    .schema("portal")
+    .schema(schema)
     .from("users")
     .select("role")
     .eq("email", releasedBy)
     .maybeSingle();
 
   let query = supabase
-    .schema("portal")
+    .schema(schema)
     .from("document_requests")
     .update({ claimed_by: null, claimed_at: null })
     .eq("id", id)

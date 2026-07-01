@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 export const CATEGORIES = ["Reports", "Technical", "Design"];
 
@@ -15,7 +16,7 @@ export function useDeleteDocument() {
     }) => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: API_JSON_HEADERS,
         body: JSON.stringify({ document_id, user_id }),
       });
 
@@ -43,7 +44,7 @@ export function useUpdateDocument() {
     }) => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: API_JSON_HEADERS,
         body: JSON.stringify({ document_id, category, user_id }),
       });
 

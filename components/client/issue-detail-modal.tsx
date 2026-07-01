@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronsRight, RotateCcw, MessageSquare, X } from "lucide-react";
+import { Check, ChevronsRight, RotateCcw, MessageSquare, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
@@ -90,7 +90,7 @@ function DescriptionTab({
   onAdvanceState: (targetState: string) => void;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-[320px]">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
         <div
           className="text-sm text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
@@ -226,7 +226,7 @@ function DecisionsTab({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingDecisions && (
         <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
       )}
@@ -545,7 +545,7 @@ function TestsTab({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingTests && (
         <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
       )}
@@ -717,7 +717,7 @@ function TestsTab({
               </Button>
             ))}
 
-          {role === "stakeholder" &&
+          {(role === "stakeholder" || role === "customer") &&
             (t.status === "approved" || t.status === "passed") &&
             currentStateName === "UAT" &&
             (t.status === "passed" ||
@@ -820,6 +820,7 @@ export function IssueDetailModal({
   const canRecordUatResult = role === "customer" || role === "stakeholder";
 
   const [visible, setVisible] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [decisions, setDecisions] = useState<Decision[]>([]);
@@ -835,6 +836,14 @@ export function IssueDetailModal({
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   useEffect(() => {
@@ -923,7 +932,11 @@ export function IssueDetailModal({
         aria-label="Close modal"
       />
       <div
-        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:mx-6 flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all duration-200 ${
+        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:mx-6 flex flex-col max-h-[90vh] transition-all duration-200 ${
+          isExpanded
+            ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
+            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]"
+        } ${
           visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
         }`}
       >
@@ -954,12 +967,27 @@ export function IssueDetailModal({
               ))}
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 mt-0.5"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+            <button
+              onClick={() => setIsExpanded((e) => !e)}
+              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+              title={isExpanded ? "Shrink" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={handleClose}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab bar */}

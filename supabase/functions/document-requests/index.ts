@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 import { createDocumentRequest } from "./createDocumentRequest.ts";
 import { markDocumentRequestDone } from "./markDocumentRequestDone.ts";
 import { claimDocumentRequest } from "./claimDocumentRequest.ts";
@@ -11,19 +12,20 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const schema = resolvePortalSchema(req);
     let res: Response;
 
     if (req.method === "POST") {
-      res = await createDocumentRequest(req);
+      res = await createDocumentRequest(req, schema);
     } else if (req.method === "PATCH") {
       const body = await req.json();
 
       if (body.action === "claim") {
-        res = await claimDocumentRequest(body);
+        res = await claimDocumentRequest(body, schema);
       } else if (body.action === "release") {
-        res = await releaseDocumentRequest(body);
+        res = await releaseDocumentRequest(body, schema);
       } else {
-        res = await markDocumentRequestDone(body);
+        res = await markDocumentRequestDone(body, schema);
       }
     } else {
       res = Response.json({ error: "Method not allowed" }, { status: 405 });

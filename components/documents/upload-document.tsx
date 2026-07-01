@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { API_HEADERS } from "@/lib/api-headers";
 
 interface UploadedFile {
   name: string;
@@ -44,6 +45,7 @@ function useUploadFile() {
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
         method: "POST",
+        headers: API_HEADERS,
         body: formData,
       });
 

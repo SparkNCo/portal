@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useUser } from "context/UserContext";
-import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import type { DocumentRequest } from "./use-document-requests";
 
 async function uploadDocument({
@@ -34,6 +34,7 @@ async function uploadDocument({
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
     method: "POST",
+    headers: API_HEADERS,
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload document");

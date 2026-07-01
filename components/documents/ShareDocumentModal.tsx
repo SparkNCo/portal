@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 export function useShareDocument() {
   return useMutation({
@@ -19,9 +20,7 @@ export function useShareDocument() {
         `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/share`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({
             document_id,
             emails,

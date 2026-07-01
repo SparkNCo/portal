@@ -4,10 +4,13 @@ import { supabase } from "../client.ts";
 // PATCH /document-requests { action: "claim" } — developer locks a pending
 // request so other assigned developers can't also try to fulfill it at the
 // same time. Optimistic: only succeeds if nobody has claimed it yet.
-export async function claimDocumentRequest(body: {
-  id?: string;
-  claimedBy?: string;
-}): Promise<Response> {
+export async function claimDocumentRequest(
+  body: {
+    id?: string;
+    claimedBy?: string;
+  },
+  schema: string,
+): Promise<Response> {
   const { id, claimedBy } = body;
 
   if (!id || !claimedBy) {
@@ -15,7 +18,7 @@ export async function claimDocumentRequest(body: {
   }
 
   const { data, error } = await supabase
-    .schema("portal")
+    .schema(schema)
     .from("document_requests")
     .update({ claimed_by: claimedBy, claimed_at: new Date().toISOString() })
     .eq("id", id)

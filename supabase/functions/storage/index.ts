@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { corsHeaders } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 import { downloadDocument } from "./downloadDocument.ts";
 import { getStorageData } from "./fetch-storage-data.ts";
 import { shareDocument } from "./shareDocument.ts";
@@ -20,29 +21,30 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const { pathname } = url;
+    const schema = resolvePortalSchema(req);
 
     // 🔹 GET /storage
     if (req.method === "GET" && pathname === "/storage") {
-      return await getStorageData(req);
+      return await getStorageData(req, schema);
     }
     if (req.method === "GET" && pathname === "/storage/download") {
-      return await downloadDocument(req);
+      return await downloadDocument(req, schema);
     }
     // 🔹 POST /storage
     if (req.method === "POST" && pathname === "/storage") {
-      return await uploadStorageData(req);
+      return await uploadStorageData(req, schema);
     }
     if (req.method === "POST" && pathname === "/storage/share") {
-      return await shareDocument(req);
+      return await shareDocument(req, schema);
     }
     if (req.method === "PATCH" && pathname === "/storage") {
-      return await updateStorageEntry(req);
+      return await updateStorageEntry(req, schema);
     }
     if (req.method === "PUT" && pathname === "/storage") {
-      return await updateDocumentCategory(req);
+      return await updateDocumentCategory(req, schema);
     }
     if (req.method === "DELETE" && pathname === "/storage") {
-      return await deleteDocument(req);
+      return await deleteDocument(req, schema);
     }
 
     // ❌ Not found

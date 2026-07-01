@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { API_HEADERS } from "@/lib/api-headers";
 
 /* -----------------------------
    Helpers
@@ -24,6 +25,7 @@ function getFileExtension(name: string) {
 async function fetchDocuments(id: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${id}`,
+    { headers: API_HEADERS },
   );
 
   if (!res.ok) {
