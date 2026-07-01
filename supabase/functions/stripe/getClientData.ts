@@ -34,31 +34,23 @@ export async function getClientData(req: Request) {
     const { customer_id: stripeCustomerId } = parseResult.data;
     console.log("[getClientData] validated customer_id:", stripeCustomerId);
 
-    // 🔹 STEP 1: Find active subscription, fall back to most recent canceled one
-    console.log("[getClientData] fetching active subscriptions...");
-    const activeSubscriptions = await stripe.subscriptions.list({
+    // 🔹 STEP 1: Find the most recent subscription regardless of status
+    // (active, canceled, unpaid, past_due, incomplete_expired, etc.) —
+    // list() with no `status` filter returns subscriptions in every state,
+    // ordered by `created` descending, so `data[0]` is simply "whatever
+    // subscription this customer most recently had".
+    console.log("[getClientData] fetching most recent subscription (any status)...");
+    const subscriptions = await stripe.subscriptions.list({
       customer: stripeCustomerId,
-      status: "active",
       limit: 1,
     });
 
-    let subscription = activeSubscriptions.data[0] ?? null;
+    const subscription = subscriptions.data[0] ?? null;
 
     if (subscription) {
-      console.log("[getClientData] active subscription id:", subscription.id, "status:", subscription.status);
+      console.log("[getClientData] subscription id:", subscription.id, "status:", subscription.status);
     } else {
-      console.log("[getClientData] no active subscription, fetching most recent canceled subscription...");
-      const canceledSubscriptions = await stripe.subscriptions.list({
-        customer: stripeCustomerId,
-        status: "canceled",
-        limit: 1,
-      });
-      subscription = canceledSubscriptions.data[0] ?? null;
-      if (subscription) {
-        console.log("[getClientData] found canceled subscription id:", subscription.id, "status:", subscription.status);
-      } else {
-        console.log("[getClientData] no subscriptions found at all for customer:", stripeCustomerId);
-      }
+      console.log("[getClientData] no subscriptions found at all for customer:", stripeCustomerId);
     }
 
     let upcomingInvoice = null;
@@ -83,6 +75,26 @@ export async function getClientData(req: Request) {
     });
     console.log("[getClientData] invoices fetched:", invoices.data.length);
 
+    // Not every payment goes through Stripe's Invoicing — a one-off charge
+    // (e.g. paid directly via the Payment Element) never creates an Invoice
+    // object, so it's invisible to invoices.list() above. Pull those in
+    // separately, filtering out any charge that *is* tied to an invoice
+    // (charge.invoice set) since that payment is already represented above
+    // and we don't want it to show up twice.
+    console.log("[getClientData] fetching standalone charges (not tied to an invoice)...");
+    const charges = await stripe.charges.list({
+      customer: stripeCustomerId,
+      limit: 100,
+    });
+    const standaloneCharges = charges.data.filter((c) => !c.invoice);
+    console.log(
+      "[getClientData] standalone charges:",
+      standaloneCharges.length,
+      "of",
+      charges.data.length,
+      "total charges",
+    );
+
     console.log("[getClientData] fetching payment methods...");
     const paymentMethods = await stripe.paymentMethods.list({
       customer: stripeCustomerId,
@@ -104,6 +116,7 @@ export async function getClientData(req: Request) {
 
     console.log("[getClientData] building response...");
     const response = {
+      customerId: stripeCustomerId,
       subscription: subscription
         ? subscriptionSchema.parse({
             id: subscription.id,
@@ -134,15 +147,26 @@ export async function getClientData(req: Request) {
             nextPaymentAttempt: upcomingInvoice.next_payment_attempt,
           }
         : null,
-      invoices: invoices.data.map((inv) => ({
-        id: inv.id,
-        status: inv.status,
-        amountPaid: inv.amount_paid,
-        amountDue: inv.amount_due,
-        hostedInvoiceUrl: inv.hosted_invoice_url,
-        invoicePdf: inv.invoice_pdf,
-        created: inv.created,
-      })),
+      invoices: [
+        ...invoices.data.map((inv) => ({
+          id: inv.id,
+          status: inv.status,
+          amountPaid: inv.amount_paid,
+          amountDue: inv.amount_due,
+          hostedInvoiceUrl: inv.hosted_invoice_url,
+          invoicePdf: inv.invoice_pdf,
+          created: inv.created,
+        })),
+        ...standaloneCharges.map((charge) => ({
+          id: charge.id,
+          status: charge.status === "succeeded" ? "paid" : charge.status,
+          amountPaid: charge.status === "succeeded" ? charge.amount : 0,
+          amountDue: charge.amount,
+          hostedInvoiceUrl: charge.receipt_url,
+          invoicePdf: charge.receipt_url,
+          created: charge.created,
+        })),
+      ].sort((a, b) => b.created - a.created),
       paymentMethod: paymentMethods.data[0]
         ? paymentMethodSchema.parse({
             brand: paymentMethods.data[0].card.brand,

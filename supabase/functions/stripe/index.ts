@@ -5,10 +5,14 @@ import { sendPaymentLink } from "./sendPaymentLink.ts";
 import { stripeWebhook } from "./webhook.ts";
 import { getClientData } from "./getClientData.ts";
 import { createCustomerPortal } from "./createCustomerPortal.ts";
+import { renewSubscription } from "./renewSubscription.ts";
+import { cancelSubscription } from "./cancelSubscription.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 
 serve(async (req) => {
   const url = new URL(req.url);
+  const schema = resolvePortalSchema(req);
 
   // ✅ GLOBAL CORS HANDLER
   if (req.method === "OPTIONS") {
@@ -42,7 +46,15 @@ serve(async (req) => {
     req.method === "POST" &&
     url.pathname === "/stripe/create-customer-portal"
   ) {
-    return createCustomerPortal(req);
+    return createCustomerPortal(req, schema);
+  }
+
+  if (req.method === "POST" && url.pathname === "/stripe/renew-subscription") {
+    return renewSubscription(req);
+  }
+
+  if (req.method === "POST" && url.pathname === "/stripe/cancel-subscription") {
+    return cancelSubscription(req);
   }
 
   return new Response("Not found", {

@@ -4,7 +4,7 @@ import { corsHeaders } from "../utils/headers.ts";
 import { stripe } from "./client.ts";
 import { paymentMethodBodySchema, portalSessionSchema } from "./zod.ts";
 
-export async function createCustomerPortal(req: Request) {
+export async function createCustomerPortal(req: Request, schema: string) {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -24,7 +24,7 @@ export async function createCustomerPortal(req: Request) {
 
     const { email } = parseResult.data;
 
-    const { data: user, error } = await supabase.schema("portal")
+    const { data: user, error } = await supabase.schema(schema)
       .from("users")
       .select("customer_id")
       .eq("email", email)
