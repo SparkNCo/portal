@@ -68,6 +68,7 @@ export default function BuildPage() {
 
       <div className="p-4 md:p-6 space-y-6">
         <FeatureRequestPanel slug={slug} />
+        <button onClick={() => console.log({})}>VER CONVER</button>
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
