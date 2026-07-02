@@ -17,6 +17,7 @@
 8. [Documents](#8-documents)
 9. [Chat](#9-chat)
 10. [Settings](#10-settings)
+11. [Environments & Schema Routing](#11-environments--schema-routing)
 
 ---
 
@@ -448,16 +449,43 @@ Each issue has its own CometChat group keyed to `issue.id`. On open:
 
 Messages show user initials avatars, sender name, and timestamp. The list auto-scrolls to the latest message.
 
-### 4.6 File Map
+### 4.6 Design Tab — Services & Diagrams
+
+**Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
+
+A **Service** is a Supabase-only concept — no link to Linear (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used elsewhere (`document.project_slug`, the `/{slug}/dashboard/...` URL param), read via `CustomerSlugContext` — which is why it works identically regardless of the viewer's role. Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each uploaded from a specific issue.
+
+**Picking or creating a service:**
+1. Opening the tab loads `GET /diagrams?type=services&project_slug=` into the **Servicio** dropdown — every service for that customer.
+2. **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name — no Linear lookup involved.
+3. Picking an existing service instead turns the second control into a **version picker** (`GET /diagrams?service_id=`, newest first).
+
+**Uploading a diagram:**
+1. **"Subir nueva versión"** opens a file picker (`accept=".mmd,.mermaid,text/plain"`).
+2. `POST /diagrams` (`multipart/form-data`) with `file`, `project_slug`, `issue_id`, `email`, and either `service_id` (existing) or `service_name` (new).
+3. Backend either fetches+validates the existing service (`getService.ts`, scoped to `project_slug`) or inserts a new one (`createService.ts`), computes the next `version`, uploads the file to the private `diagrams_bucket` (no Storage policies — access only via the edge function's service-role key), and inserts a `diagrams` row with a cached `mermaid_source` text column.
+4. This links the upload to **both** the issue and the service from a single call. A service only ever exists together with its first diagram.
+
+**Rendering:** the selected version's `mermaid_source` is rendered client-side with `mermaid.render()` into inline SVG — chosen over converting Mermaid syntax into ReactFlow nodes/edges, since Mermaid already handles its own parsing and layout.
+
+**Known gaps:** no GitHub sync of the latest diagram version.
+
+### 4.7 File Map
 
 | File | Responsibility |
 |---|---|
 | `components/shared/create-issue.tsx` | Create Issue dialog (all types) |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests / Design tabs |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main issue list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
+| `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and SVG renderer |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams (`resolvePortalSchema` pattern) |
+| `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
+| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
+| `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called for "crear nuevo") |
+| `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
 
 ---
 
@@ -1032,3 +1060,41 @@ User lands on /{slug}/dashboard/settings
 | `components/settings/billing-panels/invoices-panel.tsx` | Invoice history |
 | `components/settings/billing-panels/payment-method-expand.tsx` | Card display + Stripe portal redirect |
 | `context/CustomerSlugContext.tsx` | Customer slug for admin preview |
+
+---
+
+---
+
+## 11. Environments & Schema Routing
+
+Every Supabase table the portal reads/writes exists twice — once under the **`portal`** schema (production data) and once under **`portaldev`** (local dev data). Almost every request to a `supabase/functions/*` edge function picks between the two via a single HTTP header, rather than the frontend and backend each hardcoding a schema name.
+
+### 11.1 How the header gets set (frontend)
+
+- `lib/supabase-client.ts` exports `PORTAL_SCHEMA`, read from `NEXT_PUBLIC_SUPABASE_SCHEMA`:
+  - `next dev` loads `.env.development.local` on top of `.env`, which sets `NEXT_PUBLIC_SUPABASE_SCHEMA="portaldev"` — so anything run locally via `npm run dev` talks to the dev schema.
+  - `next build` / `next start` (including the Vercel deploy) never load `.env.development.local`, so `PORTAL_SCHEMA` falls back to the hardcoded default `"portal"`.
+- `lib/api-headers.ts` attaches `PORTAL_SCHEMA` to every request as the `x-portal-schema` header (`API_HEADERS`/`API_JSON_HEADERS`, alongside `Authorization`/`apikey`). Any fetch built from these headers automatically targets the right schema — there is nothing to configure per-call.
+
+### 11.2 How it's resolved (backend)
+
+- `supabase/functions/utils/schema.ts` → `resolvePortalSchema(req)` reads the `x-portal-schema` header off the incoming request and only honors it if it's in the allow-list `ALLOWED_SCHEMAS = ["portal", "portaldev"]`. Anything else — missing header, typo, arbitrary string — silently falls back to `"portal"`.
+  - This is a **security boundary**, not just a default: edge functions run with the `service_role` key (see `client.ts`), which bypasses RLS entirely. Without the allow-list, a caller who could set an arbitrary header value would effectively get the service-role client to query any schema name they typed in, not just the two sanctioned ones.
+- Every `supabase/functions/*/index.ts` calls `const schema = resolvePortalSchema(req);` right after parsing the request, then threads that string down into every handler (e.g. `users/index.ts`, `storage/index.ts`, `diagrams/index.ts`). Handlers use it as `supabase.schema(schema).from("...")` instead of ever hardcoding `"portal"`.
+- `supabase/functions/utils/headers.ts` explicitly lists `x-portal-schema` in `Access-Control-Allow-Headers`. Without that, browsers would strip the header on the CORS preflight and every request — including local dev ones — would silently land on `"portal"` instead of `"portaldev"`.
+
+### 11.3 Practical implications
+
+- Any code path that calls `fetch()` against a `supabase/functions/*` endpoint **without** going through `API_HEADERS`/`API_JSON_HEADERS` sends the request to the production `portal` schema by default, even when running locally — there's no error, data just shows up (or doesn't) in the "wrong" place.
+- New edge functions must call `resolvePortalSchema(req)` themselves; there's no shared middleware, since each `index.ts` is an independent `Deno.serve` entry point.
+- When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-design-tab--services--diagrams)), they need to be created in **both** `portal` and `portaldev` — the schema switch only changes which one is queried, it doesn't create anything.
+
+### 11.4 File Map
+
+| File | Responsibility |
+|---|---|
+| `lib/supabase-client.ts` | Defines `PORTAL_SCHEMA` — `"portal"` by default, `"portaldev"` only under `next dev` |
+| `lib/api-headers.ts` | Attaches `PORTAL_SCHEMA` as the `x-portal-schema` header on every portal API request |
+| `supabase/functions/client.ts` | Service-role Supabase client shared by all edge functions (bypasses RLS) |
+| `supabase/functions/utils/schema.ts` | `resolvePortalSchema(req)` — allow-list gate, defaults to `"portal"` |
+| `supabase/functions/utils/headers.ts` | CORS headers — allow-lists `x-portal-schema` so browsers can actually send it |

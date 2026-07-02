@@ -201,6 +201,65 @@ Each issue has its own CometChat **group** keyed to `issue.id`.
 
 ---
 
+## 6. Design Tab — Services & Diagrams
+
+**Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
+
+A **Service** is a Supabase-only concept — it has no link to Linear at all (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used everywhere else in the portal (`document.project_slug`, the `/{slug}/dashboard/...` URL param). The Design tab reads it from `CustomerSlugContext` (`useCustomerSlug()`) rather than from the issue, which is what makes it work identically regardless of the viewer's role — customer, stakeholder, developer, or an admin previewing a customer.
+
+Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each one uploaded from a specific issue.
+
+### 6a. Picking or creating a service
+
+1. Opening the Design tab loads `GET /diagrams?type=services&project_slug={slug}` into the **Servicio** dropdown — every service belonging to the current customer.
+2. Selecting **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name. No Linear lookup involved.
+3. Selecting an existing service instead turns the second control into a **version picker**, populated from `GET /diagrams?service_id={id}` (newest first, latest marked "última").
+
+### 6b. Uploading a diagram
+
+1. **"Subir nueva versión"** opens the file picker (`accept=".mmd,.mermaid,text/plain"`).
+2. On file select, `POST /diagrams` is called as `multipart/form-data` with `file`, `project_slug`, `issue_id`, `email`, and either `service_id` (existing service) or `service_name` (new service).
+3. Backend (`supabase/functions/diagrams/createDiagram.ts`):
+   - If `service_id` was sent, fetches that row and validates it belongs to `project_slug` (`getService.ts`) — this stops one customer from uploading against another customer's service by guessing an id.
+   - If `service_name` was sent instead, creates a brand-new `services` row directly (`createService.ts`) — no existence check needed, since the frontend only sends `service_name` when the user explicitly picked "crear nuevo" and typed a name, and `(project_slug, name)` is `UNIQUE` at the DB level as a backstop.
+   - Computes the next `version` for that service (`max(version) + 1`).
+   - Uploads the file to the **`diagrams_bucket`** Storage bucket (private, no public/RLS policies — only ever touched by this edge function via the service-role key, same access pattern as `downloadDocument.ts`'s signed URLs for `documents_bucket`).
+   - Inserts a `diagrams` row with `service_id`, `issue_id`, `version`, `storage_path`, and a cached `mermaid_source` text column (so rendering never has to read back from Storage).
+4. On success, the frontend selects the new service/version and invalidates the `diagram-services` and `diagram-versions` queries so both controls refresh.
+
+This is how a diagram ends up linked to **both** the issue (`issue_id`) and the service (`service_id`) from a single upload, as opposed to being two separate steps. A service only ever comes into existence together with its first diagram — there's no way to create an empty service.
+
+### Rendering
+
+The selected version's `mermaid_source` is rendered client-side with `mermaid.render()` (the `mermaid` npm package) into inline SVG. This was chosen over converting Mermaid syntax into ReactFlow nodes/edges — Mermaid already does its own parsing and layout, so there was no need to reimplement that on top of ReactFlow just to reuse the same diagram widget as the rest of the app.
+
+### API — `supabase/functions/diagrams`
+
+**`GET /diagrams`**
+
+| Query param | Returns |
+|---|---|
+| `type=services&project_slug=` | All services for that customer (every row is guaranteed to have ≥1 diagram) |
+| `service_id` | Version history for that service, newest first |
+| `issue_id` | All diagrams uploaded from that issue, across any service |
+
+**`POST /diagrams`** (`multipart/form-data`)
+
+| Field | Required | Notes |
+|---|---|---|
+| `file` | ✅ Yes | The `.mmd` file |
+| `project_slug` | ✅ Yes | Customer/workspace slug the service belongs to |
+| `service_id` | One of these two | Upload a new version to an existing service |
+| `service_name` | One of these two | Create a brand-new service, named by the user |
+| `issue_id` | ✅ Yes | Issue the upload was triggered from |
+| `email` | ✅ Yes | Uploader — resolved to `users.id` server-side for `uploaded_by` |
+
+### Known gaps
+
+- **No GitHub sync** — pushing the latest diagram version to the project's GitHub repo (from the original feature notes) hasn't been built.
+
+---
+
 ## File Map
 
 | File | Responsibility |
@@ -215,3 +274,10 @@ Each issue has its own CometChat **group** keyed to `issue.id`.
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
+| `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and `MermaidDiagram` SVG renderer |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams, same `resolvePortalSchema` pattern as `users/index.ts` |
+| `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
+| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
+| `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "crear nuevo") |
+| `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
+| `context/CustomerSlugContext.tsx` | Source of `project_slug` for the Design tab — same slug used across the portal, role-independent |

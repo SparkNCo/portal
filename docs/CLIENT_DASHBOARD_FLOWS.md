@@ -133,7 +133,7 @@ Shows all issues currently in the **Business Review** state. These are issues wh
 
 Issues are sorted by question count — those with the most unanswered questions appear first.
 
-Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with five tabs: Description, Chat, Tests, Decisions, and Design. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 The **chat icon** on each card navigates to the Chat page with that issue pre-selected (via `?newChat=...` query param).
 
@@ -195,7 +195,7 @@ User lands on /{slug}/dashboard/client
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Product Decisions and Acceptance Testing |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions tabs |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |

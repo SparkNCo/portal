@@ -1045,7 +1045,7 @@ export function IssueDetailModal({
           />
         )}
 
-        {activeTab === "design" && <DesignTab />}
+        {activeTab === "design" && <DesignTab issue={issue} />}
       </div>
     </div>
   );
