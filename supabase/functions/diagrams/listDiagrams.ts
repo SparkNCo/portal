@@ -28,12 +28,15 @@ export const listDiagrams = async (url: URL, schema: string) => {
     throw new Error("service_id or issue_id is required");
   }
 
-  let query = supabase.schema(schema)
-    .from("diagrams")
-    .select("*")
-    .order("version", { ascending: false });
+  // Filtering by service_id → version history, newest version first.
+  // Filtering by issue_id → this issue may have uploaded to more than one
+  // service, so order by upload recency (created_at) instead of version,
+  // which only makes sense within a single service.
+  let query = supabase.schema(schema).from("diagrams").select("*");
 
-  query = serviceId ? query.eq("service_id", serviceId) : query.eq("issue_id", issueId);
+  query = serviceId
+    ? query.eq("service_id", serviceId).order("version", { ascending: false })
+    : query.eq("issue_id", issueId).order("created_at", { ascending: false });
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);

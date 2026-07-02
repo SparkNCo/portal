@@ -121,6 +121,27 @@ export function DesignTab({ issue }: { issue: Issue }) {
     enabled: !!projectSlug,
   });
 
+  // Diagrams already uploaded from this issue (any service) — used only to
+  // default the "Servicio" dropdown to the last one this issue uploaded to.
+  const issueDiagramsQuery = useQuery({
+    queryKey: ["diagram-issue", issue.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_ENDPOINT}/diagrams?issue_id=${issue.id}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("No se pudieron cargar los diagramas del issue");
+      return (await res.json()) as Diagram[];
+    },
+  });
+
+  useEffect(() => {
+    const lastServiceId = issueDiagramsQuery.data?.[0]?.service_id;
+    if (!selectedServiceId && lastServiceId) {
+      setSelectedServiceId(lastServiceId);
+    }
+  }, [selectedServiceId, issueDiagramsQuery.data]);
+
   const versionsQuery = useQuery({
     queryKey: ["diagram-versions", activeServiceId],
     queryFn: async () => {

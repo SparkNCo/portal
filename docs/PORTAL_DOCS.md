@@ -458,7 +458,9 @@ A **Service** is a Supabase-only concept — no link to Linear (an earlier versi
 **Picking or creating a service:**
 1. Opening the tab loads `GET /diagrams?type=services&project_slug=` into the **Servicio** dropdown — every service for that customer.
 2. **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name — no Linear lookup involved.
-3. Picking an existing service instead turns the second control into a **version picker** (`GET /diagrams?service_id=`, newest first).
+3. Picking an existing service instead turns the second control into a **version picker** (`GET /diagrams?service_id=`, ordered by `version` desc).
+
+**Defaulting to the last service used on this issue:** on open, the tab also calls `GET /diagrams?issue_id=` (ordered by `created_at` desc, since one issue can upload to more than one service and `version` numbers aren't comparable across services) and auto-selects the most recent row's `service_id` — but only if the dropdown hasn't been touched yet, so it never overrides a manual pick.
 
 **Uploading a diagram:**
 1. **"Subir nueva versión"** opens a file picker (`accept=".mmd,.mermaid,text/plain"`).

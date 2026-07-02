@@ -215,6 +215,10 @@ Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each one uploade
 2. Selecting **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name. No Linear lookup involved.
 3. Selecting an existing service instead turns the second control into a **version picker**, populated from `GET /diagrams?service_id={id}` (newest first, latest marked "última").
 
+**Defaulting to the last service used on this issue:** on open, the tab also calls `GET /diagrams?issue_id={issue.id}` (any service) and, if the dropdown hasn't been touched yet (`selectedServiceId` still empty), auto-selects the `service_id` of the most recent row. This only fires once per mount — picking a different service or "crear nuevo" afterward is never overridden, since `selectedServiceId` is no longer empty at that point.
+
+For this to point at the actual most-recent upload, `GET /diagrams?issue_id=` sorts by `created_at` rather than `version` — an issue can upload to more than one service over time, and `version` is only meaningful within a single service, so `created_at` is the only field that reliably answers "what did this issue touch last." `GET /diagrams?service_id=` still sorts by `version` (that ordering is what feeds the version picker in 6a.3 above).
+
 ### 6b. Uploading a diagram
 
 1. **"Subir nueva versión"** opens the file picker (`accept=".mmd,.mermaid,text/plain"`).
@@ -240,8 +244,8 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 | Query param | Returns |
 |---|---|
 | `type=services&project_slug=` | All services for that customer (every row is guaranteed to have ≥1 diagram) |
-| `service_id` | Version history for that service, newest first |
-| `issue_id` | All diagrams uploaded from that issue, across any service |
+| `service_id` | Version history for that service, ordered by `version` desc (newest first) |
+| `issue_id` | All diagrams uploaded from that issue, across any service, ordered by `created_at` desc (most recently uploaded first — used to default the Servicio dropdown) |
 
 **`POST /diagrams`** (`multipart/form-data`)
 
