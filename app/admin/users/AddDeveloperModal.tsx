@@ -58,6 +58,11 @@ export default function AddDeveloperModal({ onClose }: Props) {
     },
   });
 
+  const handleSubmit = () => {
+    setSubmitted(true);
+    if (email && isPhoneValid && !isPending) mutate();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <Card className="w-96 bg-background border-border shadow-lg">
@@ -94,7 +99,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             placeholder="Developer email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
           />
           <input
             className={inputClass}
@@ -121,10 +126,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             <Button
               size="sm"
               disabled={isPending || !email}
-              onClick={() => {
-                setSubmitted(true);
-                if (isPhoneValid) mutate();
-              }}
+              onClick={handleSubmit}
             >
               {isPending ? "Creating..." : "Create"}
             </Button>
