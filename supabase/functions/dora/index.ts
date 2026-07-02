@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { resolvePortalSchema } from "../utils/schema.ts";
 import { supabase } from "../client.ts";
 import { parseRepo } from "./github.ts";
 import { handleCFR } from "./cfr.ts";
@@ -99,9 +100,14 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
   return { averages, cfr_details, lead_time_details, mttr_details, deploy_freq_details };
 }
 
-async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<ReturnType<typeof handleAll>>) {
+async function saveDoraMetrics(
+  linearSlug: string,
+  url: string,
+  result: Awaited<ReturnType<typeof handleAll>>,
+  schema: string,
+) {
   console.log("🔍 Fetching existing dorametrics row for slug:", linearSlug);
-  const { data: existing, error: fetchError } = await supabase.schema("portal")
+  const { data: existing, error: fetchError } = await supabase.schema(schema)
     .from("dora_metrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
     .eq("linear_slug", linearSlug)
@@ -117,9 +123,9 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
 
   let error;
   if (existing) {
-    ({ error } = await supabase.schema("portal").from("dora_metrics").update(payload).eq("linear_slug", linearSlug));
+    ({ error } = await supabase.schema(schema).from("dora_metrics").update(payload).eq("linear_slug", linearSlug));
   } else {
-    const { data: customers, error: customerError } = await supabase.schema("portal")
+    const { data: customers, error: customerError } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id")
       .eq("linear_slug", linearSlug)
@@ -131,7 +137,7 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
 
     // dora_metrics.customer_id is a FK to portal.users.id (the customer's user row),
     // not portal.customers.customer_id
-    const { data: customerUsers, error: userError } = await supabase.schema("portal")
+    const { data: customerUsers, error: userError } = await supabase.schema(schema)
       .from("users")
       .select("id")
       .eq("customer_id", customer.customer_id)
@@ -142,7 +148,7 @@ async function saveDoraMetrics(linearSlug: string, url: string, result: Awaited<
     const customerUserId = customerUsers?.[0]?.id;
     if (!customerUserId) throw new Error(`No customer user found for linear_slug: ${linearSlug}`);
 
-    ({ error } = await supabase.schema("portal")
+    ({ error } = await supabase.schema(schema)
       .from("dora_metrics")
       .insert({ linear_slug: linearSlug, customer_id: customerUserId, ...payload }));
   }
@@ -169,6 +175,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const schema = resolvePortalSchema(req);
     const token = Deno.env.get("GHPERSONALTOKEN");
     if (!token) throw new Error("Missing GHPERSONALTOKEN env var");
 
@@ -200,7 +207,7 @@ Deno.serve(async (req) => {
     if (method === "all") {
       const result = await handleAll(repo, token, limit);
       console.log("💾 Saving to dorametrics...");
-      await saveDoraMetrics(linear_slug, repoUrl, result);
+      await saveDoraMetrics(linear_slug, repoUrl, result, schema);
       console.log("✅ Saved to dorametrics");
       const serialized = JSON.stringify(result);
       console.log("✅ Response serialized, length:", serialized.length);

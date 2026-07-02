@@ -168,6 +168,7 @@ async function triggerDoraForAllCustomers(schema: string) {
           headers: {
             "Content-Type": "application/json",
             Authorization: authHeader,
+            "x-portal-schema": schema,
           },
           body: JSON.stringify({
             method: "all",
