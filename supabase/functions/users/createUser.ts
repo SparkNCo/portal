@@ -38,7 +38,8 @@ export const createUser = async (body: any, schema: string) => {
     if (!inviteError.message.includes("already been registered")) {
       throw new Error(`Auth invite failed: ${inviteError.message}`);
     }
-
+    console.log("hi");
+    
     // User already exists in auth — find them and generate a recovery link instead
     const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) throw new Error(`Could not list auth users: ${listError.message}`);

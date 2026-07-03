@@ -88,7 +88,7 @@ export function NextPaymentPanel({
           body: JSON.stringify({ customer_id: customerId }),
         },
       );
-
+      
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to renew subscription");
@@ -111,7 +111,8 @@ export function NextPaymentPanel({
           body: JSON.stringify({ subscription_id: subscriptionId }),
         },
       );
-
+      console.log("hola");
+      
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error ?? "Failed to cancel subscription");
