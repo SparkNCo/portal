@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { Button } from '../button';
 import { SubmitButton } from '@/components/submit-button';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Progress } from '../progress';
+import { Progress } from '@/components/ui/progress';
 import { DynamicField } from '../form/dynamic-field';
 import { DynamicFieldType, LayoutType } from '@/lib/types/utils/form';
 import { getInitialValues } from './utils/functions';

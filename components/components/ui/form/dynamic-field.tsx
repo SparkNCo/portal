@@ -8,8 +8,8 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from '../select';
-import { Input } from '../input';
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { DynamicFieldProps } from '@/lib/types/utils/form';
 import { ColsFields } from './components/col-fields';
 import {

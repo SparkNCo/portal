@@ -15,7 +15,7 @@ import {
 
 import { DynamicFieldType } from "@/lib/types/utils/form";
 import { FormLabelComponent } from "./form-label";
-import { Input } from "../../input";
+import { Input } from "@/components/ui/input";
 import { ErrorMessage } from "./error-message";
 
 const VALIDCOUNTRIES = ["CA", "US"];

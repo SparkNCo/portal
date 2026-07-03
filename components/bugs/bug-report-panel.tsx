@@ -3,46 +3,16 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Bug, ChevronDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Bug } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
-
-async function postCreateIssue(payload: {
-  title: string;
-  description: string;
-  priority: string;
-  slug: string;
-  type?: string;
-  projectId?: string;
-}) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/create`, {
-    method: "POST",
-    headers: API_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to create issue");
-  return res.json();
-}
-
-async function fetchProjects(slug: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?slug=${slug}`,
-    { headers: API_HEADERS },
-  );
-  if (!res.ok) throw new Error("Failed to fetch projects");
-  return res.json() as Promise<{ id: string; name: string }[]>;
-}
+import { CollapsiblePanelHeader } from "@/components/shared/collapsible-panel-header";
+import { ProjectSelect } from "@/components/shared/project-select";
+import { PrioritySelect } from "@/components/shared/priority-select";
+import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
 
 function buildBugDescription(steps: string, expected: string, actual: string) {
   return `
@@ -104,25 +74,12 @@ export function BugReportPanel({ slug }: { slug: string }) {
 
   return (
     <Card className="bg-background">
-      <CardHeader
-        role="button"
-        tabIndex={0}
-        onClick={() => setExpanded((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") setExpanded((v) => !v);
-        }}
-        className="flex items-center justify-between cursor-pointer select-none"
-      >
-        <CardTitle className="flex items-center gap-2">
-          <Bug className="h-4 w-4 text-destructive" />
-          Report a Bug
-        </CardTitle>
-        <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${
-            expanded ? "rotate-180" : ""
-          }`}
-        />
-      </CardHeader>
+      <CollapsiblePanelHeader
+        icon={<Bug className="h-4 w-4 text-destructive" />}
+        title="Report a Bug"
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+      />
       {expanded && (
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -171,35 +128,16 @@ export function BugReportPanel({ slug }: { slug: string }) {
               Project{" "}
               <span className="text-muted-foreground font-normal">(optional)</span>
             </Label>
-            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger className="bg-secondary border-0">
-                <SelectValue
-                  placeholder={projects.length ? "Select a project…" : "Loading projects…"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ProjectSelect
+              projects={projects}
+              value={selectedProjectId}
+              onValueChange={setSelectedProjectId}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Priority</Label>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="bg-secondary border-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
+            <PrioritySelect value={priority} onValueChange={setPriority} />
           </div>
         </div>
 
