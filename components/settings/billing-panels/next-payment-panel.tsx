@@ -36,7 +36,7 @@ const SUBSCRIPTION_STATUS_COLORS: Record<string, string> = {
 function formatStatusLabel(status: string) {
   return status
     .split("_")
-    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 

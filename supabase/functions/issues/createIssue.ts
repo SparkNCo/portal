@@ -198,6 +198,39 @@ const LINK_PROJECT_TO_INITIATIVE_MUTATION = `
   }
 `;
 
+const GET_INITIATIVE_PROJECTS_QUERY = `
+  query GetInitiativeProjects($initiativeId: String!) {
+    initiative(id: $initiativeId) {
+      projects(first: 50) {
+        nodes { id }
+      }
+    }
+  }
+`;
+
+// Re-syncs customers.linear_projects with Linear's actual initiative membership
+// (customers.linear_slug), instead of trusting that a just-created project got linked.
+// This way a failed/partial link never leaves a stray id behind.
+async function syncCustomerLinearProjects(slug: string, linearSlug: string, schema: string) {
+  try {
+    const initiativeData = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId: linearSlug });
+    const projectIds: string[] = (initiativeData?.initiative?.projects?.nodes ?? []).map(
+      (p: { id: string }) => p.id,
+    );
+
+    const { error } = await supabase.schema(schema)
+      .from("customers")
+      .update({ linear_projects: projectIds })
+      .eq("clientName", slug);
+
+    if (error) {
+      console.error("[handleCreateProject] Failed to update customers.linear_projects:", error);
+    }
+  } catch (err) {
+    console.error("[handleCreateProject] Failed to re-sync customers.linear_projects from initiative:", err);
+  }
+}
+
 export async function handleCreateProject(req: Request): Promise<Response> {
   const schema = resolvePortalSchema(req);
   const { name, description, targetDate, slug } = await req.json();
@@ -240,43 +273,53 @@ export async function handleCreateProject(req: Request): Promise<Response> {
     }
   }
 
-  if (project) {
-    const { data: customer } = await supabase.schema(schema)
-      .from("customers")
-      .select("linear_projects")
-      .eq("clientName", slug)
-      .maybeSingle();
-
-    const current: string[] = customer?.linear_projects ?? [];
-
-    const { error } = await supabase.schema(schema)
-      .from("customers")
-      .update({ linear_projects: [...current, project.id] })
-      .eq("clientName", slug);
-
-    if (error) {
-      console.error("[handleCreateProject] Failed to update customers.linear_projects:", error);
-    }
+  if (project && linearSlug) {
+    await syncCustomerLinearProjects(slug, linearSlug, schema);
   }
 
   return Response.json({ ...data.projectCreate, linkError });
 }
 
+function buildIssueInput(body: Record<string, any>, teamId: string): Record<string, any> {
+  const { title, description, priority, projectId, assigneeId, projectMilestoneId, estimate } = body;
+
+  const input: Record<string, any> = {
+    title: title.trim(),
+    description: description ?? "",
+    teamId,
+    priority: PRIORITY_MAP[priority] ?? 0,
+  };
+
+  if (projectId) input.projectId = projectId;
+  if (assigneeId) input.assigneeId = assigneeId;
+  if (projectMilestoneId) input.projectMilestoneId = projectMilestoneId;
+  if (estimate !== undefined && estimate !== null && estimate !== "") {
+    input.estimate = Number(estimate);
+  }
+
+  return input;
+}
+
+// For bug/feature issues, auto-attach the team's matching "bug"/"feature" label, if one exists.
+async function resolveAutoLabelId(type: string, teamId: string): Promise<string | null> {
+  if (type !== "bug" && type !== "feature") return null;
+
+  try {
+    const labelsData = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
+    const matchedLabel = labelsData?.team?.labels?.nodes?.find(
+      (l: { id: string; name: string }) => l.name.toLowerCase().includes(type),
+    );
+    return matchedLabel?.id ?? null;
+  } catch (err) {
+    console.error(`[handleCreateIssue] Failed to resolve ${type} label:`, err);
+    return null;
+  }
+}
+
 export async function handleCreateIssue(req: Request): Promise<Response> {
   const schema = resolvePortalSchema(req);
   const body = await req.json();
-  const {
-    title,
-    description,
-    priority,
-    slug,
-    type,
-    teamId: bodyTeamId,
-    projectId,
-    assigneeId,
-    labelIds,
-    estimate,
-  } = body;
+  const { title, slug, type, teamId: bodyTeamId, labelIds } = body;
 
   if (!title?.trim()) {
     return Response.json({ error: "Missing title" }, { status: 400 });
@@ -293,35 +336,11 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
     teamId = await resolveTeamId(slug, schema);
   }
 
-  const input: Record<string, any> = {
-    title: title.trim(),
-    description: description ?? "",
-    teamId,
-    priority: PRIORITY_MAP[priority] ?? 0,
-  };
-
-  if (projectId) input.projectId = projectId;
-  if (assigneeId) input.assigneeId = assigneeId;
-  if (body.projectMilestoneId) input.projectMilestoneId = body.projectMilestoneId;
-  if (estimate !== undefined && estimate !== null && estimate !== "") {
-    input.estimate = Number(estimate);
-  }
+  const input = buildIssueInput(body, teamId);
 
   const resolvedLabelIds: string[] = labelIds ? [...labelIds] : [];
-
-  if (type === "bug" || type === "feature") {
-    try {
-      const labelsData = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
-      const labelName = type === "bug" ? "bug" : "feature";
-      const matchedLabel = labelsData?.team?.labels?.nodes?.find(
-        (l: { id: string; name: string }) => l.name.toLowerCase().includes(labelName),
-      );
-      if (matchedLabel) resolvedLabelIds.push(matchedLabel.id);
-    } catch (err) {
-      console.error(`[handleCreateIssue] Failed to resolve ${type} label:`, err);
-    }
-  }
-
+  const autoLabelId = await resolveAutoLabelId(type, teamId);
+  if (autoLabelId) resolvedLabelIds.push(autoLabelId);
   if (resolvedLabelIds.length) input.labelIds = resolvedLabelIds;
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
