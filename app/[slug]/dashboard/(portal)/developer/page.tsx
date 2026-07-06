@@ -6,16 +6,36 @@ import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
+import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
-import { useState } from "react";
-import { fetchIssues } from "../client/page";
+import { useState, useEffect } from "react";
+import { fetchIssues, fetchPoliciesStatus } from "../client/page";
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
+  const userId = profile?.id;
+  const notionUrl = "https://www.notion.so/YOUR_POLICIES";
+  const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
+
+  // 🔹 Policies approval query
+  const { data: policiesStatus } = useQuery<{ approved: boolean }, Error>({
+    queryKey: ["policies-status", userId],
+    queryFn: () => fetchPoliciesStatus(userId!),
+    enabled: !!userId,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (policiesStatus && !policiesStatus.approved) {
+      setShowPoliciesModal(true);
+    }
+  }, [policiesStatus]);
 
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
@@ -47,6 +67,14 @@ export default function DeveloperDashboard() {
     .filter((i: any) => i?.state?.name !== "Done");
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
+  const availableLabels = [
+    ...new Set(
+      allIssues.flatMap((i: any) => (i.labels?.nodes ?? []).map((l: any) => l.name)),
+    ),
+  ] as string[];
+  const availablePriorities = [
+    ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
+  ] as string[];
 
   const projectFiltered = selectedProject
     ? allIssues.filter((i: any) => i._project === selectedProject)
@@ -58,7 +86,17 @@ export default function DeveloperDashboard() {
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
 
-  const visibleIssues = [...statusFiltered].sort((a: any, b: any) => {
+  const labelFiltered = selectedLabels.length > 0
+    ? statusFiltered.filter((i: any) =>
+        (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
+      )
+    : statusFiltered;
+
+  const priorityFiltered = selectedPriorities.length > 0
+    ? labelFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
+    : labelFiltered;
+
+  const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
     if (sortBy === "priority")
       return PRIORITY_ORDER.indexOf(a.priorityLabel) - PRIORITY_ORDER.indexOf(b.priorityLabel);
     // default: last updated
@@ -75,11 +113,33 @@ export default function DeveloperDashboard() {
         prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
       ),
     onToggleActive: () => {},
-    onClearFilters: () => setSelectedStatuses([]),
+    selectedLabels,
+    availableLabels,
+    onToggleLabel: (l: string) =>
+      setSelectedLabels((prev) =>
+        prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l],
+      ),
+    selectedPriorities,
+    availablePriorities,
+    onTogglePriority: (p: string) =>
+      setSelectedPriorities((prev) =>
+        prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
+      ),
+    onClearFilters: () => {
+      setSelectedStatuses([]);
+      setSelectedLabels([]);
+      setSelectedPriorities([]);
+    },
   };
 
   return (
     <div className="min-h-screen">
+      <PolicyApprovalModal
+        open={showPoliciesModal}
+        userId={userId!}
+        notionUrl={notionUrl}
+        onApproved={() => setShowPoliciesModal(false)}
+      />
       <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
 
       <div className="p-4 md:p-6 space-y-6">
@@ -92,10 +152,10 @@ export default function DeveloperDashboard() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setSelectedProject(null)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 selectedProject === null
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  ? "bg-accent text-accent-foreground border-accent/40"
+                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >
               All Projects
@@ -104,10 +164,10 @@ export default function DeveloperDashboard() {
               <button
                 key={p.clientName}
                 onClick={() => setSelectedProject(p.clientName)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                   selectedProject === p.clientName
-                    ? "bg-accent text-accent-foreground border-accent"
-                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                    ? "bg-accent text-accent-foreground border-accent/40"
+                    : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 }`}
               >
                 {p.clientName}
@@ -122,18 +182,17 @@ export default function DeveloperDashboard() {
             <button
               key={opt}
               onClick={() => setSortBy(opt)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 sortBy === opt
-                  ? "bg-accent text-accent-foreground border-accent"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  ? "bg-accent text-accent-foreground border-accent/40"
+                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >
               {opt === "updated" ? "Last Updated" : "Priority"}
             </button>
           ))}
         </div>
-
-        <div className="w-full max-w-full overflow-hidden">
+        <div className="w-full max-w-full">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (

@@ -53,7 +53,12 @@ export type TestCase = {
   title: string;
   steps: { order: number; description: string }[];
   expected: string;
-  actual?: string;
+  actual?: {
+    text: string;
+    recorded_by?: string | null;
+    recorded_at?: string;
+    kind?: "qa" | "uat";
+  }[];
   status: "draft" | "approved" | "passed" | "failed";
   created_by: string;
   approved_by?: string;
@@ -86,6 +91,9 @@ export type Issue = {
   cycle?: { number: number; isActive: boolean; name?: string };
   comments?: { nodes: Comment[] };
   description?: string | null;
+  labels?: { nodes: { id: string; name: string; color: string }[] };
+  estimate?: number | null;
+  createdAt?: string;
 };
 
 export type FilterState = {
@@ -96,12 +104,23 @@ export type FilterState = {
   onToggleStatus: (s: string) => void;
   onToggleActive: () => void;
   onClearFilters: () => void;
+  selectedLabels?: string[];
+  availableLabels?: string[];
+  onToggleLabel?: (l: string) => void;
+  selectedPriorities?: string[];
+  availablePriorities?: string[];
+  onTogglePriority?: (p: string) => void;
+  dateFrom?: string;
+  dateTo?: string;
+  onDateFromChange?: (date: string) => void;
+  onDateToChange?: (date: string) => void;
 };
 
 export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
   onOpenChat?: (title: string) => void;
+  onEditIssue?: (issue: Issue) => void;
   title?: string;
   compact?: boolean;
   headerAction?: ReactNode;

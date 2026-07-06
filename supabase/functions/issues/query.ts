@@ -46,7 +46,7 @@ query Issues($filter: IssueFilter) {
       prioritySortOrder
       number
       labels(last: 4) {
-        nodes { name }
+        nodes { id name color }
       }
     }
   }

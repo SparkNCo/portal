@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronsRight, MessageSquare, X } from "lucide-react";
+import { Check, ChevronsRight, RotateCcw, MessageSquare, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
+import { LabelPill } from "./issue-cards";
+import { DesignTab } from "./design-tab";
 import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import {
   type Decision,
   type TestCase,
@@ -16,6 +20,7 @@ import {
   statusColors,
   STATUS_ORDER,
 } from "./issues.types";
+import { useIssueUpdateBadge } from "./use-issue-update-badge";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -68,7 +73,8 @@ function TabButton({
 function DescriptionTab({
   issue,
   canAnswer,
-  canAsk,
+  canAdvanceState,
+  canReopenFromDone,
   currentStateName,
   advancing,
   nextState,
@@ -76,14 +82,15 @@ function DescriptionTab({
 }: {
   issue: Issue;
   canAnswer: boolean;
-  canAsk: boolean;
+  canAdvanceState: boolean;
+  canReopenFromDone: boolean;
   currentStateName: string | undefined;
   advancing: boolean;
   nextState: string | undefined;
-  onAdvanceState: () => void;
+  onAdvanceState: (targetState: string) => void;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-4 min-h-[320px]">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
         <div
           className="text-sm text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
@@ -91,38 +98,53 @@ function DescriptionTab({
           [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
           [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
           [&_strong]:font-semibold
-          [&_p]:mb-2 [&_p:last-child]:mb-0
+          [&_p]:mb-5 [&_p:last-child]:mb-0
           [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
           [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
         >
-          <ReactMarkdown>{issue.description}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+            {issue.description}
+          </ReactMarkdown>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground italic">No description yet.</p>
       )}
 
-      {canAnswer && currentStateName === "Business Review" && (
+      {canAnswer && currentStateName === "Business Review" && nextState && (
         <Button
           size="sm"
           className="w-full bg-green-600 hover:bg-green-700 text-white"
           disabled={advancing}
-          onClick={onAdvanceState}
+          onClick={() => onAdvanceState(nextState)}
         >
           <Check className="h-3.5 w-3.5 mr-1.5" />
           {advancing ? "Approving…" : "Approve user stories & acceptance criteria"}
         </Button>
       )}
 
-      {canAsk && nextState && (
+      {canAdvanceState && nextState && (
         <Button
           size="sm"
           variant="outline"
           className="w-full"
           disabled={advancing}
-          onClick={onAdvanceState}
+          onClick={() => onAdvanceState(nextState)}
         >
           <ChevronsRight className="h-3 w-3 mr-1" />
           {advancing ? "Updating…" : `Move to ${nextState}`}
+        </Button>
+      )}
+
+      {canReopenFromDone && currentStateName === "Done" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={advancing}
+          onClick={() => onAdvanceState("Development")}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          {advancing ? "Updating…" : "Move back to Development"}
         </Button>
       )}
     </div>
@@ -156,7 +178,7 @@ function DecisionsTab({
     if (!questionText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
         method: "POST",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -179,7 +201,7 @@ function DecisionsTab({
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/decision`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
@@ -204,7 +226,7 @@ function DecisionsTab({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-3 min-h-[320px]">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingDecisions && (
         <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
       )}
@@ -357,6 +379,8 @@ function TestsTab({
   issue,
   userEmail,
   canAnswer,
+  canRecordQaEvidence,
+  canRecordUatResult,
   role,
   currentStateName,
   tests,
@@ -366,6 +390,8 @@ function TestsTab({
   issue: Issue;
   userEmail: string | undefined;
   canAnswer: boolean;
+  canRecordQaEvidence: boolean;
+  canRecordUatResult: boolean;
   role: string | undefined;
   currentStateName: string | undefined;
   tests: TestCase[];
@@ -376,6 +402,25 @@ function TestsTab({
   const [showNewTestForm, setShowNewTestForm] = useState(false);
   const [testForm, setTestForm] = useState({ title: "", steps: "", expected: "" });
   const [uatForm, setUatForm] = useState<{ testId: string; actual: string } | null>(null);
+  const [editForm, setEditForm] = useState<
+    { testId: string; title: string; steps: string; expected: string } | null
+  >(null);
+
+  // Developers can author/edit test cases while the issue is being scoped, built, or QA'd,
+  // not once it's gone to the client for UAT.
+  const canManageTests =
+    role === "admin" ||
+    (role === "developer" &&
+      (currentStateName === "Business Review" ||
+        currentStateName === "Development" ||
+        currentStateName === "QA"));
+  const isQaStage = currentStateName === "QA";
+  const isUatStage = currentStateName === "UAT";
+
+  // QA Evidence is recorded by developers while in QA; UAT Result is recorded
+  // by the client (customer/stakeholder) once it's moved to UAT.
+  const canRecordResult =
+    (isQaStage && canRecordQaEvidence) || (isUatStage && canRecordUatResult);
 
   async function handleCreateTest() {
     if (!testForm.title.trim() || submitting) return;
@@ -387,7 +432,7 @@ function TestsTab({
             .filter(Boolean)
             .map((d, i) => ({ order: i + 1, description: d }))
         : [];
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests`, {
         method: "POST",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -407,8 +452,46 @@ function TestsTab({
     }
   }
 
+  function handleStartEdit(test: TestCase) {
+    setEditForm({
+      testId: test.id,
+      title: test.title,
+      steps: test.steps.map((s) => s.description).join("\n"),
+      expected: test.expected,
+    });
+  }
+
+  async function handleSaveEdit() {
+    if (!editForm || !editForm.title.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const steps = editForm.steps.trim()
+        ? editForm.steps
+            .split("\n")
+            .filter(Boolean)
+            .map((d, i) => ({ order: i + 1, description: d }))
+        : [];
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`, {
+        method: "PATCH",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          test_id: editForm.testId,
+          title: editForm.title.trim(),
+          steps,
+          expected: editForm.expected.trim(),
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id)
+        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setEditForm(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleApproveTest(testId: string) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/approve`, {
       method: "PATCH",
       headers: API_JSON_HEADERS,
       body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
@@ -422,13 +505,14 @@ function TestsTab({
     if (!uatForm || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
           test_id: uatForm.testId,
           actual: uatForm.actual,
-          passed: true,
+          recorded_by: userEmail,
+          kind: isQaStage ? "qa" : "uat",
         }),
       });
       const updated = await res.json();
@@ -440,8 +524,28 @@ function TestsTab({
     }
   }
 
+  async function handleTogglePassed(test: TestCase) {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
+        method: "PATCH",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          test_id: test.id,
+          passed: test.status !== "passed",
+        }),
+      });
+      const updated = await res.json();
+      if (updated.id)
+        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="flex-1 overflow-y-auto p-5 space-y-3">
+    <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingTests && (
         <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
       )}
@@ -469,48 +573,116 @@ function TestsTab({
             </span>
           </div>
 
-          {t.steps.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                Steps
-              </p>
-              <ol className="list-decimal pl-4 space-y-0.5">
-                {t.steps.map((s) => (
-                  <li key={s.order} className="text-xs text-foreground">
-                    {s.description}
-                  </li>
-                ))}
-              </ol>
+          {editForm?.testId === t.id ? (
+            <div className="flex flex-col gap-2">
+              <input
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Test case title…"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                autoFocus
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                placeholder="Steps (one per line)…"
+                value={editForm.steps}
+                onChange={(e) => setEditForm({ ...editForm, steps: e.target.value })}
+              />
+              <textarea
+                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={2}
+                placeholder="Expected result…"
+                value={editForm.expected}
+                onChange={(e) => setEditForm({ ...editForm, expected: e.target.value })}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setEditForm(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!editForm.title.trim() || submitting}
+                  onClick={handleSaveEdit}
+                >
+                  {submitting ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {t.steps.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                    Steps
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-0.5">
+                    {t.steps.map((s) => (
+                      <li key={s.order} className="text-xs text-foreground">
+                        {s.description}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {t.expected && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                    Expected
+                  </p>
+                  <p className="text-xs text-foreground">{t.expected}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {t.actual && t.actual.length > 0 && (
+            <div className="space-y-2">
+              {t.actual.map((entry, i) => (
+                <div key={`${entry.recorded_at}-${i}`} className="border-l-2 border-border pl-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                    {entry.kind === "qa"
+                      ? "QA Evidence"
+                      : entry.kind === "uat"
+                        ? "UAT Result"
+                        : "Actual"}
+                  </p>
+                  <p className="text-xs text-foreground">{entry.text}</p>
+                  {(entry.recorded_by || entry.recorded_at) && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {entry.recorded_by}
+                      {entry.recorded_by && entry.recorded_at ? " · " : ""}
+                      {entry.recorded_at
+                        ? new Date(entry.recorded_at).toLocaleString()
+                        : ""}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
-          {t.expected && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                Expected
-              </p>
-              <p className="text-xs text-foreground">{t.expected}</p>
-            </div>
+          {canManageTests && t.status === "draft" && editForm?.testId !== t.id && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => handleStartEdit(t)}
+            >
+              Edit test case
+            </Button>
           )}
 
-          {t.actual && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                Actual
-              </p>
-              <p className="text-xs text-foreground">{t.actual}</p>
-            </div>
-          )}
-
-          {canAnswer && t.status === "draft" && (
+          {canAnswer && t.status === "draft" && editForm?.testId !== t.id && (
             <Button size="sm" className="w-full" onClick={() => handleApproveTest(t.id)}>
               Approve test case
             </Button>
           )}
 
-          {canAnswer &&
-            t.status === "approved" &&
-            currentStateName === "UAT" &&
+          {canRecordResult &&
+            (t.status === "approved" ||
+              (isQaStage && (t.status === "draft" || t.status === "passed"))) &&
             (uatForm?.testId === t.id ? (
               <div className="flex flex-col gap-1.5">
                 <textarea
@@ -529,9 +701,8 @@ function TestsTab({
                     size="sm"
                     disabled={!uatForm.actual.trim() || submitting}
                     onClick={handleSubmitUat}
-                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
-                    {submitting ? "Saving…" : "Mark as passed"}
+                    {submitting ? "Saving…" : isQaStage ? "Save QA" : "Save UAT"}
                   </Button>
                 </div>
               </div>
@@ -542,13 +713,33 @@ function TestsTab({
                 className="w-full"
                 onClick={() => setUatForm({ testId: t.id, actual: "" })}
               >
-                Record UAT result
+                {isQaStage ? "Record QA" : "Record UAT"}
               </Button>
             ))}
+
+          {(role === "stakeholder" || role === "customer") &&
+            (t.status === "approved" || t.status === "passed") &&
+            currentStateName === "UAT" &&
+            (t.status === "passed" ||
+              t.actual?.some((entry) => entry.kind === "uat")) && (
+              <Button
+                size="sm"
+                variant={t.status === "passed" ? "outline" : "default"}
+                disabled={submitting}
+                className={
+                  t.status === "passed"
+                    ? "w-full"
+                    : "w-full bg-green-600 hover:bg-green-700 text-white"
+                }
+                onClick={() => handleTogglePassed(t)}
+              >
+                {t.status === "passed" ? "Revert to Approved" : "Mark as Passed"}
+              </Button>
+            )}
         </div>
       ))}
 
-      {role === "admin" && (
+      {canManageTests && (
         <div className="pt-1">
           {showNewTestForm ? (
             <div className="flex flex-col gap-2">
@@ -621,23 +812,38 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
+  const canAdvanceState = role === "admin";
+  const canReopenFromDone = role === "stakeholder";
+  // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
+  // are two distinct recording steps — see TestsTab.
+  const canRecordQaEvidence = role === "developer";
+  const canRecordUatResult = role === "customer" || role === "stakeholder";
 
   const [visible, setVisible] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
   const [tests, setTests] = useState<TestCase[]>([]);
   const [loadingTests, setLoadingTests] = useState(true);
-  const [activeTab, setActiveTab] = useState<"description" | "chat" | "decisions" | "tests">(
-    "description",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "description" | "chat" | "decisions" | "tests" | "design"
+  >("description");
 
   const nextState = getNextState(currentStateName);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   useEffect(() => {
@@ -655,7 +861,7 @@ export function IssueDetailModal({
         setLoadingDecisions(false);
       });
 
-    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests?issue_id=${issue.id}`, {
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?issue_id=${issue.id}`, {
       headers: API_HEADERS,
     })
       .then((r) => r.json())
@@ -665,6 +871,23 @@ export function IssueDetailModal({
       .finally(() => setLoadingTests(false));
 
   }, [issue.id]);
+
+  const queryClient = useQueryClient();
+  const { isOwnUnseenUpdate } = useIssueUpdateBadge();
+
+  useEffect(() => {
+    if (isOwnUnseenUpdate(issue, profile?.email)) return;
+
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/seen`, {
+      method: "POST",
+      headers: API_JSON_HEADERS,
+      body: JSON.stringify({ issueId: issue.id }),
+    })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
+      })
+      .catch(() => {});
+  }, [issue.id, queryClient, isOwnUnseenUpdate, issue, profile?.email]);
 
   const handleClose = useCallback(() => {
     setVisible(false);
@@ -679,18 +902,18 @@ export function IssueDetailModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [handleClose]);
 
-  async function handleAdvanceState() {
-    if (!nextState || advancing) return;
+  async function handleAdvanceState(targetState: string) {
+    if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
-        body: JSON.stringify({ issueId: issue.id, stateName: nextState }),
+        body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
       });
       const data = await res.json();
       if (data.success)
-        setCurrentStateName(nextState as NonNullable<Issue["state"]>["name"]);
+        setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
     } finally {
       setAdvancing(false);
     }
@@ -709,7 +932,11 @@ export function IssueDetailModal({
         aria-label="Close modal"
       />
       <div
-        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:mx-6 flex flex-col max-h-[90vh] sm:max-h-[85vh] transition-all duration-200 ${
+        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:mx-6 flex flex-col max-h-[90vh] transition-all duration-200 ${
+          isExpanded
+            ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
+            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]"
+        } ${
           visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
         }`}
       >
@@ -733,29 +960,51 @@ export function IssueDetailModal({
                 {currentStateName}
               </Badge>
             </div>
-            <h2 className="text-base font-semibold leading-snug">{issue.title}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-semibold leading-snug">{issue.title}</h2>
+              {issue.labels?.nodes?.map((l) => (
+                <LabelPill key={l.id} label={l} />
+              ))}
+            </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 mt-0.5"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+            <button
+              onClick={() => setIsExpanded((e) => !e)}
+              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+              title={isExpanded ? "Shrink" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={handleClose}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tab bar */}
         <div className="flex border-b border-border px-5 flex-shrink-0">
           <TabButton label="Description" tab="description" activeTab={activeTab} onClick={() => setActiveTab("description")} className="mr-5" />
           <TabButton label="Chat" tab="chat" activeTab={activeTab} onClick={() => setActiveTab("chat")} className="mr-5" />
-          <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} />
-          <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="ml-5" />
+          <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} className="mr-5" />
+          <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="mr-5" />
+          <TabButton label="Design" tab="design" activeTab={activeTab} onClick={() => setActiveTab("design")} />
         </div>
 
         {activeTab === "description" && (
           <DescriptionTab
             issue={issue}
             canAnswer={canAnswer}
-            canAsk={canAsk}
+            canAdvanceState={canAdvanceState}
+            canReopenFromDone={canReopenFromDone}
             currentStateName={currentStateName}
             advancing={advancing}
             nextState={nextState}
@@ -786,6 +1035,8 @@ export function IssueDetailModal({
             issue={issue}
             userEmail={profile?.email}
             canAnswer={canAnswer}
+            canRecordQaEvidence={canRecordQaEvidence}
+            canRecordUatResult={canRecordUatResult}
             role={role}
             currentStateName={currentStateName}
             tests={tests}
@@ -793,6 +1044,8 @@ export function IssueDetailModal({
             loadingTests={loadingTests}
           />
         )}
+
+        {activeTab === "design" && <DesignTab issue={issue} />}
       </div>
     </div>
   );

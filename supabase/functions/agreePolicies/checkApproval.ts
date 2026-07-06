@@ -4,6 +4,7 @@ import { corsHeaders } from "../utils/headers.ts";
 
 export const checkApproval = async (req: Request) => {
   try {
+    const schema = "portal";
     const url = new URL(req.url);
     const userId = url.searchParams.get("user_id");
 
@@ -14,7 +15,7 @@ export const checkApproval = async (req: Request) => {
       });
     }
 
-    const { data, error } = await supabase.schema("portal")
+    const { data, error } = await supabase.schema(schema)
       .from("developers")
       .select("policies_approved")
       .eq("user_id", userId)

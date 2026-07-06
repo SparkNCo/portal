@@ -121,6 +121,13 @@ The customer receives an invitation email, just like developers.
 
 The `linear_slug` is critical: without it the customer won't see their issues in the portal, and the team won't be able to create requests under their workspace.
 
+**Backend side-effects (`createCustomerFlow`, `supabase/functions/users/createCustomerFlow.ts`):**
+
+1. Creates the `customers` row with `linear_slug`, `clientName`, and the Stripe ID.
+2. Looks up the Linear initiative identified by `linear_slug`, collects its projects (`linear_projects`), and for each project scans its issues' attachments for a linked GitHub issue/PR to derive the repo's GitHub URL (`project_url`). Both are saved back onto the `customers` row. This step is best-effort — if Linear lookups fail or return nothing, customer creation still succeeds.
+3. Upserts the `users` row for the customer and sends the invite email.
+4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute metrics for the new customer. That call's final step also runs `triggerDoraForAllCustomers()`, so `/dora` runs for this (and every other eligible) customer right away — no need to wait for the next cron run.
+
 ---
 
 ## Add Stakeholder — `AddStakeholderModal`

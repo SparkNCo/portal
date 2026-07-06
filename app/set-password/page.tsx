@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound } from "lucide-react";
@@ -37,15 +38,16 @@ function SetPasswordForm() {
     setUserId(session.user.id);
 
     const { data } = await supabase
+      .schema("portal")
       .from("users")
-      .select("role, firstName, lastName, clientName, phoneNumber")
+      .select("role, firstName, lastName, userName, phoneNumber")
       .eq("id", session.user.id)
       .maybeSingle();
 
     setRole(data?.role ?? null);
     if (data?.firstName) setFirstName(data.firstName);
     if (data?.lastName) setLastName(data.lastName);
-    if (data?.clientName) setClientName(data.clientName);
+    if (data?.userName) setClientName(data.userName);
     if (data?.phoneNumber) setPhoneNumber(data.phoneNumber);
     setReady(true);
   }
@@ -96,17 +98,11 @@ function SetPasswordForm() {
       return;
     }
 
-    const headers = {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-      apikey: process.env.NEXT_PUBLIC_APIKEY!,
-      "Content-Type": "application/json",
-    };
-
     const slugifiedClientName = clientName.trim().replaceAll(" ", "-");
     const profileUpdate: Record<string, string> = {
       firstName,
       lastName,
-      clientName: slugifiedClientName,
+      userName: slugifiedClientName,
     };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
@@ -115,9 +111,9 @@ function SetPasswordForm() {
       redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
     }
 
-    const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
+    const patchRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
       method: "PATCH",
-      headers,
+      headers: API_JSON_HEADERS,
       body: JSON.stringify({ id: userId, ...profileUpdate }),
     });
 

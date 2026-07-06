@@ -17,6 +17,7 @@
 8. [Documents](#8-documents)
 9. [Chat](#9-chat)
 10. [Settings](#10-settings)
+11. [Environments & Schema Routing](#11-environments--schema-routing)
 
 ---
 
@@ -369,6 +370,8 @@ On submit, all types except Milestone call `POST /issues/create` with `{ title, 
 
 A success toast shows the Linear identifier (e.g. `SPA-42`). The dialog closes and resets.
 
+> Note: the **Project** type's entry point above is no longer reachable from the UI. The Client Dashboard — the only page that rendered the full type-picker for `role === "customer"` — now uses a separate "New project Request" button instead (see section 5.2b).
+
 ### 4.2 Issue State Machine
 
 ```
@@ -384,19 +387,34 @@ Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
 
 **Where:** Tests tab inside the Issue Detail Modal.
 
-**Creating a test (Admin only)**
+**Full flow:** `draft → Stakeholder approves → Developer records QA Evidence (QA stage) → Stakeholder records UAT Result (UAT stage) → Stakeholder marks Passed`
+
+**Creating/editing a test (`canManageTests`: Admin always, or Developer only while issue state is Development/QA)**
 1. Tests tab → "+ Add test case"
 2. Fill: title, steps (one per line → saved as `{ order, description }[]`), expected result
 3. `POST /tests` → test created with status `draft`
+4. Draft tests can be edited the same way via `PATCH /tests/update`
 
 **Approving a test (Customer / Stakeholder)**
 1. Tests tab → "Approve test case" button on any `draft` test
 2. `PATCH /tests/approve` → status moves to `approved`
 
-**Recording UAT result (Customer / Stakeholder — only when issue is in UAT state)**
-1. Tests tab → "Record UAT result" on any `approved` test
-2. Type what actually happened → "Mark as passed"
-3. `PATCH /tests/uat` → status moves to `passed`
+**Recording QA Evidence (Developer — only when issue is in QA state)**
+1. Tests tab → "Record QA" on any `draft`, `approved`, or `passed` test
+2. Type what actually happened → "Save QA"
+3. `PATCH /tests/uat` with `{ ..., kind: "qa" }` → entry appended to `test.actual[]`, shown as "QA Evidence"
+
+**Recording UAT Result (Customer / Stakeholder — only when issue is in UAT state)**
+1. Tests tab → "Record UAT" on any `approved` test (hidden once `passed`)
+2. Type what actually happened → "Save UAT"
+3. `PATCH /tests/uat` with `{ ..., kind: "uat" }` → entry appended to `test.actual[]`, shown as "UAT Result"
+
+> Each recording action is gated to both the right role *and* the right stage — developers can't record UAT, customers/stakeholders can't record QA evidence.
+
+**Marking Passed (Stakeholder only — only when issue is in UAT state, and only after at least one UAT Result is recorded)**
+1. Tests tab → "Mark as Passed" on an `approved`/`passed` test that has a `kind: "uat"` entry in `actual`
+2. `PATCH /tests/uat` with `{ passed: true }` → status moves to `passed`
+3. Reversible via "Revert to Approved" → `{ passed: false }`
 
 ```
 draft → approved → passed
@@ -431,16 +449,45 @@ Each issue has its own CometChat group keyed to `issue.id`. On open:
 
 Messages show user initials avatars, sender name, and timestamp. The list auto-scrolls to the latest message.
 
-### 4.6 File Map
+### 4.6 Design Tab — Services & Diagrams
+
+**Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
+
+A **Service** is a Supabase-only concept — no link to Linear (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used elsewhere (`document.project_slug`, the `/{slug}/dashboard/...` URL param), read via `CustomerSlugContext` — which is why it works identically regardless of the viewer's role. Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each uploaded from a specific issue.
+
+**Picking or creating a service:**
+1. Opening the tab loads `GET /diagrams?type=services&project_slug=` into the **Servicio** dropdown — every service for that customer.
+2. **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name — no Linear lookup involved.
+3. Picking an existing service instead turns the second control into a **version picker** (`GET /diagrams?service_id=`, ordered by `version` desc).
+
+**Defaulting to the last service used on this issue:** on open, the tab also calls `GET /diagrams?issue_id=` (ordered by `created_at` desc, since one issue can upload to more than one service and `version` numbers aren't comparable across services) and auto-selects the most recent row's `service_id` — but only if the dropdown hasn't been touched yet, so it never overrides a manual pick.
+
+**Uploading a diagram:**
+1. **"Subir nueva versión"** opens a file picker (`accept=".mmd,.mermaid,text/plain"`).
+2. `POST /diagrams` (`multipart/form-data`) with `file`, `project_slug`, `issue_id`, `email`, and either `service_id` (existing) or `service_name` (new).
+3. Backend either fetches+validates the existing service (`getService.ts`, scoped to `project_slug`) or inserts a new one (`createService.ts`), computes the next `version`, uploads the file to the private `diagrams_bucket` (no Storage policies — access only via the edge function's service-role key), and inserts a `diagrams` row with a cached `mermaid_source` text column.
+4. This links the upload to **both** the issue and the service from a single call. A service only ever exists together with its first diagram.
+
+**Rendering:** the selected version's `mermaid_source` is rendered client-side with `mermaid.render()` into inline SVG — chosen over converting Mermaid syntax into ReactFlow nodes/edges, since Mermaid already handles its own parsing and layout.
+
+**Known gaps:** no GitHub sync of the latest diagram version.
+
+### 4.7 File Map
 
 | File | Responsibility |
 |---|---|
 | `components/shared/create-issue.tsx` | Create Issue dialog (all types) |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests / Design tabs |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main issue list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
+| `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and SVG renderer |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams |
+| `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
+| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
+| `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called for "crear nuevo") |
+| `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
 
 ---
 
@@ -466,6 +513,10 @@ Users with `role === "customer"` or `role === "stakeholder"` after login. URL: `
 
 A row of filter buttons at the top — one "All" button plus one per unique project found in the issues list. Multiple projects can be selected. Filter is local state only (no API call). All four cards respect the active filter.
 
+### 5.2b New project Request
+
+The **New project Request** button (`components/client/request-project-dialog.tsx`), next to the project filters, opens a dialog with a Title field and an optional rich-text Description. It does **not** create anything in Linear — submitting calls `POST /project-requests`, which looks up every `portal.users` row with `role === "admin"` and emails each one the request via Resend (`supabase/functions/project-requests/`). A success toast confirms the email was sent.
+
 ### 5.3 Dashboard Cards (2-column grid)
 
 **Project Stats — `ProgressPieChart`**  
@@ -479,6 +530,42 @@ Donut chart of issues by status with legend, total task count, and completion pe
 | Lead Time for Changes | Commit → production average time |
 | MTTR | Average recovery time from incidents |
 | Change Failure Rate | % of deployments that caused failures |
+
+**How DORA metrics are calculated** (`supabase/functions/dora/`)
+
+All four metrics are computed from the repo's **merged pull requests** via the GitHub API (`base=main`).
+
+**Deploy Frequency & Change Failure Rate** — these don't use branch names. To classify a PR as a "fix"/hotfix (which excludes it from Deploy Frequency and counts toward Change Failure Rate), the PR title, its labels, or any of its commit messages must **start with** one of these keywords (`ERROR_SIGNALS` in `supabase/functions/dora/github.ts`):
+
+- `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, `fix:`
+
+Additionally, for Change Failure Rate, a PR title matching `fix: SPA-<id>` is also treated as a fix. A PR only counts toward Deploy Frequency if its CI status is `success` (via the GitHub commit Status API, not Checks/Actions).
+
+**Lead Time for Changes** (`leadTime.ts`) and **MTTR** (`mttr.ts`) have stricter requirements — both PR title prefix AND branch naming matter:
+
+| Metric | PR title must start with | Branch (`pr.head.ref`) must start with |
+|---|---|---|
+| Lead Time for Changes | `feat/` or `release/` | `<github-issue-number>-` |
+| MTTR | `fix/` (in title or any commit message) | `<github-issue-number>-` |
+
+For each matching PR, the branch prefix number is used to fetch a **GitHub Issue** (`GET /repos/{repo}/issues/{number}`) — not a Linear ticket. The metric is then:
+
+- Lead Time: `pr.merged_at - issue.created_at` (hours), averaged across all matching `feat/`/`release/` PRs.
+- MTTR: `pr.merged_at - issue.created_at` (hours), averaged across all matching `fix/` PRs.
+
+If no PR satisfies both the title prefix and the `<number>-` branch naming pointing to a real GitHub Issue, `avg_lead_hours` / `average_resolution_hours` come back as `null` and the card shows no data for that metric. Note: if the team uses Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names, these two metrics will never populate.
+
+For correct metrics overall, PRs/commits should follow this naming convention: `feat/<github-issue-number>-...` for features, `fix/<github-issue-number>-...` for bug fixes, and `fix:`/`hotfix`/`revert`/`rollback`/`bugfix` prefixes for hotfix detection.
+
+**How `dora` gets triggered & how Deploy Frequency accumulates over time**
+
+`dora` is not called directly on a schedule. It's triggered once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`), which calls `dora` with `method: "all"` for every customer that has a `linear_slug` and `project_url`.
+
+It's also triggered on-demand right after a new customer is created: `createCustomerFlow` (`supabase/functions/users/createCustomerFlow.ts`) derives `linear_projects`/`project_url` from the customer's Linear initiative and, if successful, calls `POST /functions/v1/issueMetrics`, whose final step is the same `triggerDoraForAllCustomers()` call — so the new customer's metrics populate immediately instead of waiting for the next cron run.
+
+- **Change Failure Rate** is recomputed from scratch on every run — it always re-fetches the most recent `limit` merged PRs (default 100, no date filter), so it's a sliding window over PR history, not a cumulative store.
+- **Deploy Frequency** is cumulative and stored in `dora_metrics.deploy_freq_details.deployments`. Each run only fetches PRs merged in the **last 24 hours** (`since`) and appends new, deduped entries (by `pr_number`) to the existing list — it never overwrites or drops old entries. `total_deployments`, `deployments_last_30_days`, and `deployments_last_90_days` are all computed from this accumulated list.
+- **Implication:** as long as the daily cron runs without gaps, every merged PR (that passes the hotfix/CI filters) eventually gets captured into `deploy_freq_details.deployments`, and Deploy Frequency numbers will be complete and accurate over time. If the cron misses a run for more than 24 hours, any PRs merged during that gap fall outside the `since` window of the next run and are **permanently missed** from Deploy Frequency (they still show up in CFR's sliding-window scan, since that doesn't depend on accumulation).
 
 **Product Decisions — `PriorityTasks` (Business Review)**  
 Issues in Business Review state, sorted by unanswered question count. Client reviews and approves user stories here.
@@ -514,7 +601,9 @@ User lands on /{slug}/dashboard/client
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Issue list (Product Decisions + Acceptance Testing) |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal |
-| `components/shared/create-issue.tsx` | Create Issue dialog |
+| `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
+| `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
+| `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 
 ---
 
@@ -973,3 +1062,26 @@ User lands on /{slug}/dashboard/settings
 | `components/settings/billing-panels/invoices-panel.tsx` | Invoice history |
 | `components/settings/billing-panels/payment-method-expand.tsx` | Card display + Stripe portal redirect |
 | `context/CustomerSlugContext.tsx` | Customer slug for admin preview |
+
+---
+
+---
+
+## 11. Environments & Schema Routing
+
+There is a single schema, **`portal`**, used everywhere — local dev and production alike. The old `portal`/`portaldev` split (and the `x-portal-schema` header / `resolvePortalSchema` mechanism that picked between them) has been removed entirely; `supabase/functions/utils/schema.ts` no longer exists, and `.env.development.local` (which used to set `NEXT_PUBLIC_SUPABASE_SCHEMA="portaldev"`) has been deleted.
+
+- `supabase/functions/*/index.ts` — every edge function hardcodes `const schema = "portal";` right after parsing the request, threaded down into every handler.
+- Components that query Supabase directly with the anon key (not through an edge function) — `use-issue-update-badge.ts`, `use-document-requests.ts`, `use-pinned-panels.ts`, `issue-detail-modal.tsx`, `set-password/page.tsx` — call `supabase.schema("portal").from(...)` directly; there is no more `PORTAL_SCHEMA` export from `lib/supabase-client.ts`.
+- `lib/api-headers.ts` (`API_HEADERS`/`API_JSON_HEADERS`, used for edge-function `fetch()` calls) no longer attaches an `x-portal-schema` header.
+
+When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-design-tab--services--diagrams)), they only need to exist in the `portal` schema now.
+
+### 11.1 File Map
+
+| File | Responsibility |
+|---|---|
+| `lib/supabase-client.ts` | Anon-key Supabase client (`supabase`); no longer exports a schema constant |
+| `lib/api-headers.ts` | `API_HEADERS`/`API_JSON_HEADERS` for edge-function requests — no schema header |
+| `supabase/functions/client.ts` | Service-role Supabase client shared by all edge functions (bypasses RLS) |
+| `supabase/functions/*/index.ts` | Each hardcodes `const schema = "portal";` |

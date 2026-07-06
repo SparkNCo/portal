@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/components/ui/button";
-import { UserPlus } from "lucide-react";
+import { isValidPhone } from "@/lib/phone";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+import {
+  inputClass,
+  ModalShell,
+  NameFields,
+  PhoneField,
+  ModalError,
+  ModalFooter,
+} from "@/components/shared/add-user-modal-fields";
 
 type Props = {
   onClose: () => void;
@@ -18,20 +25,19 @@ export default function AddClientModal({ onClose }: Props) {
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const isPhoneValid = isValidPhone(phoneNumber);
 
   const queryClient = useQueryClient();
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customer`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({
             email,
             customer_id: stripeId,
@@ -45,7 +51,10 @@ export default function AddClientModal({ onClose }: Props) {
         },
       );
 
-      if (!res.ok) throw new Error("Failed to create client");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to create client");
+      }
 
       return res.json();
     },
@@ -55,87 +64,55 @@ export default function AddClientModal({ onClose }: Props) {
     },
   });
 
-  const inputClass =
-    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-96 bg-background border-border shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-accent" />
-            Add Customer
-          </CardTitle>
-        </CardHeader>
+    <ModalShell title="Add Customer">
+      <NameFields
+        firstName={firstName}
+        onFirstNameChange={setFirstName}
+        lastName={lastName}
+        onLastNameChange={setLastName}
+      />
+      <input
+        className={inputClass}
+        placeholder="Client name"
+        value={userName}
+        onChange={(e) => setUserName(e.target.value)}
+      />
+      <input
+        className={inputClass}
+        placeholder="Client email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <PhoneField
+        value={phoneNumber}
+        onChange={setPhoneNumber}
+        showError={submitted && !isPhoneValid}
+      />
+      <input
+        className={inputClass}
+        placeholder="Stripe Customer ID"
+        value={stripeId}
+        onChange={(e) => setStripeId(e.target.value)}
+      />
+      <input
+        className={inputClass}
+        placeholder="Linear Slug"
+        value={linearSlug}
+        onChange={(e) => setLinearSlug(e.target.value)}
+      />
 
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <input
-              className={inputClass}
-              placeholder="First name (optional)"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-            <input
-              className={inputClass}
-              placeholder="Last name (optional)"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
-          <input
-            className={inputClass}
-            placeholder="Client name"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            placeholder="Client email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            placeholder="Phone number (optional)"
-            value={phoneNumber}
-            onChange={(e) =>
-              setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
-            }
-          />
-          <input
-            className={inputClass}
-            placeholder="Stripe Customer ID"
-            value={stripeId}
-            onChange={(e) => setStripeId(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            placeholder="Linear Slug"
-            value={linearSlug}
-            onChange={(e) => setLinearSlug(e.target.value)}
-          />
+      <ModalError error={error} />
 
-          {error && (
-            <p className="text-sm text-destructive">
-              {(error as Error).message}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={isPending || !email || !stripeId || !linearSlug || !userName}
-              onClick={() => mutate()}
-            >
-              {isPending ? "Creating..." : "Create"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      <ModalFooter
+        onCancel={onClose}
+        onSubmit={() => {
+          setSubmitted(true);
+          if (isPhoneValid) mutate();
+        }}
+        disabled={isPending || !email || !stripeId || !linearSlug || !userName}
+        pending={isPending}
+      />
+    </ModalShell>
   );
 }

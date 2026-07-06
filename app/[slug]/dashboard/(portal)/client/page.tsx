@@ -1,31 +1,46 @@
 "use client";
 
 import { Header } from "@/components/headerDashboard";
-import { ProgressPieChart } from "@/components/client/progress-pie-chart";
-import { PriorityTasks } from "@/components/client/priority-tasks";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
-import { CreateIssue } from "@/components/shared/create-issue";
-import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
+import { RequestProjectDialog } from "@/components/client/request-project-dialog";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_HEADERS } from "@/lib/api-headers";
-import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { Button } from "@/components/components/ui/button";
+import {
+  usePinnedPanels,
+  useReorderPinnedPanels,
+  useAddPanels,
+} from "@/hooks/use-pinned-panels";
+import { PinnedPanelRenderer } from "@/components/dashboard/pinned-panel-renderer";
+import { SortablePinnedPanel } from "@/components/dashboard/sortable-pinned-panel";
+import { DEFAULT_PANEL_IDS, type PinnablePanelId } from "@/lib/pinnable-panels";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
-  console.log("CALLING");
 
   const params = new URLSearchParams({
     slug,
     ticket_statuses: statuses.join(","),
   });
-  console.log("hola");
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues?${params.toString()}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues?${params.toString()}`,
     { headers: API_HEADERS },
   );
   console.log("END CCALL");
@@ -36,7 +51,8 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
 
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/check?user_id=${userId}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/check?user_id=${userId}`,
+    { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch policy status");
   return res.json();
@@ -49,10 +65,6 @@ export default function ClientDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
-  const userId = profile?.id;
-  const linearProjectId = "";
-  const notionUrl = "https://www.notion.so/YOUR_POLICIES";
-  const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
     new Set(),
   );
@@ -64,24 +76,33 @@ export default function ClientDashboard() {
     enabled: !!slug,
   });
 
-  // 🔹 Policies approval query
-  const { data: policiesStatus, isLoading: policiesLoading } = useQuery<
-    { approved: boolean },
-    Error
-  >({
-    queryKey: ["policies-status", userId],
-    queryFn: () => fetchPoliciesStatus(userId!),
-    enabled: !!userId && profile?.role === "developer",
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (policiesStatus && !policiesStatus.approved) {
-      setShowPoliciesModal(true);
-    }
-  }, [policiesStatus]);
-
   const allIssues: any[] = issuesData ?? [];
+
+  const { data: pinnedPanels } = usePinnedPanels(profile?.id);
+  const reorderPinnedPanels = useReorderPinnedPanels(profile?.id);
+  const addPanels = useAddPanels(profile?.id);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+  );
+
+  const handlePinnedPanelsDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !pinnedPanels) return;
+
+    const oldIndex = pinnedPanels.findIndex((p) => p.panel_id === active.id);
+    const newIndex = pinnedPanels.findIndex((p) => p.panel_id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(pinnedPanels, oldIndex, newIndex);
+    reorderPinnedPanels.mutate(reordered.map((p) => p.panel_id));
+  };
+
+  const pinnedIds = new Set(pinnedPanels?.map((p) => p.panel_id) ?? []);
+  const missingDefaultPanels = DEFAULT_PANEL_IDS.filter(
+    (id) => !pinnedIds.has(id),
+  );
 
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
@@ -101,44 +122,22 @@ export default function ClientDashboard() {
       return next;
     });
 
-  const issueMatchesProject = (i: any) =>
-    selectedProjects.size === 0 || selectedProjects.has(i.project?.id);
-
-  const businessReviewIssues = allIssues.filter(
-    (i: any) => i.state?.name === "Business Review" && issueMatchesProject(i),
-  );
-
-  const uatIssues = allIssues.filter(
-    (i: any) => i.state?.name === "UAT" && issueMatchesProject(i),
-  );
-
-  const noopFilterState = {
-    selectedStatuses: [],
-    onlyActive: false,
-    availableStatuses: [],
-    hasCycles: false,
-    onToggleStatus: () => {},
-    onToggleActive: () => {},
-    onClearFilters: () => {},
-  };
-
   const handleOpenChat = (title: string) => {
     const chatPath = pathname.replace(/\/[^/]+$/, "/chat");
     router.push(`${chatPath}?newChat=${encodeURIComponent(title)}`);
   };
 
-  if (issuesLoading || policiesLoading) return <LoadingDataPanel />;
+  if (issuesLoading) return <LoadingDataPanel />;
 
   return (
     <div className="min-h-screen">
-      <PolicyApprovalModal
-        open={showPoliciesModal}
-        userId={userId!}
-        notionUrl={notionUrl}
-        onApproved={() => setShowPoliciesModal(false)}
-      />
+
       <Header
-        title="Client Dashboard"
+        title={
+          profile?.role === "stakeholder"
+            ? "Stakeholder Dashboard"
+            : "Client Dashboard"
+        }
         subtitle={`Welcome back, ${profile?.email ?? "User"}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
@@ -170,31 +169,59 @@ export default function ClientDashboard() {
               </Button>
             ))}
           </div>
-          <CreateIssue
+          <RequestProjectDialog
             slug={slug}
-            projectId={linearProjectId}
-            profile={profile}
+            requestedBy={profile?.email}
             compact
           />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <ProgressPieChart issuesData={allIssues} />
-          <SoftwareKPIs linearName={slug} />
-          <PriorityTasks
-            issuesData={businessReviewIssues}
-            filterState={noopFilterState}
-            onOpenChat={handleOpenChat}
-            title="Product Decisions"
-            compact
-          />
-          <PriorityTasks
-            issuesData={uatIssues}
-            filterState={noopFilterState}
-            onOpenChat={handleOpenChat}
-            title="Acceptance Testing"
-            compact
-          />
-        </div>
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Your Panels
+        </h2>
+
+        {pinnedPanels && pinnedPanels.length > 0 ? (
+          <DndContext
+            sensors={dndSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handlePinnedPanelsDragEnd}
+          >
+            <SortableContext
+              items={pinnedPanels.map((p) => p.panel_id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                {pinnedPanels.map((pin) => (
+                  <SortablePinnedPanel key={pin.panel_id} id={pin.panel_id}>
+                    <PinnedPanelRenderer
+                      panelId={pin.panel_id as PinnablePanelId}
+                      slug={slug}
+                      allIssues={allIssues}
+                      selectedProjectIds={selectedProjects}
+                      onOpenChat={handleOpenChat}
+                    />
+                  </SortablePinnedPanel>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/40 p-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Pin your favorite panels from Monitor, Build, or Bugs to see
+              them here.
+            </p>
+            {missingDefaultPanels.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => addPanels.mutate(missingDefaultPanels)}
+                disabled={addPanels.isPending}
+              >
+                Add default panels
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

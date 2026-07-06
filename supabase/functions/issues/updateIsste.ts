@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
+import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -28,20 +29,6 @@ const UPDATE_ISSUE_STATE_MUTATION = `
     }
   }
 `;
-
-async function linearRequest(query: string, variables: Record<string, string>) {
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors) throw new Error(JSON.stringify(json.errors));
-  return json.data;
-}
 
 export async function handleUpdateState(req: Request): Promise<Response> {
   try {
@@ -118,7 +105,64 @@ export async function handleUpdateState(req: Request): Promise<Response> {
   }
 }
 
+const UPDATE_ISSUE_MUTATION = `
+  mutation IssueUpdate($issueId: String!, $input: IssueUpdateInput!) {
+    issueUpdate(id: $issueId, input: $input) {
+      success
+      issue { id title description priorityLabel }
+    }
+  }
+`;
+
+const EDIT_PRIORITY_MAP: Record<string, number> = {
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+  none: 0,
+};
+
+export async function handleUpdateIssue(req: Request): Promise<Response> {
+  const body = await req.json();
+  const { issueId, title, description, priority, actorEmail } = body;
+
+  if (!issueId) {
+    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  }
+
+  const input: Record<string, any> = {};
+  if (title !== undefined && title !== null) input.title = String(title).trim();
+  if (description !== undefined) input.description = description;
+  if (priority !== undefined && priority !== null) {
+    input.priority = EDIT_PRIORITY_MAP[String(priority).toLowerCase()] ?? 0;
+  }
+
+  if (Object.keys(input).length === 0) {
+    return Response.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  const data = await linearRequest(UPDATE_ISSUE_MUTATION, { issueId, input });
+
+  if (actorEmail) {
+    await markIssueUpdated(issueId, actorEmail);
+  }
+
+  return Response.json(data.issueUpdate);
+}
+
+export async function handleMarkIssueSeen(req: Request): Promise<Response> {
+  const { issueId } = await req.json();
+
+  if (!issueId) {
+    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  }
+
+  await markIssueSeen(issueId);
+  return Response.json({ success: true });
+}
+
 export async function handleAddComment(req: Request): Promise<Response> {
+  const schema = "portal";
   const { issueId, question, ownerEmail } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
@@ -139,7 +183,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
       Prefer: "return=representation",
-      "Content-Profile": "portal",
+      "Content-Profile": schema,
     },
     body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question }),
   });
@@ -163,6 +207,7 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 export async function handlePostToLinear(req: Request): Promise<Response> {
+  const schema = "portal";
   const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
 
   if (!issueId || !decisionId || !decisionBody) {
@@ -198,7 +243,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
       "Content-Type": "application/json",
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
-      "Content-Profile": "portal",
+      "Content-Profile": schema,
     },
     body: JSON.stringify({ posted_to_linear: true }),
   });
@@ -207,6 +252,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 }
 
 export async function handleSetDecision(req: Request): Promise<Response> {
+  const schema = "portal";
   const { decisionId, decision, decisionEmail } = await req.json();
 
   if (!decisionId || !decision || !decisionEmail) {
@@ -229,7 +275,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
         apikey: serviceKey,
         Authorization: `Bearer ${serviceKey}`,
         Prefer: "return=representation",
-        "Content-Profile": "portal",
+        "Content-Profile": schema,
       },
       body: JSON.stringify({
         decision,
@@ -253,7 +299,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
     const getRes = await fetch(
       `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
       {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": "portal" },
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Accept-Profile": schema },
       },
     );
     const [decisionRow] = await getRes.json();
@@ -282,12 +328,10 @@ export async function handleSetDecision(req: Request): Promise<Response> {
 
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
-const GET_INITIATIVE_PROJECTS_QUERY = `
-  query GetInitiativeProjects($initiativeId: String!) {
-    initiative(id: $initiativeId) {
-      projects(first: 50) {
-        nodes { id name }
-      }
+const GET_PROJECTS_BY_IDS_QUERY = `
+  query GetProjectsByIds($filter: ProjectFilter) {
+    projects(filter: $filter, first: 50) {
+      nodes { id name }
     }
   }
 `;
@@ -312,8 +356,37 @@ const CREATE_MILESTONE_MUTATION = `
 `;
 
 export async function handleGetProjects(req: Request): Promise<Response> {
-  const initiativeId = new URL(req.url).searchParams.get("initiativeId");
-  if (!initiativeId) return Response.json({ error: "Missing initiativeId" }, { status: 400 });
+  const schema = "portal";
+  const url = new URL(req.url);
+  const slug = url.searchParams.get("slug");
+  const initiativeId = url.searchParams.get("initiativeId");
+
+  if (slug) {
+    const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+    const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          "Accept-Profile": schema,
+        },
+      },
+    );
+    const [customer] = await res.json();
+    const projectIds: string[] = customer?.linear_projects ?? [];
+
+    if (!projectIds.length) return Response.json([]);
+
+    const data = await linearRequest(GET_PROJECTS_BY_IDS_QUERY, {
+      filter: { id: { in: projectIds } },
+    });
+    return Response.json(data.projects?.nodes ?? []);
+  }
+
+  if (!initiativeId) return Response.json({ error: "Missing slug or initiativeId" }, { status: 400 });
 
   const data = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId });
   return Response.json(data.initiative?.projects?.nodes ?? []);
@@ -325,6 +398,36 @@ export async function handleGetMilestones(req: Request): Promise<Response> {
 
   const data = await linearRequest(GET_MILESTONES_QUERY, { projectId });
   return Response.json(data.project?.projectMilestones?.nodes ?? []);
+}
+
+export async function handleGetLabels(req: Request): Promise<Response> {
+  const schema = "portal";
+  const slug = new URL(req.url).searchParams.get("slug");
+  if (!slug) return Response.json({ error: "Missing slug" }, { status: 400 });
+
+  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
+  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Accept-Profile": schema,
+      },
+    },
+  );
+  const [customer] = await res.json();
+  const projectIds: string[] = customer?.linear_projects ?? [];
+  if (!projectIds.length) return Response.json([]);
+
+  const projectData = await linearRequest(GET_PROJECT_TEAM_QUERY, { id: projectIds[0] });
+  const teamId = projectData?.project?.teams?.nodes?.[0]?.id;
+  if (!teamId) return Response.json([]);
+
+  const data = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
+  return Response.json(data.team?.labels?.nodes ?? []);
 }
 
 export async function handleCreateMilestone(req: Request): Promise<Response> {

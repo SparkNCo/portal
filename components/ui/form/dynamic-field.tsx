@@ -22,7 +22,6 @@ import {
   switchFieldType,
   validations,
 } from './utils/functions';
-import GoogleAutoCompleteInput from './components/google-autocomplete';
 import { FormLabelComponent } from './components/form-label';
 import { HelpTooltip } from '../help-tooltip';
 import { iconMap } from './components/icon-map';
@@ -122,20 +121,6 @@ export function DynamicField({
           touched={touched}
           validationRules={validationRules}
         />
-      );
-
-    case 'address_autocomplete':
-      return (
-        <div key={name} className={className || 'basis-full'}>
-          <GoogleAutoCompleteInput
-            {...field}
-            values={values}
-            errors={errors}
-            touched={touched}
-            validationRules={validationRules}
-            countries={['AR']}
-          />
-        </div>
       );
 
     case 'select':

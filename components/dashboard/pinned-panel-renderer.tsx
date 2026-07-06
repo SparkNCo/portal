@@ -1,0 +1,189 @@
+"use client";
+
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ProgressPieChart } from "@/components/client/progress-pie-chart";
+import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
+import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
+import { MetricsPanel } from "@/components/metrics/metrics-panel";
+import { PriorityTasks } from "@/components/client/priority-tasks";
+import { PinButton } from "@/components/dashboard/pin-button";
+import type { PinnablePanelId } from "@/lib/pinnable-panels";
+
+const noopFilterState = {
+  selectedStatuses: [],
+  onlyActive: false,
+  availableStatuses: [],
+  hasCycles: false,
+  onToggleStatus: () => {},
+  onToggleActive: () => {},
+  onClearFilters: () => {},
+};
+
+const PRIORITY_RANK: Record<string, number> = {
+  Urgent: 4,
+  High: 3,
+  Medium: 2,
+  Low: 1,
+};
+
+function useRoadmapMilestones(slug: string) {
+  const { data: roadmap } = useQuery({
+    queryKey: ["roadmap", slug],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      if (!res.ok) throw new Error("Failed to fetch roadmap");
+      return res.json();
+    },
+    enabled: Boolean(slug),
+  });
+
+  return useMemo(() => {
+    if (!roadmap?.initiative?.projects?.nodes) return [];
+    return roadmap.initiative.projects.nodes.flatMap((project: any) =>
+      (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
+        ...milestone,
+        projectName: project.name,
+      })),
+    );
+  }, [roadmap]);
+}
+
+export function PinnedPanelRenderer({
+  panelId,
+  slug,
+  allIssues,
+  selectedProjectIds,
+  onOpenChat,
+}: Readonly<{
+  panelId: PinnablePanelId;
+  slug: string;
+  allIssues: any[];
+  selectedProjectIds?: Set<string>;
+  onOpenChat?: (title: string) => void;
+}>) {
+  const matchesSelectedProject = (i: any) =>
+    !selectedProjectIds ||
+    selectedProjectIds.size === 0 ||
+    selectedProjectIds.has(i.project?.id);
+
+  if (panelId === "progress_pie_chart") {
+    return (
+      <div className="relative">
+        <PinButton panelId={panelId} />
+        <ProgressPieChart issuesData={allIssues} />
+      </div>
+    );
+  }
+
+  if (panelId === "software_kpis") {
+    return (
+      <div className="relative">
+        <PinButton panelId={panelId} />
+        <SoftwareKPIs linearName={slug} />
+      </div>
+    );
+  }
+
+  if (panelId === "metrics_panel") {
+    return (
+      <div className="relative">
+        <PinButton panelId={panelId} />
+        <MetricsPanel slug={slug} />
+      </div>
+    );
+  }
+
+  if (panelId === "roadmap_timeline") {
+    return <RoadmapTimelinePinned panelId={panelId} slug={slug} />;
+  }
+
+  if (panelId === "build_product_decisions") {
+    const issues = allIssues.filter(
+      (i) => i.state?.name === "Business Review" && matchesSelectedProject(i),
+    );
+    return (
+      <div className="relative">
+        <PinButton panelId={panelId} />
+        <PriorityTasks
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          title="Product Decisions"
+          compact
+        />
+      </div>
+    );
+  }
+
+  if (panelId === "build_acceptance_testing") {
+    const issues = allIssues.filter(
+      (i) => i.state?.name === "UAT" && matchesSelectedProject(i),
+    );
+    return (
+      <div className="relative">
+        <PinButton panelId={panelId} />
+        <PriorityTasks
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          title="Acceptance Testing"
+          compact
+        />
+      </div>
+    );
+  }
+
+  if (panelId === "bugs_list") {
+    const bugs = allIssues
+      .filter((i) =>
+        (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
+      )
+      .sort((a, b) => {
+        const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
+        const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
+        if (rankA !== rankB) return rankB - rankA;
+        return (
+          new Date(a.createdAt ?? 0).getTime() -
+          new Date(b.createdAt ?? 0).getTime()
+        );
+      });
+
+    return (
+      <div className="relative w-full max-w-full overflow-hidden">
+        <PinButton panelId={panelId} />
+        <PriorityTasks
+          issuesData={bugs}
+          filterState={noopFilterState}
+          onOpenChat={() => {}}
+          title="Bugs"
+          compact
+        />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function RoadmapTimelinePinned({
+  panelId,
+  slug,
+}: Readonly<{ panelId: PinnablePanelId; slug: string }>) {
+  const milestones = useRoadmapMilestones(slug);
+  return (
+    <div className="relative">
+      <PinButton panelId={panelId} />
+      <RoadmapTimeline projectMilestones={milestones} />
+    </div>
+  );
+}

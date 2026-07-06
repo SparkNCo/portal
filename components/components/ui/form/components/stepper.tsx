@@ -1,5 +1,5 @@
 import React from 'react';
-import { Progress } from '../../progress';
+import { Progress } from '@/components/ui/progress';
 import { LayoutType } from '@/lib/types/utils/form';
 
 type Props = {

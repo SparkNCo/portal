@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { UserCheck } from "lucide-react";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 type User = {
   id: string;
@@ -29,13 +30,8 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
     queryKey: ["developer-assignments", userId],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${userId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          },
-        },
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${userId}`,
+        { headers: API_HEADERS },
       );
       return res.json();
     },
@@ -45,13 +41,9 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/assignments`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-          apikey: process.env.NEXT_PUBLIC_APIKEY!,
-          "Content-Type": "application/json",
-        },
+        headers: API_JSON_HEADERS,
         body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer, role: userRole, allocation: Number(allocation) }),
       });
       if (!res.ok) throw new Error("Failed to assign user");
@@ -125,7 +117,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                   id="allocation-input"
                   type="number"
                   min={1}
-                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
+                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                   value={allocation}
                   onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}

@@ -7,17 +7,26 @@ import { PendingBalancePanel } from "./billing-panels/pending-balance";
 import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 export async function fetchBillingData({ user }: { user: any }) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${user?.stripe_customer_id ?? user?.customer_id}`,
-  );
+  const customerId = user?.stripe_customer_id ?? user?.customer_id;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/client?customer_id=${customerId}`;
+  console.log("[fetchBillingData] requesting", { url, customerId, headers: API_HEADERS });
+
+  const res = await fetch(url, { headers: API_HEADERS });
+
+  console.log("[fetchBillingData] response status", res.status, res.ok);
 
   if (!res.ok) {
+    const body = await res.text().catch(() => "<unreadable body>");
+    console.error("[fetchBillingData] failed response body:", body);
     throw new Error("Failed to fetch billing data");
   }
 
-  return res.json();
+  const data = await res.json();
+  console.log("[fetchBillingData] success", data);
+  return data;
 }
 
 function calculateInvoicesBalance(invoices: any[] = []) {
@@ -57,10 +66,10 @@ export function BillingSection({
   const updatePaymentMethodMutation = useMutation({
     mutationFn: async (email: string) => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/create-customer-portal`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/create-customer-portal`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({ email }),
         },
       );
@@ -93,7 +102,9 @@ export function BillingSection({
 
   return (
     <div className="space-y-6">
-      {billingData?.subscription?.id ? (
+      {isLoading ? (
+        <LoadingDataPanel />
+      ) : (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <PendingBalancePanel balance={balance} />
@@ -108,8 +119,6 @@ export function BillingSection({
             onUpdatePaymentMethod={handleUpdatePaymentMethod}
           />
         </div>
-      ) : (
-        <LoadingDataPanel />
       )}
     </div>
   );

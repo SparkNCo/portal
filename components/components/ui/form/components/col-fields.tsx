@@ -1,5 +1,5 @@
 import { DynamicFieldProps } from '@/lib/types/utils/form';
-import { DynamicField } from '../dynamic-field';
+import { DynamicField } from '@/components/ui/form/dynamic-field';
 
 export const ColsFields = ({
   values,

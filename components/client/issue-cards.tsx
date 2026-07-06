@@ -1,19 +1,64 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare } from "lucide-react";
+import { Pencil, Gauge } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
+
+function EstimateBadge({ estimate }: { readonly estimate: number }) {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-chart-1/30 bg-chart-1/10 text-chart-1"
+    >
+      <Gauge className="h-3 w-3" />
+      {estimate}
+    </Badge>
+  );
+}
+
+const LABEL_COLOR_CLASSES: Record<string, string> = {
+  bug: "bg-destructive text-white",
+  improvement: "bg-[hsl(210,70%,35%)] text-white",
+  feature: "bg-success text-white",
+};
+
+export function LabelPill({
+  label,
+}: {
+  readonly label: { id: string; name: string; color: string };
+}) {
+  const knownClass = LABEL_COLOR_CLASSES[label.name.toLowerCase()];
+
+  if (knownClass) {
+    return (
+      <Badge variant="secondary" className={`border-transparent ${knownClass}`}>
+        {label.name}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="secondary"
+      className="border-transparent text-white"
+      style={{ backgroundColor: label.color }}
+    >
+      {label.name}
+    </Badge>
+  );
+}
 
 export function IssueCard({
   issue,
   onOpen,
-  onOpenChat,
+  onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onOpenChat?: (title: string) => void;
+  readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
 }) {
-  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
     <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
       <button
@@ -22,42 +67,53 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {hasUpdate && (
+        <span
+          className="absolute -top-1.5 -right-1.5 z-10 h-3 w-3 rounded-full bg-orange-500 ring-2 ring-background"
+          title="Recently updated"
+        />
+      )}
+      {onEdit && (
+        <button
+          type="button"
+          className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit ticket"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-mono text-muted-foreground">
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
-          <Badge variant="outline" className={priorityColors[issue.priorityLabel]}>
+          <Badge
+            variant="outline"
+            className={priorityColors[issue.priorityLabel]}
+          >
             {issue.priorityLabel}
           </Badge>
+          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
-        <p className="text-sm font-medium text-background-foreground mb-1 line-clamp-2">
+        <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
           {issue.title}
         </p>
-        {issue.description ? (
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-            {issue.description}
-          </p>
-        ) : (
-          <div className="mb-3" />
-        )}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 flex-wrap">
           <Badge
             variant="secondary"
-            className={statusColors[issue?.state?.name as keyof typeof statusColors]}
+            className={
+              statusColors[issue?.state?.name as keyof typeof statusColors]
+            }
           >
             {issue?.state?.name}
           </Badge>
-          {onOpenChat && (
-            <button
-              type="button"
-              className="relative z-10 text-muted-foreground hover:text-accent transition-colors"
-              onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
-              title="Open chat about this issue"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-            </button>
-          )}
+          {issue.labels?.nodes?.map((l) => (
+            <LabelPill key={l.id} label={l} />
+          ))}
         </div>
       </div>
     </div>
@@ -67,21 +123,28 @@ export function IssueCard({
 export function IssueListRow({
   issue,
   onOpen,
-  onOpenChat,
+  onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onOpenChat?: (title: string) => void;
+  readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
 }) {
-  const chatTitle = `${issue.branchName.slice(0, 7).toUpperCase()} ${issue.title}`;
   return (
-    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border group">
+    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {hasUpdate && (
+        <span
+          className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0"
+          title="Recently updated"
+        />
+      )}
       <span className="text-[10px] font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
@@ -91,17 +154,34 @@ export function IssueListRow({
       >
         {issue.priorityLabel}
       </Badge>
-      <p className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}>
+      {issue.estimate != null && (
+        <Badge
+          variant="outline"
+          className="gap-1 text-[10px] flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
+        >
+          <Gauge className="h-3 w-3" />
+          {issue.estimate}
+        </Badge>
+      )}
+      <p
+        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
+      >
         {issue.title}
       </p>
-      {onOpenChat && (
+      {issue.labels?.nodes?.map((l) => (
+        <LabelPill key={l.id} label={l} />
+      ))}
+      {onEdit && (
         <button
           type="button"
-          className="relative z-10 text-muted-foreground hover:text-accent transition-colors opacity-0 group-hover:opacity-100"
-          onClick={(e) => { e.stopPropagation(); onOpenChat(chatTitle); }}
-          title="Open chat about this issue"
+          className="relative z-10 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit ticket"
         >
-          <MessageSquare className="h-3.5 w-3.5" />
+          <Pencil className="h-3.5 w-3.5" />
         </button>
       )}
     </div>

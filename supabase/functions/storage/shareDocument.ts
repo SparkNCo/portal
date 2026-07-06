@@ -3,7 +3,7 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
-export async function shareDocument(req: Request) {
+export async function shareDocument(req: Request, schema: string) {
   try {
     const body = await req.json();
 
@@ -31,7 +31,7 @@ export async function shareDocument(req: Request) {
      * ✅ 1. Check permission (must be WRITE)
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
+    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -45,7 +45,7 @@ export async function shareDocument(req: Request) {
       });
     }
 
-    if (permissionData.permission !== "write") {
+    if (!["write", "owner"].includes(permissionData.permission)) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 403,
         headers: corsHeaders,
@@ -57,7 +57,7 @@ export async function shareDocument(req: Request) {
      * ✅ 2. Get users by emails
      * ---------------------------------------
      */
-    const { data: users, error: usersError } = await supabase.schema("portal")
+    const { data: users, error: usersError } = await supabase.schema(schema)
       .from("users")
       .select("id, email")
       .in("email", emails);
@@ -92,7 +92,7 @@ export async function shareDocument(req: Request) {
      * ✅ 4. Insert permissions
      * ---------------------------------------
      */
-    const { error: insertError } = await supabase.schema("portal")
+    const { error: insertError } = await supabase.schema(schema)
       .from("document_permissions")
       .insert(permissionsToInsert);
 

@@ -31,7 +31,7 @@ export function SettingsTabs() {
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
@@ -48,12 +48,27 @@ export function SettingsTabs() {
   const effectiveUserId = targetCustomer?.id ?? profile?.id;
   const effectiveStripeId = targetCustomer?.stripe_customer_id ?? (profile as any)?.stripe_customer_id;
 
+  console.log("[SettingsTabs][billing debug]", {
+    isAdminViewingCustomer,
+    customerSlug,
+    customersLoaded: customers?.length ?? null,
+    targetCustomer,
+    profileStripeId: (profile as any)?.stripe_customer_id,
+    effectiveStripeId,
+    queryEnabled: !!effectiveStripeId,
+  });
+
   const { data: billingData, isLoading } = useQuery({
     queryKey: ["billing", effectiveStripeId],
-    queryFn: () => fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } }),
+    queryFn: () => {
+      console.log("[SettingsTabs][billing debug] queryFn firing with stripeId:", effectiveStripeId);
+      return fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } });
+    },
     enabled: !!effectiveStripeId,
     staleTime: 1000 * 30,
   });
+
+  console.log("[SettingsTabs][billing debug] query state", { isLoading, hasData: !!billingData });
 
   return (
     <div className="space-y-6">

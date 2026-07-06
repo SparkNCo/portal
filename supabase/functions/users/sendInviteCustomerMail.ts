@@ -62,13 +62,21 @@ function InviteTemplateHtml({ inviteLink }: { inviteLink: string }) {
 }
 
 export async function sendInviteCustomerMail(email: string, inviteLink: string) {
+  const from = Deno.env.get("FROM_EMAIL");
+  console.log("[sendInviteCustomerMail] sending", { from, to: email, inviteLink });
+
   const response = await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
+    from,
     to: email,
     subject: "You've been invited to the portal",
     html: InviteTemplateHtml({ inviteLink }),
   });
 
-  console.log("[sendInviteCustomerMail] response:", response);
+  console.log("[sendInviteCustomerMail] response:", JSON.stringify(response));
+
+  if (response.error) {
+    throw new Error(`Failed to send invite email: ${response.error.message}`);
+  }
+
   return response;
 }

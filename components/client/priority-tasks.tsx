@@ -2,15 +2,18 @@
 
 import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
-import {
-  type Issue,
-  type PriorityTasksProps,
-  statusColors,
-} from "./issues.types";
+import { useUser } from "context/UserContext";
+import { type Issue, type PriorityTasksProps } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
+import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { TaskFilterPanel } from "./task-filter-panel";
+
+function canEditIssue(issue: Issue) {
+  return issue.state?.name !== "Done";
+}
 
 export type { Decision, TestCase, Issue, FilterState, PriorityTasksProps } from "./issues.types";
 export { STATUS_ORDER } from "./issues.types";
@@ -19,7 +22,7 @@ export { IssueDetailModal } from "./issue-detail-modal";
 export function PriorityTasks({
   issuesData,
   filterState,
-  onOpenChat,
+  onEditIssue,
   title = "Priority Tasks",
   compact = false,
   headerAction,
@@ -29,17 +32,25 @@ export function PriorityTasks({
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
+  const { profile } = useUser();
+  const { hasUnseenUpdate } = useIssueUpdateBadge();
+
   const {
     selectedStatuses,
     onlyActive,
-    availableStatuses,
-    hasCycles,
-    onToggleStatus,
-    onToggleActive,
-    onClearFilters,
+    selectedLabels = [],
+    selectedPriorities = [],
+    dateFrom = "",
+    dateTo = "",
   } = filterState;
 
-  const activeFilters = selectedStatuses.length + (onlyActive ? 1 : 0);
+  const activeFilters =
+    selectedStatuses.length +
+    selectedLabels.length +
+    selectedPriorities.length +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (onlyActive ? 1 : 0);
 
   const visibleIssues = titleFilter.trim()
     ? issuesData.filter((i) =>
@@ -53,10 +64,9 @@ export function PriorityTasks({
       onClose={() => setSelectedIssue(null)}
     />
   );
-
   if (compact) {
     return (
-      <Card className="bg-background border-border flex flex-col w-full h-full">
+      <Card className="bg-background border-border flex flex-col w-full h-full ">
         <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -81,7 +91,12 @@ export function PriorityTasks({
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
-                  onOpenChat={onOpenChat}
+                  onEdit={
+                    onEditIssue && canEditIssue(issue)
+                      ? () => onEditIssue(issue)
+                      : undefined
+                  }
+                  hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                 />
               ))}
             </div>
@@ -93,7 +108,7 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-border flex flex-col w-full overflow-hidden">
+    <Card className="bg-background border-border flex flex-col w-full">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
@@ -108,67 +123,25 @@ export function PriorityTasks({
             className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 relative"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFilterOpen((v) => !v);
+              }}
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              Filter
+              {activeFilters > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
             {filterOpen && (
-              <div
-                className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                role="menu"
-                tabIndex={0}
-              >
-                {hasCycles && (
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                      Cycle
-                    </p>
-                    <button
-                      onClick={onToggleActive}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
-                        onlyActive
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                      }`}
-                    >
-                      Active cycle only
-                    </button>
-                  </div>
-                )}
-
-                {availableStatuses.length > 0 && (
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                      Status
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {availableStatuses.map((status) => {
-                        const active = selectedStatuses.includes(status);
-                        return (
-                          <button
-                            key={status}
-                            onClick={() => onToggleStatus(status)}
-                            className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-all ${
-                              active
-                                ? `${statusColors[status as keyof typeof statusColors]} border-current opacity-100`
-                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted opacity-70 hover:opacity-100"
-                            }`}
-                          >
-                            {status}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {activeFilters > 0 && (
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                    onClick={onClearFilters}
-                  >
-                    <span className="text-base leading-none">×</span> Clear all filters
-                  </button>
-                )}
-              </div>
+              <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
             )}
           </div>
           <Button
@@ -196,12 +169,13 @@ export function PriorityTasks({
           <div
             ref={scrollRef}
             className={`
-              grid gap-4 pb-2
+              grid gap-2 px-3 py-2 grid-flow-row auto-rows-auto
+              grid-cols-[repeat(auto-fill,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
               ${
                 expanded
-                  ? "grid-flow-row grid-cols-[repeat(auto-fill,minmax(280px,1fr))] auto-rows-auto overflow-visible h-auto"
-                  : "grid-rows-[1fr_1fr] grid-flow-col auto-cols-[280px] overflow-x-auto h-full"
+                  ? "overflow-visible h-auto"
+                  : "max-h-[600px] overflow-y-auto"
               }
             `}
           >
@@ -210,7 +184,12 @@ export function PriorityTasks({
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
-                onOpenChat={onOpenChat}
+                onEdit={
+                  onEditIssue && canEditIssue(issue)
+                    ? () => onEditIssue(issue)
+                    : undefined
+                }
+                hasUpdate={hasUnseenUpdate(issue, profile?.email)}
               />
             ))}
           </div>

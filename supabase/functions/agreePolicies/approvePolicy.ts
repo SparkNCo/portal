@@ -1,11 +1,11 @@
 // @ts-nocheck
-
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { ApprovePolicySchema, ApprovePolicyResponseSchema } from "./zod.ts";
 
 export const approvePolicy = async (req: Request) => {
   try {
+    const schema = "portal";
     const body = await req.json();
 
     const parsedBody = ApprovePolicySchema.safeParse(body);
@@ -26,7 +26,7 @@ export const approvePolicy = async (req: Request) => {
     const { userId, notionUrl } = parsedBody.data;
 
     // 1️⃣ Mark developer as approved and save the policy URL
-    const { data, error } = await supabase.schema("portal")
+    const { data, error } = await supabase.schema(schema)
       .from("developers")
       .upsert(
         { user_id: userId, policies_approved: true, policy_notion_url: notionUrl ?? null },

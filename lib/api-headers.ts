@@ -1,6 +1,6 @@
 export const API_HEADERS = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
+  Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
+  apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
 };
 
 export const API_JSON_HEADERS = {

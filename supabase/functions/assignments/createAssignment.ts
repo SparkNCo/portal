@@ -1,10 +1,10 @@
 // @ts-nocheck
-
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 export const createAssignment = async (req: Request) => {
   try {
+    const schema = "portal";
     const body = await req.json();
     const { user_id, customer_id, role, allocation } = body;
 
@@ -26,7 +26,7 @@ export const createAssignment = async (req: Request) => {
     const finalAllocation = finalRole === "stakeholder" ? null : (allocation ?? 40);
 
     // 🔍 Check if already exists
-    const { data: existing } = await supabase.schema("portal")
+    const { data: existing } = await supabase.schema(schema)
       .from("assignments")
       .select("*")
       .eq("user_id", user_id)
@@ -44,7 +44,7 @@ export const createAssignment = async (req: Request) => {
     }
 
     // ✅ Insert assignment
-    const { data, error } = await supabase.schema("portal")
+    const { data, error } = await supabase.schema(schema)
       .from("assignments")
       .insert([
         {
@@ -64,7 +64,7 @@ export const createAssignment = async (req: Request) => {
 
     // Append the new assignment id into the text[] column for both users
     for (const id of [user_id, customer_id]) {
-      const { data: userData, error: fetchError } = await supabase.schema("portal")
+      const { data: userData, error: fetchError } = await supabase.schema(schema)
         .from("users")
         .select("assignment_id")
         .eq("id", id)
@@ -73,7 +73,7 @@ export const createAssignment = async (req: Request) => {
       if (fetchError) throw new Error(fetchError.message);
 
       const current: string[] = userData?.assignment_id ?? [];
-      const { error: updateError } = await supabase.schema("portal")
+      const { error: updateError } = await supabase.schema(schema)
         .from("users")
         .update({ assignment_id: [...current, data.id] })
         .eq("id", id);

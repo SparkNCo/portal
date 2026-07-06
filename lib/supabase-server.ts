@@ -6,7 +6,7 @@ export const createSupabaseServerClient = () => {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_APIKEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!,
     {
       cookies: {
         getAll() {

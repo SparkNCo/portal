@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { SparkButton } from "@/components/ui/spark-button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { toast } from "sonner";
 
 interface PolicyApprovalModalProps {
   open: boolean;
@@ -17,17 +18,16 @@ export function PolicyApprovalModal({
   notionUrl,
   onApproved,
 }: PolicyApprovalModalProps) {
-  const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
 
   // 🔹 Mutation to approve policies
-  const { mutate: approvePolicies } = useMutation({
+  const { mutate: approvePolicies, isPending: loading } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/approve`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/approve`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: API_JSON_HEADERS,
           body: JSON.stringify({ userId, notionUrl }),
         },
       );
@@ -38,6 +38,7 @@ export function PolicyApprovalModal({
       queryClient.invalidateQueries({ queryKey: ["policies-status", userId] });
       onApproved?.();
     },
+    onError: () => toast.error("Failed to approve policies. Please try again."),
   });
 
   if (!open) return null;
@@ -62,10 +63,7 @@ export function PolicyApprovalModal({
           <SparkButton
             variant="primary"
             className="w-full"
-            onClick={() => {
-              setLoading(true);
-              approvePolicies();
-            }}
+            onClick={() => approvePolicies()}
             disabled={loading}
           >
             {loading ? "Approving..." : "I Agree"}

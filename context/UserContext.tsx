@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "../lib/supabase-client";
+import { API_JSON_HEADERS } from "../lib/api-headers";
 
 type Assignment = {
   id: string;
@@ -60,16 +61,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     if (user?.email) {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(
             user.email,
           )}`,
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-              apikey: process.env.NEXT_PUBLIC_APIKEY!,
-              "Content-Type": "application/json",
-            },
-          },
+          { headers: API_JSON_HEADERS },
         );
 
         if (!res.ok) throw new Error("Failed to fetch profile");

@@ -57,7 +57,7 @@ export function useCometChat() {
       if (profile.role === "stakeholder") {
         // Step 1: find the customer this stakeholder is assigned to
         const stakeholderRes = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile.id}`,
           { headers: API_JSON_HEADERS },
         );
         const stakeholderAssignments: any[] = await stakeholderRes.json();
@@ -71,7 +71,7 @@ export function useCometChat() {
 
           // Step 2: fetch developers assigned to that customer
           const devRes = await fetch(
-            `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
             { headers: API_JSON_HEADERS },
           );
           assignees = await devRes.json();
@@ -82,7 +82,7 @@ export function useCometChat() {
       } else {
         // Customer: fetch all assignees (developers + stakeholders)
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${profile.id}`,
           { headers: API_JSON_HEADERS },
         );
         assignees = await res.json();

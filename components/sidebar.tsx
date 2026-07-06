@@ -15,6 +15,8 @@ import {
   LayoutGrid,
   ChevronLeft,
   MessageCircle,
+  Hammer,
+  Bug,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
@@ -23,7 +25,9 @@ import { useSidebar } from "@/lib/sidebar-context";
 
 const clientNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Roadmap", icon: Map },
+  { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "settings", label: "Settings", icon: Settings },
@@ -44,7 +48,9 @@ const adminNavItems = [
 
 const stakeholderNavItems = [
   { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Roadmap", icon: Map },
+  { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
 ];
@@ -65,7 +71,9 @@ export function Sidebar() {
 
   const customerPanelItems = [
     { href: "client", label: "Dashboard", icon: LayoutDashboard },
-    { href: "roadmap", label: "Roadmap", icon: Map },
+    { href: "roadmap", label: "Monitor", icon: Map },
+    { href: "build", label: "Build", icon: Hammer },
+    { href: "bugs", label: "Bugs", icon: Bug },
     //{ href: "developer", label: "Developer", icon: Code2 },
     { href: "chat", label: "Chat", icon: MessageCircle },
     { href: "documents", label: "Documents", icon: FileText },
@@ -135,7 +143,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   selectedPanel === item.href
-                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >
@@ -147,8 +155,8 @@ export function Sidebar() {
         ) : (
           navItems.map((item) => {
             const isActive =
-              pathname === `/dashboard/${item.href}` ||
-              pathname.startsWith(`/dashboard/${item.href}/`);
+              pathname.endsWith(`/dashboard/${item.href}`) ||
+              pathname.includes(`/dashboard/${item.href}/`);
             const hrefWithParams = params
               ? `${item.href}?${params}`
               : item.href;
@@ -160,7 +168,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                    ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >

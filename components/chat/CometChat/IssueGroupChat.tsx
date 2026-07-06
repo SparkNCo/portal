@@ -9,22 +9,32 @@ import { MessageBubble } from "./MessageBubble";
 export function IssueGroupChat({
   user,
   group,
+  onCreateGroup,
+  onGroupCreated,
 }: {
   readonly user: CometChat.User;
-  readonly group: CometChat.Group;
+  readonly group: CometChat.Group | null;
+  /** Creates the CometChat group (and adds all members) — only called when the first message is sent. */
+  readonly onCreateGroup: () => Promise<CometChat.Group>;
+  readonly onGroupCreated: (group: CometChat.Group) => void;
 }) {
   const [messages, setMessages] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const guid = group.getGuid();
+  const guid = group?.getGuid();
 
   useEffect(() => {
-    fetchMessages();
+    if (!guid) {
+      setLoading(false);
+      return;
+    }
+    fetchMessages(guid);
   }, [guid]);
 
   useEffect(() => {
+    if (!guid) return;
     const listenerId = `issue-chat-${guid}`;
     CometChat.addMessageListener(
       listenerId,
@@ -43,18 +53,18 @@ export function IssueGroupChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (activeGuid: string) => {
     try {
       setLoading(true);
-      if (!group.getHasJoined()) {
+      if (!group?.getHasJoined()) {
         await CometChat.joinGroup(
-          guid,
+          activeGuid,
           CometChat.GROUP_TYPE.PUBLIC as unknown as CometChat.GroupType,
           "",
         );
       }
       const req = new CometChat.MessagesRequestBuilder()
-        .setGUID(guid)
+        .setGUID(activeGuid)
         .setLimit(50)
         .build();
       const msgs = await req.fetchPrevious();
@@ -70,8 +80,15 @@ export function IssueGroupChat({
     if (!message.trim() || sending) return;
     setSending(true);
     try {
+      let activeGuid = guid;
+      if (!activeGuid) {
+        const created = await onCreateGroup();
+        onGroupCreated(created);
+        activeGuid = created.getGuid();
+      }
+
       const textMsg = new CometChat.TextMessage(
-        guid,
+        activeGuid,
         message.trim(),
         CometChat.RECEIVER_TYPE.GROUP,
       );

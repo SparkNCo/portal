@@ -8,6 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export const getAssignmentsByDeveloper = async (req: Request) => {
   try {
+    const schema = "portal";
     const url = new URL(req.url);
     const developer_id = url.searchParams.get("developer");
 
@@ -24,7 +25,7 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
     /**
      * 1. Get all assignments where user_id = developer_id
      */
-    const { data: assignments, error: assignmentsError } = await supabase.schema("portal")
+    const { data: assignments, error: assignmentsError } = await supabase.schema(schema)
       .from("assignments")
       .select("id, role, allocation, joined, customer_id")
       .eq("user_id", developer_id);
@@ -43,7 +44,7 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
      */
     const customerIds = assignments.map((a) => a.customer_id);
 
-    const { data: customerUsers, error: customersError } = await supabase.schema("portal")
+    const { data: customerUsers, error: customersError } = await supabase.schema(schema)
       .from("users")
       .select("id, email, customer_id")
       .in("id", customerIds);
@@ -57,7 +58,7 @@ export const getAssignmentsByDeveloper = async (req: Request) => {
       .map((u) => u.customer_id)
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
 
-    const { data: clients, error: clientsError } = await supabase.schema("portal")
+    const { data: clients, error: clientsError } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id, linear_slug, clientName")
       .in("customer_id", clientIds);

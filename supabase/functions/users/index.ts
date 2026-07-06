@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
+    const schema = "portal";
 
     if (req.method === "GET") {
       console.log("[users GET]", {
@@ -22,10 +23,10 @@ Deno.serve(async (req) => {
         hasAuth: !!req.headers.get("authorization"),
         apiKeyPrefix: req.headers.get("apikey")?.slice(0, 10),
       });
-      return await handleGet(url);
+      return await handleGet(url, schema);
     }
-    if (req.method === "PATCH") return await handlePatch(req);
-    if (req.method === "POST") return await handlePost(req, url);
+    if (req.method === "PATCH") return await handlePatch(req, schema);
+    if (req.method === "POST") return await handlePost(req, url, schema);
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
@@ -34,12 +35,12 @@ Deno.serve(async (req) => {
   }
 });
 
-const handleGet = async (url: URL) => {
+const handleGet = async (url: URL, schema: string) => {
   const type = url.searchParams.get("type");
   const email = url.searchParams.get("email");
 
   if (type === "customers") {
-    const { data: customerUsers, error: usersError } = await supabase.schema("portal")
+    const { data: customerUsers, error: usersError } = await supabase.schema(schema)
       .from("users")
       .select("id, email, customer_id")
       .eq("role", "customer");
@@ -48,7 +49,7 @@ const handleGet = async (url: URL) => {
     const clientIds = (customerUsers ?? [])
       .map((u) => u.customer_id)
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
-    const { data: clients, error: clientsError } = await supabase.schema("portal")
+    const { data: clients, error: clientsError } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id, clientName, linear_slug, stripe_customer_id")
       .in("customer_id", clientIds);
@@ -69,31 +70,31 @@ const handleGet = async (url: URL) => {
   }
 
   if (!email) {
-    const users = await getAllUsers();
+    const users = await getAllUsers(schema);
     return jsonResponse(users);
   }
 
-  const user = await fetchUser(email);
+  const user = await fetchUser(email, schema);
   return jsonResponse(user);
 };
 
-const handlePatch = async (req: Request) => {
+const handlePatch = async (req: Request, schema: string) => {
   const body = await req.json();
-  const updatedUser = await updateUser(body);
+  const updatedUser = await updateUser(body, schema);
   return jsonResponse(updatedUser);
 };
 
-const handlePost = async (req: Request, url: URL) => {
+const handlePost = async (req: Request, url: URL, schema: string) => {
   const body = await req.json();
   const type = url.searchParams.get("type");
 
   if (!type || type === "developer" || type === "stakeholder") {
-    const newUser = await createUser(body);
+    const newUser = await createUser(body, schema);
     return jsonResponse(newUser);
   }
 
   if (type === "customer") {
-    const result = await createCustomerFlow(body);
+    const result = await createCustomerFlow(body, schema);
     return jsonResponse(result);
   }
 
@@ -122,8 +123,8 @@ const jsonResponse = (data: any, status = 200) => {
 // 🔍 GET ONE USER
 // =========================
 
-const fetchUser = async (email: string) => {
-  const { data, error } = await supabase.schema("portal")
+const fetchUser = async (email: string, schema: string) => {
+  const { data, error } = await supabase.schema(schema)
     .from("users")
     .select("*")
     .eq("email", email)
@@ -136,7 +137,7 @@ const fetchUser = async (email: string) => {
   // back into the profile when this user is linked to a client record.
   let client: { clientName?: string | null; linear_slug?: string | null; stripe_customer_id?: string | null } | null = null;
   if (data.customer_id && UUID_RE.test(data.customer_id)) {
-    const { data: clientRow } = await supabase.schema("portal")
+    const { data: clientRow } = await supabase.schema(schema)
       .from("customers")
       .select("clientName, linear_slug, stripe_customer_id")
       .eq("customer_id", data.customer_id)
@@ -148,7 +149,7 @@ const fetchUser = async (email: string) => {
   data.stripe_customer_id = client?.stripe_customer_id ?? null;
 
   if (data.assignment_id?.length > 0) {
-    const { data: assignments, error: assignmentError } = await supabase.schema("portal")
+    const { data: assignments, error: assignmentError } = await supabase.schema(schema)
       .from("assignments")
       .select("*")
       .in("id", data.assignment_id)
@@ -158,7 +159,7 @@ const fetchUser = async (email: string) => {
 
     const enrichedAssignments = await Promise.all(
       (assignments ?? []).map(async (assignment: any) => {
-        const { data: customerUser } = await supabase.schema("portal")
+        const { data: customerUser } = await supabase.schema(schema)
           .from("users")
           .select("customer_id")
           .eq("id", assignment.customer_id)
@@ -166,7 +167,7 @@ const fetchUser = async (email: string) => {
 
         let client: { clientName?: string | null; linear_slug?: string | null } | null = null;
         if (customerUser?.customer_id && UUID_RE.test(customerUser.customer_id)) {
-          const { data: clientRow } = await supabase.schema("portal")
+          const { data: clientRow } = await supabase.schema(schema)
             .from("customers")
             .select("clientName, linear_slug")
             .eq("customer_id", customerUser.customer_id)

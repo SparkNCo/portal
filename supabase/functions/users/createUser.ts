@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
-export const createUser = async (body: any) => {
+export const createUser = async (body: any, schema: string) => {
   const {
     email,
     role = "developer",
@@ -28,32 +28,39 @@ export const createUser = async (body: any) => {
   let authUserId: string;
   let inviteLink: string;
 
-  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  });
+  const { data: inviteData, error: inviteError } =
+    await supabase.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo },
+    });
 
   if (inviteError) {
     if (!inviteError.message.includes("already been registered")) {
       throw new Error(`Auth invite failed: ${inviteError.message}`);
     }
+    console.log("hi");
 
     // User already exists in auth — find them and generate a recovery link instead
-    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
+    const { data: listData, error: listError } =
+      await supabase.auth.admin.listUsers();
+    if (listError)
+      throw new Error(`Could not list auth users: ${listError.message}`);
 
     const existingAuthUser = listData.users.find((u: any) => u.email === email);
-    if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
+    if (!existingAuthUser)
+      throw new Error("User exists in auth but could not be found");
 
     authUserId = existingAuthUser.id;
 
-    const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo },
-    });
-    if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
+    const { data: recoveryData, error: recoveryError } =
+      await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo },
+      });
+    if (recoveryError)
+      throw new Error(`Link generation failed: ${recoveryError.message}`);
 
     inviteLink = recoveryData.properties.action_link;
   } else {
@@ -61,31 +68,40 @@ export const createUser = async (body: any) => {
     inviteLink = inviteData.properties.action_link;
   }
 
-  const { data, error: upsertError } = await supabase.schema("portal")
+  const { data, error: upsertError } = await supabase
+    .schema(schema)
     .from("users")
     .upsert(
-      [{
-        id: authUserId,
-        email,
-        role,
-        customer_id,
-        auth_id,
-        firstName,
-        lastName,
-        phoneNumber,
-        userName,
-      }],
+      [
+        {
+          id: authUserId,
+          email,
+          role,
+          customer_id,
+          auth_id,
+          firstName,
+          lastName,
+          phoneNumber,
+          userName,
+        },
+      ],
       { onConflict: "id" },
     )
     .select()
     .single();
 
   if (upsertError) {
+    console.error("[createUser] users upsert failed", upsertError.message);
     if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(upsertError.message);
   }
+  console.log("[createUser] user upserted, sending invite email", {
+    authUserId,
+    email,
+  });
 
   await sendInviteCustomerMail(email, inviteLink);
+  console.log("[createUser] invite email sent");
 
   return data;
 };

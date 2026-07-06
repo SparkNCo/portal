@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
@@ -37,16 +38,10 @@ export default function LoginForm({
     queryKey: ["customer", sessionEmail],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(
           sessionEmail!,
         )}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
-            "Content-Type": "application/json",
-          },
-        },
+        { headers: API_JSON_HEADERS },
       );
 
       if (!res.ok) throw new Error("Failed to fetch customer");
@@ -131,12 +126,12 @@ export default function LoginForm({
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/reset-password`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/reset-password`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ email: resetEmail }),

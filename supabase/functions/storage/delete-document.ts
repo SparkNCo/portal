@@ -7,7 +7,7 @@ import {
   DeleteDocumentResponseSchema,
 } from "./zod.ts";
 
-export async function deleteDocument(req: Request) {
+export async function deleteDocument(req: Request, schema: string) {
   try {
     const body = await req.json();
 
@@ -33,7 +33,7 @@ export async function deleteDocument(req: Request) {
      * ✅ 1. CHECK OWNER PERMISSION
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase.schema("portal")
+    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("permission")
       .eq("user_id", user_id)
@@ -62,7 +62,7 @@ export async function deleteDocument(req: Request) {
      * ✅ 2. DELETE DOCUMENT
      * ---------------------------------------
      */
-    const { error } = await supabase.schema("portal")
+    const { error } = await supabase.schema(schema)
       .from("documents")
       .delete()
       .eq("id", document_id);

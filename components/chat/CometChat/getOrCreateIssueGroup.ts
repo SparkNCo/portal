@@ -23,13 +23,26 @@ async function fetchAssigneeUids(url: string, memberUids: Set<string>) {
   assignees.filter((a) => a.user_id).forEach((a) => memberUids.add(a.user_id));
 }
 
+function buildGroupGuid(issueId: string): string {
+  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+  return `issue_${safeId}`;
+}
+
+/** Looks up the issue's CometChat group without creating one. Returns null if no one has sent a message yet. */
+export async function getExistingIssueGroup(issueId: string): Promise<CometChat.Group | null> {
+  try {
+    return await CometChat.getGroup(buildGroupGuid(issueId));
+  } catch {
+    return null;
+  }
+}
+
 async function buildIssueGroup(
   issueId: string,
   issueTitle: string,
   profile: any,
 ): Promise<CometChat.Group> {
-  const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-  const deterministicGuid = `issue_${safeId}`;
+  const deterministicGuid = buildGroupGuid(issueId);
 
   try {
     return await CometChat.getGroup(deterministicGuid);
@@ -41,7 +54,7 @@ async function buildIssueGroup(
   try {
     if (profile?.role === "stakeholder") {
       const stakeholderRes = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile.id}`,
         { headers: API_JSON_HEADERS },
       );
       const stakeholderAssignments: any[] = await stakeholderRes.json();
@@ -50,13 +63,13 @@ async function buildIssueGroup(
       if (customerIds.length > 0) {
         customerIds.forEach((id: string) => memberUids.add(id));
         await fetchAssigneeUids(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
           memberUids,
         );
       }
     } else if (profile?.id) {
       await fetchAssigneeUids(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${profile.id}`,
         memberUids,
       );
     }

@@ -10,8 +10,11 @@ import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User } from "lucide-react";
 import { CustomerSlugProvider } from "context/CustomerSlugContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import ClientDashboard from "../client/page";
 import RoadmapPage from "../roadmap/page";
+import BuildPage from "../build/page";
+import BugsPage from "../bugs/page";
 import DeveloperPage from "../developer/page";
 import DocumentsPage from "../documents/page";
 import SettingsPage from "../settings/page";
@@ -32,16 +35,15 @@ type DeveloperAssignment = {
   joined: string;
 };
 
-const apiHeaders = {
-  Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-  apikey: process.env.NEXT_PUBLIC_APIKEY!,
-  "Content-Type": "application/json",
-};
 
 function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug: string }) {
   switch (panel) {
     case "roadmap":
       return <RoadmapPage />;
+    case "build":
+      return <BuildPage />;
+    case "bugs":
+      return <BugsPage />;
     case "developer":
       return <DeveloperPage />;
     case "documents":
@@ -98,8 +100,8 @@ function DashboardsContent() {
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
-        { headers: apiHeaders },
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
       return res.json();
@@ -114,8 +116,8 @@ function DashboardsContent() {
     queryKey: ["developer-assignments", profile?.id],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile!.id}`,
-        { headers: apiHeaders },
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile!.id}`,
+        { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch assignments");
       return res.json();

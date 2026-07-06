@@ -26,7 +26,11 @@ export function PaymentMethodPanel({
               No payment method added
             </p>
           </div>
-          <Button size="sm" className="self-start sm:self-auto" onClick={onUpdatePaymentMethod}>
+          <Button
+            size="sm"
+            className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={onUpdatePaymentMethod}
+          >
             Add Card
           </Button>
         </CardContent>
@@ -51,7 +55,11 @@ export function PaymentMethodPanel({
             </p>
           </div>
         </div>
-        <Button size="sm" className="self-start sm:self-auto" onClick={onUpdatePaymentMethod}>
+        <Button
+          size="sm"
+          className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={onUpdatePaymentMethod}
+        >
           Update Card
         </Button>
       </CardContent>

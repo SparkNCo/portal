@@ -15,11 +15,10 @@ The URL follows the pattern `/{clientName}/dashboard/client`, where `clientName`
 
 ## Layout & Navigation
 
-Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/dashboard/(portal)/layout.tsx`. That layout wraps all content with three things:
+Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/dashboard/(portal)/layout.tsx`. That layout wraps all content with two things:
 
 - **AuthGate** — checks that a valid Supabase session exists. If not, redirects to `/`.
 - **Sidebar** — the left navigation panel (60px wide on desktop, slide-in drawer on mobile).
-- **ConsentProvider** — handles PostHog analytics consent.
 
 ### Sidebar nav items per role
 
@@ -70,9 +69,17 @@ At the top of the dashboard there is a row of **project filter buttons** — one
 
 ---
 
-## Create Issue button
+## New project Request button
 
-To the right of the project filters sits the **Create Issue** button (`components/shared/create-issue.tsx`), rendered in `compact` mode. It opens the issue creation dialog. See `app/docs/FEATURES_FLOWS.md` for the full issue creation flow.
+To the right of the project filters sits the **New project Request** button (`components/client/request-project-dialog.tsx`). Unlike the Build/Bugs pages, the Dashboard does not use `CreateIssue` — this button opens its own lightweight dialog instead:
+
+- A blue info banner explains the flow: *"Tell us about your idea and we'll email our team the details — no need to set anything up yourself."*
+- **Title** — required
+- **Description** *(optional)* — rich text editor (same `RichTextEditor` used for Feature Request descriptions), so the client can format their idea
+
+On submit, it calls `POST /project-requests` with `{ title, description?, requestedBy, slug }`. The backend (`supabase/functions/project-requests/`) does **not** touch Linear — it fetches every `portal.users` row with `role === "admin"` and emails each one the request details via Resend. A success toast confirms the email was sent and the dialog resets.
+
+See `docs/FEATURES_FLOWS.md` (section "New Project Request") for the full flow, including the API contract.
 
 ---
 
@@ -107,6 +114,16 @@ Shows the four **DORA engineering metrics** for the customer's team, fetched fro
 
 If no metrics are available yet, the card shows "No metrics available."
 
+**Calculation notes — Deploy Frequency / Change Failure Rate:** derived from merged pull requests, not branch names. A PR/commit is treated as a "fix" (excluded from Deploy Frequency, counted toward Change Failure Rate) when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:` (or match `fix: SPA-<id>` for CFR). A PR only counts toward Deploy Frequency if its CI status is `success`. See `supabase/functions/dora/github.ts` (`ERROR_SIGNALS`, `isHotfix`).
+
+**Calculation notes — Lead Time for Changes / MTTR:** these require BOTH:
+- PR title starts with `feat/` or `release/` (Lead Time) or `fix/` (MTTR, can also be in a commit message), AND
+- the PR's branch name starts with `<github-issue-number>-` (e.g. `42-add-login`), used to look up a **GitHub Issue** (not a Linear ticket) via `GET /repos/{repo}/issues/{number}`.
+
+The metric value is `pr.merged_at - issue.created_at` in hours, averaged across all matching PRs. If no PR matches both conditions, the card shows no value for that metric. Repos using Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names will never populate these two metrics. See `supabase/functions/dora/leadTime.ts` and `supabase/functions/dora/mttr.ts`.
+
+**How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Deploy Frequency is cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries to `dora_metrics.deploy_freq_details.deployments` (deduped, never overwritten). If the daily cron runs without gaps, Deploy Frequency eventually captures all merges; a gap of more than 24 hours causes PRs merged in that gap to be permanently missed from Deploy Frequency (though they still appear in CFR's scan).
+
 ### 3. Product Decisions — `PriorityTasks` (Business Review)
 
 **Source:** `components/client/priority-tasks.tsx` + `components/client/issue-detail-modal.tsx`
@@ -115,7 +132,7 @@ Shows all issues currently in the **Business Review** state. These are issues wh
 
 Issues are sorted by question count — those with the most unanswered questions appear first.
 
-Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with five tabs: Description, Chat, Tests, Decisions, and Design. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 The **chat icon** on each card navigates to the Chat page with that issue pre-selected (via `?newChat=...` query param).
 
@@ -177,8 +194,10 @@ User lands on /{slug}/dashboard/client
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Product Decisions and Acceptance Testing |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions tabs |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
-| `components/shared/create-issue.tsx` | Create Issue dialog |
+| `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
+| `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
+| `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `context/UserContext.tsx` | Provides `profile` (role, email, id, linear_slug) |
 | `context/CustomerSlugContext.tsx` | Provides the active customer slug when admin/dev is previewing a customer |

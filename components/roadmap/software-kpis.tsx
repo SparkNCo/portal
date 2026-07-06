@@ -51,7 +51,7 @@ interface DoraMetric {
 
 async function fetchDoraMetrics(linearName: string): Promise<DoraMetric[]> {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/get-dora-metrics?linear_name=${encodeURIComponent(linearName)}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-dora-metrics?linear_name=${encodeURIComponent(linearName)}`,
     {
       headers: API_HEADERS,
     },

@@ -1,6 +1,6 @@
 import { Field, FormikErrors, FormikTouched, FormikValues } from 'formik';
 import { FormLabelComponent } from './form-label';
-import { Textarea } from '../../textarea';
+import { Textarea } from '@/components/ui/textarea';
 import { ErrorMessage } from './error-message';
 import { DynamicFieldType } from '@/lib/types/utils/form';
 
