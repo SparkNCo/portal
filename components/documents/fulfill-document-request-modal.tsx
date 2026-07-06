@@ -124,6 +124,8 @@ export function FulfillDocumentRequestModal({
           </p>
 
           <div
+            role="button"
+            tabIndex={0}
             onDragOver={(e) => {
               e.preventDefault();
               setIsDragging(true);
@@ -135,6 +137,12 @@ export function FulfillDocumentRequestModal({
               handleFiles(Array.from(e.dataTransfer.files));
             }}
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
             className={cn(
               "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors cursor-pointer",
               isDragging
