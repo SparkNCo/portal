@@ -51,6 +51,7 @@ function buildFeatureDescription(description: string, requirements: string) {
 
 export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [expanded, setExpanded] = useState(false);
+  const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
@@ -95,6 +96,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   });
 
   function reset() {
+    setDetailsRevealed(false);
     setTitle("");
     setDescription("");
     setRequirements("");
@@ -127,139 +129,153 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
       />
       {expanded && (
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5 md:col-span-2">
-            <Label>Title</Label>
-            <Input
-              placeholder="Brief summary..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-0"
-            />
-          </div>
-
-          <div className="space-y-1.5 md:col-span-2">
-            <Label>Description</Label>
-            <RichTextEditor
-              placeholder="Describe the feature you'd like in plain language..."
-              value={description}
-              onChange={setDescription}
-              className="border-0"
-              minHeight="90px"
-            />
-          </div>
-
-          <div className="space-y-1.5 md:col-span-2">
-            <Label>
-              Requirements{" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <RichTextEditor
-              placeholder="How will you know this feature is working well?"
-              value={requirements}
-              onChange={setRequirements}
-              className="border-0"
-              minHeight="70px"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>
-              Project{" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <ProjectSelect
-              projects={projects}
-              value={selectedProjectId}
-              onValueChange={setSelectedProjectId}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Priority</Label>
-            <PrioritySelect value={priority} onValueChange={setPriority} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>
-              Estimate (points){" "}
-              <span className="text-muted-foreground font-normal">(optional)</span>
-            </Label>
-            <Input
-              type="number"
-              min="0"
-              step="1"
-              placeholder="e.g. 3"
-              value={estimate}
-              onChange={(e) => setEstimate(e.target.value)}
-              className="bg-secondary border-0"
-            />
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <Label>
-            Attachments{" "}
-            <span className="text-muted-foreground font-normal">(optional)</span>
-          </Label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              addFiles(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
+          <Label>Title</Label>
+          <Input
+            placeholder="Brief summary..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="bg-secondary border-0"
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-            Add files
-          </Button>
+        </div>
 
-          {attachments.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              {attachments.map((file) => (
-                <div
-                  key={file.name}
-                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <p className="text-sm truncate">{file.name}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 flex-shrink-0"
-                    onClick={() => removeFile(file.name)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
+        {!detailsRevealed ? (
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setDetailsRevealed(true)}
+              disabled={!title.trim()}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              Continue
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Description</Label>
+                <RichTextEditor
+                  placeholder="Describe the feature you'd like in plain language..."
+                  value={description}
+                  onChange={setDescription}
+                  className="border-0"
+                  minHeight="90px"
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>
+                  Requirements{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <RichTextEditor
+                  placeholder="How will you know this feature is working well?"
+                  value={requirements}
+                  onChange={setRequirements}
+                  className="border-0"
+                  minHeight="70px"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  Project{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <ProjectSelect
+                  projects={projects}
+                  value={selectedProjectId}
+                  onValueChange={setSelectedProjectId}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Priority</Label>
+                <PrioritySelect value={priority} onValueChange={setPriority} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  Estimate (points){" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 3"
+                  value={estimate}
+                  onChange={(e) => setEstimate(e.target.value)}
+                  className="bg-secondary border-0"
+                />
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="flex justify-end">
-          <Button
-            onClick={handleSubmit}
-            disabled={!title.trim() || mutation.isPending}
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-          >
-            {mutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Submit Feature Request"
-            )}
-          </Button>
-        </div>
+            <div className="space-y-1.5">
+              <Label>
+                Attachments{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  addFiles(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+                Add files
+              </Button>
+
+              {attachments.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  {attachments.map((file) => (
+                    <div
+                      key={file.name}
+                      className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <p className="text-sm truncate">{file.name}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0"
+                        onClick={() => removeFile(file.name)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSubmit}
+                disabled={!title.trim() || mutation.isPending}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                {mutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Submit Feature Request"
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
       )}
     </Card>

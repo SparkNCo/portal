@@ -20,7 +20,7 @@ export function CollapsiblePanelHeader({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onToggle();
       }}
-      className="flex items-center justify-between cursor-pointer select-none"
+      className="flex flex-row items-center justify-between cursor-pointer select-none"
     >
       <CardTitle className="flex items-center gap-2">
         {icon}

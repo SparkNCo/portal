@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,15 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-
-async function fetchProjects(slug: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${slug}`,
-    { headers: API_JSON_HEADERS },
-  );
-  if (!res.ok) throw new Error("Failed to fetch projects");
-  return res.json() as Promise<{ id: string; name: string }[]>;
-}
+import { fetchProjects } from "@/lib/issues-api";
+import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
 
 async function postDocumentRequest(payload: {
   customerSlug: string;
@@ -163,27 +156,13 @@ export function RequestDocumentDialog({
               />
             </div>
 
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                disabled={mutation.isPending}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!title.trim() || mutation.isPending}
-                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                {mutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Submit Request"
-                )}
-              </Button>
-            </div>
+            <DialogFooterActions
+              onCancel={handleClose}
+              onSubmit={handleSubmit}
+              submitDisabled={!title.trim()}
+              pending={mutation.isPending}
+              submitLabel="Submit Request"
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Plus, Info } from "lucide-react";
+import { Plus, Info } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
 
 async function postProjectRequest(payload: {
   title: string;
@@ -122,27 +123,13 @@ export function RequestProjectDialog({
               />
             </div>
 
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                onClick={handleClose}
-                disabled={mutation.isPending}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!title.trim() || mutation.isPending}
-                className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                {mutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Send Request"
-                )}
-              </Button>
-            </div>
+            <DialogFooterActions
+              onCancel={handleClose}
+              onSubmit={handleSubmit}
+              submitDisabled={!title.trim()}
+              pending={mutation.isPending}
+              submitLabel="Send Request"
+            />
           </div>
         </DialogContent>
       </Dialog>

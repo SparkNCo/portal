@@ -8,7 +8,6 @@ import {
   Bug,
   Lightbulb,
   Plus,
-  Loader2,
   FlaskConical,
   FolderKanban,
   ChevronUp,
@@ -32,6 +31,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProjectSelect } from "@/components/shared/project-select";
+import { PrioritySelect } from "@/components/shared/priority-select";
+import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
+import { fetchProjects, postCreateIssue } from "@/lib/issues-api";
 
 type IssueType = "bug" | "feature" | "uat" | "project" | "milestone";
 
@@ -121,26 +124,6 @@ ${data.actual || ""}
 
 import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
 
-async function postCreateIssue(payload: {
-  title: string;
-  description: string;
-  priority: string;
-  slug: string;
-  type?: string;
-  projectId?: string;
-  projectMilestoneId?: string;
-  estimate?: number;
-  labelIds?: string[];
-}) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/create`, {
-    method: "POST",
-    headers: API_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to create issue");
-  return res.json();
-}
-
 async function postCreateProject(payload: {
   name: string;
   slug: string;
@@ -176,16 +159,6 @@ async function postCreateMilestone(payload: {
   if (!res.ok) throw new Error("Failed to create milestone");
   return res.json();
 }
-
-async function fetchProjects(slug: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${slug}`,
-    { headers: API_HEADERS },
-  );
-  if (!res.ok) throw new Error("Failed to fetch projects");
-  return res.json() as Promise<{ id: string; name: string }[]>;
-}
-
 
 async function fetchMilestones(projectId: string) {
   const res = await fetch(
@@ -638,28 +611,11 @@ export function CreateIssue({
                 <>
                   <div className="space-y-1.5">
                     <Label>Project</Label>
-
-                    <Select
+                    <ProjectSelect
+                      projects={projects}
                       value={selectedProjectId}
                       onValueChange={setSelectedProjectId}
-                    >
-                      <SelectTrigger className="bg-secondary border-0">
-                        <SelectValue
-                          placeholder={
-                            projects.length
-                              ? "Select a project…"
-                              : "Loading projects…"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Target Date</Label>
@@ -698,19 +654,11 @@ export function CreateIssue({
                       Milestone{" "}
                       <span className="text-muted-foreground font-normal">(optional)</span>
                     </Label>
-                    <Select
+                    <ProjectSelect
+                      projects={projects}
                       value={selectedProjectId}
                       onValueChange={(v) => { setSelectedProjectId(v); setSelectedMilestoneId(""); }}
-                    >
-                      <SelectTrigger className="bg-secondary border-0">
-                        <SelectValue placeholder={projects.length ? "Select a project…" : "Loading projects…"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     {selectedProjectId && (
                       <Select value={selectedMilestoneId} onValueChange={setSelectedMilestoneId}>
                         <SelectTrigger className="bg-secondary border-0 mt-1.5">
@@ -770,30 +718,14 @@ export function CreateIssue({
                       (optional)
                     </span>
                   </Label>
-                  <Select
+                  <ProjectSelect
+                    projects={projects}
                     value={selectedProjectId}
                     onValueChange={(v) => {
                       setSelectedProjectId(v);
                       setSelectedMilestoneId("");
                     }}
-                  >
-                    <SelectTrigger className="bg-secondary border-0">
-                      <SelectValue
-                        placeholder={
-                          projects.length
-                            ? "Select a project…"
-                            : "Loading projects…"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
               )}
 
@@ -802,55 +734,30 @@ export function CreateIssue({
                 issueType !== "feature" && (
                   <div className="space-y-1.5">
                     <Label>Priority</Label>
-                    <Select value={priority} onValueChange={setPriority}>
-                      <SelectTrigger className="bg-secondary border-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <PrioritySelect value={priority} onValueChange={setPriority} />
                   </div>
                 )}
 
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep("type")}
-                  disabled={isPending}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() =>
-                    issueType === "feature"
-                      ? setStep("feature-review")
-                      : handleSubmit()
-                  }
-                  disabled={
-                    !title.trim() ||
-                    isPending ||
-                    (issueType === "milestone" && !selectedProjectId)
-                  }
-                  className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  {isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : issueType === "feature" ? (
-                    "Next"
-                  ) : issueType === "milestone" ? (
-                    "Create Milestone"
-                  ) : issueType === "project" ? (
-                    "Create Project"
-                  ) : (
-                    "Submit Issue"
-                  )}
-                </Button>
-              </div>
+              <DialogFooterActions
+                cancelLabel="Back"
+                onCancel={() => setStep("type")}
+                onSubmit={() =>
+                  issueType === "feature" ? setStep("feature-review") : handleSubmit()
+                }
+                submitDisabled={
+                  !title.trim() || (issueType === "milestone" && !selectedProjectId)
+                }
+                pending={isPending}
+                submitLabel={
+                  issueType === "feature"
+                    ? "Next"
+                    : issueType === "milestone"
+                      ? "Create Milestone"
+                      : issueType === "project"
+                        ? "Create Project"
+                        : "Submit Issue"
+                }
+              />
             </div>
           )}
 
@@ -906,60 +813,26 @@ export function CreateIssue({
                     (optional)
                   </span>
                 </Label>
-                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="bg-secondary border-0">
-                    <SelectValue
-                      placeholder={
-                        projects.length ? "Select a project…" : "Loading projects…"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ProjectSelect
+                  projects={projects}
+                  value={selectedProjectId}
+                  onValueChange={setSelectedProjectId}
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>Priority</Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger className="bg-secondary border-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
+                <PrioritySelect value={priority} onValueChange={setPriority} />
               </div>
 
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep("form")}
-                  disabled={isPending}
-                  className="flex-1"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!title.trim() || isPending}
-                  className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
-                >
-                  {isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Submit Issue"
-                  )}
-                </Button>
-              </div>
+              <DialogFooterActions
+                cancelLabel="Back"
+                onCancel={() => setStep("form")}
+                onSubmit={handleSubmit}
+                submitDisabled={!title.trim()}
+                pending={isPending}
+                submitLabel="Submit Issue"
+              />
             </div>
           )}
         </DialogContent>

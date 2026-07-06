@@ -7,7 +7,9 @@ export interface CreateIssuePayload {
   slug: string;
   type?: string;
   projectId?: string;
+  projectMilestoneId?: string;
   estimate?: number;
+  labelIds?: string[];
 }
 
 export async function postCreateIssue(payload: CreateIssuePayload) {
