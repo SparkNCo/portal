@@ -4,9 +4,7 @@ import { Header } from "@/components/headerDashboard";
 import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useState } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
-import { RequestProjectDialog } from "@/components/client/request-project-dialog";
 import { RequestProjectDialog } from "@/components/client/request-project-dialog";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -45,7 +43,6 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   });
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues?${params.toString()}`,
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues?${params.toString()}`,
     { headers: API_HEADERS },
   );
   console.log("END CCALL");
@@ -56,8 +53,6 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
 
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/check?user_id=${userId}`,
-    { headers: API_HEADERS },
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/check?user_id=${userId}`,
     { headers: API_HEADERS },
   );
@@ -112,32 +107,6 @@ export default function ClientDashboard() {
     (id) => !pinnedIds.has(id),
   );
 
-  const { data: pinnedPanels } = usePinnedPanels(profile?.id);
-  const reorderPinnedPanels = useReorderPinnedPanels(profile?.id);
-  const addPanels = useAddPanels(profile?.id);
-  const dndSensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-  );
-
-  const handlePinnedPanelsDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id || !pinnedPanels) return;
-
-    const oldIndex = pinnedPanels.findIndex((p) => p.panel_id === active.id);
-    const newIndex = pinnedPanels.findIndex((p) => p.panel_id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(pinnedPanels, oldIndex, newIndex);
-    reorderPinnedPanels.mutate(reordered.map((p) => p.panel_id));
-  };
-
-  const pinnedIds = new Set(pinnedPanels?.map((p) => p.panel_id) ?? []);
-  const missingDefaultPanels = DEFAULT_PANEL_IDS.filter(
-    (id) => !pinnedIds.has(id),
-  );
-
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
       allIssues
@@ -162,18 +131,10 @@ export default function ClientDashboard() {
   };
 
   if (issuesLoading) return <LoadingDataPanel />;
-  if (issuesLoading) return <LoadingDataPanel />;
 
   return (
     <div className="min-h-screen">
-
-
       <Header
-        title={
-          profile?.role === "stakeholder"
-            ? "Stakeholder Dashboard"
-            : "Client Dashboard"
-        }
         title={
           profile?.role === "stakeholder"
             ? "Stakeholder Dashboard"
@@ -211,9 +172,7 @@ export default function ClientDashboard() {
             ))}
           </div>
           <RequestProjectDialog
-          <RequestProjectDialog
             slug={slug}
-            requestedBy={profile?.email}
             requestedBy={profile?.email}
             compact
           />

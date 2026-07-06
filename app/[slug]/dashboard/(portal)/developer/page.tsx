@@ -24,8 +24,6 @@ export default function DeveloperDashboard() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
@@ -81,14 +79,6 @@ export default function DeveloperDashboard() {
   const availablePriorities = [
     ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
   ] as string[];
-  const availableLabels = [
-    ...new Set(
-      allIssues.flatMap((i: any) => (i.labels?.nodes ?? []).map((l: any) => l.name)),
-    ),
-  ] as string[];
-  const availablePriorities = [
-    ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
-  ] as string[];
 
   const projectFiltered = selectedProject
     ? allIssues.filter((i: any) => i._project === selectedProject)
@@ -100,17 +90,6 @@ export default function DeveloperDashboard() {
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
 
-  const labelFiltered = selectedLabels.length > 0
-    ? statusFiltered.filter((i: any) =>
-        (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
-      )
-    : statusFiltered;
-
-  const priorityFiltered = selectedPriorities.length > 0
-    ? labelFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
-    : labelFiltered;
-
-  const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
   const labelFiltered = selectedLabels.length > 0
     ? statusFiltered.filter((i: any) =>
         (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
@@ -155,33 +134,10 @@ export default function DeveloperDashboard() {
       setSelectedLabels([]);
       setSelectedPriorities([]);
     },
-    selectedLabels,
-    availableLabels,
-    onToggleLabel: (l: string) =>
-      setSelectedLabels((prev) =>
-        prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l],
-      ),
-    selectedPriorities,
-    availablePriorities,
-    onTogglePriority: (p: string) =>
-      setSelectedPriorities((prev) =>
-        prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
-      ),
-    onClearFilters: () => {
-      setSelectedStatuses([]);
-      setSelectedLabels([]);
-      setSelectedPriorities([]);
-    },
   };
 
   return (
     <div className="min-h-screen">
-      <PolicyApprovalModal
-        open={showPoliciesModal}
-        userId={userId!}
-        notionUrl={notionUrl}
-        onApproved={() => setShowPoliciesModal(false)}
-      />
       <PolicyApprovalModal
         open={showPoliciesModal}
         userId={userId!}
@@ -201,10 +157,7 @@ export default function DeveloperDashboard() {
             <button
               onClick={() => setSelectedProject(null)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 selectedProject === null
-                  ? "bg-accent text-accent-foreground border-accent/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   ? "bg-accent text-accent-foreground border-accent/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
@@ -216,10 +169,7 @@ export default function DeveloperDashboard() {
                 key={p.clientName}
                 onClick={() => setSelectedProject(p.clientName)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                   selectedProject === p.clientName
-                    ? "bg-accent text-accent-foreground border-accent/40"
-                    : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                     ? "bg-accent text-accent-foreground border-accent/40"
                     : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 }`}
@@ -237,10 +187,7 @@ export default function DeveloperDashboard() {
               key={opt}
               onClick={() => setSortBy(opt)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 sortBy === opt
-                  ? "bg-accent text-accent-foreground border-accent/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   ? "bg-accent text-accent-foreground border-accent/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
@@ -249,7 +196,6 @@ export default function DeveloperDashboard() {
             </button>
           ))}
         </div>
-        <div className="w-full max-w-full">
         <div className="w-full max-w-full">
           {issuesLoading ? (
             <LoadingDataPanel />

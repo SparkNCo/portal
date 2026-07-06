@@ -13,27 +13,12 @@ import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../client/page";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { API_HEADERS } from "@/lib/api-headers";
-import { ProgressPieChart } from "@/components/client/progress-pie-chart";
-import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
-import { fetchIssues } from "../client/page";
-import { PinButton } from "@/components/dashboard/pin-button";
-import { API_HEADERS } from "@/lib/api-headers";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
-
-  const { data: issuesData } = useQuery({
-    queryKey: ["linear-issues", slug],
-    queryFn: () => fetchIssues(slug),
-    enabled: !!slug,
-  });
-
-  const allIssues: any[] = issuesData ?? [];
-
-  const pageTitle = "Monitor";
 
   const { data: issuesData } = useQuery({
     queryKey: ["linear-issues", slug],
@@ -53,8 +38,6 @@ export default function RoadmapPage() {
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
-        { headers: API_HEADERS },
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
         { headers: API_HEADERS },
       );
@@ -91,7 +74,6 @@ export default function RoadmapPage() {
     return (
       <div className="min-h-screen">
         <Header title={pageTitle} subtitle="Project timeline and progress" />
-        <Header title={pageTitle} subtitle="Project timeline and progress" />
         <LoadingDataPanel />
       </div>
     );
@@ -101,7 +83,6 @@ export default function RoadmapPage() {
     return (
       <div className="min-h-screen">
         <Header title={pageTitle} subtitle="Project timeline and progress" />
-        <Header title={pageTitle} subtitle="Project timeline and progress" />
         <p className="p-6 text-destructive">Failed to load roadmap</p>
       </div>
     );
@@ -109,7 +90,6 @@ export default function RoadmapPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title={pageTitle} subtitle="Project timeline and progress" />
       <Header title={pageTitle} subtitle="Project timeline and progress" />
       <div className="p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -128,10 +108,6 @@ export default function RoadmapPage() {
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
-        <div className="relative">
-          <PinButton panelId="metrics_panel" />
-          <MetricsPanel slug={slug} />
-        </div>
         <div className="relative">
           <PinButton panelId="metrics_panel" />
           <MetricsPanel slug={slug} />
