@@ -3,16 +3,7 @@ import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
-
-const INITIATIVE_PROJECTS_QUERY = `
-  query InitiativeProjects($initiativeId: String!) {
-    initiative(id: $initiativeId) {
-      projects(first: 50) {
-        nodes { id }
-      }
-    }
-  }
-`;
+import { GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
   console.log("getCustomerBySlug", slug);
@@ -48,7 +39,7 @@ async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<st
       "Content-Type": "application/json",
       Authorization: Deno.env.get("LINEAR_API_KEY")!,
     },
-    body: JSON.stringify({ query: INITIATIVE_PROJECTS_QUERY, variables: { initiativeId } }),
+    body: JSON.stringify({ query: GET_INITIATIVE_PROJECTS_QUERY, variables: { initiativeId } }),
   });
 
   const json = await res.json();

@@ -1,26 +1,10 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { LINEAR_GRAPHQL } from "../utils/headers.ts";
-
-const GET_PROJECT_TEAM_QUERY = `
-  query GetProjectTeam($id: String!) {
-    project(id: $id) {
-      teams(first: 1) { nodes { id } }
-    }
-  }
-`;
+import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 
 const GET_FIRST_TEAM_QUERY = `
   query GetFirstTeam {
     teams(first: 1) { nodes { id } }
-  }
-`;
-
-const GET_TEAM_LABELS_QUERY = `
-  query GetTeamLabels($teamId: String!) {
-    team(id: $teamId) {
-      labels { nodes { id name } }
-    }
   }
 `;
 
@@ -37,20 +21,6 @@ const CREATE_ISSUE_MUTATION = `
     }
   }
 `;
-
-async function linearRequest(query: string, variables: Record<string, any> = {}) {
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
-  const json = await res.json();
-  if (json.errors) throw new Error(JSON.stringify(json.errors));
-  return json.data;
-}
 
 const FILE_UPLOAD_MUTATION = `
   mutation FileUpload($contentType: String!, $filename: String!, $size: Int!) {
@@ -193,16 +163,6 @@ const LINK_PROJECT_TO_INITIATIVE_MUTATION = `
     initiativeToProjectCreate(input: { initiativeId: $initiativeId, projectId: $projectId }) {
       success
       initiativeToProject { id }
-    }
-  }
-`;
-
-const GET_INITIATIVE_PROJECTS_QUERY = `
-  query GetInitiativeProjects($initiativeId: String!) {
-    initiative(id: $initiativeId) {
-      projects(first: 50) {
-        nodes { id }
-      }
     }
   }
 `;
