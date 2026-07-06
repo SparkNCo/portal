@@ -2,7 +2,52 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Gauge } from "lucide-react";
+import { Pencil, Gauge } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
+
+function EstimateBadge({ estimate }: { readonly estimate: number }) {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-chart-1/30 bg-chart-1/10 text-chart-1"
+    >
+      <Gauge className="h-3 w-3" />
+      {estimate}
+    </Badge>
+  );
+}
+
+const LABEL_COLOR_CLASSES: Record<string, string> = {
+  bug: "bg-destructive text-white",
+  improvement: "bg-[hsl(210,70%,35%)] text-white",
+  feature: "bg-success text-white",
+};
+
+export function LabelPill({
+  label,
+}: {
+  readonly label: { id: string; name: string; color: string };
+}) {
+  const knownClass = LABEL_COLOR_CLASSES[label.name.toLowerCase()];
+
+  if (knownClass) {
+    return (
+      <Badge variant="secondary" className={`border-transparent ${knownClass}`}>
+        {label.name}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant="secondary"
+      className="border-transparent text-white"
+      style={{ backgroundColor: label.color }}
+    >
+      {label.name}
+    </Badge>
+  );
+}
 
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
   return (
@@ -53,9 +98,13 @@ export function IssueCard({
   onOpen,
   onEdit,
   hasUpdate,
+  onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
   readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
 }) {
@@ -95,22 +144,35 @@ export function IssueCard({
             variant="outline"
             className={priorityColors[issue.priorityLabel]}
           >
+          <Badge
+            variant="outline"
+            className={priorityColors[issue.priorityLabel]}
+          >
             {issue.priorityLabel}
           </Badge>
           {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
+          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
+        <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
         <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
           {issue.title}
         </p>
+        <div className="flex items-center gap-1 flex-wrap">
         <div className="flex items-center gap-1 flex-wrap">
           <Badge
             variant="secondary"
             className={
               statusColors[issue?.state?.name as keyof typeof statusColors]
             }
+            className={
+              statusColors[issue?.state?.name as keyof typeof statusColors]
+            }
           >
             {issue?.state?.name}
           </Badge>
+          {issue.labels?.nodes?.map((l) => (
+            <LabelPill key={l.id} label={l} />
+          ))}
           {issue.labels?.nodes?.map((l) => (
             <LabelPill key={l.id} label={l} />
           ))}
@@ -125,9 +187,13 @@ export function IssueListRow({
   onOpen,
   onEdit,
   hasUpdate,
+  onEdit,
+  hasUpdate,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  readonly onEdit?: () => void;
+  readonly hasUpdate?: boolean;
   readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
 }) {
@@ -139,6 +205,12 @@ export function IssueListRow({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {hasUpdate && (
+        <span
+          className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0"
+          title="Recently updated"
+        />
+      )}
       {hasUpdate && (
         <span
           className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0"
@@ -166,8 +238,24 @@ export function IssueListRow({
       <p
         className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
       >
+      {issue.estimate != null && (
+        <Badge
+          variant="outline"
+          className="gap-1 text-[10px] flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
+        >
+          <Gauge className="h-3 w-3" />
+          {issue.estimate}
+        </Badge>
+      )}
+      <p
+        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
+      >
         {issue.title}
       </p>
+      {issue.labels?.nodes?.map((l) => (
+        <LabelPill key={l.id} label={l} />
+      ))}
+      {onEdit && (
       {issue.labels?.nodes?.map((l) => (
         <LabelPill key={l.id} label={l} />
       ))}
@@ -181,6 +269,7 @@ export function IssueListRow({
           }}
           aria-label="Edit ticket"
         >
+          <Pencil className="h-3.5 w-3.5" />
           <Pencil className="h-3.5 w-3.5" />
         </button>
       )}
