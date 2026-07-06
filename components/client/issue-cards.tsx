@@ -60,7 +60,7 @@ export function IssueCard({
   readonly hasUpdate?: boolean;
 }) {
   return (
-    <div className="relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
+    <div className="group relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -76,7 +76,7 @@ export function IssueCard({
       {onEdit && (
         <button
           type="button"
-          className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+          className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             onEdit();
@@ -132,7 +132,7 @@ export function IssueListRow({
   readonly hasUpdate?: boolean;
 }) {
   return (
-    <div className="relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
+    <div className="group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -174,7 +174,7 @@ export function IssueListRow({
       {onEdit && (
         <button
           type="button"
-          className="relative z-10 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary flex-shrink-0"
+          className="relative z-10 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             onEdit();

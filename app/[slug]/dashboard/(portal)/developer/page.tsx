@@ -7,13 +7,16 @@ import { PriorityTasks } from "@/components/client/priority-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
-import { useQuery } from "@tanstack/react-query";
+import { EditIssueModal } from "@/components/build/edit-issue-modal";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../client/page";
+import type { Issue } from "@/components/client/issues.types";
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
+  const queryClient = useQueryClient();
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -22,6 +25,7 @@ export default function DeveloperDashboard() {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   // 🔹 Policies approval query
   const { data: policiesStatus } = useQuery<{ approved: boolean }, Error>({
@@ -200,6 +204,7 @@ export default function DeveloperDashboard() {
               issuesData={visibleIssues}
               filterState={filterState}
               onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
               title={selectedProject ?? "All Tasks"}
             />
           )}
@@ -211,6 +216,19 @@ export default function DeveloperDashboard() {
           profile={profile}
         /> */}
       </div>
+
+      {editingIssue && (
+        <EditIssueModal
+          issue={editingIssue}
+          slug={(editingIssue as any)._project ?? projects[0]?.clientName ?? ""}
+          onClose={() => setEditingIssue(null)}
+          onSaved={() =>
+            queryClient.invalidateQueries({
+              queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
+            })
+          }
+        />
+      )}
     </div>
   );
 }

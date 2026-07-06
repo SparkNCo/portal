@@ -104,7 +104,7 @@ export default function RoadmapPage() {
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          <RoadmapTimeline projectMilestones={allMilestones} />
+          <RoadmapTimeline projectMilestones={allMilestones} slug={slug} />
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
