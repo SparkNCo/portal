@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Bug } from "lucide-react";
+import { Bug } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsiblePanelHeader } from "@/components/shared/collapsible-panel-header";
-import { ProjectSelect } from "@/components/shared/project-select";
-import { PrioritySelect } from "@/components/shared/priority-select";
+import {
+  TitleField,
+  ContinueButton,
+  ProjectField,
+  PriorityField,
+  SubmitButton,
+} from "@/components/shared/issue-form-fields";
 import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
 
 function buildBugDescription(steps: string, expected: string, actual: string) {
@@ -84,26 +87,10 @@ export function BugReportPanel({ slug }: { slug: string }) {
       />
       {expanded && (
       <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label>Title</Label>
-          <Input
-            placeholder="Brief summary..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="bg-secondary border-0"
-          />
-        </div>
+        <TitleField value={title} onChange={setTitle} />
 
         {!detailsRevealed ? (
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setDetailsRevealed(true)}
-              disabled={!title.trim()}
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
-            >
-              Continue
-            </Button>
-          </div>
+          <ContinueButton onClick={() => setDetailsRevealed(true)} disabled={!title.trim()} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,37 +124,21 @@ export function BugReportPanel({ slug }: { slug: string }) {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label>
-                  Project{" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <ProjectSelect
-                  projects={projects}
-                  value={selectedProjectId}
-                  onValueChange={setSelectedProjectId}
-                />
-              </div>
+              <ProjectField
+                projects={projects}
+                value={selectedProjectId}
+                onValueChange={setSelectedProjectId}
+              />
 
-              <div className="space-y-1.5">
-                <Label>Priority</Label>
-                <PrioritySelect value={priority} onValueChange={setPriority} />
-              </div>
+              <PriorityField value={priority} onValueChange={setPriority} />
             </div>
 
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSubmit}
-                disabled={!title.trim() || mutation.isPending}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                {mutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Submit Bug Report"
-                )}
-              </Button>
-            </div>
+            <SubmitButton
+              onClick={handleSubmit}
+              disabled={!title.trim() || mutation.isPending}
+              pending={mutation.isPending}
+              label="Submit Bug Report"
+            />
           </>
         )}
       </CardContent>
