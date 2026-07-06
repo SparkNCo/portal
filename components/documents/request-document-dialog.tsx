@@ -25,7 +25,7 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 async function fetchProjects(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?slug=${slug}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${slug}`,
     { headers: API_JSON_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch projects");
@@ -40,7 +40,7 @@ async function postDocumentRequest(payload: {
   projectId?: string;
   projectName?: string;
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/document-requests`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/document-requests`, {
     method: "POST",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),

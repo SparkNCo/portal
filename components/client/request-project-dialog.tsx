@@ -22,7 +22,7 @@ async function postProjectRequest(payload: {
   requestedBy?: string;
   slug?: string;
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/project-requests`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/project-requests`, {
     method: "POST",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),

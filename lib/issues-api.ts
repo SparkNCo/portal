@@ -11,7 +11,7 @@ export interface CreateIssuePayload {
 }
 
 export async function postCreateIssue(payload: CreateIssuePayload) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/create`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/create`, {
     method: "POST",
     headers: API_HEADERS,
     body: JSON.stringify(payload),
@@ -22,7 +22,7 @@ export async function postCreateIssue(payload: CreateIssuePayload) {
 
 export async function fetchProjects(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?slug=${slug}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${slug}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch projects");

@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { createDocumentRequest } from "./createDocumentRequest.ts";
 import { markDocumentRequestDone } from "./markDocumentRequestDone.ts";
 import { claimDocumentRequest } from "./claimDocumentRequest.ts";
@@ -12,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
     let res: Response;
 
     if (req.method === "POST") {

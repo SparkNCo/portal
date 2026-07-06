@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { createDiagram } from "./createDiagram.ts";
 import { listDiagrams } from "./listDiagrams.ts";
 
@@ -11,7 +10,7 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
 
     if (req.method === "GET") {
       const diagrams = await listDiagrams(url, schema);

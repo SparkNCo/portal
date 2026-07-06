@@ -112,7 +112,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
     queryKey: ["diagram-services", projectSlug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/diagrams?type=services&project_slug=${encodeURIComponent(projectSlug)}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?type=services&project_slug=${encodeURIComponent(projectSlug)}`,
         { headers: API_HEADERS },
       );
       if (!res.ok) throw new Error("No se pudieron cargar los servicios");
@@ -127,7 +127,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
     queryKey: ["diagram-issue", issue.id],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/diagrams?issue_id=${issue.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?issue_id=${issue.id}`,
         { headers: API_HEADERS },
       );
       if (!res.ok) throw new Error("No se pudieron cargar los diagramas del issue");
@@ -146,7 +146,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
     queryKey: ["diagram-versions", activeServiceId],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/diagrams?service_id=${activeServiceId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?service_id=${activeServiceId}`,
         { headers: API_HEADERS },
       );
       if (!res.ok) throw new Error("No se pudieron cargar las versiones");
@@ -183,7 +183,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
         formData.append("service_id", selectedServiceId);
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/diagrams`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams`, {
         method: "POST",
         headers: API_HEADERS,
         body: formData,

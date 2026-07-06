@@ -24,7 +24,7 @@ function getFileExtension(name: string) {
 
 async function fetchDocuments(id: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/storage?user_id=${id}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?user_id=${id}`,
     { headers: API_HEADERS },
   );
 

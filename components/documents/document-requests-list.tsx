@@ -19,7 +19,7 @@ import { useDocumentRequests, type DocumentRequest } from "./use-document-reques
 import { FulfillDocumentRequestModal } from "./fulfill-document-request-modal";
 
 async function patchDocumentRequest(payload: Record<string, unknown>) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/document-requests`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/document-requests`, {
     method: "PATCH",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),

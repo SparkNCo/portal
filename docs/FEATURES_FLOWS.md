@@ -279,7 +279,7 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
 | `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and `MermaidDiagram` SVG renderer |
-| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams, same `resolvePortalSchema` pattern as `users/index.ts` |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams, hardcoded to the `portal` schema like `users/index.ts` |
 | `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
 | `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
 | `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "crear nuevo") |

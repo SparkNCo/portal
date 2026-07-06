@@ -132,7 +132,7 @@ async function postCreateIssue(payload: {
   estimate?: number;
   labelIds?: string[];
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/create`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/create`, {
     method: "POST",
     headers: API_HEADERS,
     body: JSON.stringify(payload),
@@ -148,7 +148,7 @@ async function postCreateProject(payload: {
   targetDate?: string;
 }) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/project`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/project`,
     {
       method: "POST",
       headers: API_HEADERS,
@@ -166,7 +166,7 @@ async function postCreateMilestone(payload: {
   description?: string;
 }) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/milestone`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/milestone`,
     {
       method: "POST",
       headers: API_HEADERS,
@@ -179,7 +179,7 @@ async function postCreateMilestone(payload: {
 
 async function fetchProjects(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/projects?slug=${slug}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${slug}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch projects");
@@ -189,7 +189,7 @@ async function fetchProjects(slug: string) {
 
 async function fetchMilestones(projectId: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/milestones?projectId=${projectId}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/milestones?projectId=${projectId}`,
     {
       headers: API_HEADERS,
     },
@@ -202,7 +202,7 @@ async function fetchMilestones(projectId: string) {
 
 async function fetchLabels(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/labels?slug=${slug}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/labels?slug=${slug}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch labels");

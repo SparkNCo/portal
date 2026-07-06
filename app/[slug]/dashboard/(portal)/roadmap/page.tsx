@@ -38,7 +38,7 @@ export default function RoadmapPage() {
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/roadmap/?slug=${slug}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
         { headers: API_HEADERS },
       );
 

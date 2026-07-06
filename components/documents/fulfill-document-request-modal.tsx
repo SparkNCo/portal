@@ -32,7 +32,7 @@ async function uploadDocument({
   formData.append("email", email);
   if (projectSlug) formData.append("project_slug", projectSlug);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
     method: "POST",
     headers: API_HEADERS,
     body: formData,
@@ -46,7 +46,7 @@ async function shareDocument(payload: {
   emails: string[];
   user_id: string | undefined;
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage/share`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/share`, {
     method: "POST",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),
@@ -56,7 +56,7 @@ async function shareDocument(payload: {
 }
 
 async function markRequestDone(payload: { id: string; completedBy?: string }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/document-requests`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/document-requests`, {
     method: "PATCH",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),

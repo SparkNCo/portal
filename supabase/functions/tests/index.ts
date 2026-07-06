@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 const supabaseUrl = () => Deno.env.get("PROJECT_URL")!;
 const serviceKey = () => Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -60,7 +59,7 @@ Deno.serve(async (req) => {
 
 // GET /tests?issue_id=xxx
 async function handleGetTests(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const issue_id = new URL(req.url).searchParams.get("issue_id");
   if (!issue_id) return Response.json({ error: "Missing issue_id" }, { status: 400 });
 
@@ -74,7 +73,7 @@ async function handleGetTests(req: Request): Promise<Response> {
 
 // POST /tests — admin creates a test case
 async function handleCreateTest(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { issue_id, title, steps, expected, created_by } = await req.json();
 
   if (!issue_id || !title || !created_by) {
@@ -101,7 +100,7 @@ async function handleCreateTest(req: Request): Promise<Response> {
 
 // PATCH /tests/approve — stakeholder approves a test case
 async function handleApproveTest(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { test_id, approved_by } = await req.json();
   if (!test_id || !approved_by) {
     return Response.json({ error: "Missing test_id or approved_by" }, { status: 400 });
@@ -120,7 +119,7 @@ async function handleApproveTest(req: Request): Promise<Response> {
 
 // PATCH /tests/update — admin edits a test case while it's still in draft
 async function handleUpdateTest(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { test_id, title, steps, expected } = await req.json();
   if (!test_id || !title) {
     return Response.json({ error: "Missing test_id or title" }, { status: 400 });
@@ -153,7 +152,7 @@ async function handleUpdateTest(req: Request): Promise<Response> {
 
 // PATCH /tests/uat — record the actual UAT result and/or toggle passed status
 async function handleUatTest(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { test_id, actual, passed, recorded_by, kind } = await req.json();
   if (!test_id || (actual === undefined && passed === undefined)) {
     return Response.json({ error: "Missing test_id, and at least one of actual or passed" }, { status: 400 });
@@ -196,7 +195,7 @@ async function handleUatTest(req: Request): Promise<Response> {
 
 // DELETE /tests?test_id=xxx — admin deletes a draft test
 async function handleDeleteTest(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const test_id = new URL(req.url).searchParams.get("test_id");
   if (!test_id) return Response.json({ error: "Missing test_id" }, { status: 400 });
 

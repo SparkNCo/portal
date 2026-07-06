@@ -1,11 +1,10 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 export const checkApproval = async (req: Request) => {
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
     const url = new URL(req.url);
     const userId = url.searchParams.get("user_id");
 

@@ -32,11 +32,11 @@ function useRoadmapMilestones(slug: string) {
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/roadmap/?slug=${slug}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
         {
           headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_APIKEY}`,
-            apikey: process.env.NEXT_PUBLIC_APIKEY!,
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
             "Content-Type": "application/json",
           },
         },

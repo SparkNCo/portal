@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client";
 
 export type DocumentRequest = {
   id: string;
@@ -24,7 +24,7 @@ export function useDocumentRequests(customerSlug?: string) {
     queryKey: ["document-requests", customerSlug ?? "all"],
     queryFn: async () => {
       let query = supabase
-        .schema(PORTAL_SCHEMA)
+        .schema("portal")
         .from("document_requests")
         .select("*")
         .order("created_at", { ascending: false });

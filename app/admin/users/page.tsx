@@ -73,7 +73,7 @@ export default function AdminUsersPage() {
   } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
         headers: apiHeaders,
       });
       if (!res.ok) throw new Error("Failed to fetch users");
@@ -91,7 +91,7 @@ export default function AdminUsersPage() {
       enabled: customerIds.length > 0,
       queryFn: async () => {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds.join(",")}`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerIds.join(",")}`,
           { headers: apiHeaders },
         );
         if (!res.ok) throw new Error("Failed to fetch assignments");
@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
       enabled: !!expandedUser?.id && (expandedUser.role === "developer" || expandedUser.role === "stakeholder"),
       queryFn: async () => {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${expandedUser!.id}`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${expandedUser!.id}`,
           { headers: apiHeaders },
         );
         const data = await res.json();
@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
       enabled: !!expandedUser?.id && expandedUser.role === "customer",
       queryFn: async () => {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${expandedUser!.id}`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${expandedUser!.id}`,
           { headers: API_JSON_HEADERS },
         );
         const data = await res.json();
@@ -166,7 +166,7 @@ export default function AdminUsersPage() {
   const { mutate: assignUser } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments`,
         {
           method: "POST",
           headers: apiHeaders,

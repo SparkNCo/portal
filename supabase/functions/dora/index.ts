@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { supabase } from "../client.ts";
 import { parseRepo } from "./github.ts";
 import { handleCFR } from "./cfr.ts";
@@ -175,9 +174,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const schema = resolvePortalSchema(req);
-    const token = Deno.env.get("GHPERSONALTOKEN");
-    if (!token) throw new Error("Missing GHPERSONALTOKEN env var");
+    const schema = "portal";
+    const token = Deno.env.get("GH_ORG_PAT");
+    if (!token) throw new Error("Missing GH_ORG_PAT env var");
 
     const body = await req.json();
     const { method, url: repoUrl, linear_slug, limit: rawLimit } = body;

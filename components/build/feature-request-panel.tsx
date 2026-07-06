@@ -21,7 +21,7 @@ async function uploadFileToLinear(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/upload`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`, {
     method: "POST",
     body: formData,
   });
@@ -31,7 +31,7 @@ async function uploadFileToLinear(file: File) {
 }
 
 async function attachFileToIssue(issueId: string, url: string, title: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/attachment`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachment`, {
     method: "POST",
     headers: API_HEADERS,
     body: JSON.stringify({ issueId, url, title }),

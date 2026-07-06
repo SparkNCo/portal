@@ -81,7 +81,7 @@ export function NextPaymentPanel({
   const renewSubscriptionMutation = useMutation({
     mutationFn: async (customerId: string) => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/renew-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/renew-subscription`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,
@@ -104,7 +104,7 @@ export function NextPaymentPanel({
   const cancelSubscriptionMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/cancel-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/cancel-subscription`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

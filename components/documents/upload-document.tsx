@@ -43,7 +43,7 @@ function useUploadFile() {
       formData.append("email", email);
       formData.append("project_slug", projectSlug);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
         method: "POST",
         headers: API_HEADERS,
         body: formData,

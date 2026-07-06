@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsRight, RotateCcw, MessageSquare, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
-import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
 import { LabelPill } from "./issue-cards";
 import { DesignTab } from "./design-tab";
@@ -178,7 +178,7 @@ function DecisionsTab({
     if (!questionText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
         method: "POST",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -201,7 +201,7 @@ function DecisionsTab({
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/issues/decision`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/decision`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
@@ -432,7 +432,7 @@ function TestsTab({
             .filter(Boolean)
             .map((d, i) => ({ order: i + 1, description: d }))
         : [];
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests`, {
         method: "POST",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -471,7 +471,7 @@ function TestsTab({
             .filter(Boolean)
             .map((d, i) => ({ order: i + 1, description: d }))
         : [];
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/update`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -491,7 +491,7 @@ function TestsTab({
   }
 
   async function handleApproveTest(testId: string) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/approve`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/approve`, {
       method: "PATCH",
       headers: API_JSON_HEADERS,
       body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
@@ -505,7 +505,7 @@ function TestsTab({
     if (!uatForm || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -528,7 +528,7 @@ function TestsTab({
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests/uat`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({
@@ -851,7 +851,7 @@ export function IssueDetailModal({
     setLoadingTests(true);
 
     supabase
-      .schema(PORTAL_SCHEMA)
+      .schema("portal")
       .from("decisions")
       .select("*")
       .eq("issue_id", issue.id)
@@ -861,7 +861,7 @@ export function IssueDetailModal({
         setLoadingDecisions(false);
       });
 
-    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/tests?issue_id=${issue.id}`, {
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?issue_id=${issue.id}`, {
       headers: API_HEADERS,
     })
       .then((r) => r.json())
@@ -878,7 +878,7 @@ export function IssueDetailModal({
   useEffect(() => {
     if (isOwnUnseenUpdate(issue, profile?.email)) return;
 
-    fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/seen`, {
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/seen`, {
       method: "POST",
       headers: API_JSON_HEADERS,
       body: JSON.stringify({ issueId: issue.id }),
@@ -906,7 +906,7 @@ export function IssueDetailModal({
     if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
         method: "PATCH",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({ issueId: issue.id, stateName: targetState }),

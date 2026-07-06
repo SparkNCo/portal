@@ -1,4 +1,4 @@
-import posthog from "posthog-js";
+/* import posthog from "posthog-js";
 
 if (typeof window !== "undefined") {
   const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -22,3 +22,4 @@ if (typeof window !== "undefined") {
 }
 
 export default posthog;
+ */

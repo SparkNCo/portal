@@ -29,7 +29,7 @@ export default function AddStakeholderModal({ onClose }: Props) {
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=stakeholder`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=stakeholder`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

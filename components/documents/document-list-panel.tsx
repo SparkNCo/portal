@@ -63,7 +63,7 @@ export function DocumentRow({
     try {
       setOpeningId(doc.id);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}&inline=true`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${user.id}&inline=true`,
         { headers: API_HEADERS },
       );
       const { url } = await res.json();
@@ -80,7 +80,7 @@ export function DocumentRow({
       setDownloadingId(doc.id);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/download?document_id=${doc.id}&user_id=${user.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${user.id}`,
         { headers: API_HEADERS },
       );
 

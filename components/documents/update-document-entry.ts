@@ -14,7 +14,7 @@ export function useDeleteDocument() {
       document_id: number;
       user_id: string;
     }) => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
         method: "DELETE",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({ document_id, user_id }),
@@ -42,7 +42,7 @@ export function useUpdateDocument() {
       category: string;
       user_id: string;
     }) => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/storage`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
         method: "PUT",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({ document_id, category, user_id }),

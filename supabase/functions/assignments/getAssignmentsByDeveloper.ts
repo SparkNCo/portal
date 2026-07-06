@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 // `users.customer_id` may still hold legacy Stripe customer IDs (e.g. "cus_...")
 // for rows that predate the customers table migration; only UUIDs match `customers.customer_id`.
@@ -9,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export const getAssignmentsByDeveloper = async (req: Request) => {
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
     const url = new URL(req.url);
     const developer_id = url.searchParams.get("developer");
 

@@ -100,7 +100,7 @@ function DashboardsContent() {
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
@@ -116,7 +116,7 @@ function DashboardsContent() {
     queryKey: ["developer-assignments", profile?.id],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile!.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile!.id}`,
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch assignments");

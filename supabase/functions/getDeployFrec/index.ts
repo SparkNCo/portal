@@ -108,11 +108,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const token = Deno.env.get("GHPERSONALTOKEN");
+    const token = Deno.env.get("GH_ORG_PAT");
     const repoUrl = Deno.env.get("REPO_URL");
 
     if (!token || !repoUrl) {
-      throw new Error("Missing GHPERSONALTOKEN or REPO_URL env vars");
+      throw new Error("Missing GH_ORG_PAT or REPO_URL env vars");
     }
 
     const { searchParams } = new URL(req.url);

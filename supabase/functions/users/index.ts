@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
 import { getAllUsers } from "./getAllUsers.ts";
@@ -14,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
 
     if (req.method === "GET") {
       console.log("[users GET]", {

@@ -1,13 +1,11 @@
 // @ts-nocheck
-
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { ApprovePolicySchema, ApprovePolicyResponseSchema } from "./zod.ts";
 
 export const approvePolicy = async (req: Request) => {
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
     const body = await req.json();
 
     const parsedBody = ApprovePolicySchema.safeParse(body);

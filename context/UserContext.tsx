@@ -61,7 +61,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     if (user?.email) {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/users?email=${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(
             user.email,
           )}`,
           { headers: API_JSON_HEADERS },

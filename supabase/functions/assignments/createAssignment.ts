@@ -1,12 +1,10 @@
 // @ts-nocheck
-
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 export const createAssignment = async (req: Request) => {
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
     const body = await req.json();
     const { user_id, customer_id, role, allocation } = body;
 

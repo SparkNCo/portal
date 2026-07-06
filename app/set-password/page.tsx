@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
@@ -38,7 +38,7 @@ function SetPasswordForm() {
     setUserId(session.user.id);
 
     const { data } = await supabase
-      .schema(PORTAL_SCHEMA)
+      .schema("portal")
       .from("users")
       .select("role, firstName, lastName, userName, phoneNumber")
       .eq("id", session.user.id)
@@ -111,7 +111,7 @@ function SetPasswordForm() {
       redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
     }
 
-    const patchRes = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/users`, {
+    const patchRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
       method: "PATCH",
       headers: API_JSON_HEADERS,
       body: JSON.stringify({ id: userId, ...profileUpdate }),

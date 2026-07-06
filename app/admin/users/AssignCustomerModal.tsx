@@ -30,7 +30,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
     queryKey: ["developer-assignments", userId],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${userId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${userId}`,
         { headers: API_HEADERS },
       );
       return res.json();
@@ -41,7 +41,7 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/assignments`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments`, {
         method: "POST",
         headers: API_JSON_HEADERS,
         body: JSON.stringify({ user_id: userId, customer_id: selectedCustomer, role: userRole, allocation: Number(allocation) }),

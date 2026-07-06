@@ -17,7 +17,7 @@ export function useShareDocument() {
       user_id: string | undefined;
     }) => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/storage/share`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/share`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

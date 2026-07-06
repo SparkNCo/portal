@@ -1,7 +1,5 @@
 // @ts-nocheck
-
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { downloadDocument } from "./downloadDocument.ts";
 import { getStorageData } from "./fetch-storage-data.ts";
 import { shareDocument } from "./shareDocument.ts";
@@ -21,7 +19,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const { pathname } = url;
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
 
     // 🔹 GET /storage
     if (req.method === "GET" && pathname === "/storage") {

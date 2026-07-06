@@ -8,11 +8,10 @@ import { createCustomerPortal } from "./createCustomerPortal.ts";
 import { renewSubscription } from "./renewSubscription.ts";
 import { cancelSubscription } from "./cancelSubscription.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 serve(async (req) => {
   const url = new URL(req.url);
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
 
   // ✅ GLOBAL CORS HANDLER
   if (req.method === "OPTIONS") {

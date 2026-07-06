@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -177,7 +176,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 }
 
 export async function handleAddComment(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { issueId, question, ownerEmail } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
@@ -222,7 +221,7 @@ const CREATE_COMMENT_MUTATION = `
 `;
 
 export async function handlePostToLinear(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
 
   if (!issueId || !decisionId || !decisionBody) {
@@ -267,7 +266,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 }
 
 export async function handleSetDecision(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { decisionId, decision, decisionEmail } = await req.json();
 
   if (!decisionId || !decision || !decisionEmail) {
@@ -399,7 +398,7 @@ const CREATE_MILESTONE_MUTATION = `
 `;
 
 export async function handleGetProjects(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const url = new URL(req.url);
   const slug = url.searchParams.get("slug");
   const initiativeId = url.searchParams.get("initiativeId");
@@ -444,7 +443,7 @@ export async function handleGetMilestones(req: Request): Promise<Response> {
 }
 
 export async function handleGetLabels(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const slug = new URL(req.url).searchParams.get("slug");
   if (!slug) return Response.json({ error: "Missing slug" }, { status: 400 });
 

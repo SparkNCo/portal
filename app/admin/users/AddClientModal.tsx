@@ -29,7 +29,7 @@ export default function AddClientModal({ onClose }: Props) {
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customer`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

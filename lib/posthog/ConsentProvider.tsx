@@ -1,4 +1,4 @@
-"use client";
+/* "use client";
 
 import { ConsentManagerProvider, CookieBanner } from "@c15t/react";
 import posthog from "@/lib/posthog";
@@ -29,3 +29,4 @@ export default function ConsentProvider({
     </ConsentManagerProvider>
   );
 }
+ */

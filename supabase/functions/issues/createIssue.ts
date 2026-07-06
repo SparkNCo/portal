@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 const GET_PROJECT_TEAM_QUERY = `
   query GetProjectTeam($id: String!) {
@@ -232,7 +231,7 @@ async function syncCustomerLinearProjects(slug: string, linearSlug: string, sche
 }
 
 export async function handleCreateProject(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { name, description, targetDate, slug } = await req.json();
 
   if (!name?.trim()) {
@@ -317,7 +316,7 @@ async function resolveAutoLabelId(type: string, teamId: string): Promise<string 
 }
 
 export async function handleCreateIssue(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const body = await req.json();
   const { title, slug, type, teamId: bodyTeamId, labelIds } = body;
 

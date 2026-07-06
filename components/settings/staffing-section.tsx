@@ -28,7 +28,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
     enabled: !!resolvedId && !loading,
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${resolvedId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${resolvedId}`,
         {
           headers: API_JSON_HEADERS,
         },

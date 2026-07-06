@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase, PORTAL_SCHEMA } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase-client";
 import type { Issue } from "./issues.types";
 
 // Single per-issue "has unseen update" flag (portal.issue_updates). Not
@@ -15,7 +15,7 @@ export function useIssueUpdateBadge() {
     queryKey: ["issue-updates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .schema(PORTAL_SCHEMA)
+        .schema("portal")
         .from("issue_updates")
         .select("issue_id, seen, updated_by")
         .eq("seen", false);

@@ -11,7 +11,7 @@ import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 export async function fetchBillingData({ user }: { user: any }) {
   const customerId = user?.stripe_customer_id ?? user?.customer_id;
-  const url = `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/client?customer_id=${customerId}`;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/client?customer_id=${customerId}`;
   console.log("[fetchBillingData] requesting", { url, customerId, headers: API_HEADERS });
 
   const res = await fetch(url, { headers: API_HEADERS });
@@ -66,7 +66,7 @@ export function BillingSection({
   const updatePaymentMethodMutation = useMutation({
     mutationFn: async (email: string) => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/stripe/create-customer-portal`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/create-customer-portal`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

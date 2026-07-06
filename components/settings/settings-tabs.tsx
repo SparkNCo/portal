@@ -31,7 +31,7 @@ export function SettingsTabs() {
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/users?type=customers`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch customers");

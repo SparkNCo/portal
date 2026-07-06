@@ -483,7 +483,7 @@ A **Service** is a Supabase-only concept — no link to Linear (an earlier versi
 | `components/client/priority-tasks.tsx` | Main issue list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
 | `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and SVG renderer |
-| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams (`resolvePortalSchema` pattern) |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams |
 | `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
 | `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
 | `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called for "crear nuevo") |
@@ -1069,34 +1069,19 @@ User lands on /{slug}/dashboard/settings
 
 ## 11. Environments & Schema Routing
 
-Every Supabase table the portal reads/writes exists twice — once under the **`portal`** schema (production data) and once under **`portaldev`** (local dev data). Almost every request to a `supabase/functions/*` edge function picks between the two via a single HTTP header, rather than the frontend and backend each hardcoding a schema name.
+There is a single schema, **`portal`**, used everywhere — local dev and production alike. The old `portal`/`portaldev` split (and the `x-portal-schema` header / `resolvePortalSchema` mechanism that picked between them) has been removed entirely; `supabase/functions/utils/schema.ts` no longer exists, and `.env.development.local` (which used to set `NEXT_PUBLIC_SUPABASE_SCHEMA="portaldev"`) has been deleted.
 
-### 11.1 How the header gets set (frontend)
+- `supabase/functions/*/index.ts` — every edge function hardcodes `const schema = "portal";` right after parsing the request, threaded down into every handler.
+- Components that query Supabase directly with the anon key (not through an edge function) — `use-issue-update-badge.ts`, `use-document-requests.ts`, `use-pinned-panels.ts`, `issue-detail-modal.tsx`, `set-password/page.tsx` — call `supabase.schema("portal").from(...)` directly; there is no more `PORTAL_SCHEMA` export from `lib/supabase-client.ts`.
+- `lib/api-headers.ts` (`API_HEADERS`/`API_JSON_HEADERS`, used for edge-function `fetch()` calls) no longer attaches an `x-portal-schema` header.
 
-- `lib/supabase-client.ts` exports `PORTAL_SCHEMA`, read from `NEXT_PUBLIC_SUPABASE_SCHEMA`:
-  - `next dev` loads `.env.development.local` on top of `.env`, which sets `NEXT_PUBLIC_SUPABASE_SCHEMA="portaldev"` — so anything run locally via `npm run dev` talks to the dev schema.
-  - `next build` / `next start` (including the Vercel deploy) never load `.env.development.local`, so `PORTAL_SCHEMA` falls back to the hardcoded default `"portal"`.
-- `lib/api-headers.ts` attaches `PORTAL_SCHEMA` to every request as the `x-portal-schema` header (`API_HEADERS`/`API_JSON_HEADERS`, alongside `Authorization`/`apikey`). Any fetch built from these headers automatically targets the right schema — there is nothing to configure per-call.
+When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-design-tab--services--diagrams)), they only need to exist in the `portal` schema now.
 
-### 11.2 How it's resolved (backend)
-
-- `supabase/functions/utils/schema.ts` → `resolvePortalSchema(req)` reads the `x-portal-schema` header off the incoming request and only honors it if it's in the allow-list `ALLOWED_SCHEMAS = ["portal", "portaldev"]`. Anything else — missing header, typo, arbitrary string — silently falls back to `"portal"`.
-  - This is a **security boundary**, not just a default: edge functions run with the `service_role` key (see `client.ts`), which bypasses RLS entirely. Without the allow-list, a caller who could set an arbitrary header value would effectively get the service-role client to query any schema name they typed in, not just the two sanctioned ones.
-- Every `supabase/functions/*/index.ts` calls `const schema = resolvePortalSchema(req);` right after parsing the request, then threads that string down into every handler (e.g. `users/index.ts`, `storage/index.ts`, `diagrams/index.ts`). Handlers use it as `supabase.schema(schema).from("...")` instead of ever hardcoding `"portal"`.
-- `supabase/functions/utils/headers.ts` explicitly lists `x-portal-schema` in `Access-Control-Allow-Headers`. Without that, browsers would strip the header on the CORS preflight and every request — including local dev ones — would silently land on `"portal"` instead of `"portaldev"`.
-
-### 11.3 Practical implications
-
-- Any code path that calls `fetch()` against a `supabase/functions/*` endpoint **without** going through `API_HEADERS`/`API_JSON_HEADERS` sends the request to the production `portal` schema by default, even when running locally — there's no error, data just shows up (or doesn't) in the "wrong" place.
-- New edge functions must call `resolvePortalSchema(req)` themselves; there's no shared middleware, since each `index.ts` is an independent `Deno.serve` entry point.
-- When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-design-tab--services--diagrams)), they need to be created in **both** `portal` and `portaldev` — the schema switch only changes which one is queried, it doesn't create anything.
-
-### 11.4 File Map
+### 11.1 File Map
 
 | File | Responsibility |
 |---|---|
-| `lib/supabase-client.ts` | Defines `PORTAL_SCHEMA` — `"portal"` by default, `"portaldev"` only under `next dev` |
-| `lib/api-headers.ts` | Attaches `PORTAL_SCHEMA` as the `x-portal-schema` header on every portal API request |
+| `lib/supabase-client.ts` | Anon-key Supabase client (`supabase`); no longer exports a schema constant |
+| `lib/api-headers.ts` | `API_HEADERS`/`API_JSON_HEADERS` for edge-function requests — no schema header |
 | `supabase/functions/client.ts` | Service-role Supabase client shared by all edge functions (bypasses RLS) |
-| `supabase/functions/utils/schema.ts` | `resolvePortalSchema(req)` — allow-list gate, defaults to `"portal"` |
-| `supabase/functions/utils/headers.ts` | CORS headers — allow-lists `x-portal-schema` so browsers can actually send it |
+| `supabase/functions/*/index.ts` | Each hardcodes `const schema = "portal";` |

@@ -24,7 +24,7 @@ export function PolicyApprovalModal({
   const { mutate: approvePolicies, isPending: loading } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/approve`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/approve`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,

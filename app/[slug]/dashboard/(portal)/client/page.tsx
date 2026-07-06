@@ -40,7 +40,7 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
     ticket_statuses: statuses.join(","),
   });
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/issues?${params.toString()}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues?${params.toString()}`,
     { headers: API_HEADERS },
   );
   console.log("END CCALL");
@@ -51,7 +51,7 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
 
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_ENDPOINT}/agreePolicies/check?user_id=${userId}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/check?user_id=${userId}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch policy status");

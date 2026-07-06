@@ -12,12 +12,8 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
-      # Points CI at the dev schema so tests never touch production data,
-      # regardless of what NEXT_PUBLIC_SUPABASE_SCHEMA is set to elsewhere.
-      NEXT_PUBLIC_SUPABASE_SCHEMA: portaldev
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_APIKEY: ${{ secrets.NEXT_PUBLIC_APIKEY }}
-      NEXT_PUBLIC_ENDPOINT: ${{ secrets.NEXT_PUBLIC_ENDPOINT }}
+      NEXT_PUBLIC_SUPABASE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_KEY }}
       NEXT_PUBLIC_GOOGLE_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_API_KEY }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       NEXT_PUBLIC_COMET_AI_UID: ${{ secrets.NEXT_PUBLIC_COMET_AI_UID }}

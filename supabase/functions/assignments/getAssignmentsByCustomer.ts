@@ -1,11 +1,10 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 
 export const getAssignmentsByCustomer = async (req: Request) => {
   try {
-    const schema = resolvePortalSchema(req);
+    const schema = "portal";
 
     const url = new URL(req.url);
     const raw = url.searchParams.get("customer_id");
@@ -25,9 +24,8 @@ export const getAssignmentsByCustomer = async (req: Request) => {
 
     // Two plain queries + manual merge instead of a PostgREST embedded
     // resource (`users!user_id (...)`) — the embedded join depends on
-    // PostgREST's cached FK relationship metadata for the schema being
-    // queried, which can be missing/stale for schemas like `portaldev`
-    // even when the same FK exists in `portal`.
+    // PostgREST's cached FK relationship metadata, which has been unreliable
+    // for this table.
     let query = supabase.schema(schema)
       .from("assignments")
       .select("customer_id, user_id, allocation, joined, role")

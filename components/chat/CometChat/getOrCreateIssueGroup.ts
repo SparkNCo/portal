@@ -54,7 +54,7 @@ async function buildIssueGroup(
   try {
     if (profile?.role === "stakeholder") {
       const stakeholderRes = await fetch(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?developer=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile.id}`,
         { headers: API_JSON_HEADERS },
       );
       const stakeholderAssignments: any[] = await stakeholderRes.json();
@@ -63,13 +63,13 @@ async function buildIssueGroup(
       if (customerIds.length > 0) {
         customerIds.forEach((id: string) => memberUids.add(id));
         await fetchAssigneeUids(
-          `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
           memberUids,
         );
       }
     } else if (profile?.id) {
       await fetchAssigneeUids(
-        `${process.env.NEXT_PUBLIC_ENDPOINT}/assignments?customer_id=${profile.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${profile.id}`,
         memberUids,
       );
     }

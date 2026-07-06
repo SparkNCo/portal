@@ -32,7 +32,7 @@ async function patchIssue(payload: {
   priority: string;
   actorEmail?: string;
 }) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_ENDPOINT}/issues/edit`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/edit`, {
     method: "PATCH",
     headers: API_JSON_HEADERS,
     body: JSON.stringify(payload),

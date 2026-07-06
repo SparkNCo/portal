@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
 
@@ -149,7 +148,7 @@ function extractText(bodyData: string): string {
 }
 
 export async function handleGetIssues(req: Request): Promise<Response> {
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { searchParams } = new URL(req.url);
 
   const rawSlug = searchParams.get("linear_slug") ?? searchParams.get("slug");

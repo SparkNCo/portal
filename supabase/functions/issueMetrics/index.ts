@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
-import { resolvePortalSchema } from "../utils/schema.ts";
 import {
   getAllCustomers,
   upsertIssueMetrics,
@@ -168,7 +167,6 @@ async function triggerDoraForAllCustomers(schema: string) {
           headers: {
             "Content-Type": "application/json",
             Authorization: authHeader,
-            "x-portal-schema": schema,
           },
           body: JSON.stringify({
             method: "all",
@@ -245,7 +243,7 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  const schema = resolvePortalSchema(req);
+  const schema = "portal";
   const { searchParams } = new URL(req.url);
 
   try {
