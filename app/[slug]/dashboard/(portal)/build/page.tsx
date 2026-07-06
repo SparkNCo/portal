@@ -3,6 +3,7 @@
 import { Header } from "@/components/headerDashboard";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { FeatureRequestPanel } from "@/components/build/feature-request-panel";
+import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "next/navigation";
@@ -10,6 +11,7 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchIssues } from "../client/page";
 import { PinButton } from "@/components/dashboard/pin-button";
+import type { Issue } from "@/components/client/issues.types";
 
 export default function BuildPage() {
   const { profile } = useUser();
@@ -18,6 +20,7 @@ export default function BuildPage() {
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   const { data: issuesData } = useQuery({
     queryKey: ["linear-issues", slug],
@@ -101,6 +104,7 @@ export default function BuildPage() {
               issuesData={visibleBusinessReviewIssues}
               filterState={noopFilterState}
               onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
               title="Product Decisions"
               compact
             />
@@ -111,12 +115,21 @@ export default function BuildPage() {
               issuesData={visibleUatIssues}
               filterState={noopFilterState}
               onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
               title="Acceptance Testing"
               compact
             />
           </div>
         </div>
       </div>
+
+      {editingIssue && (
+        <EditIssueModal
+          issue={editingIssue}
+          slug={slug}
+          onClose={() => setEditingIssue(null)}
+        />
+      )}
     </div>
   );
 }

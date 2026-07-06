@@ -17,7 +17,9 @@ import {
 } from "@/hooks/use-pinned-panels";
 import { PinnedPanelRenderer } from "@/components/dashboard/pinned-panel-renderer";
 import { SortablePinnedPanel } from "@/components/dashboard/sortable-pinned-panel";
+import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { DEFAULT_PANEL_IDS, type PinnablePanelId } from "@/lib/pinnable-panels";
+import type { Issue } from "@/components/client/issues.types";
 import {
   DndContext,
   closestCenter,
@@ -68,6 +70,7 @@ export default function ClientDashboard() {
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
     new Set(),
   );
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   // 🔹 Issues query
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -198,6 +201,7 @@ export default function ClientDashboard() {
                       allIssues={allIssues}
                       selectedProjectIds={selectedProjects}
                       onOpenChat={handleOpenChat}
+                      onEditIssue={(issue) => setEditingIssue(issue)}
                     />
                   </SortablePinnedPanel>
                 ))}
@@ -223,6 +227,14 @@ export default function ClientDashboard() {
           </div>
         )}
       </div>
+
+      {editingIssue && (
+        <EditIssueModal
+          issue={editingIssue}
+          slug={slug}
+          onClose={() => setEditingIssue(null)}
+        />
+      )}
     </div>
   );
 }

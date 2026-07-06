@@ -64,12 +64,14 @@ export function PinnedPanelRenderer({
   allIssues,
   selectedProjectIds,
   onOpenChat,
+  onEditIssue,
 }: Readonly<{
   panelId: PinnablePanelId;
   slug: string;
   allIssues: any[];
   selectedProjectIds?: Set<string>;
   onOpenChat?: (title: string) => void;
+  onEditIssue?: (issue: any) => void;
 }>) {
   const matchesSelectedProject = (i: any) =>
     !selectedProjectIds ||
@@ -118,6 +120,7 @@ export function PinnedPanelRenderer({
           issuesData={issues}
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
           title="Product Decisions"
           compact
         />
@@ -136,6 +139,7 @@ export function PinnedPanelRenderer({
           issuesData={issues}
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
           title="Acceptance Testing"
           compact
         />
@@ -165,6 +169,7 @@ export function PinnedPanelRenderer({
           issuesData={bugs}
           filterState={noopFilterState}
           onOpenChat={() => {}}
+          onEditIssue={onEditIssue}
           title="Bugs"
           compact
         />
@@ -183,7 +188,7 @@ function RoadmapTimelinePinned({
   return (
     <div className="relative">
       <PinButton panelId={panelId} />
-      <RoadmapTimeline projectMilestones={milestones} />
+      <RoadmapTimeline projectMilestones={milestones} slug={slug} />
     </div>
   );
 }

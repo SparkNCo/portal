@@ -47,10 +47,15 @@ export function EditIssueModal({
   issue,
   slug,
   onClose,
+  onSaved,
 }: {
   issue: Issue;
   slug: string;
   onClose: () => void;
+  /** Called after a successful save, in addition to the built-in cache invalidation — use this to
+   * invalidate any additional query keys the caller's issue list depends on (e.g. an aggregated
+   * multi-project list that doesn't use the ["linear-issues", slug] key). */
+  onSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
@@ -66,6 +71,7 @@ export function EditIssueModal({
       toast.success("Ticket updated");
       queryClient.invalidateQueries({ queryKey: ["linear-issues", slug] });
       queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
+      onSaved?.();
       onClose();
     },
     onError: () => toast.error("Failed to update ticket. Please try again."),

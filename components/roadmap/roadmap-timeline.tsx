@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
+import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import type { Issue } from "@/components/client/issues.types";
-import { X } from "lucide-react";
+import { X, Pencil } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -39,7 +41,19 @@ export type Milestone = {
 
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
+  slug?: string;
 };
+
+function toIssue(issue: any): Issue {
+  return {
+    id: issue.id,
+    branchName: issue.identifier ?? issue.id,
+    title: issue.title ?? "Untitled",
+    priorityLabel: issue.priorityLabel ?? "Low",
+    state: issue.state,
+    description: issue.description ?? null,
+  };
+}
 
 const priorityColors: Record<string, string> = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
@@ -71,12 +85,15 @@ const stateColors: Record<string, string> = {
 
 export function RoadmapTimeline({
   projectMilestones = [],
+  slug = "",
 }: RoadmapTimelineProps) {
+  const queryClient = useQueryClient();
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   const INITIAL_YEAR = new Date().getFullYear();
   const [year, setYear] = useState(INITIAL_YEAR);
@@ -164,16 +181,25 @@ export function RoadmapTimeline({
                 {selectedMilestone.issues.nodes.map((issue: any, i: number) => (
                   <div
                     key={issue.id ?? i}
-                    className="rounded-md border bg-background p-3 space-y-2 cursor-pointer hover:bg-secondary/40 transition-colors"
-                    onClick={() => setSelectedIssue({
-                      id: issue.id,
-                      branchName: issue.identifier ?? issue.id,
-                      title: issue.title ?? "Untitled",
-                      priorityLabel: issue.priorityLabel ?? "Low",
-                      state: issue.state,
-                      description: issue.description ?? null,
-                    })}
+                    className="group relative rounded-md border bg-background p-3 space-y-2 hover:bg-secondary/40 transition-colors"
                   >
+                    <button
+                      type="button"
+                      className="absolute inset-0 rounded-md cursor-pointer"
+                      onClick={() => setSelectedIssue(toIssue(issue))}
+                      aria-label={issue.title ?? "View issue"}
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingIssue(toIssue(issue));
+                      }}
+                      aria-label="Edit ticket"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                     {(issue.identifier || issue.title) && (
                       <div className="space-y-0.5">
                         {issue.identifier && (
@@ -254,6 +280,14 @@ export function RoadmapTimeline({
         <IssueDetailModal
           issue={selectedIssue}
           onClose={() => setSelectedIssue(null)}
+        />
+      )}
+      {editingIssue && (
+        <EditIssueModal
+          issue={editingIssue}
+          slug={slug}
+          onClose={() => setEditingIssue(null)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["roadmap", slug] })}
         />
       )}
     </div>

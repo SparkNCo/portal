@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar } from "lucide-react";
+import { Calendar, Loader2 } from "lucide-react";
 import { formatDateFromUnix, formatAmountFromCents } from "@/lib/formatters";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -194,7 +194,14 @@ export function NextPaymentPanel({
             onClick={handleRenew}
             disabled={!billingData?.customerId || renewSubscriptionMutation.isPending}
           >
-            {renewSubscriptionMutation.isPending ? "Renewing…" : "Renew Subscription"}
+            {renewSubscriptionMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Renewing…
+              </>
+            ) : (
+              "Renew Subscription"
+            )}
           </Button>
           {renewSubscriptionMutation.isError && (
             <p className="text-xs text-red-600">
