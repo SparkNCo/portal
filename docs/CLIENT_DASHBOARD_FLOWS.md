@@ -15,11 +15,10 @@ The URL follows the pattern `/{clientName}/dashboard/client`, where `clientName`
 
 ## Layout & Navigation
 
-Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/dashboard/(portal)/layout.tsx`. That layout wraps all content with three things:
+Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/dashboard/(portal)/layout.tsx`. That layout wraps all content with two things:
 
 - **AuthGate** — checks that a valid Supabase session exists. If not, redirects to `/`.
 - **Sidebar** — the left navigation panel (60px wide on desktop, slide-in drawer on mobile).
-- **ConsentProvider** — handles PostHog analytics consent.
 
 ### Sidebar nav items per role
 

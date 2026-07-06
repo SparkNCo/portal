@@ -73,14 +73,14 @@ function MermaidDiagram({ source }: { source: string }) {
   if (error) {
     return (
       <p className="text-sm text-destructive p-4">
-        No se pudo renderizar el diagrama: {error}
+        Failed to render diagram: {error}
       </p>
     );
   }
   if (!svg) {
     return (
       <p className="text-sm text-muted-foreground p-4">
-        Renderizando diagrama…
+        Rendering diagram…
       </p>
     );
   }
@@ -115,14 +115,14 @@ export function DesignTab({ issue }: { issue: Issue }) {
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?type=services&project_slug=${encodeURIComponent(projectSlug)}`,
         { headers: API_HEADERS },
       );
-      if (!res.ok) throw new Error("No se pudieron cargar los servicios");
+      if (!res.ok) throw new Error("Failed to load services");
       return (await res.json()) as Service[];
     },
     enabled: !!projectSlug,
   });
 
   // Diagrams already uploaded from this issue (any service) — used only to
-  // default the "Servicio" dropdown to the last one this issue uploaded to.
+  // default the "Service" dropdown to the last one this issue uploaded to.
   const issueDiagramsQuery = useQuery({
     queryKey: ["diagram-issue", issue.id],
     queryFn: async () => {
@@ -130,7 +130,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?issue_id=${issue.id}`,
         { headers: API_HEADERS },
       );
-      if (!res.ok) throw new Error("No se pudieron cargar los diagramas del issue");
+      if (!res.ok) throw new Error("Failed to load issue diagrams");
       return (await res.json()) as Diagram[];
     },
   });
@@ -149,7 +149,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams?service_id=${activeServiceId}`,
         { headers: API_HEADERS },
       );
-      if (!res.ok) throw new Error("No se pudieron cargar las versiones");
+      if (!res.ok) throw new Error("Failed to load versions");
       return (await res.json()) as Diagram[];
     },
     enabled: !!activeServiceId,
@@ -162,14 +162,14 @@ export function DesignTab({ issue }: { issue: Issue }) {
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       if (!projectSlug)
-        throw new Error("No se pudo identificar el proyecto actual");
+        throw new Error("Could not identify the current project");
       if (!profile?.email)
-        throw new Error("No se pudo identificar al usuario actual");
+        throw new Error("Could not identify the current user");
       if (isCreatingNew && !newServiceName.trim()) {
-        throw new Error("Ingresá un nombre para el servicio nuevo");
+        throw new Error("Enter a name for the new service");
       }
       if (!isCreatingNew && !selectedServiceId) {
-        throw new Error("Seleccioná un servicio antes de subir el diagrama");
+        throw new Error("Select a service before uploading the diagram");
       }
 
       const formData = new FormData();
@@ -191,7 +191,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "Falló la subida del diagrama");
+        throw new Error(body?.error ?? "Diagram upload failed");
       }
 
       return (await res.json()) as { service: Service; diagram: Diagram };
@@ -206,7 +206,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
       setSelectedServiceId(service.id);
       setNewServiceName("");
       setSelectedVersion(diagram.version);
-      toast.success(`Diagrama subido (v${diagram.version})`);
+      toast.success(`Diagram uploaded (v${diagram.version})`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -230,7 +230,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Servicio
+            Service
           </span>
           <Select
             value={selectedServiceId}
@@ -240,11 +240,11 @@ export function DesignTab({ issue }: { issue: Issue }) {
             }}
           >
             <SelectTrigger className="w-56 bg-secondary border-0">
-              <SelectValue placeholder="Elegí un servicio" />
+              <SelectValue placeholder="Choose a service" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NEW_SERVICE}>
-                + Crear servicio nuevo
+                + Create new service
               </SelectItem>
               {servicesQuery.data?.map((service) => (
                 <SelectItem key={service.id} value={service.id}>
@@ -258,12 +258,12 @@ export function DesignTab({ issue }: { issue: Issue }) {
         {isCreatingNew && (
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-              Nombre del servicio
+              Service name
             </span>
             <Input
               value={newServiceName}
               onChange={(e) => setNewServiceName(e.target.value)}
-              placeholder="ej. Auth Service"
+              placeholder="e.g. Auth Service"
               className="w-56 bg-secondary border-0"
             />
           </div>
@@ -272,20 +272,20 @@ export function DesignTab({ issue }: { issue: Issue }) {
         {!isCreatingNew && selectedServiceId && (
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-              Versión
+              Version
             </span>
             <Select
               value={selectedVersion ? String(selectedVersion) : ""}
               onValueChange={(value) => setSelectedVersion(Number(value))}
             >
               <SelectTrigger className="w-40 bg-secondary border-0">
-                <SelectValue placeholder="Versión" />
+                <SelectValue placeholder="Version" />
               </SelectTrigger>
               <SelectContent>
                 {versionsQuery.data?.map((diagram) => (
                   <SelectItem key={diagram.id} value={String(diagram.version)}>
                     v{diagram.version}
-                    {diagram.version === latestVersion ? " (última)" : ""}
+                    {diagram.version === latestVersion ? " (latest)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -305,7 +305,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
           ) : (
             <Upload className="h-3.5 w-3.5" />
           )}
-          Subir nueva versión
+          Upload new version
         </Button>
         <input
           ref={fileInputRef}
@@ -319,17 +319,17 @@ export function DesignTab({ issue }: { issue: Issue }) {
       <div className="rounded-lg border border-border overflow-hidden min-h-[360px] bg-secondary/20">
         {!selectedServiceId && (
           <p className="text-sm text-muted-foreground italic p-4">
-            Elegí o creá un servicio para ver sus diagramas.
+            Choose or create a service to see its diagrams.
           </p>
         )}
         {isCreatingNew && (
           <p className="text-sm text-muted-foreground italic p-4">
-            Escribí un nombre y subí un archivo .mmd para crear el servicio.
+            Enter a name and upload a .mmd file to create the service.
           </p>
         )}
         {!isCreatingNew && selectedServiceId && versionsQuery.isLoading && (
           <p className="text-sm text-muted-foreground italic p-4">
-            Cargando diagramas…
+            Loading diagrams…
           </p>
         )}
         {!isCreatingNew &&
@@ -337,7 +337,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
           !versionsQuery.isLoading &&
           !currentDiagram && (
             <p className="text-sm text-muted-foreground italic p-4">
-              Este servicio todavía no tiene diagramas subidos.
+              This service doesn't have any diagrams uploaded yet.
             </p>
           )}
         {currentDiagram?.mermaid_source && (

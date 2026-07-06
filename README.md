@@ -7,7 +7,6 @@ This repository is a full-stack production template designed for teams using:
 	•	Zod → OpenAPI for API contracts and docs
 	•	Upstash Redis for server-side caching
 	•	Resend + react-email for transactional email
-	•	PostHog for analytics and logging
 	•	Playwright for E2E testing
 
 Important
@@ -27,7 +26,6 @@ You’ll need:
 	•	Vercel
 	•	Upstash
 	•	Resend
-	•	PostHog
 
 ⸻
 
@@ -49,9 +47,6 @@ UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
 RESEND_API_KEY=
-
-POSTHOG_KEY=
-POSTHOG_HOST=https://app.posthog.com
 
 Rule: Secrets are never committed.
 .env.example documents required variables only.
@@ -209,24 +204,6 @@ Rules
 	•	Redis client lives in lib/redis.ts
 	•	Redis is only imported in functions
 	•	Never used in React components
-
-⸻
-
-## Analytics & logging (PostHog)
-
-PostHog is used for:
-	•	Client-side analytics
-	•	Server-side event logging
-	•	Lightweight observability
-
-Usage
-	•	Client initialization in app/providers.tsx
-	•	Server usage via lib/posthog.ts
-
-This allows:
-	•	Full funnel tracking
-	•	Debugging production behavior
-	•	Privacy-aware analytics
 
 ⸻
 
