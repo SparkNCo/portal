@@ -1,45 +1,22 @@
 // @ts-nocheck
 
-export const GET_PROJECT_QUERY = `
-query GetProject($projectId: String!, $after: String) {
+// Cheap scan to find which cycle(s) are active for a project. Full cycle
+// details (scope history, uncompleted issues, etc.) are fetched separately,
+// once per unique cycle, via GET_CYCLE_DETAILS_QUERY below — embedding the
+// full cycle object per-issue (as this query used to) multiplies its cost by
+// every issue in the project and blows past Linear's complexity budget on
+// large projects ("Query too complex", complexity ~46000 vs a 10000 limit).
+export const GET_PROJECT_ACTIVE_CYCLES_QUERY = `
+query GetProjectActiveCycles($projectId: String!, $after: String) {
   project(id: $projectId) {
     id
     name
     issues(first: 250, after: $after) {
       nodes {
         id
-        title
-        estimate
-        state {
-          name
-        }
-        labels(first: 3) {
-          nodes {
-            name
-          }
-        }
         cycle {
           id
-          name
-          description
-          completedAt
-          number
-          startsAt
-          endsAt
           isActive
-          scopeHistory
-          completedScopeHistory
-          uncompletedIssuesUponClose {
-            nodes {
-              addedToCycleAt
-              dueDate
-              id
-              labelIds
-              number
-              priority
-              title
-            }
-          }
         }
       }
       pageInfo {

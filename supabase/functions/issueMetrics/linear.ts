@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { GET_PROJECT_QUERY, GET_CYCLE_ISSUES_QUERY, GET_PROJECT_CYCLES_QUERY, GET_CYCLE_DETAILS_QUERY, GET_PROJECT_ISSUE_STATUSES_QUERY } from "./queries.ts";
+import { GET_PROJECT_ACTIVE_CYCLES_QUERY, GET_CYCLE_ISSUES_QUERY, GET_PROJECT_CYCLES_QUERY, GET_CYCLE_DETAILS_QUERY, GET_PROJECT_ISSUE_STATUSES_QUERY } from "./queries.ts";
 
 async function linearFetch(query: string, variables: any) {
   const res = await fetch(LINEAR_GRAPHQL, {
@@ -36,7 +36,7 @@ async function fetchOneProjectDetails(projectId: string) {
   let after: string | undefined;
 
   do {
-    const data = await linearFetch(GET_PROJECT_QUERY, { projectId, after });
+    const data = await linearFetch(GET_PROJECT_ACTIVE_CYCLES_QUERY, { projectId, after });
     const project = data.project;
     if (!project) return null;
     id = project.id;
@@ -47,6 +47,15 @@ async function fetchOneProjectDetails(projectId: string) {
   } while (after);
 
   return { id, name, issues: { nodes } };
+}
+
+// Fetches full cycle details (name, dates, scope history, uncompleted issues,
+// etc.) for exactly one cycle — used to resolve the light {id, isActive}
+// stubs from GET_PROJECT_ACTIVE_CYCLES_QUERY into complete cycle objects,
+// once per unique cycle rather than once per issue.
+export async function fetchCycleDetails(cycleId: string) {
+  const data = await linearFetch(GET_CYCLE_DETAILS_QUERY, { cycleId });
+  return data.cycle;
 }
 
 export async function fetchCycleIssues(cycleId: string) {

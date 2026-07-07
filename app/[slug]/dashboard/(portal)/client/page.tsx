@@ -51,6 +51,10 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   return res.json();
 }
 
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export async function fetchPoliciesStatus(userId: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agreePolicies/check?user_id=${userId}`,
@@ -140,7 +144,7 @@ export default function ClientDashboard() {
             ? "Dashboard"
             : "Dashboard"
         }
-        subtitle={`Welcome back, ${profile?.firstName ?? profile?.userName ?? profile?.email ?? "User"}`}
+        subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "User")}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
         <div className="flex items-center justify-between gap-3">

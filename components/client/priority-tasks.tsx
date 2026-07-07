@@ -67,7 +67,7 @@ export function PriorityTasks({
   if (compact) {
     return (
       <Card className="bg-background border-border flex flex-col w-full h-full ">
-        <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3">
+        <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 pr-10">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
             {title}

@@ -9,7 +9,7 @@ import {
   getIssueMetricsByCustomerId,
   getProjectIdsBySlug,
 } from "./db.ts";
-import { fetchProjectDetails, fetchCycleIssues } from "./linear.ts";
+import { fetchProjectDetails, fetchCycleIssues, fetchCycleDetails } from "./linear.ts";
 import { buildIssueMetrics, buildCycleMetrics } from "./metrics.ts";
 
 function jsonResponse(data: unknown, status = 200) {
@@ -92,6 +92,33 @@ async function resolveCycleIssues(
     }
   }
   return result;
+}
+
+// Resolves the light {id, isActive} cycle stubs (from GET_PROJECT_ACTIVE_CYCLES_QUERY)
+// into full cycle detail objects, fetching each unique cycle exactly once
+// regardless of how many projects/issues reference it.
+async function resolveFullCycles(
+  cyclesByProject: { projectId: string; projectName: string; cycles: any[] }[],
+) {
+  const uniqueCycleIds = [
+    ...new Set(
+      cyclesByProject.flatMap(({ cycles }) => cycles.map((c) => c.id)),
+    ),
+  ];
+
+  const fetched = await Promise.all(
+    uniqueCycleIds.map(async (cycleId) => [
+      cycleId,
+      await fetchCycleDetails(cycleId),
+    ]),
+  );
+  const cycleById = new Map<string, any>(fetched);
+
+  return cyclesByProject.map(({ projectId, projectName, cycles }) => ({
+    projectId,
+    projectName,
+    cycles: cycles.map((c) => cycleById.get(c.id)).filter(Boolean),
+  }));
 }
 
 async function handlePut(req: Request, schema: string) {
@@ -202,7 +229,7 @@ async function handlePost(schema: string) {
 
       const projects = (await fetchProjectDetails(linearProjects)).filter(Boolean);
 
-      const cyclesByProject = projects.map((project: any) => {
+      const cyclesByProjectLight = projects.map((project: any) => {
         const cyclesMap = new Map();
         for (const issue of project.issues?.nodes || []) {
           if (issue.cycle?.id && issue.cycle.isActive === true) {
@@ -216,7 +243,10 @@ async function handlePost(schema: string) {
         };
       });
 
-      const cycleIssues = await resolveCycleIssues(cyclesByProject);
+      const [cycleIssues, cyclesByProject] = await Promise.all([
+        resolveCycleIssues(cyclesByProjectLight),
+        resolveFullCycles(cyclesByProjectLight),
+      ]);
 
       const metrics = buildIssueMetrics(cycleIssues, customer.id);
       const cycles = buildCycleMetrics(
