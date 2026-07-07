@@ -1,11 +1,11 @@
 // @ts-nocheck
 
 export const GET_PROJECT_QUERY = `
-query GetProject($projectId: String!) {
+query GetProject($projectId: String!, $after: String) {
   project(id: $projectId) {
     id
     name
-    issues {
+    issues(first: 250, after: $after) {
       nodes {
         id
         title
@@ -41,6 +41,10 @@ query GetProject($projectId: String!) {
             }
           }
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }
@@ -93,9 +97,9 @@ query GetCycleDetails($cycleId: String!) {
 `;
 
 export const GET_CYCLE_ISSUES_QUERY = `
-query GetCycleIssues($cycleId: String!) {
+query GetCycleIssues($cycleId: String!, $after: String) {
   cycle(id: $cycleId) {
-    issues {
+    issues(first: 250, after: $after) {
       nodes {
         id
         title
@@ -111,6 +115,10 @@ query GetCycleIssues($cycleId: String!) {
         project {
           id
         }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }

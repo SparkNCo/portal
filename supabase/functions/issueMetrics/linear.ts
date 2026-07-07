@@ -21,18 +21,46 @@ async function linearFetch(query: string, variables: any) {
   return json.data;
 }
 
+// Linear defaults to a small page size when `first` isn't set, which silently
+// truncated large projects' issue lists — that's what caused the active cycle
+// (or its issues) to go undetected for those projects on some days. Paginate
+// through every page so nothing is missed, same pattern as fetchProjectById.
 export async function fetchProjectDetails(projectIds: string[]) {
-  return Promise.all(
-    projectIds.map(async (projectId) => {
-      const data = await linearFetch(GET_PROJECT_QUERY, { projectId });
-      return data.project;
-    }),
-  );
+  return Promise.all(projectIds.map(fetchOneProjectDetails));
+}
+
+async function fetchOneProjectDetails(projectId: string) {
+  const nodes: any[] = [];
+  let id = "";
+  let name = "";
+  let after: string | undefined;
+
+  do {
+    const data = await linearFetch(GET_PROJECT_QUERY, { projectId, after });
+    const project = data.project;
+    if (!project) return null;
+    id = project.id;
+    name = project.name;
+    nodes.push(...(project.issues?.nodes ?? []));
+    const pageInfo = project.issues?.pageInfo;
+    after = pageInfo?.hasNextPage ? pageInfo.endCursor : undefined;
+  } while (after);
+
+  return { id, name, issues: { nodes } };
 }
 
 export async function fetchCycleIssues(cycleId: string) {
-  const data = await linearFetch(GET_CYCLE_ISSUES_QUERY, { cycleId });
-  return data.cycle?.issues?.nodes ?? [];
+  const issues: any[] = [];
+  let after: string | undefined;
+
+  do {
+    const data = await linearFetch(GET_CYCLE_ISSUES_QUERY, { cycleId, after });
+    issues.push(...(data.cycle?.issues?.nodes ?? []));
+    const pageInfo = data.cycle?.issues?.pageInfo;
+    after = pageInfo?.hasNextPage ? pageInfo.endCursor : undefined;
+  } while (after);
+
+  return issues;
 }
 
 export async function fetchProjectById(projectId: string) {

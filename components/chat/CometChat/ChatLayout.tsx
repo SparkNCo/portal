@@ -32,7 +32,7 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
 
   useEffect(() => {
     if (!ready) return;
-    if (initialTitle || (groups.length === 0 && directChats.length === 0 && profile?.role === "customer")) {
+    if (initialTitle) {
       setShowCreateModal(true);
     }
   }, [ready]);

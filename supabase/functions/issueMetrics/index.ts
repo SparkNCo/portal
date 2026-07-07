@@ -107,7 +107,7 @@ async function handlePut(req: Request, schema: string) {
     );
 
   // Step 2: fetch project details to discover active cycles
-  const projects = await fetchProjectDetails(projectIds);
+  const projects = (await fetchProjectDetails(projectIds)).filter(Boolean);
 
   const cyclesByProject = projects.map((project: any) => {
     const cyclesMap = new Map();
@@ -195,40 +195,46 @@ async function handlePost(schema: string) {
       continue;
     }
 
-    console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
+    // A failure for one customer (Linear rate limit, timeout, bad project id, etc.)
+    // must not stop the rest of the batch from being processed that day.
+    try {
+      console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
 
-    const projects = await fetchProjectDetails(linearProjects);
+      const projects = (await fetchProjectDetails(linearProjects)).filter(Boolean);
 
-    const cyclesByProject = projects.map((project: any) => {
-      const cyclesMap = new Map();
-      for (const issue of project.issues?.nodes || []) {
-        if (issue.cycle?.id && issue.cycle.isActive === true) {
-          cyclesMap.set(issue.cycle.id, issue.cycle);
+      const cyclesByProject = projects.map((project: any) => {
+        const cyclesMap = new Map();
+        for (const issue of project.issues?.nodes || []) {
+          if (issue.cycle?.id && issue.cycle.isActive === true) {
+            cyclesMap.set(issue.cycle.id, issue.cycle);
+          }
         }
-      }
-      return {
-        projectId: project.id,
-        projectName: project.name,
-        cycles: Array.from(cyclesMap.values()),
-      };
-    });
+        return {
+          projectId: project.id,
+          projectName: project.name,
+          cycles: Array.from(cyclesMap.values()),
+        };
+      });
 
-    const cycleIssues = await resolveCycleIssues(cyclesByProject);
+      const cycleIssues = await resolveCycleIssues(cyclesByProject);
 
-    const metrics = buildIssueMetrics(cycleIssues, customer.id);
-    const cycles = buildCycleMetrics(
-      cyclesByProject,
-      customer.id,
-      metrics,
-      cycleIssues,
-    );
+      const metrics = buildIssueMetrics(cycleIssues, customer.id);
+      const cycles = buildCycleMetrics(
+        cyclesByProject,
+        customer.id,
+        metrics,
+        cycleIssues,
+      );
 
-    await Promise.all([
-      upsertIssueMetrics(metrics, schema),
-      upsertCycleMetrics(cycles, schema),
-    ]);
+      await Promise.all([
+        upsertIssueMetrics(metrics, schema),
+        upsertCycleMetrics(cycles, schema),
+      ]);
 
-    console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
+      console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
+    } catch (err) {
+      console.error(`❌ [issueMetrics] failed to process customer ${customer.id}:`, String(err));
+    }
   }
 
   console.log(`🚀 [issueMetrics] triggering dora for all customers...`);
