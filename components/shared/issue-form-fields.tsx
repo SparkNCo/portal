@@ -5,42 +5,39 @@ import { Label } from "@/components/ui/label";
 import { ProjectSelect } from "@/components/shared/project-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
 
-export function TitleField({
-  value,
-  onChange,
+// Title is always visible; the Continue button sits next to it (same row on
+// desktop, stacked on mobile) until details are revealed, then disappears.
+export function TitleContinueRow({
+  title,
+  onTitleChange,
+  detailsRevealed,
+  onContinue,
 }: {
-  value: string;
-  onChange: (value: string) => void;
+  title: string;
+  onTitleChange: (value: string) => void;
+  detailsRevealed: boolean;
+  onContinue: () => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label>Title</Label>
-      <Input
-        placeholder="Brief summary..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-secondary border-0"
-      />
-    </div>
-  );
-}
-
-export function ContinueButton({
-  onClick,
-  disabled,
-}: {
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="flex justify-end">
-      <Button
-        onClick={onClick}
-        disabled={disabled}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
-      >
-        Continue
-      </Button>
+    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+      <div className="flex-1 space-y-1.5">
+        <Label>Title</Label>
+        <Input
+          placeholder="Brief summary..."
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          className="bg-secondary border-0"
+        />
+      </div>
+      {!detailsRevealed && (
+        <Button
+          onClick={onContinue}
+          disabled={!title.trim()}
+          className="bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto"
+        >
+          Continue
+        </Button>
+      )}
     </div>
   );
 }

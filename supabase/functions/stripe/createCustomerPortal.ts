@@ -37,8 +37,23 @@ export async function createCustomerPortal(req: Request, schema: string) {
       });
     }
 
+    // `users.customer_id` references `customers.customer_id` — the actual
+    // Stripe customer id lives on `customers.stripe_customer_id`.
+    const { data: customer, error: customerError } = await supabase.schema(schema)
+      .from("customers")
+      .select("stripe_customer_id")
+      .eq("customer_id", user.customer_id)
+      .single();
+
+    if (customerError || !customer?.stripe_customer_id) {
+      return new Response(
+        JSON.stringify({ error: "No Stripe customer linked to this account" }),
+        { status: 404, headers: corsHeaders },
+      );
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: user.customer_id,
+      customer: customer.stripe_customer_id,
       return_url: "http://localhost:3000/dashboard/settings",
     });
 

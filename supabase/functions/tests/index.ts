@@ -153,7 +153,7 @@ async function handleUpdateTest(req: Request): Promise<Response> {
 // PATCH /tests/uat — record the actual UAT result and/or toggle passed status
 async function handleUatTest(req: Request): Promise<Response> {
   const schema = "portal";
-  const { test_id, actual, passed, recorded_by, kind } = await req.json();
+  const { test_id, actual, passed, recorded_by, kind, attachments } = await req.json();
   if (!test_id || (actual === undefined && passed === undefined)) {
     return Response.json({ error: "Missing test_id, and at least one of actual or passed" }, { status: 400 });
   }
@@ -174,6 +174,7 @@ async function handleUatTest(req: Request): Promise<Response> {
         recorded_by: recorded_by ?? null,
         recorded_at: new Date().toISOString(),
         kind: kind ?? null,
+        attachments: Array.isArray(attachments) ? attachments : [],
       },
     ];
   }
