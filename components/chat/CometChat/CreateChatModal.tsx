@@ -23,7 +23,7 @@ export default function CreateChatModal({ creating, initialTitle, onCreate, onCl
         <div>
           <h2 className="font-semibold text-base">New Chat</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Group chat with your assigned developer
+            Group chat with your assigned developers
           </p>
         </div>
 

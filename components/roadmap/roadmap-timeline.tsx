@@ -8,8 +8,9 @@ import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
+import { LABEL_ICONS } from "@/components/client/issue-cards";
 import type { Issue } from "@/components/client/issues.types";
-import { X, Pencil } from "lucide-react";
+import { X, Pencil, Gauge } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -178,7 +179,16 @@ export function RoadmapTimeline({
               </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {selectedMilestone.issues.nodes.map((issue: any, i: number) => (
+                {selectedMilestone.issues.nodes.map((issue: any, i: number) => {
+                  const typeLabel = issue.labels?.nodes?.find(
+                    (l: any) => LABEL_ICONS[l.name.toLowerCase()],
+                  );
+                  const typeIcon = typeLabel ? LABEL_ICONS[typeLabel.name.toLowerCase()] : undefined;
+                  const otherLabels = issue.labels?.nodes?.filter(
+                    (l: any) => l.id !== typeLabel?.id,
+                  );
+
+                  return (
                   <div
                     key={issue.id ?? i}
                     className="group relative rounded-md border bg-background p-3 space-y-2 hover:bg-secondary/40 transition-colors"
@@ -203,7 +213,26 @@ export function RoadmapTimeline({
                     {(issue.identifier || issue.title) && (
                       <div className="space-y-0.5">
                         {issue.identifier && (
-                          <p className="text-[10px] text-muted-foreground font-mono">{issue.identifier}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                              {typeIcon && (
+                                <typeIcon.Icon
+                                  className={`h-3 w-3 shrink-0 ${typeIcon.className}`}
+                                  aria-label={typeLabel.name}
+                                />
+                              )}
+                              {issue.identifier}
+                            </p>
+                            {issue.priorityLabel &&
+                              issue.priorityLabel !== "No priority" && (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] ${priorityColors[issue.priorityLabel] ?? ""}`}
+                                >
+                                  {issue.priorityLabel}
+                                </Badge>
+                              )}
+                          </div>
                         )}
                         {issue.title && (
                           <p className="text-xs font-medium leading-snug">{issue.title}</p>
@@ -211,6 +240,15 @@ export function RoadmapTimeline({
                       </div>
                     )}
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {issue.estimate != null && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-[10px] border-chart-1/30 bg-chart-1/10 text-chart-1"
+                        >
+                          <Gauge className="h-3 w-3" />
+                          {issue.estimate}
+                        </Badge>
+                      )}
                       {issue.state?.name && (
                         <Badge
                           variant="outline"
@@ -219,20 +257,11 @@ export function RoadmapTimeline({
                           {issue.state.name}
                         </Badge>
                       )}
-                      {issue.priorityLabel &&
-                        issue.priorityLabel !== "No priority" && (
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${priorityColors[issue.priorityLabel] ?? ""}`}
-                          >
-                            {issue.priorityLabel}
-                          </Badge>
-                        )}
                     </div>
 
-                    {issue.labels?.nodes?.length > 0 && (
+                    {otherLabels?.length > 0 && (
                       <div className="flex flex-wrap gap-1">
-                        {issue.labels.nodes.map((l: any) => (
+                        {otherLabels.map((l: any) => (
                           <span
                             key={l.name}
                             className="text-[10px] bg-muted rounded px-1.5 py-0.5 text-muted-foreground"
@@ -270,7 +299,8 @@ export function RoadmapTimeline({
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

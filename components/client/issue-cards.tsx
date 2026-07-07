@@ -22,7 +22,7 @@ const LABEL_COLOR_CLASSES: Record<string, string> = {
   feature: "bg-success text-white",
 };
 
-const LABEL_ICONS: Record<string, { Icon: LucideIcon; className: string }> = {
+export const LABEL_ICONS: Record<string, { Icon: LucideIcon; className: string }> = {
   bug: { Icon: Bug, className: "text-destructive" },
   feature: { Icon: Lightbulb, className: "text-success" },
 };
