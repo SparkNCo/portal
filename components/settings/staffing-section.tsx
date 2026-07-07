@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Mail, Clock } from "lucide-react";
+import { Users, Plus, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
@@ -147,9 +147,6 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
                   <Clock className="h-3 w-3" />
                   {member.hours}h/week
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Mail className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           ))}

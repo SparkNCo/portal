@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Gauge } from "lucide-react";
+import { Pencil, Gauge, Bug, Lightbulb, type LucideIcon } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
@@ -22,12 +22,30 @@ const LABEL_COLOR_CLASSES: Record<string, string> = {
   feature: "bg-success text-white",
 };
 
+export const LABEL_ICONS: Record<string, { Icon: LucideIcon; className: string }> = {
+  bug: { Icon: Bug, className: "text-destructive" },
+  feature: { Icon: Lightbulb, className: "text-success" },
+};
+
 export function LabelPill({
   label,
+  iconOnly = false,
 }: {
   readonly label: { id: string; name: string; color: string };
+  readonly iconOnly?: boolean;
 }) {
-  const knownClass = LABEL_COLOR_CLASSES[label.name.toLowerCase()];
+  const key = label.name.toLowerCase();
+
+  if (iconOnly && LABEL_ICONS[key]) {
+    const { Icon, className } = LABEL_ICONS[key];
+    return (
+      <span title={label.name} aria-label={label.name} className="shrink-0">
+        <Icon className={`h-3.5 w-3.5 ${className}`} aria-hidden="true" />
+      </span>
+    );
+  }
+
+  const knownClass = LABEL_COLOR_CLASSES[key];
 
   if (knownClass) {
     return (
@@ -59,6 +77,10 @@ export function IssueCard({
   readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
 }) {
+  const typeLabel = issue.labels?.nodes?.find((l) => LABEL_ICONS[l.name.toLowerCase()]);
+  const typeIcon = typeLabel ? LABEL_ICONS[typeLabel.name.toLowerCase()] : undefined;
+  const otherLabels = issue.labels?.nodes?.filter((l) => l.id !== typeLabel?.id);
+
   return (
     <div className="group relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
       <button
@@ -88,6 +110,12 @@ export function IssueCard({
       )}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
+          {typeIcon && (
+            <typeIcon.Icon
+              className={`h-3.5 w-3.5 shrink-0 ${typeIcon.className}`}
+              aria-label={typeLabel!.name}
+            />
+          )}
           <span className="text-xs font-mono text-muted-foreground">
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
@@ -97,7 +125,6 @@ export function IssueCard({
           >
             {issue.priorityLabel}
           </Badge>
-          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
         <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
           {issue.title}
@@ -111,7 +138,8 @@ export function IssueCard({
           >
             {issue?.state?.name}
           </Badge>
-          {issue.labels?.nodes?.map((l) => (
+          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
+          {otherLabels?.map((l) => (
             <LabelPill key={l.id} label={l} />
           ))}
         </div>
@@ -169,7 +197,7 @@ export function IssueListRow({
         {issue.title}
       </p>
       {issue.labels?.nodes?.map((l) => (
-        <LabelPill key={l.id} label={l} />
+        <LabelPill key={l.id} label={l} iconOnly />
       ))}
       {onEdit && (
         <button

@@ -4,15 +4,13 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Lightbulb, Paperclip, File as FileIcon, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { CollapsiblePanelHeader } from "@/components/shared/collapsible-panel-header";
 import {
-  TitleField,
-  ContinueButton,
+  TitleContinueRow,
   ProjectField,
   PriorityField,
   SubmitButton,
@@ -55,7 +53,6 @@ function buildFeatureDescription(description: string, requirements: string) {
 }
 
 export function FeatureRequestPanel({ slug }: { slug: string }) {
-  const [expanded, setExpanded] = useState(false);
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -126,19 +123,21 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
   return (
     <Card className="bg-background">
-      <CollapsiblePanelHeader
-        icon={<Lightbulb className="h-4 w-4 text-chart-2" />}
-        title="Request a Feature"
-        expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
-      />
-      {expanded && (
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-chart-2" />
+          Request a Feature
+        </CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
-        <TitleField value={title} onChange={setTitle} />
+        <TitleContinueRow
+          title={title}
+          onTitleChange={setTitle}
+          detailsRevealed={detailsRevealed}
+          onContinue={() => setDetailsRevealed(true)}
+        />
 
-        {!detailsRevealed ? (
-          <ContinueButton onClick={() => setDetailsRevealed(true)} disabled={!title.trim()} />
-        ) : (
+        {detailsRevealed && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
@@ -250,7 +249,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           </>
         )}
       </CardContent>
-      )}
     </Card>
   );
 }

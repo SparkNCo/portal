@@ -25,6 +25,7 @@ type Profile = {
   lastName?: string;
   customer_id?: string;
   assignment_id?: Assignment[];
+  clientName?: string | null;
 };
 
 type UserContextType = {

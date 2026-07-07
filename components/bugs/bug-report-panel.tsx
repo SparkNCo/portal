@@ -4,13 +4,11 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bug } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CollapsiblePanelHeader } from "@/components/shared/collapsible-panel-header";
 import {
-  TitleField,
-  ContinueButton,
+  TitleContinueRow,
   ProjectField,
   PriorityField,
   SubmitButton,
@@ -31,7 +29,6 @@ ${actual}
 }
 
 export function BugReportPanel({ slug }: { slug: string }) {
-  const [expanded, setExpanded] = useState(false);
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [steps, setSteps] = useState("");
@@ -79,19 +76,21 @@ export function BugReportPanel({ slug }: { slug: string }) {
 
   return (
     <Card className="bg-background">
-      <CollapsiblePanelHeader
-        icon={<Bug className="h-4 w-4 text-destructive" />}
-        title="Report a Bug"
-        expanded={expanded}
-        onToggle={() => setExpanded((v) => !v)}
-      />
-      {expanded && (
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bug className="h-4 w-4 text-destructive" />
+          Report a Bug
+        </CardTitle>
+      </CardHeader>
       <CardContent className="space-y-4">
-        <TitleField value={title} onChange={setTitle} />
+        <TitleContinueRow
+          title={title}
+          onTitleChange={setTitle}
+          detailsRevealed={detailsRevealed}
+          onContinue={() => setDetailsRevealed(true)}
+        />
 
-        {!detailsRevealed ? (
-          <ContinueButton onClick={() => setDetailsRevealed(true)} disabled={!title.trim()} />
-        ) : (
+        {detailsRevealed && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
@@ -142,7 +141,6 @@ export function BugReportPanel({ slug }: { slug: string }) {
           </>
         )}
       </CardContent>
-      )}
     </Card>
   );
 }

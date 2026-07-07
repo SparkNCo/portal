@@ -58,6 +58,7 @@ export type TestCase = {
     recorded_by?: string | null;
     recorded_at?: string;
     kind?: "qa" | "uat";
+    attachments?: { name: string; url: string }[];
   }[];
   status: "draft" | "approved" | "passed" | "failed";
   created_by: string;

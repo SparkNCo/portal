@@ -24,6 +24,7 @@ import {
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { fetchProjects } from "@/lib/issues-api";
 import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
+import { useDocumentRequests } from "./use-document-requests";
 
 async function postDocumentRequest(payload: {
   customerSlug: string;
@@ -32,6 +33,7 @@ async function postDocumentRequest(payload: {
   description?: string;
   projectId?: string;
   projectName?: string;
+  relatedRequestId?: string;
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/document-requests`, {
     method: "POST",
@@ -54,12 +56,15 @@ export function RequestDocumentDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedRelatedRequestId, setSelectedRelatedRequestId] = useState("");
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", customerSlug],
     queryFn: () => fetchProjects(customerSlug),
     enabled: open && !!customerSlug,
   });
+
+  const { data: pastRequests = [] } = useDocumentRequests(customerSlug);
 
   const mutation = useMutation({
     mutationFn: postDocumentRequest,
@@ -76,6 +81,7 @@ export function RequestDocumentDialog({
     setTitle("");
     setDescription("");
     setSelectedProjectId("");
+    setSelectedRelatedRequestId("");
   }
 
   function handleSubmit() {
@@ -88,6 +94,7 @@ export function RequestDocumentDialog({
       description: description.trim() || undefined,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
+      relatedRequestId: selectedRelatedRequestId || undefined,
     });
   }
 
@@ -142,6 +149,30 @@ export function RequestDocumentDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {pastRequests.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>
+                  Related to a previous request{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Select
+                  value={selectedRelatedRequestId}
+                  onValueChange={setSelectedRelatedRequestId}
+                >
+                  <SelectTrigger className="bg-secondary border-0">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pastRequests.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>
