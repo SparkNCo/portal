@@ -125,7 +125,6 @@ export function IssueCard({
           >
             {issue.priorityLabel}
           </Badge>
-          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
         </div>
         <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
           {issue.title}
@@ -139,6 +138,7 @@ export function IssueCard({
           >
             {issue?.state?.name}
           </Badge>
+          {issue.estimate != null && <EstimateBadge estimate={issue.estimate} />}
           {otherLabels?.map((l) => (
             <LabelPill key={l.id} label={l} />
           ))}
