@@ -33,9 +33,11 @@ async function patchDocumentRequest(payload: Record<string, unknown>) {
 
 function RequestDetailModal({
   request,
+  relatedRequest,
   onClose,
 }: {
   readonly request: DocumentRequest;
+  readonly relatedRequest?: DocumentRequest;
   readonly onClose: () => void;
 }) {
   return (
@@ -60,6 +62,12 @@ function RequestDetailModal({
           {request.project_name && (
             <p className="text-sm font-medium text-foreground">
               {request.project_name}
+            </p>
+          )}
+
+          {relatedRequest && (
+            <p className="text-[11px] text-muted-foreground">
+              Related to: <span className="text-foreground">{relatedRequest.title}</span>
             </p>
           )}
 
@@ -95,9 +103,11 @@ function RequestDetailModal({
 function RequestRow({
   request,
   canManage,
+  requestsById,
 }: {
   readonly request: DocumentRequest;
   readonly canManage: boolean;
+  readonly requestsById: Map<string, DocumentRequest>;
 }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
@@ -209,7 +219,13 @@ function RequestRow({
       </div>
 
       {showDetail && (
-        <RequestDetailModal request={request} onClose={() => setShowDetail(false)} />
+        <RequestDetailModal
+          request={request}
+          relatedRequest={
+            request.related_request_id ? requestsById.get(request.related_request_id) : undefined
+          }
+          onClose={() => setShowDetail(false)}
+        />
       )}
 
       {showFulfill && (
@@ -231,12 +247,14 @@ function RequestPanel({
   requests,
   canManage,
   emptyMessage,
+  requestsById,
 }: {
   readonly title: string;
   readonly icon: React.ReactNode;
   readonly requests: DocumentRequest[];
   readonly canManage: boolean;
   readonly emptyMessage: string;
+  readonly requestsById: Map<string, DocumentRequest>;
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const visible = requests.slice(0, limit);
@@ -254,7 +272,12 @@ function RequestPanel({
           <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
         )}
         {visible.map((request) => (
-          <RequestRow key={request.id} request={request} canManage={canManage} />
+          <RequestRow
+            key={request.id}
+            request={request}
+            canManage={canManage}
+            requestsById={requestsById}
+          />
         ))}
         {requests.length > limit && (
           <Button
@@ -289,6 +312,7 @@ export function DocumentRequestsList({
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const doneRequests = requests.filter((r) => r.status === "done");
+  const requestsById = new Map(allRequests.map((r) => [r.id, r]));
 
   if (isLoading) {
     return (
@@ -310,6 +334,7 @@ export function DocumentRequestsList({
         emptyMessage={
           assignedSlugs ? "No requests for your assigned projects." : "No requests yet."
         }
+        requestsById={requestsById}
       />
       <RequestPanel
         title="Documents Received"
@@ -317,6 +342,7 @@ export function DocumentRequestsList({
         requests={doneRequests}
         canManage={canManage}
         emptyMessage="No documents delivered yet."
+        requestsById={requestsById}
       />
     </div>
   );

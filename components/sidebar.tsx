@@ -113,8 +113,8 @@ export function Sidebar() {
     >
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
         <Building2 className="h-5 w-5 text-accent" />
-        <span className="flex-1 font-semibold text-sidebar-foreground">
-          Agency Portal
+        <span className="flex-1 font-semibold text-sidebar-foreground truncate">
+          {profile.clientName ? `${profile.clientName}'s Portal` : "Portal"}
         </span>
         <button
           onClick={close}

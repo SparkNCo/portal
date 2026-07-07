@@ -127,7 +127,7 @@ export default function BugsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Bugs" subtitle="Tickets labeled as bugs" />
+      <Header title="Bugs" subtitle="Issues discovered in production" />
 
       <div className="p-4 md:p-6 space-y-6">
         <BugReportPanel slug={slug} />

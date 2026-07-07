@@ -137,10 +137,10 @@ export default function ClientDashboard() {
       <Header
         title={
           profile?.role === "stakeholder"
-            ? "Stakeholder Dashboard"
-            : "Client Dashboard"
+            ? "Dashboard"
+            : "Dashboard"
         }
-        subtitle={`Welcome back, ${profile?.email ?? "User"}`}
+        subtitle={`Welcome back, ${profile?.firstName ?? profile?.userName ?? profile?.email ?? "User"}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
         <div className="flex items-center justify-between gap-3">

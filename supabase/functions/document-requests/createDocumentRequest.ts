@@ -3,7 +3,7 @@ import { supabase } from "../client.ts";
 
 // POST /document-requests — stakeholder asks for a report/technical document
 export async function createDocumentRequest(req: Request, schema: string): Promise<Response> {
-  const { customerSlug, requestedBy, title, description, projectId, projectName } =
+  const { customerSlug, requestedBy, title, description, projectId, projectName, relatedRequestId } =
     await req.json();
 
   if (!customerSlug || !requestedBy || !title) {
@@ -23,6 +23,7 @@ export async function createDocumentRequest(req: Request, schema: string): Promi
       description: description ?? null,
       project_id: projectId ?? null,
       project_name: projectName ?? null,
+      related_request_id: relatedRequestId ?? null,
     })
     .select()
     .single();
