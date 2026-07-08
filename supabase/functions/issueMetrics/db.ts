@@ -36,10 +36,12 @@ export async function getProjectIdsBySlug(slug: string, schema: string): Promise
 // issue_metrics / cycle_metrics key off the customer's user row id (role = "customer"),
 // not the customers table's own customer_id, so each client record is paired with its user.
 export async function getAllCustomers(schema: string) {
+  // No `.not("linear_projects", "is", null)` filter here: a customer with only
+  // linear_slug + project_url (no linear_projects) still needs its DORA trigger,
+  // so eligibility for each piece of work is decided per-customer in the caller.
   const { data: clients, error: clientsError } = await supabase.schema(schema)
     .from("customers")
-    .select("customer_id, linear_projects, linear_slug")
-    .not("linear_projects", "is", null);
+    .select("customer_id, linear_projects, linear_slug, project_url");
 
   if (clientsError) {
     throw new Error(`Failed to fetch customers: ${clientsError.message}`);
@@ -66,6 +68,7 @@ export async function getAllCustomers(schema: string) {
       id: userByClientId.get(c.customer_id),
       linear_projects: c.linear_projects,
       linear_slug: c.linear_slug,
+      project_url: c.project_url,
     }));
 }
 
