@@ -969,6 +969,32 @@ function TestsTab({
                       )}
                     </div>
                   )}
+                  {entry.attachments && entry.attachments.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {entry.attachments.map((att, ai) =>
+                        IMAGE_EXT_RE.test(att.name) ? (
+                          <a key={ai} href={att.url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={att.url}
+                              alt={att.name}
+                              className="h-14 w-14 rounded border border-border object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            key={ai}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded border border-border bg-secondary/30 px-2 py-1 text-[10px] text-foreground hover:bg-secondary"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            {att.name}
+                          </a>
+                        ),
+                      )}
+                    </div>
+                  )}
                   {(entry.recorded_by || entry.recorded_at) && (
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {entry.recorded_by}
