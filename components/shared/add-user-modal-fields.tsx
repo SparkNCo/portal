@@ -92,11 +92,15 @@ export function ModalFooter({
   onSubmit,
   disabled,
   pending,
+  submitLabel = "Create",
+  pendingLabel = "Creating...",
 }: {
   onCancel: () => void;
   onSubmit: () => void;
   disabled: boolean;
   pending: boolean;
+  submitLabel?: string;
+  pendingLabel?: string;
 }) {
   return (
     <div className="flex justify-end gap-2">
@@ -104,7 +108,7 @@ export function ModalFooter({
         Cancel
       </Button>
       <Button size="sm" disabled={disabled} onClick={onSubmit}>
-        {pending ? "Creating..." : "Create"}
+        {pending ? pendingLabel : submitLabel}
       </Button>
     </div>
   );

@@ -7,6 +7,8 @@ import AddDeveloperModal from "./AddDeveloperModal";
 import AddClientModal from "./AddClientModal";
 import AddStakeholderModal from "./AddStakeholderModal";
 import AssignCustomerModal from "./AssignCustomerModal";
+import EditDeveloperProfileModal from "./EditDeveloperProfileModal";
+import ViewDeveloperProfileModal from "./ViewDeveloperProfileModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
@@ -18,6 +20,8 @@ import {
   ChevronUp,
   Search,
   FolderKanban,
+  Pencil,
+  Eye,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -62,6 +66,8 @@ export default function AdminUsersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
   const [assigningUserRole, setAssigningUserRole] = useState<string>("developer");
+  const [editingProfileUser, setEditingProfileUser] = useState<User | null>(null);
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -234,6 +240,22 @@ export default function AdminUsersPage() {
           onClose={() => { setAssigningUserId(null); setAssigningUserRole("developer"); }}
         />
       )}
+      {editingProfileUser && (
+        <EditDeveloperProfileModal
+          userId={editingProfileUser.id}
+          userEmail={editingProfileUser.email}
+          onClose={() => setEditingProfileUser(null)}
+        />
+      )}
+      {viewingProfileUser && (
+        <ViewDeveloperProfileModal
+          userId={viewingProfileUser.id}
+          userEmail={viewingProfileUser.email}
+          userName={viewingProfileUser.userName}
+          role={viewingProfileUser.role}
+          onClose={() => setViewingProfileUser(null)}
+        />
+      )}
 
       {/* ── View toggle ── */}
       <div className="flex items-center justify-between">
@@ -322,7 +344,7 @@ export default function AdminUsersPage() {
                     onClick={() =>
                       setRoleFilter(roleFilter === role ? null : role)
                     }
-                    className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                    className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
                       roleFilter === role
                         ? `${roleColors[role]} border-current`
                         : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
@@ -374,6 +396,28 @@ export default function AdminUsersPage() {
 
                       <div className="flex items-center gap-1">
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                          {u.role === "developer" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              onClick={() => setViewingProfileUser(u)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View Profile
+                            </Button>
+                          )}
+                          {u.role === "developer" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              onClick={() => setEditingProfileUser(u)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Edit Profile
+                            </Button>
+                          )}
                           {(u.role === "developer" || u.role === "stakeholder") && (
                             <Button
                               variant="ghost"

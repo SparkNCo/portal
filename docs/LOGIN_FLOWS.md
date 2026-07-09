@@ -38,7 +38,7 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 | Role | Redirect destination | Condition |
 |---|---|---|
-| `admin` | `/{clientName}/dashboard/admin` | Always |
+| `admin` | `/{userName}/dashboard/admin` | Requires `userName` set on the account |
 | `customer` | `/{clientName}/dashboard/client` | Always |
 | `developer` | `/{assignment[0].clientName}/dashboard/developer` | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard/client` | Requires at least one customer assignment |
@@ -46,6 +46,8 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
 The `clientName` used in the URL comes from the user's profile. For developers and stakeholders it comes from their first assignment (`assignment_id[0].clientName` or `assignment_id[0].linear_slug` as fallback).
+
+> **Admin redirect history:** originally `` /${customer.clientName}/dashboard/admin `` — broken, since `clientName` only populates when a user has a `customer_id` linked to a `customers` row, which admins never do, so it always resolved to `/null/dashboard/admin`. Briefly changed to a slug-less `router.push("/admin")` — also broken, since there is no `app/admin/page.tsx`, only `app/admin/users/page.tsx` (so `/admin` 404s; only `/admin/users` resolves). Now uses `customer.userName` as the slug: `/${customer.userName}/dashboard/admin`, landing on `app/[slug]/dashboard/(portal)/admin/page.tsx` (renders the same `AdminUsersPage`, wrapped in the normal Sidebar + Header shell). If the admin account has no `userName` set, login stops with _"No username set on this admin account. Contact your administrator."_ — every admin account needs a `userName` for login to work.
 
 ---
 

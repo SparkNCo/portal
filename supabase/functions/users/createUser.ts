@@ -2,6 +2,32 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
+// Only `internal` developers carry a rate — `spark_fde` developers are billed
+// through the customer's Stripe subscription, unrelated to this record.
+const upsertDeveloperRecord = async (
+  schema: string,
+  userId: string,
+  { developerType, rateAmount, rateType }: { developerType: string; rateAmount: number | null; rateType: string | null },
+) => {
+  const { error } = await supabase
+    .schema(schema)
+    .from("developers")
+    .upsert(
+      {
+        user_id: userId,
+        developer_type: developerType,
+        rate_amount: developerType === "internal" ? rateAmount : null,
+        rate_type: developerType === "internal" ? rateType : null,
+      },
+      { onConflict: "user_id" },
+    );
+
+  if (error) {
+    console.error("[createUser] developers upsert failed", error.message);
+    throw new Error(error.message);
+  }
+};
+
 export const createUser = async (body: any, schema: string) => {
   const {
     email,
@@ -17,6 +43,9 @@ export const createUser = async (body: any, schema: string) => {
     lastName = null,
     phoneNumber = null,
     userName = null,
+    developerType = "spark_fde",
+    rateAmount = null,
+    rateType = null,
   } = body;
 
   if (!email) {
@@ -95,6 +124,11 @@ export const createUser = async (body: any, schema: string) => {
     if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(upsertError.message);
   }
+
+  if (role === "developer") {
+    await upsertDeveloperRecord(schema, authUserId, { developerType, rateAmount, rateType });
+  }
+
   console.log("[createUser] user upserted, sending invite email", {
     authUserId,
     email,

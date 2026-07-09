@@ -165,110 +165,128 @@ async function handlePut(req: Request, schema: string) {
   return jsonResponse({ projects: byProject });
 }
 
-async function triggerDoraForAllCustomers(schema: string) {
-  const { data: clients, error } = await supabase.schema(schema)
-    .from("customers")
-    .select("linear_slug, project_url")
-    .not("linear_slug", "is", null)
-    .not("project_url", "is", null);
-
-  if (error) throw new Error(`Customers lookup error: ${error.message}`);
-
-  console.log(`🔍 [dora] customers with linear_slug + project_url:`, clients?.length ?? 0, clients);
-
-  const eligible = (clients ?? []).filter(
-    (c) => Array.isArray(c.project_url) && c.project_url.length > 0,
+// Runs `worker` over `items` with at most `limit` in flight at once, instead of
+// one-at-a-time or all-at-once. Each item is started exactly once.
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+) {
+  let next = 0;
+  async function runNext(): Promise<void> {
+    const i = next++;
+    if (i >= items.length) return;
+    await worker(items[i]);
+    return runNext();
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, runNext),
   );
+}
 
-  console.log(`📋 [dora] eligible customers:`, eligible.length, eligible.map((c) => c.linear_slug));
+async function triggerDoraForCustomer(
+  customer: { linear_slug?: string | null; project_url?: string[] | null },
+  schema: string,
+) {
+  if (!customer.linear_slug || !Array.isArray(customer.project_url) || !customer.project_url.length) {
+    return;
+  }
 
   const doraUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/dora`;
   const authHeader = `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}`;
 
-  await Promise.all(
-    eligible.map(async (client) => {
-      console.log(`➡️ [dora] calling dora for slug=${client.linear_slug} url=${JSON.stringify(client.project_url)}`);
-      try {
-        const res = await fetch(doraUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({
-            method: "all",
-            url: client.project_url,
-            linear_slug: client.linear_slug,
-          }),
-        });
-        const text = await res.text();
-        console.log(`⬅️ [dora] response for slug=${client.linear_slug}: status=${res.status} body=${text.slice(0, 500)}`);
-      } catch (err) {
-        console.error(`❌ [dora] request failed for slug=${client.linear_slug}:`, String(err));
-      }
-    }),
-  );
+  console.log(`➡️ [dora] calling dora for slug=${customer.linear_slug} url=${JSON.stringify(customer.project_url)}`);
+  try {
+    const res = await fetch(doraUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+      body: JSON.stringify({
+        method: "all",
+        url: customer.project_url,
+        linear_slug: customer.linear_slug,
+      }),
+    });
+    const text = await res.text();
+    console.log(`⬅️ [dora] response for slug=${customer.linear_slug}: status=${res.status} body=${text.slice(0, 500)}`);
+  } catch (err) {
+    console.error(`❌ [dora] request failed for slug=${customer.linear_slug}:`, String(err));
+  }
 }
+
+async function processIssueMetricsForCustomer(
+  customer: { id: string; linear_projects?: string[] | null },
+  schema: string,
+) {
+  const linearProjects: string[] = customer.linear_projects ?? [];
+  if (!linearProjects.length) {
+    console.log(`⏭️ [issueMetrics] skipping customer ${customer.id}: no linear_projects`);
+    return;
+  }
+
+  // A failure for one customer (Linear rate limit, timeout, bad project id, etc.)
+  // must not stop the rest of the batch from being processed that day.
+  try {
+    console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
+
+    const projects = (await fetchProjectDetails(linearProjects)).filter(Boolean);
+
+    const cyclesByProjectLight = projects.map((project: any) => {
+      const cyclesMap = new Map();
+      for (const issue of project.issues?.nodes || []) {
+        if (issue.cycle?.id && issue.cycle.isActive === true) {
+          cyclesMap.set(issue.cycle.id, issue.cycle);
+        }
+      }
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        cycles: Array.from(cyclesMap.values()),
+      };
+    });
+
+    const [cycleIssues, cyclesByProject] = await Promise.all([
+      resolveCycleIssues(cyclesByProjectLight),
+      resolveFullCycles(cyclesByProjectLight),
+    ]);
+
+    const metrics = buildIssueMetrics(cycleIssues, customer.id);
+    const cycles = buildCycleMetrics(
+      cyclesByProject,
+      customer.id,
+      metrics,
+      cycleIssues,
+    );
+
+    await Promise.all([
+      upsertIssueMetrics(metrics, schema),
+      upsertCycleMetrics(cycles, schema),
+    ]);
+
+    console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
+  } catch (err) {
+    console.error(`❌ [issueMetrics] failed to process customer ${customer.id}:`, String(err));
+  }
+}
+
+// Each customer is handled by exactly one worker: its issue/cycle metrics
+// AND its own DORA trigger, back to back — not a second pass over everyone
+// after the whole batch finishes. That way a timeout only affects customers
+// that haven't started yet; anyone already processed got both steps done.
+const CUSTOMER_CONCURRENCY = 5;
 
 async function handlePost(schema: string) {
   const customers = await getAllCustomers(schema);
 
   console.log(`🚀 [issueMetrics] handlePost started, customers found:`, customers.length);
 
-  for (const customer of customers) {
-    const linearProjects: string[] = customer.linear_projects ?? [];
-    if (!linearProjects.length) {
-      console.log(`⏭️ [issueMetrics] skipping customer ${customer.id}: no linear_projects`);
-      continue;
-    }
+  await runWithConcurrency(customers, CUSTOMER_CONCURRENCY, async (customer) => {
+    await processIssueMetricsForCustomer(customer, schema);
+    await triggerDoraForCustomer(customer, schema);
+  });
 
-    // A failure for one customer (Linear rate limit, timeout, bad project id, etc.)
-    // must not stop the rest of the batch from being processed that day.
-    try {
-      console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
-
-      const projects = (await fetchProjectDetails(linearProjects)).filter(Boolean);
-
-      const cyclesByProjectLight = projects.map((project: any) => {
-        const cyclesMap = new Map();
-        for (const issue of project.issues?.nodes || []) {
-          if (issue.cycle?.id && issue.cycle.isActive === true) {
-            cyclesMap.set(issue.cycle.id, issue.cycle);
-          }
-        }
-        return {
-          projectId: project.id,
-          projectName: project.name,
-          cycles: Array.from(cyclesMap.values()),
-        };
-      });
-
-      const [cycleIssues, cyclesByProject] = await Promise.all([
-        resolveCycleIssues(cyclesByProjectLight),
-        resolveFullCycles(cyclesByProjectLight),
-      ]);
-
-      const metrics = buildIssueMetrics(cycleIssues, customer.id);
-      const cycles = buildCycleMetrics(
-        cyclesByProject,
-        customer.id,
-        metrics,
-        cycleIssues,
-      );
-
-      await Promise.all([
-        upsertIssueMetrics(metrics, schema),
-        upsertCycleMetrics(cycles, schema),
-      ]);
-
-      console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
-    } catch (err) {
-      console.error(`❌ [issueMetrics] failed to process customer ${customer.id}:`, String(err));
-    }
-  }
-
-  console.log(`🚀 [issueMetrics] triggering dora for all customers...`);
-  await triggerDoraForAllCustomers(schema);
   console.log(`✅ [issueMetrics] handlePost finished`);
 
   return jsonResponse({ ok: true });

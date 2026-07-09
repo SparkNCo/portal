@@ -28,7 +28,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     // for this table.
     let query = supabase.schema(schema)
       .from("assignments")
-      .select("customer_id, user_id, allocation, joined, role")
+      .select("id, customer_id, user_id, allocation, joined, role")
       .in("customer_id", customer_ids);
 
     if (onlyDev) query = query.eq("role", "developer");
@@ -45,7 +45,7 @@ export const getAssignmentsByCustomer = async (req: Request) => {
     const { data: assignedUsers, error: usersError } = userIds.length
       ? await supabase.schema(schema)
           .from("users")
-          .select("id, email, role")
+          .select("id, email, role, userName, firstName, lastName, phoneNumber")
           .in("id", userIds)
       : { data: [], error: null };
 
@@ -56,15 +56,35 @@ export const getAssignmentsByCustomer = async (req: Request) => {
 
     const userById = new Map((assignedUsers ?? []).map((u) => [u.id, u]));
 
+    const { data: developerProfiles, error: developersError } = userIds.length
+      ? await supabase.schema(schema)
+          .from("developers")
+          .select("user_id, bio, tech_stack, developer_type")
+          .in("user_id", userIds)
+      : { data: [], error: null };
+
+    if (developersError) {
+      console.error("[Supabase ERROR]:", developersError);
+      throw new Error(developersError.message);
+    }
+
+    const developerByUserId = new Map(
+      (developerProfiles ?? []).map((d) => [d.user_id, d]),
+    );
+
     const users = (assignments ?? [])
       .filter((row: any) => userById.has(row.user_id))
       .map((row: any) => ({
         ...userById.get(row.user_id),
         customer_id: row.customer_id,
         user_id: row.user_id,
+        assignment_id: row.id,
         allocation: row.allocation,
         joined: row.joined,
         role: row.role,
+        bio: developerByUserId.get(row.user_id)?.bio ?? null,
+        tech_stack: developerByUserId.get(row.user_id)?.tech_stack ?? [],
+        developer_type: developerByUserId.get(row.user_id)?.developer_type ?? "spark_fde",
       }));
 
     return new Response(JSON.stringify(users), {

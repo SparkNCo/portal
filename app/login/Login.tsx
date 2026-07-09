@@ -70,7 +70,13 @@ export default function LoginForm({
         return;
       }
       if (customer?.role === "admin") {
-        router.push(`/${customer.clientName}/dashboard/admin`);
+        if (customer.userName) {
+          router.push(`/${customer.userName}/dashboard/admin`);
+        } else {
+          setErrorMessage("No username set on this admin account. Contact your administrator.");
+          setLoading(false);
+          return;
+        }
       } else if (customer?.role === "developer") {
         const clientName =
           customer.assignment_id?.[0]?.clientName ??

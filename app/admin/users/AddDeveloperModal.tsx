@@ -17,16 +17,23 @@ type Props = {
   onClose: () => void;
 };
 
+type DeveloperType = "spark_fde" | "internal";
+
 export default function AddDeveloperModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [developerType, setDeveloperType] = useState<DeveloperType>("spark_fde");
+  const [rateAmount, setRateAmount] = useState("");
+  const [rateType, setRateType] = useState<"hourly" | "monthly" | "annual">("hourly");
   const [submitted, setSubmitted] = useState(false);
   const queryClient = useQueryClient();
 
   const isPhoneValid = isValidPhone(phoneNumber);
+  const isInternal = developerType === "internal";
+  const isRateValid = !isInternal || (rateAmount.trim() !== "" && Number(rateAmount) > 0);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
@@ -39,6 +46,8 @@ export default function AddDeveloperModal({ onClose }: Props) {
             email,
             role: "developer",
             origin: globalThis.location.origin,
+            developerType,
+            ...(isInternal && { rateAmount: Number(rateAmount), rateType }),
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
             ...(userName && { userName }),
@@ -62,7 +71,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
 
   const handleSubmit = () => {
     setSubmitted(true);
-    if (email && isPhoneValid && !isPending) mutate();
+    if (email && isPhoneValid && isRateValid && !isPending) mutate();
   };
 
   return (
@@ -91,6 +100,67 @@ export default function AddDeveloperModal({ onClose }: Props) {
         onChange={setPhoneNumber}
         showError={submitted && !isPhoneValid}
       />
+
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground">Developer Type</p>
+        <div className="flex gap-1 p-1 rounded-lg bg-secondary/40 border border-border">
+          {(
+            [
+              { value: "spark_fde", label: "Spark & Co FDE" },
+              { value: "internal", label: "Internal" },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setDeveloperType(option.value)}
+              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                developerType === option.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Spark & Co FDE developers are billed through the customer's subscription. Internal developers are not billed to customers — set their rate below.
+        </p>
+      </div>
+
+      {isInternal && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            inputMode="decimal"
+            className={`${inputClass} flex-1`}
+            placeholder="Rate amount"
+            value={rateAmount}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9.]/g, "");
+              const firstDot = value.indexOf(".");
+              setRateAmount(
+                firstDot === -1
+                  ? value
+                  : value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replaceAll(".", ""),
+              );
+            }}
+          />
+          <select
+            className={`${inputClass} flex-[3]`}
+            value={rateType}
+            onChange={(e) => setRateType(e.target.value as "hourly" | "monthly" | "annual")}
+          >
+            <option value="hourly">Hourly</option>
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </select>
+        </div>
+      )}
+      {isInternal && submitted && !isRateValid && (
+        <p className="text-sm text-destructive">Enter a rate amount greater than 0.</p>
+      )}
 
       <ModalError error={error} />
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,12 @@ import { Users, Plus, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import {
+  DeveloperDetailsModal,
+  type DeveloperDetails,
+} from "./developer-details-modal";
+import { AddDeveloperModal } from "./add-developer-modal";
+import { EditInternalDeveloperModal } from "./edit-internal-developer-modal";
 
 const statusColors = {
   active: "bg-success/20 text-success",
@@ -16,6 +23,8 @@ const statusColors = {
 
 export function StaffingSection({ customerId }: { readonly customerId?: string }) {
   const { user, profile, loading } = useUser();
+  const [selectedDeveloper, setSelectedDeveloper] = useState<DeveloperDetails | null>(null);
+  const [editingDeveloper, setEditingDeveloper] = useState<DeveloperDetails | null>(null);
 
   const resolvedId = customerId ?? profile?.id;
 
@@ -61,7 +70,14 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
       item.users?.userName?.[0]?.toUpperCase() ??
       item.users?.email?.[0]?.toUpperCase() ??
       "U",
-    skills: [],
+    bio: item.bio ?? null,
+    techStack: Array.isArray(item.tech_stack) ? item.tech_stack : [],
+    userId: item.user_id,
+    assignmentId: item.assignment_id,
+    developerType: item.developer_type ?? "spark_fde",
+    firstName: item.firstName ?? "",
+    lastName: item.lastName ?? "",
+    phoneNumber: item.phoneNumber ?? "",
   }));
 
   const totalHours = teamMembers.reduce(
@@ -77,40 +93,52 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
           Team Members
         </CardTitle>
 
-        {/* 🔥 cal.com button */}
-        <Button
-          size="sm"
-          className="bg-accent text-accent-foreground hover:bg-accent/90"
-          onClick={() => {
-            const calLink = new URL(
-              "https://cal.com/kabir-malkani-glnivq/15min",
-            );
+        <div className="flex items-center gap-2">
+          {profile?.role === "customer" && resolvedId && (
+            <AddDeveloperModal
+              customerId={resolvedId}
+              clientName={profile?.clientName ?? undefined}
+              requestedBy={profile?.email ?? user?.email ?? undefined}
+            />
+          )}
 
-            /*             if (customerId) {
-              calLink.searchParams.set("notes", `Customer ID: ${customerId}`);
-            } */
+          {/* 🔥 cal.com button */}
+          <Button
+            size="sm"
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+            onClick={() => {
+              const calLink = new URL(
+                "https://cal.com/kabir-malkani-glnivq/15min",
+              );
 
-            const firstEmail = assignments[0]?.users?.email;
-            calLink.searchParams.set(
-              "attendee_email",
-              firstEmail || user?.email || "",
-            );
+              /*             if (customerId) {
+                calLink.searchParams.set("notes", `Customer ID: ${customerId}`);
+              } */
 
-            // Open booking page in a new tab
-            window.open(calLink.toString(), "_blank");
-          }}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Request Change
-        </Button>
+              const firstEmail = assignments[0]?.users?.email;
+              calLink.searchParams.set(
+                "attendee_email",
+                firstEmail || user?.email || "",
+              );
+
+              // Open booking page in a new tab
+              window.open(calLink.toString(), "_blank");
+            }}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Request Change
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent>
         <div className="space-y-3">
           {teamMembers.map((member: any, i: number) => (
-            <div
+            <button
               key={i}
-              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-secondary/30 p-4"
+              type="button"
+              onClick={() => setSelectedDeveloper(member)}
+              className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-secondary/30 p-4 text-left cursor-pointer transition-colors hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
@@ -148,7 +176,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
                   {member.hours}h/week
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -161,6 +189,27 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
           </div>
         </div> */}
       </CardContent>
+
+      <DeveloperDetailsModal
+        developer={selectedDeveloper}
+        onClose={() => setSelectedDeveloper(null)}
+        onEdit={
+          profile?.role === "customer" && selectedDeveloper?.developerType === "internal"
+            ? () => {
+                setEditingDeveloper(selectedDeveloper);
+                setSelectedDeveloper(null);
+              }
+            : undefined
+        }
+      />
+
+      {editingDeveloper && resolvedId && (
+        <EditInternalDeveloperModal
+          developer={editingDeveloper}
+          customerId={resolvedId}
+          onClose={() => setEditingDeveloper(null)}
+        />
+      )}
     </Card>
   );
 }

@@ -410,6 +410,7 @@ function DecisionsTab({
 // ── Steps editor (array of draggable step inputs) ──────────────────────────
 
 type StepDraft = { id: string; text: string };
+type UatFormState = { testId: string; actual: string; files: File[] } | null;
 
 function SortableStepRow({
   step,
@@ -519,6 +520,128 @@ function StepsEditor({
   );
 }
 
+function TestUatSection({
+  test,
+  isQaStage,
+  isUatStage,
+  canRecordResult,
+  uatForm,
+  setUatForm,
+  uatFileInputRef,
+  submitting,
+  onSubmitUat,
+}: {
+  test: TestCase;
+  isQaStage: boolean;
+  isUatStage: boolean;
+  canRecordResult: boolean;
+  uatForm: UatFormState;
+  setUatForm: React.Dispatch<React.SetStateAction<UatFormState>>;
+  uatFileInputRef: React.RefObject<HTMLInputElement>;
+  submitting: boolean;
+  onSubmitUat: () => void;
+}) {
+  const hasUatRecord = test.actual?.some((entry) => entry.kind === "uat");
+  const alreadyRecordedUat = isUatStage && hasUatRecord;
+  const statusAllowsRecording =
+    test.status === "approved" || (isQaStage && (test.status === "draft" || test.status === "passed"));
+
+  if (!canRecordResult || !statusAllowsRecording) return null;
+
+  if (alreadyRecordedUat) {
+    return (
+      <p className="text-[10px] text-muted-foreground italic">
+        UAT result already recorded.
+      </p>
+    );
+  }
+
+  if (uatForm?.testId !== test.id) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-full"
+        onClick={() => setUatForm({ testId: test.id, actual: "", files: [] })}
+      >
+        {isQaStage ? "Record QA" : "Record UAT"}
+      </Button>
+    );
+  }
+
+  function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    setUatForm((f) => (f ? { ...f, files: [...f.files, ...files] } : f));
+    e.target.value = "";
+  }
+
+  function handleRemoveFile(index: number) {
+    setUatForm((f) => (f ? { ...f, files: f.files.filter((_, fi) => fi !== index) } : f));
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <textarea
+        className="w-full rounded-lg border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+        rows={2}
+        placeholder="Describe what actually happened…"
+        value={uatForm.actual}
+        onChange={(e) => setUatForm({ ...uatForm, actual: e.target.value })}
+        autoFocus
+      />
+      <input
+        ref={uatFileInputRef}
+        type="file"
+        multiple
+        accept="image/*,video/*,audio/*"
+        className="hidden"
+        onChange={handleFilesSelected}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => uatFileInputRef.current?.click()}
+      >
+        <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+        Attach files
+      </Button>
+      {uatForm.files.length > 0 && (
+        <div className="space-y-1">
+          {uatForm.files.map((file, i) => (
+            <div
+              key={`${file.name}-${i}`}
+              className="flex items-center justify-between rounded border border-border bg-secondary/30 px-2 py-1"
+            >
+              <span className="truncate text-[11px] text-foreground">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveFile(i)}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+                aria-label={`Remove ${file.name}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="ghost" onClick={() => setUatForm(null)}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          disabled={!uatForm.actual.trim() || submitting}
+          onClick={onSubmitUat}
+        >
+          {submitting ? "Saving…" : isQaStage ? "Save QA" : "Save UAT"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TestsTab({
   issue,
   userEmail,
@@ -549,9 +672,7 @@ function TestsTab({
     steps: [],
     expected: "",
   });
-  const [uatForm, setUatForm] = useState<
-    { testId: string; actual: string; files: File[] } | null
-  >(null);
+  const [uatForm, setUatForm] = useState<UatFormState>(null);
   const uatFileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState<
     { testId: string; title: string; steps: StepDraft[]; expected: string } | null
@@ -848,6 +969,32 @@ function TestsTab({
                       )}
                     </div>
                   )}
+                  {entry.attachments && entry.attachments.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {entry.attachments.map((att, ai) =>
+                        IMAGE_EXT_RE.test(att.name) ? (
+                          <a key={ai} href={att.url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={att.url}
+                              alt={att.name}
+                              className="h-14 w-14 rounded border border-border object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            key={ai}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded border border-border bg-secondary/30 px-2 py-1 text-[10px] text-foreground hover:bg-secondary"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            {att.name}
+                          </a>
+                        ),
+                      )}
+                    </div>
+                  )}
                   {(entry.recorded_by || entry.recorded_at) && (
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {entry.recorded_by}
@@ -868,105 +1015,17 @@ function TestsTab({
             </Button>
           )}
 
-          {(() => {
-            const hasUatRecord = t.actual?.some((entry) => entry.kind === "uat");
-            const alreadyRecordedUat = isUatStage && hasUatRecord;
-            const statusAllowsRecording =
-              t.status === "approved" || (isQaStage && (t.status === "draft" || t.status === "passed"));
-
-            if (!canRecordResult || !statusAllowsRecording) return null;
-
-            if (alreadyRecordedUat) {
-              return (
-                <p className="text-[10px] text-muted-foreground italic">
-                  UAT result already recorded.
-                </p>
-              );
-            }
-
-            if (uatForm?.testId !== t.id) {
-              return (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setUatForm({ testId: t.id, actual: "", files: [] })}
-                >
-                  {isQaStage ? "Record QA" : "Record UAT"}
-                </Button>
-              );
-            }
-
-            return (
-              <div className="flex flex-col gap-1.5">
-                <textarea
-                  className="w-full rounded-lg border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                  rows={2}
-                  placeholder="Describe what actually happened…"
-                  value={uatForm.actual}
-                  onChange={(e) => setUatForm({ ...uatForm, actual: e.target.value })}
-                  autoFocus
-                />
-                <input
-                  ref={uatFileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,video/*,audio/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    setUatForm((f) => (f ? { ...f, files: [...f.files, ...files] } : f));
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => uatFileInputRef.current?.click()}
-                >
-                  <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-                  Attach files
-                </Button>
-                {uatForm.files.length > 0 && (
-                  <div className="space-y-1">
-                    {uatForm.files.map((file, i) => (
-                      <div
-                        key={`${file.name}-${i}`}
-                        className="flex items-center justify-between rounded border border-border bg-secondary/30 px-2 py-1"
-                      >
-                        <span className="truncate text-[11px] text-foreground">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setUatForm((f) =>
-                              f ? { ...f, files: f.files.filter((_, fi) => fi !== i) } : f,
-                            )
-                          }
-                          className="shrink-0 text-muted-foreground hover:text-destructive"
-                          aria-label={`Remove ${file.name}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2 justify-end">
-                  <Button size="sm" variant="ghost" onClick={() => setUatForm(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!uatForm.actual.trim() || submitting}
-                    onClick={handleSubmitUat}
-                  >
-                    {submitting ? "Saving…" : isQaStage ? "Save QA" : "Save UAT"}
-                  </Button>
-                </div>
-              </div>
-            );
-          })()}
+          <TestUatSection
+            test={t}
+            isQaStage={isQaStage}
+            isUatStage={isUatStage}
+            canRecordResult={canRecordResult}
+            uatForm={uatForm}
+            setUatForm={setUatForm}
+            uatFileInputRef={uatFileInputRef}
+            submitting={submitting}
+            onSubmitUat={handleSubmitUat}
+          />
 
           {(role === "stakeholder" || role === "customer") &&
             (t.status === "approved" || t.status === "passed") &&
