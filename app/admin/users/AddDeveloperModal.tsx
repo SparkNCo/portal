@@ -132,16 +132,23 @@ export default function AddDeveloperModal({ onClose }: Props) {
       {isInternal && (
         <div className="flex gap-2">
           <input
-            type="number"
-            min={0}
-            step="0.01"
-            className={`${inputClass} flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+            type="text"
+            inputMode="decimal"
+            className={`${inputClass} flex-1`}
             placeholder="Rate amount"
             value={rateAmount}
-            onChange={(e) => setRateAmount(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9.]/g, "");
+              const firstDot = value.indexOf(".");
+              setRateAmount(
+                firstDot === -1
+                  ? value
+                  : value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replaceAll(".", ""),
+              );
+            }}
           />
           <select
-            className={inputClass}
+            className={`${inputClass} flex-[3]`}
             value={rateType}
             onChange={(e) => setRateType(e.target.value as "hourly" | "monthly" | "annual")}
           >

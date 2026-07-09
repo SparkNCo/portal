@@ -344,7 +344,7 @@ export default function AdminUsersPage() {
                     onClick={() =>
                       setRoleFilter(roleFilter === role ? null : role)
                     }
-                    className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                    className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
                       roleFilter === role
                         ? `${roleColors[role]} border-current`
                         : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
