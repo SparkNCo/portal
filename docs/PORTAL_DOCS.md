@@ -140,14 +140,14 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 
 | Role | Redirect destination | Condition |
 |---|---|---|
-| `admin` | `/admin` | Always |
+| `admin` | `/{userName}/dashboard/admin` | Requires `userName` set on the account |
 | `customer` | `/{clientName}/dashboard/client` | Always |
 | `developer` | `/{assignment[0].clientName}/dashboard/developer` | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard/client` | Requires at least one customer assignment |
 
 > **Important:** Stakeholders with no assignment cannot log in — they see "No client assigned to this account. Contact your administrator." The admin must assign them to a customer first (see Admin Panel section).
 
-> **Admins skip `[slug]` routing** — they go straight to the slug-less `/admin` route rather than `/{slug}/dashboard/admin`. Previously this redirected to `/{clientName}/dashboard/admin`, but `clientName` is only set when a user has a `customer_id` linked to a `customers` row, which admins never do — so it always resolved to `/null/dashboard/admin`.
+> **Admin redirect history:** originally `/{clientName}/dashboard/admin` — broken, since `clientName` only populates when a user has a `customer_id` linked to a `customers` row, which admins never do, so it always resolved to `/null/dashboard/admin`. Briefly changed to a slug-less `/admin` — also broken, since there's no `app/admin/page.tsx`, only `app/admin/users/page.tsx` (so `/admin` 404s). Now uses `userName` as the slug: `/{userName}/dashboard/admin`, landing on `app/[slug]/dashboard/(portal)/admin/page.tsx` (same `AdminUsersPage`, wrapped in the normal Sidebar + Header shell). Admin accounts with no `userName` set can't log in — they see "No username set on this admin account. Contact your administrator."
 
 ### 2.2 Forgot Password Flow
 
