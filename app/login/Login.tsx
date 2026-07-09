@@ -70,7 +70,7 @@ export default function LoginForm({
         return;
       }
       if (customer?.role === "admin") {
-        router.push(`/${customer.clientName}/dashboard/admin`);
+        router.push("/admin");
       } else if (customer?.role === "developer") {
         const clientName =
           customer.assignment_id?.[0]?.clientName ??

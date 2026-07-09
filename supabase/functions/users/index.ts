@@ -5,6 +5,8 @@ import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
 import { getAllUsers } from "./getAllUsers.ts";
 import { updateUser } from "./updateUser.ts";
+import { getDeveloperProfile } from "./getDeveloperProfile.ts";
+import { updateDeveloperProfile } from "./updateDeveloperProfile.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,7 +27,7 @@ Deno.serve(async (req) => {
       });
       return await handleGet(url, schema);
     }
-    if (req.method === "PATCH") return await handlePatch(req, schema);
+    if (req.method === "PATCH") return await handlePatch(req, url, schema);
     if (req.method === "POST") return await handlePost(req, url, schema);
 
     return new Response("Method not allowed", { status: 405 });
@@ -69,6 +71,12 @@ const handleGet = async (url: URL, schema: string) => {
     return jsonResponse(data);
   }
 
+  if (type === "developer-profile") {
+    const userId = url.searchParams.get("userId");
+    const profile = await getDeveloperProfile(userId, schema);
+    return jsonResponse(profile);
+  }
+
   if (!email) {
     const users = await getAllUsers(schema);
     return jsonResponse(users);
@@ -78,8 +86,14 @@ const handleGet = async (url: URL, schema: string) => {
   return jsonResponse(user);
 };
 
-const handlePatch = async (req: Request, schema: string) => {
+const handlePatch = async (req: Request, url: URL, schema: string) => {
   const body = await req.json();
+
+  if (url.searchParams.get("type") === "developer-profile") {
+    const updatedProfile = await updateDeveloperProfile(body, schema);
+    return jsonResponse(updatedProfile);
+  }
+
   const updatedUser = await updateUser(body, schema);
   return jsonResponse(updatedUser);
 };

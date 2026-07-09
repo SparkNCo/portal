@@ -38,7 +38,7 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 | Role | Redirect destination | Condition |
 |---|---|---|
-| `admin` | `/{clientName}/dashboard/admin` | Always |
+| `admin` | `/admin` | Always |
 | `customer` | `/{clientName}/dashboard/client` | Always |
 | `developer` | `/{assignment[0].clientName}/dashboard/developer` | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard/client` | Requires at least one customer assignment |
@@ -46,6 +46,8 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
 The `clientName` used in the URL comes from the user's profile. For developers and stakeholders it comes from their first assignment (`assignment_id[0].clientName` or `assignment_id[0].linear_slug` as fallback).
+
+> **Admins skip the `[slug]` routing entirely** and go straight to the slug-less `/admin` route (`app/admin/users/page.tsx`), not `/{slug}/dashboard/admin`. This used to redirect to `` /${customer.clientName}/dashboard/admin `` — but `clientName` is only populated when a user has a `customer_id` linked to a row in the `customers` table, which admin accounts never do, so it always resolved to `/null/dashboard/admin`. Fixed by dropping the slug for admins altogether, since `UserProvider` is mounted at the root layout (`app/layout.tsx`) so `/admin` works standalone without needing a `[slug]` wrapper.
 
 ---
 

@@ -3,6 +3,7 @@ import { corsHeaders } from "../utils/headers.ts";
 import { createAssignment } from "./createAssignment.ts";
 import { getAssignmentsByCustomer } from "./getAssignmentsByCustomer.ts";
 import { getAssignmentsByDeveloper } from "./getAssignmentsByDeveloper.ts";
+import { updateAssignment } from "./updateAssignment.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,6 +19,10 @@ Deno.serve(async (req) => {
 
     if (req.method === "POST") {
       return createAssignment(req);
+    }
+
+    if (req.method === "PATCH") {
+      return updateAssignment(req);
     }
 
     if (req.method === "GET") {

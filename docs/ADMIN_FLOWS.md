@@ -42,6 +42,8 @@ When the **Users** view mounts, it calls `GET /users` to fetch every registered 
 - Email
 - Colored role badge (admin, developer, customer, stakeholder)
 - Expand arrow button
+- **View Profile** button (visible on hover, developers only) — opens `ViewDeveloperProfileModal`, sits to the left of Edit Profile
+- **Edit Profile** button (visible on hover, developers only) — opens `EditDeveloperProfileModal`
 - **Assign** button (visible on hover, only for developers and stakeholders)
 
 ### Search & filters
@@ -89,9 +91,15 @@ The admin fills in:
 | Last name | No | |
 | Username | No | Sent as `clientName` |
 | Phone number | No | |
+| Developer Type | ✅ Yes (defaults to Spark & Co FDE) | Toggle: **Spark & Co FDE** or **Internal** |
+| Rate amount + Rate type | Only shown/required when **Internal** | Rate type is Hourly, Monthly, or Annual |
 
-On confirm, calls `POST /users?type=developer` with `{ email, role: "developer", origin, ...optionalFields }`.  
+**Developer Type** determines billing treatment: **Spark & Co FDE** developers are billed to customers through their Stripe subscription (unchanged, still fully manual). **Internal** developers are not customer-billed — instead the admin sets an internal `rate_amount`/`rate_type`, stored for record-keeping only. This is purely a categorization + data field right now; no billing/invoice computation reads it yet.
+
+On confirm, calls `POST /users?type=developer` with `{ email, role: "developer", origin, developerType, ...(internal && { rateAmount, rateType }), ...optionalFields }`.  
 The `origin` field is the portal's URL (e.g. `https://app.sparkco.io`), which the backend uses to build the invitation link in the welcome email.
+
+**Backend side-effect:** `createUser.ts` upserts a `portal.developers` row (`user_id`, `developer_type`, `rate_amount`, `rate_type`) right after the `users` row is created — `rate_amount`/`rate_type` are only persisted when `developer_type = "internal"`. This is the same table `bio`/`tech_stack` live on (see Edit Developer Profile below), but Developer Type/Rate are only set at creation time — not currently editable from `EditDeveloperProfileModal`.
 
 The new user receives an **invitation email** with a link to set their password and access the portal.  
 On success, the user list refreshes automatically.
@@ -173,6 +181,49 @@ On success:
 
 ---
 
+## View Developer Profile — `ViewDeveloperProfileModal`
+
+**Opened by:** The **View Profile** button that appears on hover over any `developer` row, immediately to the left of **Edit Profile**.
+
+Renders the exact same popup customers see on the Staffing tab — `DeveloperDetailsModal` (`components/settings/developer-details-modal.tsx`) — so admins can preview what a developer's card looks like without leaving the Users list.
+
+On open, calls `GET /users?type=developer-profile&userId={id}` to load `bio`/`tech_stack` and feeds them into `DeveloperDetailsModal` along with the row's name/email/role already in memory (no `joined` date, since this view isn't scoped to a specific customer assignment). The dialog opens immediately and fills in bio/tech stack once the fetch resolves.
+
+---
+
+## Edit Developer Profile — `EditDeveloperProfileModal`
+
+**Opened by:** The **Edit Profile** button that appears on hover over any `developer` row in the user list (not shown for other roles).
+
+Lets an admin set the **bio** and **tech stack** shown to customers on the developer's Staffing card popup (see `SETTINGS_FLOWS.md` → Developer Details popup). These fields live on `portal.developers`, not `portal.users`, and are **not** part of the Add Developer flow — a developer's `portal.developers` row may not exist yet, so the save upserts it.
+
+### What the modal shows
+
+On open, calls `GET /users?type=developer-profile&userId={id}` to load the developer's current `bio` and `tech_stack`. While loading, the form shows a loading state.
+
+### Editing
+
+- **Bio** — free-text textarea.
+- **Tech Stack** — type a technology and press Enter (or `,`) to add it as a plate/chip; click the `×` on a chip to remove it; **drag a chip by its grip handle to reorder** the stack. Rendered by the shared `TechStackPicker` (`components/shared/tech-stack-picker.tsx`, same `@dnd-kit` sortable-list mechanism as the Steps editor in the issue detail modal's Tests tab, laid out as a wrapping row of pills instead of a stacked list). This same picker is also used by the customer-facing Add Developer modal (`SETTINGS_FLOWS.md` → Add Developer button). The saved order is what's shown on the Staffing card popup.
+
+### Saving
+
+Click **Save Changes** → `PATCH /users?type=developer-profile` with `{ userId, bio, tech_stack }`. The backend upserts onto `portal.developers` keyed by `user_id` (`onConflict: "user_id"`), so it works whether or not a row already exists for that developer.
+
+On success, the `developer-profile` and `assignments` queries are invalidated so any open Staffing views pick up the change, and the modal closes.
+
+---
+
+## Receiving a Spark & Co FDE Developer Request
+
+Customers can request a Spark & Co FDE developer for their own initiative from the Staffing tab of their Settings page (see `SETTINGS_FLOWS.md` → Add Developer button → Spark & Co FDE). That flow does **not** create a user or assignment — it's a notification only.
+
+When a customer submits the request, `POST /developer-requests` looks up every `role: "admin"` user in `portal.users` and emails each one (role needed, weekly hours if given, notes, and which customer requested it).
+
+**To fulfill a request:** go to the Admin Panel → `Add Developer` (creating a `spark_fde`-type developer, the default) → then hover their row → `Assign` → select the requesting customer and set the weekly hours.
+
+---
+
 ## Full Flow: Onboarding a New Client
 
 Recommended order when bringing a new customer into the system:
@@ -214,6 +265,9 @@ Recommended order when bringing a new customer into the system:
 | List assignments for a developer/stakeholder | GET | `/assignments?developer={id}` |
 | List assignments for a customer | GET | `/assignments?customer_id={id}` |
 | Create assignment | POST | `/assignments` |
+| Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
+| Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
+| Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
 ---
 
@@ -226,4 +280,9 @@ Recommended order when bringing a new customer into the system:
 | `app/admin/users/AddClientModal.tsx` | Modal to create a customer |
 | `app/admin/users/AddStakeholderModal.tsx` | Modal to create a stakeholder |
 | `app/admin/users/AssignCustomerModal.tsx` | Modal to assign a developer/stakeholder to a customer |
+| `app/admin/users/EditDeveloperProfileModal.tsx` | Modal to edit a developer's bio and tech stack |
+| `app/admin/users/ViewDeveloperProfileModal.tsx` | Fetches a developer's bio/tech stack and renders the same popup shown on the Staffing tab |
+| `components/settings/developer-details-modal.tsx` | Shared popup component — used from both Staffing (customer view) and here (admin preview) |
+| `components/shared/tech-stack-picker.tsx` | Shared drag-to-reorder tech stack chip editor — used by Edit Developer Profile and the customer-facing Add Developer modal |
+| `supabase/functions/developer-requests/` | Edge function — emails all admins when a customer requests a Spark & Co FDE developer |
 | `context/UserContext.tsx` | Provides `profile.role` for access control |
