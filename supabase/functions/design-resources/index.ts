@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
-import { createDiagram } from "./createDiagram.ts";
-import { listDiagrams } from "./listDiagrams.ts";
-import { updateDiagram } from "./updateDiagram.ts";
+import { createDesignResource } from "./createDesignResource.ts";
+import { listDesignResources } from "./listDesignResources.ts";
+import { updateDesignResource } from "./updateDesignResource.ts";
+import { deleteDesignResource } from "./deleteDesignResource.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,23 +15,28 @@ Deno.serve(async (req) => {
     const schema = "portal";
 
     if (req.method === "GET") {
-      const diagrams = await listDiagrams(url, schema);
-      return jsonResponse(diagrams);
+      const resources = await listDesignResources(url, schema);
+      return jsonResponse(resources);
     }
 
     if (req.method === "POST") {
-      const result = await createDiagram(req, schema);
+      const result = await createDesignResource(req, schema);
       return jsonResponse(result);
     }
 
-    if (req.method === "PUT") {
-      const result = await updateDiagram(req, schema);
+    if (req.method === "PATCH") {
+      const result = await updateDesignResource(req, schema);
+      return jsonResponse(result);
+    }
+
+    if (req.method === "DELETE") {
+      const result = await deleteDesignResource(req, schema);
       return jsonResponse(result);
     }
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
-    console.error("[Supabase Error]", error);
+    console.error("[design-resources error]", error);
     return jsonResponse({ error: error.message }, 500);
   }
 });

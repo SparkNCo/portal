@@ -1,27 +1,7 @@
 // @ts-nocheck
 import { fetchPRPage } from "./github.ts";
-
-function isRelevantPR(pr: any): boolean {
-  const title = (pr.title ?? "").trim();
-  return /^feat\s*\/|^release\s*\//i.test(title);
-}
-
-function extractIssueNumber(branchName: string): string | null {
-  if (!branchName) return null;
-  const match = branchName.match(/^(\d+)-/);
-  return match ? match[1] : null;
-}
-
-async function fetchIssue(repo: string, token: string, issueNumber: string) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-    },
-  });
-  if (!res.ok) return null;
-  return res.json();
-}
+import { computeDurationHours, parseQualifyingBranch } from "./branch.ts";
+import { getBranchCreatedAtMap } from "./db.ts";
 
 async function fetchMergedPRs(repo: string, token: string, limit: number, since?: Date) {
   const raw: any[] = [];
@@ -47,37 +27,38 @@ async function fetchMergedPRs(repo: string, token: string, limit: number, since?
   return raw;
 }
 
-export async function handleLeadTime(repo: string, token: string, limit: number, since?: Date) {
+export async function handleLeadTime(repo: string, token: string, limit: number, since?: Date, schema = "portal") {
   const prs = await fetchMergedPRs(repo, token, limit, since);
+
+  const qualifyingPRs = prs
+    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.head?.ref) }))
+    .filter(({ branch }) => branch?.type === "feat");
+
+  const branchCreatedAtByName = await getBranchCreatedAtMap(
+    schema,
+    repo,
+    qualifyingPRs.map(({ pr }) => pr.head.ref),
+  );
 
   const results = [];
 
-  for (const pr of prs) {
-    if (!isRelevantPR(pr)) continue;
+  for (const { pr, branch } of qualifyingPRs) {
+    const branchCreatedAt = branchCreatedAtByName.get(pr.head.ref);
+    if (!branchCreatedAt) continue;
 
-    const branchName = pr.head?.ref;
-    const issueNumber = extractIssueNumber(branchName);
-    if (!issueNumber) continue;
-
-    const issue = await fetchIssue(repo, token, issueNumber);
-    if (!issue || !issue.created_at) continue;
-
-    const lead_hours = Number.parseFloat(
-      ((new Date(pr.merged_at).getTime() - new Date(issue.created_at).getTime()) / 3_600_000).toFixed(2)
-    );
+    const lead_hours = computeDurationHours(branchCreatedAt, pr.merged_at);
 
     results.push({
-      issue: {
-        number: issue.number,
-        title: issue.title,
-        created_at: issue.created_at,
-      },
+      linear_issue_id: branch.linearId,
+      branch: pr.head.ref,
+      branch_created_at: branchCreatedAt,
       pr: {
         number: pr.number,
         title: pr.title,
         merged_at: pr.merged_at,
         url: pr.html_url,
       },
+      deployed_at: pr.merged_at,
       lead_hours,
     });
   }
