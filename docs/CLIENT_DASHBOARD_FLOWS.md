@@ -107,22 +107,27 @@ Shows the four **DORA engineering metrics** for the customer's team, fetched fro
 
 | Metric | What it measures |
 |---|---|
-| **Deploy Frequency** | How often code is deployed. Shows last 30-day and 90-day deployment counts |
-| **Lead Time for Changes** | Average time from code commit to production deployment |
-| **MTTR** (Mean Time to Restore) | Average time to recover from a production incident |
-| **Change Failure Rate** | Percentage of deployments that caused a failure. Shows failed vs total deployments and the repo name |
+| **Deploy Frequency** | Count of `feat/`/`fix/` merges whose squash commit is confirmed reachable on `main`. Shows last 30-day and 90-day counts |
+| **Lead Time for Changes** | Average hours from branch creation to squash-merge, `feat/` branches only |
+| **MTTR** (Mean Time to Restore) | Average hours from branch creation to squash-merge, `fix/` branches only — despite the classic DORA name, this is not "recovery from a production incident," it's the same lifecycle measurement as Lead Time, applied to fix branches |
+| **Change Failure Rate** | % of non-hotfix deployments immediately followed by a hotfix deployment |
 
 If no metrics are available yet, the card shows "No metrics available."
 
-**Calculation notes — Deploy Frequency / Change Failure Rate:** derived from merged pull requests, not branch names. A PR/commit is treated as a "fix" (excluded from Deploy Frequency, counted toward Change Failure Rate) when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:` (or match `fix: SPA-<id>` for CFR). A PR only counts toward Deploy Frequency if its CI status is `success`. See `supabase/functions/dora/github.ts` (`ERROR_SIGNALS`, `isHotfix`).
+**None of these are derived from GitHub issues anymore.** Everything comes from Git branch and commit history in `supabase/functions/dora/`. Full pipeline diagram: `supabase/functions/dora/diagrams/dora-flow.mmd`.
 
-**Calculation notes — Lead Time for Changes / MTTR:** these require BOTH:
-- PR title starts with `feat/` or `release/` (Lead Time) or `fix/` (MTTR, can also be in a commit message), AND
-- the PR's branch name starts with `<github-issue-number>-` (e.g. `42-add-login`), used to look up a **GitHub Issue** (not a Linear ticket) via `GET /repos/{repo}/issues/{number}`.
+**Calculation notes — Lead Time for Changes / MTTR:** a PR only counts if its **branch name** (not the PR title) starts with `feat/` (Lead Time) or `fix/` (MTTR) and contains a Linear id, e.g. `feat/SPA-123-add-login`. For each qualifying merged PR:
+- **Dev start** (`branch_created_at`) — the branch-creation timestamp recorded in `portal.dora_branch_events`, captured by the `github-webhook` function (GitHub `create` event) or, when no webhook is registered, by `dora/events.ts` polling GitHub's events feed. If neither caught it, it falls back to the earliest commit date on the PR (`dev_start_source: "first_commit_fallback"` in the raw result).
+- **Dev completion** — the merge timestamp, only counted once `isSquashMergeForPR` confirms the merge actually landed as a squash commit (a regular merge commit or rebase is excluded).
+- The metric value is `dev_completed_at - branch_created_at` in hours, averaged across all matching branches.
 
-The metric value is `pr.merged_at - issue.created_at` in hours, averaged across all matching PRs. If no PR matches both conditions, the card shows no value for that metric. Repos using Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names will never populate these two metrics. See `supabase/functions/dora/leadTime.ts` and `supabase/functions/dora/mttr.ts`.
+See `supabase/functions/dora/lifecycle.ts` (shared by `leadTime.ts` and `mttr.ts`).
 
-**How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Deploy Frequency is cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries to `dora_metrics.deploy_freq_details.deployments` (deduped, never overwritten). If the daily cron runs without gaps, Deploy Frequency eventually captures all merges; a gap of more than 24 hours causes PRs merged in that gap to be permanently missed from Deploy Frequency (though they still appear in CFR's scan).
+**Calculation notes — Deploy Frequency:** same `feat/`/`fix/` branch-name qualification as above, plus confirmation via GitHub's compare API that the squash commit is reachable on `main` (`isCommitOnMain`). There is no CI-status gate. See `supabase/functions/dora/deployFreq.ts`.
+
+**Calculation notes — Change Failure Rate:** the only metric that still looks at **all** merged PRs (not just `feat/`/`fix/`) and at PR title/commits rather than branch name. A PR is treated as a "hotfix" when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:` (or match `fix: SPA-<id>`). A non-hotfix deployment counts as "failed" if the next chronological deployment is a hotfix. See `supabase/functions/dora/cfr.ts` (`ERROR_SIGNALS`, `isHotfix` in `github.ts`) — unchanged by the Git-history migration.
+
+**How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). Each run also polls GitHub's events feed for new branch-creation events before computing metrics. CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Lead Time, MTTR, and Deploy Frequency are cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries (deduped by `pr_number`, never overwritten). A gap of more than 24 hours between cron runs causes PRs merged in that gap to be permanently missed from those three metrics (though they still appear in CFR's scan).
 
 ### 3. Product Decisions — `PriorityTasks` (Business Review)
 

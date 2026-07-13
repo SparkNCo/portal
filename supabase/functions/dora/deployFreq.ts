@@ -1,12 +1,20 @@
 // @ts-nocheck
-import { getCIStatus, fetchPRPage, fetchPRCommits, isHotfix } from "./github.ts";
+import { fetchPRPage, isCommitOnMain } from "./github.ts";
+import { parseQualifyingBranch } from "./branch.ts";
 
+// Deployment = the squash commit for a qualifying feat/fix branch is reachable
+// on main. No CI-status gate: per the DORA flow spec, deployment is approximated
+// purely by commit presence on main, not by a separate CI/deployment source.
+// isHotfix is intentionally NOT used to exclude merges here — it flags anything
+// whose title/commits start with "fix/"/"fix:" as an excluded hotfix, which
+// would wrongly zero out every qualifying fix/ deployment now that fix/ branches
+// are first-class qualifying work with identical lifecycle rules to feat/.
 async function fetchDeployments(repo: string, token: string, limit: number, since?: Date) {
-  const merges = [];
+  const deployments = [];
   let page = 1;
   const perPage = 20;
 
-  while (merges.length < limit) {
+  while (deployments.length < limit) {
     const prs = await fetchPRPage(repo, token, page, perPage);
     if (!prs.length) break;
 
@@ -17,37 +25,45 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
         console.log(`⏩ deployFreq: PR#${pr.number} "${pr.title}" skipped (before since cutoff)`);
         continue;
       }
-      const commits = await fetchPRCommits(repo, token, pr.number);
-      if (isHotfix(pr, commits)) continue;
 
-      const sha = pr.merge_commit_sha || pr.head?.sha;
-      if (!sha) {
-        console.warn(`⚠️ deployFreq: PR#${pr.number} has no SHA, skipping`);
+      const branch = parseQualifyingBranch(pr.head?.ref);
+      if (!branch) {
+        console.log(`⏩ deployFreq: PR#${pr.number} "${pr.title}" branch "${pr.head?.ref}" doesn't qualify, skipping`);
         continue;
       }
 
-      const ciState = await getCIStatus(repo, sha, token);
-      console.log(`🔬 deployFreq: PR#${pr.number} CI status = ${ciState}`);
-      if (ciState !== "success") continue;
+      const sha = pr.merge_commit_sha;
+      if (!sha) {
+        console.warn(`⚠️ deployFreq: PR#${pr.number} has no merge_commit_sha, skipping`);
+        continue;
+      }
 
-      merges.push({
+      const onMain = await isCommitOnMain(repo, token, sha);
+      if (!onMain) {
+        console.log(`⏩ deployFreq: PR#${pr.number} merge commit not (yet) reachable on main, skipping`);
+        continue;
+      }
+
+      deployments.push({
         pr_number: pr.number,
         title: pr.title,
         merged_at: pr.merged_at,
         merged_by: pr.merged_by?.login ?? null,
-        ci_status: ciState,
+        linear_issue_id: branch.linearId,
+        branch_type: branch.type,
+        branch: pr.head.ref,
         labels: pr.labels?.map((l: any) => l.name.toLowerCase()) ?? [],
         url: pr.html_url,
       });
 
-      if (merges.length >= limit) { done = true; break; }
+      if (deployments.length >= limit) { done = true; break; }
     }
 
     if (done || prs.length < perPage) break;
     page++;
   }
 
-  return merges;
+  return deployments;
 }
 
 export async function handleDeployFreq(

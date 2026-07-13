@@ -1,0 +1,64 @@
+flowchart TD
+    subgraph Capture ["Branch creation capture → dora_branch_events (idempotent upsert)"]
+        WH["github-webhook\n(GitHub 'create' event)"] -->|"parseQualifyingBranch(ref)"| WHQ{"feat/ or fix/\n+ Linear id?"}
+        WHQ -->|No| WHIGN[Ignored]
+        WHQ -->|Yes| UP1[upsertBranchCreatedEvent]
+
+        POLL["dora/events.ts\npollBranchCreationEvents()\n(run at the start of every handleAll)"] -->|"GET /repos/{repo}/events"| EV[CreateEvent feed\nlast ~300 events / 90 days]
+        EV -->|"extractBranchCreateEvents()"| EVQ{"feat/ or fix/\n+ Linear id?"}
+        EVQ -->|No| EVIGN[Ignored]
+        EVQ -->|Yes| UP2[upsertBranchCreatedEvent]
+
+        UP1 & UP2 --> DBE[("portal.dora_branch_events\nONE row per repo+branch_name\nON CONFLICT DO NOTHING")]
+    end
+
+    subgraph HandleAll ["dora/index.ts → handleAll(repo, token, limit, schema)"]
+        START([POST /dora method=all]) --> POLL
+        START --> P["Promise.all(...)"]
+        P --> CFR[handleCFR]
+        P --> LT[handleLeadTime]
+        P --> MTTR[handleIssueResolutionTime]
+        P --> DF[handleDeployFreq]
+    end
+
+    subgraph Lifecycle ["dora/lifecycle.ts — shared by leadTime (feat) & mttr (fix)"]
+        LT -.-> QBE["getQualifyingBranchEvents(branchType)"]
+        MTTR -.-> QBE
+        QBE --> FETCH["fetchPRPage: merged PRs, base=main"]
+        FETCH --> FILT{"parseQualifyingBranch(pr.head.ref)\n== feat | fix ?"}
+        FILT -->|No| SKIP1[Excluded]
+        FILT -->|Yes| DS{"branch_created_at\nin dora_branch_events?"}
+        DS -->|Yes| REC["dev_start_source = recorded"]
+        DS -->|No| FC["getEarliestCommitDate(PR commits)\ndev_start_source = first_commit_fallback"]
+        DS -.->|"neither exists"| SKIP2[Excluded]
+        REC & FC --> SQ{"isSquashMergeForPR?\n(1-parent merge commit,\nSHA not among PR's own commits)"}
+        SQ -->|No| SKIP3[Excluded]
+        SQ -->|Yes| ONM{"isCommitOnMain?\n(compare main...sha)"}
+        ONM -->|Yes| DEPLOYED["deployed_at = pr.merged_at"]
+        ONM -->|No| NOTDEPLOYED["deployed_at = null"]
+        DEPLOYED & NOTDEPLOYED --> HOURS["lead_hours / resolution_hours =\nbranch_created_at → dev_completed_at (pr.merged_at)"]
+    end
+
+    subgraph DeployFreq ["dora/deployFreq.ts"]
+        DF --> DFFETCH["fetchPRPage: merged PRs, base=main"]
+        DFFETCH --> DFFILT{"feat/ or fix/\nqualifying branch?"}
+        DFFILT -->|No| DFSKIP[Excluded]
+        DFFILT -->|Yes| DFONM{"isCommitOnMain?"}
+        DFONM -->|No| DFSKIP2[Excluded — not yet on main]
+        DFONM -->|Yes| DFCOUNT["counted, tagged with\nlinear_issue_id + branch_type"]
+    end
+
+    subgraph CFRFlow ["dora/cfr.ts — unchanged, all merged PRs (not just feat/fix)"]
+        CFR --> CFRFETCH["fetchPRPage: merged PRs, base=main"]
+        CFRFETCH --> HOTFIX{"title/commits match\nrevert|hotfix|rollback|bugfix\nor 'fix: SPA-xxx'?"}
+        HOTFIX -->|Yes| ISHOTFIX["excluded from totalNonFix"]
+        HOTFIX -->|No| NEXTCHECK{"next chronological\ndeployment is hotfix?"}
+        NEXTCHECK -->|Yes| FAILED["counted as failed deployment"]
+        NEXTCHECK -->|No| NORMAL["counted as normal deployment"]
+    end
+
+    HOURS --> MERGE["dora/index.ts → mergeDoraMetrics()\ndedupe by pr_number, recompute averages"]
+    DFCOUNT --> MERGE
+    ISHOTFIX & FAILED & NORMAL --> MERGE
+    MERGE --> SAVE[("portal.dora_metrics\nupsert by linear_slug")]
+    SAVE --> DONE([Response: cfr, leadTime, mttr, deployFreq])

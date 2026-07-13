@@ -43,9 +43,12 @@ The slug resolution priority is the same as other pages: `CustomerSlugContext` �
 
 ## Page Layout
 
-The page renders two stacked sections:
+The page renders three stacked sections:
 
 ```
+┌───────────────────────┬───────────────────────┐
+│  ProgressPieChart      │  SoftwareKPIs (DORA)   │
+└───────────────────────┴───────────────────────┘
 ┌─────────────────────────────────────┐
 │  Projects Timeline  (RoadmapTimeline)│
 │   Year nav + project rows + bars    │
@@ -60,6 +63,38 @@ The page renders two stacked sections:
 │   └── Issues by Status (area chart) │
 └─────────────────────────────────────┘
 ```
+
+---
+
+## Section 0 — Software KPIs (DORA Metrics)
+
+**Source:** `components/roadmap/software-kpis.tsx`
+
+### Data loading
+
+`GET /get-dora-metrics?linear_name={slug}` — looks up `linear_slug` for the customer, then reads cached rows from `portal.dora_metrics` (one row per `linear_slug`, most recent `created_at` first).
+
+### What it shows
+
+Four DORA tiles, sourced from `averages` in the `dora_metrics` row:
+
+| Tile | Field | Meaning |
+|---|---|---|
+| Change Failure Rate | `averages.change_failure_rate` | % of non-hotfix deployments followed immediately by a hotfix |
+| Lead Time for Changes | `averages.lead_time_for_changes` | avg hours from branch creation to squash-merge, `feat/` branches only |
+| Mean Time to Restore | `averages.mean_time_to_restore` | avg hours from branch creation to squash-merge, `fix/` branches only |
+| Deploy Frequency | `averages.deploy_frequency` | count of `feat/`/`fix/` merges whose squash commit is reachable on `main`, last 30/90 days |
+
+### Where the underlying data comes from
+
+**None of it comes from GitHub issues.** Everything is derived from Git branch and commit history in the `dora` edge function — see [supabase/functions/dora/diagrams/dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) for the full internal pipeline. In short:
+
+1. A branch only counts if its name starts with `feat/` or `fix/` **and** contains a Linear id (e.g. `feat/SPA-123-add-login`) — the prefix must be on the **branch name**, not the PR title.
+2. **Dev start** = the branch's creation timestamp, captured by the `github-webhook` function (GitHub `create` event) or, when no webhook is registered, approximated by `dora/events.ts` polling GitHub's own events feed, or — as a last resort — the earliest commit date on the PR.
+3. **Dev completion** = the squash-merge timestamp, only counted once `isSquashMergeForPR` confirms it was actually a squash merge (not a regular merge commit or rebase).
+4. **Deployment** = the moment the squash commit is confirmed reachable on `main` via GitHub's compare API — not gated by CI status.
+
+`GET /issueMetrics/?slug={slug}` (Section 2 below) is a **separate, unrelated** data source — it's Linear cycle/issue data, not DORA.
 
 ---
 
@@ -186,6 +221,10 @@ User lands on /{slug}/dashboard/roadmap
           │     → milestones flattened with projectName injected
           │     → allMilestones[] → RoadmapTimeline
           │
+          ├── GET /get-dora-metrics?linear_name={slug}
+          │     → dora_metrics row (averages, cfr/lead_time/mttr/deploy_freq details)
+          │     → SoftwareKPIs renders the four DORA tiles
+          │
           └── GET /issueMetrics/?slug={slug}
                 → issue_metrics[] + cycle_metrics[] loaded
                 → projects list extracted from cycle_metrics
@@ -199,7 +238,8 @@ User lands on /{slug}/dashboard/roadmap
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/roadmap/page.tsx` | Main roadmap page — fetches roadmap data, renders both sections |
+| `app/[slug]/dashboard/(portal)/roadmap/page.tsx` | Main roadmap page — fetches roadmap data, renders all sections |
+| `components/roadmap/software-kpis.tsx` | Software KPIs — fetches and renders the four DORA metric tiles |
 | `components/roadmap/roadmap-timeline.tsx` | Timeline shell — year nav, project grouping, milestone selection, issue detail panel |
 | `components/roadmap/ProjectRow.tsx` | Single project row — toggles between collapsed and expanded view |
 | `components/roadmap/ProjectSummaryBar.tsx` | Collapsed summary bar + individual MilestoneRow bars |
@@ -209,3 +249,5 @@ User lands on /{slug}/dashboard/roadmap
 | `components/metrics/issues-metrics.tsx` | Issues by Status stacked area chart |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal opened from the milestone issue grid |
 | `context/CustomerSlugContext.tsx` | Provides the active customer slug when admin is previewing |
+| `supabase/functions/dora/` | Backend: computes the 4 DORA metrics from Git branch/commit history — see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
+| `supabase/functions/get-dora-metrics/` | Read-only endpoint `SoftwareKPIs` calls — reads cached `dora_metrics` rows |
