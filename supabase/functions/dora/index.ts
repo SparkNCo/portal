@@ -6,21 +6,28 @@ import { handleCFR } from "./cfr.ts";
 import { handleLatest } from "./latest.ts";
 import { handleIssueResolutionTime } from "./mttr.ts";
 import { handleLeadTime } from "./leadTime.ts";
-import { handleTimelines } from "./timelines.ts";
 import { handleDeployFreq } from "./deployFreq.ts";
+import { pollBranchCreationEvents } from "./events.ts";
 
 const handlers: Record<string, (repo: string, token: string, limit: number) => Promise<unknown>> = {
   cfr: handleCFR,
   latest: handleLatest,
   mttr: handleIssueResolutionTime,
   leadTime: handleLeadTime,
-  timelines: handleTimelines,
   deployFreq: handleDeployFreq,
+  pollEvents: async (repo, token) => ({ recorded: await pollBranchCreationEvents(repo, token, "portal") }),
 };
 
-async function handleAll(repo: string, token: string, limit: number) {
+async function handleAll(repo: string, token: string, limit: number, schema = "portal") {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   console.log("🚀 handleAll started", { repo, limit, since: since.toISOString() });
+
+  // Best-effort: catches branch creations via GitHub's events feed when no
+  // webhook is registered. Never blocks the run — leadTime/mttr fall back to
+  // a first-commit-date approximation for anything this doesn't catch.
+  await pollBranchCreationEvents(repo, token, schema)
+    .then((n) => console.log(`✅ pollBranchCreationEvents done (${n} recorded)`))
+    .catch((e) => console.error("⚠️ pollBranchCreationEvents failed (non-fatal)", e.message));
 
   const [cfr, leadTime, mttr, deployFreq] = await Promise.all([
     handleCFR(repo, token, limit).then(r => { console.log("✅ CFR done"); return r; }).catch(e => { console.error("❌ CFR failed", String(e)); throw e; }),
@@ -204,7 +211,7 @@ Deno.serve(async (req) => {
     const repo = parseRepo(repoUrl);
 
     if (method === "all") {
-      const result = await handleAll(repo, token, limit);
+      const result = await handleAll(repo, token, limit, schema);
       console.log("💾 Saving to dorametrics...");
       await saveDoraMetrics(linear_slug, repoUrl, result, schema);
       console.log("✅ Saved to dorametrics");

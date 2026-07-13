@@ -564,46 +564,36 @@ Donut chart of issues by status with legend, total task count, and completion pe
 
 | Metric | What it measures |
 |---|---|
-| Deploy Frequency | How often code is deployed (last 30/90 days) |
-| Lead Time for Changes | Commit → production average time |
-| MTTR | Average recovery time from incidents |
-| Change Failure Rate | % of deployments that caused failures |
+| Deploy Frequency | Count of `feat/`/`fix/` merges whose squash commit is confirmed reachable on `main` (last 30/90 days) |
+| Lead Time for Changes | Avg hours from branch creation to squash-merge, `feat/` branches only |
+| MTTR | Avg hours from branch creation to squash-merge, `fix/` branches only (not incident-recovery time, despite the classic DORA name) |
+| Change Failure Rate | % of non-hotfix deployments immediately followed by a hotfix deployment |
 
 **How DORA metrics are calculated** (`supabase/functions/dora/`)
 
-All four metrics are computed from the repo's **merged pull requests** via the GitHub API (`base=main`).
+All four metrics are computed from Git branch and commit history via the GitHub API (`base=main`) — **no GitHub issues are used anywhere in this flow.** Full internal pipeline: `supabase/functions/dora/diagrams/dora-flow.mmd`.
 
-**Deploy Frequency & Change Failure Rate** — these don't use branch names. To classify a PR as a "fix"/hotfix (which excludes it from Deploy Frequency and counts toward Change Failure Rate), the PR title, its labels, or any of its commit messages must **start with** one of these keywords (`ERROR_SIGNALS` in `supabase/functions/dora/github.ts`):
+**Lead Time for Changes** (`leadTime.ts`) and **MTTR** (`mttr.ts`) share the same join logic in `lifecycle.ts`. A PR only qualifies if its **branch name** (`pr.head.ref`, not the PR title) starts with `feat/` (Lead Time) or `fix/` (MTTR) and contains a Linear id, e.g. `feat/SPA-123-add-login`:
 
-- `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, `fix:`
+- **Dev start** (`branch_created_at`) comes from `portal.dora_branch_events`, populated by the `github-webhook` function (GitHub `create` event) or, when no webhook is registered on the repo, by `dora/events.ts` polling `GET /repos/{repo}/events` for `CreateEvent`s. If neither caught it (event window expired, or it predates both), it falls back to the earliest commit's author date on the PR — marked `dev_start_source: "first_commit_fallback"` in the raw result.
+- **Dev completion** is the merge timestamp, counted only once `isSquashMergeForPR` confirms the merge commit has exactly one parent and a SHA not matching any of the PR's own commits (rules out regular merge commits and rebases).
+- The metric is `dev_completed_at - branch_created_at` in hours, averaged across all qualifying branches of that type.
 
-Additionally, for Change Failure Rate, a PR title matching `fix: SPA-<id>` is also treated as a fix. A PR only counts toward Deploy Frequency if its CI status is `success` (via the GitHub commit Status API, not Checks/Actions).
+Branches without a `feat/`/`fix/` prefix, without a parseable Linear id, or whose merge doesn't look like a squash, are excluded — the card shows `null` for that metric if nothing qualifies.
 
-**Lead Time for Changes** (`leadTime.ts`) and **MTTR** (`mttr.ts`) have stricter requirements — both PR title prefix AND branch naming matter:
+**Deploy Frequency** (`deployFreq.ts`) uses the same `feat/`/`fix/` branch-name qualification, then confirms via GitHub's compare API (`GET /repos/{repo}/compare/main...{sha}`) that the squash commit is reachable on `main`. There is no CI-status gate. Each deployment record carries `linear_issue_id`/`branch_type` for traceability.
 
-| Metric | PR title must start with | Branch (`pr.head.ref`) must start with |
-|---|---|---|
-| Lead Time for Changes | `feat/` or `release/` | `<github-issue-number>-` |
-| MTTR | `fix/` (in title or any commit message) | `<github-issue-number>-` |
+**Change Failure Rate** (`cfr.ts`) is the one metric still based on **all** merged PRs (not just `feat/`/`fix/`) and on PR title/commits rather than branch name — unchanged by the Git-history migration. A PR is a "hotfix" if its title, labels, or commit messages start with one of `ERROR_SIGNALS` in `supabase/functions/dora/github.ts` (`revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, `fix:`), or the title matches `fix: SPA-<id>`. A non-hotfix deployment counts as "failed" if the next chronological deployment is a hotfix.
 
-For each matching PR, the branch prefix number is used to fetch a **GitHub Issue** (`GET /repos/{repo}/issues/{number}`) — not a Linear ticket. The metric is then:
+**How `dora` gets triggered & how metrics accumulate over time**
 
-- Lead Time: `pr.merged_at - issue.created_at` (hours), averaged across all matching `feat/`/`release/` PRs.
-- MTTR: `pr.merged_at - issue.created_at` (hours), averaged across all matching `fix/` PRs.
-
-If no PR satisfies both the title prefix and the `<number>-` branch naming pointing to a real GitHub Issue, `avg_lead_hours` / `average_resolution_hours` come back as `null` and the card shows no data for that metric. Note: if the team uses Linear slugs (e.g. `SPA-123`) instead of numeric GitHub Issue IDs in branch names, these two metrics will never populate.
-
-For correct metrics overall, PRs/commits should follow this naming convention: `feat/<github-issue-number>-...` for features, `fix/<github-issue-number>-...` for bug fixes, and `fix:`/`hotfix`/`revert`/`rollback`/`bugfix` prefixes for hotfix detection.
-
-**How `dora` gets triggered & how Deploy Frequency accumulates over time**
-
-`dora` is not called directly on a schedule. It's triggered once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`), which calls `dora` with `method: "all"` for every customer that has a `linear_slug` and `project_url`.
+`dora` is not called directly on a schedule. It's triggered once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`), which calls `dora` with `method: "all"` for every customer that has a `linear_slug` and `project_url`. Each run starts by polling GitHub's events feed (`pollBranchCreationEvents`) before computing the four metrics.
 
 It's also triggered on-demand right after a new customer is created: `createCustomerFlow` (`supabase/functions/users/createCustomerFlow.ts`) derives `linear_projects`/`project_url` from the customer's Linear initiative and, if successful, calls `POST /functions/v1/issueMetrics`, whose final step is the same `triggerDoraForAllCustomers()` call — so the new customer's metrics populate immediately instead of waiting for the next cron run.
 
 - **Change Failure Rate** is recomputed from scratch on every run — it always re-fetches the most recent `limit` merged PRs (default 100, no date filter), so it's a sliding window over PR history, not a cumulative store.
-- **Deploy Frequency** is cumulative and stored in `dora_metrics.deploy_freq_details.deployments`. Each run only fetches PRs merged in the **last 24 hours** (`since`) and appends new, deduped entries (by `pr_number`) to the existing list — it never overwrites or drops old entries. `total_deployments`, `deployments_last_30_days`, and `deployments_last_90_days` are all computed from this accumulated list.
-- **Implication:** as long as the daily cron runs without gaps, every merged PR (that passes the hotfix/CI filters) eventually gets captured into `deploy_freq_details.deployments`, and Deploy Frequency numbers will be complete and accurate over time. If the cron misses a run for more than 24 hours, any PRs merged during that gap fall outside the `since` window of the next run and are **permanently missed** from Deploy Frequency (they still show up in CFR's sliding-window scan, since that doesn't depend on accumulation).
+- **Lead Time, MTTR, and Deploy Frequency** are cumulative and stored in `dora_metrics`. Each run only fetches PRs merged in the **last 24 hours** (`since`) and appends new, deduped entries (by `pr_number`) to the existing lists — it never overwrites or drops old entries.
+- **Implication:** as long as the daily cron runs without gaps, every qualifying merged PR eventually gets captured. If the cron misses a run for more than 24 hours, any PRs merged during that gap fall outside the `since` window of the next run and are **permanently missed** from those three metrics (they still show up in CFR's sliding-window scan, since that doesn't depend on accumulation).
 
 **Product Decisions — `PriorityTasks` (Business Review)**  
 Issues in Business Review state, sorted by unanswered question count. Client reviews and approves user stories here.
@@ -768,7 +758,15 @@ roadmap.initiative.projects.nodes[]
 
 A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each.
 
-### 7.2 Projects Timeline — `RoadmapTimeline`
+### 7.2 Software KPIs (DORA Metrics) — `SoftwareKPIs`
+
+**Data:** `GET /get-dora-metrics?linear_name={slug}` → cached row from `portal.dora_metrics`.
+
+Four tiles from `averages`: **Change Failure Rate**, **Lead Time for Changes** (`feat/` branches), **Mean Time to Restore** (`fix/` branches), **Deploy Frequency** (last 30/90 days).
+
+All of it is derived from Git branch/commit history in the `dora` edge function — **no GitHub issues involved**. A branch only counts if its name (not the PR title) starts with `feat/` or `fix/` and contains a Linear id. Dev start = branch creation (webhook, or a GitHub-events poll / first-commit-date fallback when no webhook is registered); dev completion = confirmed squash merge; deployment = squash commit confirmed reachable on `main`. Full pipeline: [supabase/functions/dora/diagrams/dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd).
+
+### 7.3 Projects Timeline — `RoadmapTimeline`
 
 **Year navigation** — left/right arrows step through years. Current month is highlighted.
 
@@ -788,7 +786,7 @@ Individual bars per milestone, colored by status:
 
 **Milestone detail panel** — clicking a milestone opens a panel below the timeline showing all its issues (identifier, title, status badge, priority, labels, assignee, due date, completed date). Clicking an issue card opens `IssueDetailModal`.
 
-### 7.3 Metrics Panel — `MetricsPanel`
+### 7.4 Metrics Panel — `MetricsPanel`
 
 **Data:** `GET /issueMetrics/?slug={slug}` → `{ issue_metrics[], cycle_metrics[] }`
 
@@ -806,19 +804,21 @@ Stacked area chart showing issue distribution across statuses over time for the 
 **Components available but not currently rendered:**  
 `CycleHistoryChart`, `CycleTable`, `UncompletedIssuesList` — imported in `metrics-panel.tsx` but not rendered in the current UI.
 
-### 7.4 Data flow
+### 7.5 Data flow
 
 ```
 User lands on /{slug}/dashboard/roadmap
   ├── GET /roadmap/?slug → milestones flattened → RoadmapTimeline
+  ├── GET /get-dora-metrics?linear_name= → SoftwareKPIs (4 DORA tiles)
   └── GET /issueMetrics/?slug → MetricsPanel (CycleBarChart + IssueMetricsView)
 ```
 
-### 7.5 File Map
+### 7.6 File Map
 
 | File | Responsibility |
 |---|---|
 | `app/[slug]/dashboard/(portal)/roadmap/page.tsx` | Main page |
+| `components/roadmap/software-kpis.tsx` | Software KPIs — fetches/renders the 4 DORA tiles |
 | `components/roadmap/roadmap-timeline.tsx` | Timeline shell + milestone detail panel |
 | `components/roadmap/ProjectRow.tsx` | Collapsed / expanded project row toggle |
 | `components/roadmap/ProjectSummaryBar.tsx` | Summary bar + MilestoneRow bars |
@@ -826,6 +826,8 @@ User lands on /{slug}/dashboard/roadmap
 | `components/metrics/metrics-panel.tsx` | Metrics filter bar + chart grid |
 | `components/metrics/cycle-metrics.tsx` | CycleBarChart + unused chart components |
 | `components/metrics/issues-metrics.tsx` | Issues by Status area chart |
+| `supabase/functions/dora/` | Backend: computes DORA metrics from Git history, see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
+| `supabase/functions/get-dora-metrics/` | Read-only endpoint `SoftwareKPIs` calls |
 
 ---
 

@@ -61,14 +61,8 @@ export async function fetchPRPage(repo: string, token: string, page: number, per
   return res.json();
 }
 
-export function linkedIssueNumbers(pr: any): number[] {
-  const body = pr.body ?? "";
-  const matches = [...body.matchAll(/(?:closes?|fixes?|resolves?)\s+#(\d+)/gi)];
-  return matches.map((m) => Number.parseInt(m[1], 10));
-}
-
-export async function fetchIssue(repo: string, token: string, issueNumber: number): Promise<any | null> {
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}`, {
+export async function fetchCommit(repo: string, token: string, sha: string): Promise<any | null> {
+  const res = await fetch(`https://api.github.com/repos/${repo}/commits/${sha}`, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
@@ -77,6 +71,79 @@ export async function fetchIssue(repo: string, token: string, issueNumber: numbe
   });
   if (!res.ok) return null;
   return res.json();
+}
+
+// Pure core: a squash merge always lands as exactly one brand-new commit whose
+// SHA doesn't match any of the PR's original commits. A regular merge commit has
+// two parents; a rebase merge reuses/chains the original (rebased) commit SHAs.
+// Passing in the merge commit's own parents avoids a network call in tests.
+export function isSquashMerge(mergeCommitSha: string, mergeCommitParents: string[], prCommitShas: string[]): boolean {
+  if (mergeCommitParents.length !== 1) return false;
+  return !prCommitShas.includes(mergeCommitSha);
+}
+
+export async function isSquashMergeForPR(repo: string, token: string, pr: any, commits: any[]): Promise<boolean> {
+  const sha = pr.merge_commit_sha;
+  if (!sha) return false;
+
+  const mergeCommit = await fetchCommit(repo, token, sha);
+  if (!mergeCommit) return false;
+
+  const parents = (mergeCommit.parents ?? []).map((p: any) => p.sha);
+  const prCommitShas = commits.map((c) => c.sha);
+  return isSquashMerge(sha, parents, prCommitShas);
+}
+
+// Pure core: GitHub's compare API reports how `sha` relates to `main`.
+// "identical" (same commit) or "behind" (main has since moved past it, but it's
+// still an ancestor) both mean the commit is reachable from main.
+export function isReachableStatus(compareStatus: string): boolean {
+  return compareStatus === "identical" || compareStatus === "behind";
+}
+
+export async function isCommitOnMain(repo: string, token: string, sha: string): Promise<boolean> {
+  const res = await fetch(`https://api.github.com/repos/${repo}/compare/main...${sha}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return isReachableStatus(data.status);
+}
+
+export async function fetchRepoEvents(repo: string, token: string, page: number, perPage: number): Promise<any[]> {
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/events?per_page=${perPage}&page=${page}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+  if (!res.ok) {
+    console.warn(`⚠️ fetchRepoEvents page=${page}: HTTP ${res.status}`);
+    return [];
+  }
+  return res.json();
+}
+
+// Pure core: approximates "when did work start" from a PR's own commit
+// history when no live-captured branch_created_at is available (no webhook,
+// or the branch predates it). Uses author date (when the change was actually
+// written) rather than committer date (which shifts on rebase/amend).
+export function getEarliestCommitDate(commits: any[]): string | null {
+  const timestamps = commits
+    .map((c) => c.commit?.author?.date)
+    .filter(Boolean)
+    .map((d) => new Date(d).getTime());
+
+  if (!timestamps.length) return null;
+  return new Date(Math.min(...timestamps)).toISOString();
 }
 
 export function isHotfix(pr: any, commits: any[] = []): boolean {

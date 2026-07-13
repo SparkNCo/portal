@@ -1,10 +1,20 @@
 // @ts-nocheck
 import { fetchPRPage, fetchPRCommits, isHotfix } from "./github.ts";
+import { parseQualifyingBranch } from "./branch.ts";
 
 const FIX_SPA_RE = /^fix:\s*SPA-[\w-]+/i;
 
-function isCFRHotfix(pr: any, commits: any[]): boolean {
-  return isHotfix(pr, commits) || FIX_SPA_RE.test((pr.title ?? "").trim());
+// Additive, not a replacement: title/labels/commits (isHotfix, FIX_SPA_RE) still
+// catch signals a branch name alone can't — reverts, rollbacks, manual "hotfix"
+// labels, or a fix made mid-stream inside a feat/ branch. A fix/ branch name is
+// just one more way to reach the same "this was reactive work" conclusion,
+// so a fix/ branch counts even if its PR title never says "fix".
+export function isCFRHotfix(pr: any, commits: any[]): boolean {
+  return (
+    isHotfix(pr, commits) ||
+    FIX_SPA_RE.test((pr.title ?? "").trim()) ||
+    parseQualifyingBranch(pr.head?.ref)?.type === "fix"
+  );
 }
 
 async function fetchMergedPRs(repo: string, token: string, limit: number) {

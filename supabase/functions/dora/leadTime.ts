@@ -1,67 +1,18 @@
 // @ts-nocheck
-import { fetchPRPage } from "./github.ts";
-import { computeDurationHours, parseQualifyingBranch } from "./branch.ts";
-import { getBranchCreatedAtMap } from "./db.ts";
-
-async function fetchMergedPRs(repo: string, token: string, limit: number, since?: Date) {
-  const raw: any[] = [];
-  let page = 1;
-  const perPage = 50;
-
-  while (raw.length < limit) {
-    const prs = await fetchPRPage(repo, token, page, perPage);
-    if (!prs.length) break;
-
-    let reachedCutoff = false;
-    for (const pr of prs) {
-      if (!pr.merged_at) continue;
-      if (since && new Date(pr.merged_at) < since) { reachedCutoff = true; continue; }
-      raw.push(pr);
-      if (raw.length >= limit) break;
-    }
-
-    if (reachedCutoff || prs.length < perPage || raw.length >= limit) break;
-    page++;
-  }
-
-  return raw;
-}
+import { getQualifyingBranchEvents, computeDurationHours } from "./lifecycle.ts";
 
 export async function handleLeadTime(repo: string, token: string, limit: number, since?: Date, schema = "portal") {
-  const prs = await fetchMergedPRs(repo, token, limit, since);
+  const events = await getQualifyingBranchEvents(repo, token, limit, since, "feat", schema);
 
-  const qualifyingPRs = prs
-    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.head?.ref) }))
-    .filter(({ branch }) => branch?.type === "feat");
-
-  const branchCreatedAtByName = await getBranchCreatedAtMap(
-    schema,
-    repo,
-    qualifyingPRs.map(({ pr }) => pr.head.ref),
-  );
-
-  const results = [];
-
-  for (const { pr, branch } of qualifyingPRs) {
-    const branchCreatedAt = branchCreatedAtByName.get(pr.head.ref);
-    if (!branchCreatedAt) continue;
-
-    const lead_hours = computeDurationHours(branchCreatedAt, pr.merged_at);
-
-    results.push({
-      linear_issue_id: branch.linearId,
-      branch: pr.head.ref,
-      branch_created_at: branchCreatedAt,
-      pr: {
-        number: pr.number,
-        title: pr.title,
-        merged_at: pr.merged_at,
-        url: pr.html_url,
-      },
-      deployed_at: pr.merged_at,
-      lead_hours,
-    });
-  }
+  const results = events.map((event) => ({
+    linear_issue_id: event.linear_issue_id,
+    branch: event.branch,
+    branch_created_at: event.branch_created_at,
+    dev_start_source: event.dev_start_source,
+    pr: event.pr,
+    deployed_at: event.deployed_at,
+    lead_hours: computeDurationHours(event.branch_created_at, event.dev_completed_at),
+  }));
 
   const avg =
     results.length > 0
