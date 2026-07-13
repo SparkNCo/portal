@@ -5,9 +5,10 @@ import type { DesignResourceType } from "@/components/client/design-resources.ty
  * - https://www.figma.com/file/{file-id}/{file-name}
  * - https://www.figma.com/design/{file-id}/{file-name}
  * - https://www.figma.com/proto/{file-id}/{file-name}
+ * - https://www.figma.com/board/{board-id}/{board-name} (FigJam)
  * - https://figma.com/file/{file-id}/{file-name}
  */
-const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9]+\/.+/;
+const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(file|design|proto|board)\/[a-zA-Z0-9]+\/.+/;
 
 /**
  * v0 URL patterns:
@@ -80,7 +81,7 @@ export function isV0Url(url: string): boolean {
  */
 export function extractFigmaFileName(url: string): string | null {
   try {
-    const match = url.match(/figma\.com\/(?:file|design|proto)\/[^/]+\/([^/?#]+)/);
+    const match = url.match(/figma\.com\/(?:file|design|proto|board)\/[^/]+\/([^/?#]+)/);
     if (match?.[1]) {
       // Replace hyphens and underscores with spaces, decode URI components
       return decodeURIComponent(match[1].replace(/[-_]/g, " "));
@@ -96,7 +97,7 @@ export function extractFigmaFileName(url: string): string | null {
  */
 export function extractFigmaFileId(url: string): string | null {
   try {
-    const match = url.match(/figma\.com\/(?:file|design|proto)\/([^/]+)/);
+    const match = url.match(/figma\.com\/(?:file|design|proto|board)\/([^/]+)/);
     return match?.[1] || null;
   } catch {
     return null;

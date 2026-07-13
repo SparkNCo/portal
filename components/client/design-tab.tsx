@@ -103,6 +103,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
   const projectSlug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const updateFileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [newServiceName, setNewServiceName] = useState("");
@@ -233,6 +234,40 @@ export function DesignTab({ issue }: { issue: Issue }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const updateDiagramMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!profile?.email)
+        throw new Error("Could not identify the current user");
+      if (!currentDiagram)
+        throw new Error("Select a version before updating it");
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("diagram_id", currentDiagram.id);
+      formData.append("email", profile.email);
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/diagrams`, {
+        method: "PUT",
+        headers: API_HEADERS,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Diagram update failed");
+      }
+
+      return (await res.json()) as Diagram;
+    },
+    onSuccess: (diagram) => {
+      queryClient.invalidateQueries({
+        queryKey: ["diagram-versions", activeServiceId],
+      });
+      toast.success(`Version v${diagram.version} updated`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const addDesignResourceMutation = useMutation({
     mutationFn: async ({ url, title }: { url: string; title?: string }) => {
       if (!projectSlug) throw new Error("Could not identify the current project");
@@ -309,6 +344,12 @@ export function DesignTab({ issue }: { issue: Issue }) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (file) uploadMutation.mutate(file);
+  };
+
+  const handleUpdateFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) updateDiagramMutation.mutate(file);
   };
 
   const handleAddLink = () => {
@@ -562,6 +603,30 @@ export function DesignTab({ issue }: { issue: Issue }) {
             accept=".mmd,.mermaid,text/plain"
             className="hidden"
             onChange={handleFileSelect}
+          />
+
+          {!isCreatingNew && currentDiagram && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={updateDiagramMutation.isPending}
+              onClick={() => updateFileInputRef.current?.click()}
+            >
+              {updateDiagramMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              Update v{currentDiagram.version}
+            </Button>
+          )}
+          <input
+            ref={updateFileInputRef}
+            type="file"
+            accept=".mmd,.mermaid,text/plain"
+            className="hidden"
+            onChange={handleUpdateFileSelect}
           />
         </div>
 

@@ -2,6 +2,7 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { createDiagram } from "./createDiagram.ts";
 import { listDiagrams } from "./listDiagrams.ts";
+import { updateDiagram } from "./updateDiagram.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,6 +20,11 @@ Deno.serve(async (req) => {
 
     if (req.method === "POST") {
       const result = await createDiagram(req, schema);
+      return jsonResponse(result);
+    }
+
+    if (req.method === "PUT") {
+      const result = await updateDiagram(req, schema);
       return jsonResponse(result);
     }
 

@@ -144,6 +144,18 @@ model dorametrics {
   user users? @relation(fields: [user_id], references: [id])
 }
 
+model dora_branch_events {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  repo              String
+  branch_name       String
+  linear_issue_id   String
+  branch_type       String
+  branch_created_at DateTime @db.Timestamptz(6)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([repo, branch_name])
+}
+
 
 // Is this needed for anything?
 // See if you can attach metadata in cometchat itself, delete this table entirely

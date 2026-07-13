@@ -5,8 +5,9 @@
  * - https://www.figma.com/file/{file-id}/{file-name}
  * - https://www.figma.com/design/{file-id}/{file-name}
  * - https://www.figma.com/proto/{file-id}/{file-name}
+ * - https://www.figma.com/board/{board-id}/{board-name} (FigJam)
  */
-const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(file|design|proto)\/[a-zA-Z0-9]+\/.+/;
+const FIGMA_URL_REGEX = /^https?:\/\/(www\.)?figma\.com\/(file|design|proto|board)\/[a-zA-Z0-9]+\/.+/;
 
 /**
  * v0 URL patterns:
