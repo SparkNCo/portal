@@ -12,9 +12,11 @@ import { parseQualifyingBranch } from "./branch.ts";
 // are first-class qualifying work with identical lifecycle rules to feat/.
 async function fetchDeployments(repo: string, token: string, limit: number, since?: Date) {
   const deployments = [];
+  const deployments = [];
   let page = 1;
   const perPage = 20;
 
+  while (deployments.length < limit) {
   while (deployments.length < limit) {
     const prs = await fetchPRPage(repo, token, page, perPage);
     if (!prs.length) break;
@@ -34,7 +36,9 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
       }
 
       const sha = pr.merge_commit_sha;
+      const sha = pr.merge_commit_sha;
       if (!sha) {
+        console.warn(`⚠️ deployFreq: PR#${pr.number} has no merge_commit_sha, skipping`);
         console.warn(`⚠️ deployFreq: PR#${pr.number} has no merge_commit_sha, skipping`);
         continue;
       }
@@ -44,7 +48,13 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
         console.log(`⏩ deployFreq: PR#${pr.number} merge commit not (yet) reachable on main, skipping`);
         continue;
       }
+      const onMain = await isCommitOnMain(repo, token, sha);
+      if (!onMain) {
+        console.log(`⏩ deployFreq: PR#${pr.number} merge commit not (yet) reachable on main, skipping`);
+        continue;
+      }
 
+      deployments.push({
       deployments.push({
         pr_number: pr.number,
         title: pr.title,
@@ -58,12 +68,14 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
       });
 
       if (deployments.length >= limit) { done = true; break; }
+      if (deployments.length >= limit) { done = true; break; }
     }
 
     if (done || prs.length < perPage) break;
     page++;
   }
 
+  return deployments;
   return deployments;
 }
 
