@@ -12,8 +12,14 @@ flowchart TD
         UP1 & UP2 --> DBE[("portal.dora_branch_events\nONE row per repo+branch_name\nON CONFLICT DO NOTHING")]
     end
 
+    subgraph AllCustomers ["dora/index.ts → handleAllCustomers(token, limit, schema) — own cron"]
+        CRON([POST /dora method=allCustomers]) --> GAC[getAllCustomers\nfilter: linear_slug + project_url present]
+        GAC --> EACH[For each eligible customer\nconcurrency 5]
+        EACH --> START
+    end
+
     subgraph HandleAll ["dora/index.ts → handleAll(repo, token, limit, schema)"]
-        START([POST /dora method=all]) --> POLL
+        START([one per customer:\nmethod=all or from allCustomers]) --> POLL
         START --> P["Promise.all(...)"]
         P --> CFR[handleCFR]
         P --> LT[handleLeadTime]

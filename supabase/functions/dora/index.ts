@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
+import { runWithConcurrency } from "../utils/concurrency.ts";
+import { getAllCustomers } from "../issueMetrics/db.ts";
 import { parseRepo } from "./github.ts";
 import { handleCFR } from "./cfr.ts";
 import { handleLatest } from "./latest.ts";
@@ -41,6 +43,40 @@ async function handleAll(repo: string, token: string, limit: number, schema = "p
     repo,
     details: { cfr, leadTime, mttr, deployFreq },
   };
+}
+
+// Own cron entrypoint: no longer triggered per-customer from issueMetrics via
+// HTTP, since GitHub's API is slow/rate-limited relative to Linear's and
+// shouldn't share a run (and a timeout budget) with it. Mirrors what
+// issueMetrics/index.ts's triggerDoraForCustomer used to do, just in-process.
+const CUSTOMER_CONCURRENCY = 5;
+
+async function handleAllCustomers(token: string, limit: number, schema: string) {
+  const customers = await getAllCustomers(schema);
+  const eligible = customers.filter(
+    (c) => c.linear_slug && Array.isArray(c.project_url) && c.project_url.length > 0,
+  );
+
+  console.log(`🚀 [dora] handleAllCustomers started, eligible customers: ${eligible.length}`);
+
+  let succeeded = 0;
+  let failed = 0;
+
+  await runWithConcurrency(eligible, CUSTOMER_CONCURRENCY, async (customer) => {
+    try {
+      const repo = parseRepo(customer.project_url as unknown as string);
+      console.log(`➡️ [dora] handleAllCustomers processing slug=${customer.linear_slug} repo=${repo}`);
+      const result = await handleAll(repo, token, limit, schema);
+      await saveDoraMetrics(customer.linear_slug, customer.project_url as unknown as string, result, schema);
+      succeeded++;
+    } catch (error) {
+      failed++;
+      console.error(`❌ [dora] handleAllCustomers failed for slug=${customer.linear_slug}:`, error.message);
+    }
+  });
+
+  console.log(`✅ [dora] handleAllCustomers finished: ${succeeded} succeeded, ${failed} failed, ${eligible.length} total`);
+  return { ok: true, succeeded, failed, total: eligible.length };
 }
 
 function dedupeByPrNumber<T extends { pr: { number: number } }>(existing: T[], incoming: T[]): T[] {
@@ -188,6 +224,22 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { method, url: repoUrl, linear_slug, limit: rawLimit } = body;
 
+    if (!method) {
+      return new Response(JSON.stringify({ error: "Missing method param" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const limit = Math.min(Number.parseInt(rawLimit ?? "100", 10), 500);
+
+    if (method === "allCustomers") {
+      const summary = await handleAllCustomers(token, limit, schema);
+      return new Response(JSON.stringify(summary), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!repoUrl) {
       return new Response(JSON.stringify({ error: "Missing url param" }), {
         status: 400,
@@ -200,14 +252,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!method) {
-      return new Response(JSON.stringify({ error: "Missing method param" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const limit = Math.min(Number.parseInt(rawLimit ?? "100", 10), 500);
     const repo = parseRepo(repoUrl);
 
     if (method === "all") {

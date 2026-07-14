@@ -52,7 +52,7 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
         merged_by: pr.merged_by?.login ?? null,
         linear_issue_id: branch.linearId,
         branch_type: branch.type,
-        branch: pr.head.ref,
+        branch: pr.title,
         labels: pr.labels?.map((l: any) => l.name.toLowerCase()) ?? [],
         url: pr.html_url,
       });

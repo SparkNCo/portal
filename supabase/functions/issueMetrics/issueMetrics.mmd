@@ -25,6 +25,9 @@ flowchart TD
     P8 --> P9[Return status counts\nby project JSON]
 
     %% ── POST / Cron ──────────────────────────────────────
+    %% DORA metrics run on their own cron (POST /functions/v1/dora,
+    %% method: "allCustomers") — decoupled from this cron so a slow/
+    %% rate-limited GitHub run never delays or times out Linear metrics.
     METHOD -->|POST / Cron| C1[getAllCustomers\nfrom Supabase]
     C1 --> C2[For each customer\nwith linear_projects]
     C2 --> C3[fetchProjectDetails\nLinear API]
@@ -35,13 +38,4 @@ flowchart TD
     C7 -->|upsertIssueMetrics| C8[issue_metrics table]
     C7 -->|upsertCycleMetrics| C9[cycle_metrics table]
     C8 & C9 --> C2
-    C2 -->|All customers done| D1
-
-    subgraph DORA ["triggerDoraForAllCustomers()"]
-        D1[Query users\nrole = customer\nlinear_slug NOT NULL\nproject_url length > 0]
-        D1 --> D2[For each eligible user\nin parallel]
-        D2 --> D3["POST /functions/v1/dora\n{ method: 'all', url: project_url, linear_slug }"]
-        D3 --> D4[("dorametrics table\nupdated")]
-    end
-
-    D4 --> DONE([Return ok: true])
+    C2 -->|All customers done| DONE([Return ok: true])

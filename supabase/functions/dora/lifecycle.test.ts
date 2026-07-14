@@ -36,6 +36,18 @@ Deno.test("feat happy path: produces branch_created_at, dev_completed_at, deploy
   assertEquals(events[0].deployed_at, "2026-07-02T10:00:00.000Z");
 });
 
+Deno.test("resolves branch identity from the PR title even when head.ref is always \"staging\" (staging→main promotion PRs)", async () => {
+  const pr = makePR({ head: { ref: "staging" } });
+  const branchCreatedAtByName = new Map([["feat/SPA-123-add-login", "2026-07-01T08:00:00.000Z"]]);
+
+  const events = await joinBranchEvents([pr], "feat", branchCreatedAtByName, noCommits, alwaysSquashed, alwaysOnMain);
+
+  assertEquals(events.length, 1);
+  assertEquals(events[0].branch, "feat/SPA-123-add-login");
+  assertEquals(events[0].branch_created_at, "2026-07-01T08:00:00.000Z");
+  assertEquals(events[0].dev_start_source, "recorded");
+});
+
 Deno.test("fix branches follow the same lifecycle logic as feat branches", async () => {
   const pr = makePR({ head: { ref: "fix/SPA-456-crash-on-logout" }, title: "fix/SPA-456-crash-on-logout" });
   const branchCreatedAtByName = new Map([["fix/SPA-456-crash-on-logout", "2026-07-01T08:00:00.000Z"]]);
