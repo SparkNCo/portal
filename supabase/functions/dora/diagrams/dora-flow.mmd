@@ -25,7 +25,7 @@ flowchart TD
         LT -.-> QBE["getQualifyingBranchEvents(branchType)"]
         MTTR -.-> QBE
         QBE --> FETCH["fetchPRPage: merged PRs, base=main"]
-        FETCH --> FILT{"parseQualifyingBranch(pr.head.ref)\n== feat | fix ?"}
+        FETCH --> FILT{"parseQualifyingBranch(pr.title)\n== feat | fix ?"}
         FILT -->|No| SKIP1[Excluded]
         FILT -->|Yes| DS{"branch_created_at\nin dora_branch_events?"}
         DS -->|Yes| REC["dev_start_source = recorded"]

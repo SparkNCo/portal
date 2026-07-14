@@ -2,12 +2,13 @@
 import { fetchPRPage, isCommitOnMain } from "./github.ts";
 import { parseQualifyingBranch } from "./branch.ts";
 
-// Deployment = the squash commit for a qualifying feat/fix branch is reachable
-// on main. No CI-status gate: per the DORA flow spec, deployment is approximated
-// purely by commit presence on main, not by a separate CI/deployment source.
+// Deployment = the squash commit for a PR whose title is a qualifying feat/fix
+// title is reachable on main. No CI-status gate: per the DORA flow spec,
+// deployment is approximated purely by commit presence on main, not by a
+// separate CI/deployment source.
 // isHotfix is intentionally NOT used to exclude merges here — it flags anything
 // whose title/commits start with "fix/"/"fix:" as an excluded hotfix, which
-// would wrongly zero out every qualifying fix/ deployment now that fix/ branches
+// would wrongly zero out every qualifying fix/ deployment now that fix/ PRs
 // are first-class qualifying work with identical lifecycle rules to feat/.
 async function fetchDeployments(repo: string, token: string, limit: number, since?: Date) {
   const deployments = [];
@@ -26,9 +27,9 @@ async function fetchDeployments(repo: string, token: string, limit: number, sinc
         continue;
       }
 
-      const branch = parseQualifyingBranch(pr.head?.ref);
+      const branch = parseQualifyingBranch(pr.title);
       if (!branch) {
-        console.log(`⏩ deployFreq: PR#${pr.number} "${pr.title}" branch "${pr.head?.ref}" doesn't qualify, skipping`);
+        console.log(`⏩ deployFreq: PR#${pr.number} "${pr.title}" doesn't qualify, skipping`);
         continue;
       }
 
