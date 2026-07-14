@@ -35,10 +35,6 @@ const config = {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
-        donut: {
-          DEFAULT: "hsl(var(--donut))",
-          foreground: "hsl(var(--donut-foreground))",
-        },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
