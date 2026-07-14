@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { fetchPRPage, fetchPRCommits, isHotfix } from "./github.ts";
 import { parseQualifyingBranch } from "./branch.ts";
-import { parseQualifyingBranch } from "./branch.ts";
 
 const FIX_SPA_RE = /^fix:\s*SPA-[\w-]+/i;
 
