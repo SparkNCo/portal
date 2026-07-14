@@ -5,15 +5,15 @@ import { parseQualifyingBranch } from "./branch.ts";
 const FIX_SPA_RE = /^fix:\s*SPA-[\w-]+/i;
 
 // Additive, not a replacement: title/labels/commits (isHotfix, FIX_SPA_RE) still
-// catch signals a branch name alone can't — reverts, rollbacks, manual "hotfix"
-// labels, or a fix made mid-stream inside a feat/ branch. A fix/ branch name is
-// just one more way to reach the same "this was reactive work" conclusion,
-// so a fix/ branch counts even if its PR title never says "fix".
+// catch signals a "fix/" PR title alone can't — reverts, rollbacks, manual
+// "hotfix" labels, or a fix made mid-stream inside a feat/ PR. A fix/-prefixed
+// PR title is just one more way to reach the same "this was reactive work"
+// conclusion, so it counts even if the rest of the title never says "fix".
 export function isCFRHotfix(pr: any, commits: any[]): boolean {
   return (
     isHotfix(pr, commits) ||
     FIX_SPA_RE.test((pr.title ?? "").trim()) ||
-    parseQualifyingBranch(pr.head?.ref)?.type === "fix"
+    parseQualifyingBranch(pr.title)?.type === "fix"
   );
 }
 

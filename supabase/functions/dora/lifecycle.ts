@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { fetchPRPage, fetchPRCommits, isSquashMergeForPR, isCommitOnMain, getEarliestCommitDate } from "./github.ts";
 import { parseQualifyingBranch, QualifyingBranchType } from "./branch.ts";
-import { getBranchCreatedAtMap } from "./db.ts";
+import { getBranchCreatedAtMap, updateBranchClosedDate } from "./db.ts";
 
 export { computeDurationHours } from "./branch.ts";
 
@@ -69,6 +69,13 @@ function resolveDevStart(
 // the PR, so a branch is never silently excluded just because nothing was
 // there to witness its creation live.
 //
+// Qualification (feat/fix + Linear id) and the branch_created_at lookup key
+// both come from the PR title, not pr.head.ref — PRs are opened staging→main,
+// so pr.head.ref is always "staging" and carries no branch identity. The
+// original working branch is created with the same name that later becomes
+// the PR title (e.g. "feat/SPA-123-add-login"), so the title is what actually
+// identifies it.
+//
 // `getCommits`/`isSquashed`/`isOnMain` are injected so this join logic is
 // testable without hitting the network.
 export async function joinBranchEvents(
@@ -80,7 +87,7 @@ export async function joinBranchEvents(
   isOnMain: (pr: any) => Promise<boolean> | boolean,
 ): Promise<BranchLifecycleEvent[]> {
   const qualifyingPRs = prs
-    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.head?.ref) }))
+    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.title) }))
     .filter(({ branch }) => branch?.type === branchType);
 
   const results: BranchLifecycleEvent[] = [];
@@ -88,9 +95,9 @@ export async function joinBranchEvents(
   for (const { pr, branch } of qualifyingPRs) {
     const commits = await getCommits(pr);
 
-    const devStart = resolveDevStart(pr.head.ref, branchCreatedAtByName, commits);
+    const devStart = resolveDevStart(pr.title, branchCreatedAtByName, commits);
     if (!devStart) {
-      console.log(`⏩ lifecycle: ${pr.head.ref} has no recorded branch_created_at and no commits to fall back on, skipping`);
+      console.log(`⏩ lifecycle: "${pr.title}" has no recorded branch_created_at and no commits to fall back on, skipping`);
       continue;
     }
 
@@ -105,7 +112,7 @@ export async function joinBranchEvents(
 
     results.push({
       linear_issue_id: branch.linearId,
-      branch: pr.head.ref,
+      branch: pr.title,
       branch_type: branch.type,
       branch_created_at: devStart.branchCreatedAt,
       dev_start_source: devStart.source,
@@ -133,12 +140,23 @@ export async function getQualifyingBranchEvents(
 ): Promise<BranchLifecycleEvent[]> {
   const prs = await fetchMergedPRs(repo, token, limit, since);
 
-  const qualifyingRefs = prs
-    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.head?.ref) }))
-    .filter(({ branch }) => branch?.type === branchType)
-    .map(({ pr }) => pr.head.ref);
+  const qualifyingPRs = prs
+    .map((pr) => ({ pr, branch: parseQualifyingBranch(pr.title) }))
+    .filter(({ branch }) => branch?.type === branchType);
+
+  const qualifyingRefs = qualifyingPRs.map(({ pr }) => pr.title);
 
   const branchCreatedAtByName = await getBranchCreatedAtMap(schema, repo, qualifyingRefs);
+
+  // Best-effort: records the PR's merge date on its branch's dora_branch_events
+  // row now that it's known. Never blocks the metrics computation below.
+  await Promise.all(
+    qualifyingPRs.map(({ pr }) =>
+      updateBranchClosedDate(schema, repo, pr.title, pr.merged_at).catch((error) =>
+        console.error(`⚠️ getQualifyingBranchEvents: failed to record closed_date for "${pr.title}":`, error.message),
+      ),
+    ),
+  );
 
   const commitsCache = new Map<number, any[]>();
   const getCommits = async (pr: any) => {
