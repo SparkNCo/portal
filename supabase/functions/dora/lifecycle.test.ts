@@ -4,7 +4,7 @@ import { joinBranchEvents } from "./lifecycle.ts";
 function makePR(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     number: 1,
-    title: "feat: add login",
+    title: "feat/SPA-123-add-login",
     merged_at: "2026-07-02T10:00:00.000Z",
     merge_commit_sha: "merge-sha-1",
     html_url: "https://github.com/org/repo/pull/1",
@@ -36,8 +36,20 @@ Deno.test("feat happy path: produces branch_created_at, dev_completed_at, deploy
   assertEquals(events[0].deployed_at, "2026-07-02T10:00:00.000Z");
 });
 
+Deno.test("resolves branch identity from the PR title even when head.ref is always \"staging\" (staging→main promotion PRs)", async () => {
+  const pr = makePR({ head: { ref: "staging" } });
+  const branchCreatedAtByName = new Map([["feat/SPA-123-add-login", "2026-07-01T08:00:00.000Z"]]);
+
+  const events = await joinBranchEvents([pr], "feat", branchCreatedAtByName, noCommits, alwaysSquashed, alwaysOnMain);
+
+  assertEquals(events.length, 1);
+  assertEquals(events[0].branch, "feat/SPA-123-add-login");
+  assertEquals(events[0].branch_created_at, "2026-07-01T08:00:00.000Z");
+  assertEquals(events[0].dev_start_source, "recorded");
+});
+
 Deno.test("fix branches follow the same lifecycle logic as feat branches", async () => {
-  const pr = makePR({ head: { ref: "fix/SPA-456-crash-on-logout" }, title: "fix: SPA-456" });
+  const pr = makePR({ head: { ref: "fix/SPA-456-crash-on-logout" }, title: "fix/SPA-456-crash-on-logout" });
   const branchCreatedAtByName = new Map([["fix/SPA-456-crash-on-logout", "2026-07-01T08:00:00.000Z"]]);
 
   const events = await joinBranchEvents([pr], "fix", branchCreatedAtByName, noCommits, alwaysSquashed, alwaysOnMain);
@@ -73,8 +85,8 @@ Deno.test("excludes merges without a detectable squash-merge signal", async () =
   assertEquals(events.length, 0);
 });
 
-Deno.test("excludes branches with unsupported prefixes", async () => {
-  const pr = makePR({ head: { ref: "chore/SPA-123-cleanup" } });
+Deno.test("excludes PRs with unsupported title prefixes", async () => {
+  const pr = makePR({ title: "chore/SPA-123-cleanup", head: { ref: "chore/SPA-123-cleanup" } });
   const branchCreatedAtByName = new Map([["chore/SPA-123-cleanup", "2026-07-01T08:00:00.000Z"]]);
 
   const events = await joinBranchEvents([pr], "feat", branchCreatedAtByName, noCommits, alwaysSquashed, alwaysOnMain);

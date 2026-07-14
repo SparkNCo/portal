@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
+import { runWithConcurrency } from "../utils/concurrency.ts";
 import {
   getAllCustomers,
   upsertIssueMetrics,
@@ -165,57 +166,6 @@ async function handlePut(req: Request, schema: string) {
   return jsonResponse({ projects: byProject });
 }
 
-// Runs `worker` over `items` with at most `limit` in flight at once, instead of
-// one-at-a-time or all-at-once. Each item is started exactly once.
-async function runWithConcurrency<T>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<void>,
-) {
-  let next = 0;
-  async function runNext(): Promise<void> {
-    const i = next++;
-    if (i >= items.length) return;
-    await worker(items[i]);
-    return runNext();
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, runNext),
-  );
-}
-
-async function triggerDoraForCustomer(
-  customer: { linear_slug?: string | null; project_url?: string[] | null },
-  schema: string,
-) {
-  if (!customer.linear_slug || !Array.isArray(customer.project_url) || !customer.project_url.length) {
-    return;
-  }
-
-  const doraUrl = `${Deno.env.get("PROJECT_URL")}/functions/v1/dora`;
-  const authHeader = `Bearer ${Deno.env.get("SERVICE_SECRET_KEY")}`;
-
-  console.log(`➡️ [dora] calling dora for slug=${customer.linear_slug} url=${JSON.stringify(customer.project_url)}`);
-  try {
-    const res = await fetch(doraUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authHeader,
-      },
-      body: JSON.stringify({
-        method: "all",
-        url: customer.project_url,
-        linear_slug: customer.linear_slug,
-      }),
-    });
-    const text = await res.text();
-    console.log(`⬅️ [dora] response for slug=${customer.linear_slug}: status=${res.status} body=${text.slice(0, 500)}`);
-  } catch (err) {
-    console.error(`❌ [dora] request failed for slug=${customer.linear_slug}:`, String(err));
-  }
-}
-
 async function processIssueMetricsForCustomer(
   customer: { id: string; linear_projects?: string[] | null },
   schema: string,
@@ -271,10 +221,10 @@ async function processIssueMetricsForCustomer(
   }
 }
 
-// Each customer is handled by exactly one worker: its issue/cycle metrics
-// AND its own DORA trigger, back to back — not a second pass over everyone
-// after the whole batch finishes. That way a timeout only affects customers
-// that haven't started yet; anyone already processed got both steps done.
+// DORA metrics are no longer triggered from here — they run on their own
+// cron against dora's `allCustomers` method, since GitHub's API is slow/rate
+// -limited relative to Linear's and shouldn't share a run (or timeout
+// budget) with these Linear-only metrics.
 const CUSTOMER_CONCURRENCY = 5;
 
 async function handlePost(schema: string) {
@@ -284,7 +234,6 @@ async function handlePost(schema: string) {
 
   await runWithConcurrency(customers, CUSTOMER_CONCURRENCY, async (customer) => {
     await processIssueMetricsForCustomer(customer, schema);
-    await triggerDoraForCustomer(customer, schema);
   });
 
   console.log(`✅ [issueMetrics] handlePost finished`);
