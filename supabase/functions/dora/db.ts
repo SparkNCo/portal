@@ -72,6 +72,34 @@ export async function updateBranchClosedDate(
   }
 }
 
+// MTTR's "incident start" proxy: the closed_date of the most recently
+// deployed feat branch before the given timestamp — i.e. the last feature
+// work shipped to main before this fix, assumed to be what the fix is
+// resolving. Returns null if no qualifying feat has a recorded closed_date
+// before that point (e.g. the very first fix in the repo's history).
+export async function getLastFeatClosedBefore(
+  schema: string,
+  repo: string,
+  beforeIso: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.schema(schema)
+    .from("dora_branch_events")
+    .select("closed_date")
+    .eq("repo", repo)
+    .eq("branch_type", "feat")
+    .not("closed_date", "is", null)
+    .lt("closed_date", beforeIso)
+    .order("closed_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to look up last feat closed_date: ${error.message}`);
+  }
+
+  return data?.closed_date ?? null;
+}
+
 export async function getBranchCreatedAtMap(
   schema: string,
   repo: string,
