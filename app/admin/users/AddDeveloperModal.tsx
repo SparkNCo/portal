@@ -37,6 +37,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
+      console.log("hi");
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=developer`,
         {
