@@ -199,15 +199,11 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames } = useRoadmapMilestones(slug);
+  const milestones = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
-      <RoadmapTimeline
-        projectMilestones={milestones}
-        allProjectNames={projectNames}
-        slug={slug}
-      />
+      <RoadmapTimeline projectMilestones={milestones} slug={slug} />
     </div>
   );
 }
