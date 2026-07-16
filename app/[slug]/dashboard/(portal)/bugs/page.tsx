@@ -158,7 +158,7 @@ export default function BugsPage() {
           ))}
         </div>
 
-        <div className="relative w-full max-w-full overflow-hidden">
+        <div className="relative w-full max-w-full overflow-x-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (

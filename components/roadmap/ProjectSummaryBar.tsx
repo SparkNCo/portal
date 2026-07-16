@@ -48,21 +48,21 @@ export function ProjectSummaryBar({
 }: ProjectSummaryBarProps) {
   if (!range) {
     return (
-      <div className="flex items-center gap-4">
-        <div className="w-52 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+        <div className="w-full text-sm text-muted-foreground sm:w-52">
           {milestones.length} milestones
         </div>
-        <div className="flex-1 grid grid-cols-12 gap-1" />
+        <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1" />
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-4">
-      <div className="w-52 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+      <div className="w-full text-sm text-muted-foreground sm:w-52">
         {milestones.length} milestones
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-1">
+      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
         {monthsGrid.map((_, i) => {
           const startYear = range?.start.getFullYear();
           const endYear = range?.end.getFullYear();
@@ -149,10 +149,13 @@ export function MilestoneRow({ data, year, onSelect, isSelected }: MilestoneRowP
 
   return (
     <div
-      className={cn("flex items-center gap-4 cursor-pointer rounded-md transition-colors", isSelected && "bg-accent/10")}
+      className={cn(
+        "flex flex-col gap-1.5 cursor-pointer rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4",
+        isSelected && "bg-accent/10",
+      )}
       onClick={onSelect}
     >
-      <div className="w-52">
+      <div className="w-full sm:w-52">
         <Badge
           variant="outline"
           className={cn(
@@ -164,7 +167,7 @@ export function MilestoneRow({ data, year, onSelect, isSelected }: MilestoneRowP
         </Badge>
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-1">
+      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
         {monthsGrid.map((_, i) => {
           const isInRange =
             hasRange &&

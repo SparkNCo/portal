@@ -30,13 +30,7 @@ export function TaskFilterPanel({
   } = filterState;
 
   return (
-    <div
-      className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl border border-border bg-background shadow-xl p-4 space-y-4"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-      role="menu"
-      tabIndex={0}
-    >
+    <div className="space-y-4">
       {hasCycles && (
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
@@ -112,20 +106,29 @@ export function TaskFilterPanel({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
             Date
           </p>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange?.(e.target.value)}
-              className="h-7 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <span className="text-[11px] text-muted-foreground">to</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange?.(e.target.value)}
-              className="h-7 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
+                From
+              </span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => onDateFromChange?.(e.target.value)}
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
+                To
+              </span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => onDateToChange?.(e.target.value)}
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
           </div>
         </div>
       )}
