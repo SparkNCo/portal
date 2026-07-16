@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
@@ -122,28 +123,31 @@ export function PriorityTasks({
             onChange={(e) => setTitleFilter(e.target.value)}
             className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 relative"
-              onClick={(e) => {
-                e.stopPropagation();
-                setFilterOpen((v) => !v);
-              }}
+          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Filter
+                {activeFilters > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
+                    {activeFilters}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-64 p-4"
+              onClick={(e) => e.stopPropagation()}
             >
-              <SlidersHorizontal className="h-3 w-3" />
-              Filter
-              {activeFilters > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
-                  {activeFilters}
-                </span>
-              )}
-            </Button>
-            {filterOpen && (
               <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
-            )}
-          </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="sm"
@@ -157,10 +161,7 @@ export function PriorityTasks({
           </Button>
         </div>
       </CardHeader>
-      <CardContent
-        className="flex-1 overflow-hidden"
-        onClick={() => filterOpen && setFilterOpen(false)}
-      >
+      <CardContent className="flex-1 overflow-hidden">
         {visibleIssues.length === 0 ? (
           <p className="text-sm text-muted-foreground italic p-2">
             No issues match the current filters.
@@ -169,8 +170,8 @@ export function PriorityTasks({
           <div
             ref={scrollRef}
             className={`
-              grid gap-2 px-3 py-2 grid-flow-row auto-rows-auto
-              grid-cols-[repeat(auto-fill,minmax(280px,1fr))]
+              grid gap-2 grid-flow-row auto-rows-auto
+              grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
               ${
                 expanded

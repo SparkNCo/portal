@@ -82,7 +82,7 @@ export function IssueCard({
   const otherLabels = issue.labels?.nodes?.filter((l) => l.id !== typeLabel?.id);
 
   return (
-    <div className="group relative flex-shrink-0 w-[280px] rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:scale-[1.02] hover:shadow-md transition-all duration-150">
+    <div className="group relative rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:shadow-md transition-all duration-150">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"

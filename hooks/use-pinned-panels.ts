@@ -10,6 +10,7 @@ export type PinnedPanel = {
   panel_id: string;
   source_dashboard: string;
   position: number;
+  full_width: boolean;
   created_at: string;
 };
 
@@ -129,6 +130,50 @@ export function useReorderPinnedPanels(userId: string | undefined) {
         .filter((pin): pin is PinnedPanel => !!pin);
 
       queryClient.setQueryData(["pinned-panels", userId], reordered);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["pinned-panels", userId], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["pinned-panels", userId] });
+    },
+  });
+}
+
+export function useTogglePanelWidth(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      panelId,
+      fullWidth,
+    }: {
+      panelId: string;
+      fullWidth: boolean;
+    }) => {
+      if (!userId) throw new Error("Missing user id");
+
+      const { error } = await pinnedPanelsTable()
+        .update({ full_width: fullWidth })
+        .eq("user_id", userId)
+        .eq("panel_id", panelId);
+
+      if (error) throw error;
+    },
+    onMutate: ({ panelId, fullWidth }) => {
+      const previous = queryClient.getQueryData<PinnedPanel[]>([
+        "pinned-panels",
+        userId,
+      ]);
+      if (!previous) return { previous };
+
+      const next = previous.map((p) =>
+        p.panel_id === panelId ? { ...p, full_width: fullWidth } : p,
+      );
+      queryClient.setQueryData(["pinned-panels", userId], next);
       return { previous };
     },
     onError: (_err, _vars, context) => {
