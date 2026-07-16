@@ -65,6 +65,7 @@ export function PinnedPanelRenderer({
   selectedProjectIds,
   onOpenChat,
   onEditIssue,
+  hidePinButton,
 }: Readonly<{
   panelId: PinnablePanelId;
   slug: string;
@@ -72,6 +73,7 @@ export function PinnedPanelRenderer({
   selectedProjectIds?: Set<string>;
   onOpenChat?: (title: string) => void;
   onEditIssue?: (issue: any) => void;
+  hidePinButton?: boolean;
 }>) {
   const matchesSelectedProject = (i: any) =>
     !selectedProjectIds ||
@@ -81,7 +83,7 @@ export function PinnedPanelRenderer({
   if (panelId === "progress_pie_chart") {
     return (
       <div className="relative">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <ProgressPieChart issuesData={allIssues} />
       </div>
     );
@@ -90,7 +92,7 @@ export function PinnedPanelRenderer({
   if (panelId === "software_kpis") {
     return (
       <div className="relative">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <SoftwareKPIs linearName={slug} />
       </div>
     );
@@ -99,14 +101,20 @@ export function PinnedPanelRenderer({
   if (panelId === "metrics_panel") {
     return (
       <div className="relative">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <MetricsPanel slug={slug} />
       </div>
     );
   }
 
   if (panelId === "roadmap_timeline") {
-    return <RoadmapTimelinePinned panelId={panelId} slug={slug} />;
+    return (
+      <RoadmapTimelinePinned
+        panelId={panelId}
+        slug={slug}
+        hidePinButton={hidePinButton}
+      />
+    );
   }
 
   if (panelId === "build_product_decisions") {
@@ -115,7 +123,7 @@ export function PinnedPanelRenderer({
     );
     return (
       <div className="relative">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <PriorityTasks
           issuesData={issues}
           filterState={noopFilterState}
@@ -134,7 +142,7 @@ export function PinnedPanelRenderer({
     );
     return (
       <div className="relative">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <PriorityTasks
           issuesData={issues}
           filterState={noopFilterState}
@@ -164,7 +172,7 @@ export function PinnedPanelRenderer({
 
     return (
       <div className="relative w-full max-w-full overflow-hidden">
-        <PinButton panelId={panelId} />
+        {!hidePinButton && <PinButton panelId={panelId} />}
         <PriorityTasks
           issuesData={bugs}
           filterState={noopFilterState}
@@ -183,11 +191,16 @@ export function PinnedPanelRenderer({
 function RoadmapTimelinePinned({
   panelId,
   slug,
-}: Readonly<{ panelId: PinnablePanelId; slug: string }>) {
+  hidePinButton,
+}: Readonly<{
+  panelId: PinnablePanelId;
+  slug: string;
+  hidePinButton?: boolean;
+}>) {
   const milestones = useRoadmapMilestones(slug);
   return (
     <div className="relative">
-      <PinButton panelId={panelId} />
+      {!hidePinButton && <PinButton panelId={panelId} />}
       <RoadmapTimeline projectMilestones={milestones} slug={slug} />
     </div>
   );

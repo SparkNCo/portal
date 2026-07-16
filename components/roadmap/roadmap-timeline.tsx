@@ -127,8 +127,9 @@ export function RoadmapTimeline({
           onNext={() => setYear((y) => y + 1)}
         />
 
-        <CardContent className="overflow-x-auto">
-          <div className="min-w-[560px]">
+        <CardContent className="overflow-x-auto px-2 sm:px-6">
+          <div className="min-w-0 sm:min-w-[560px]">
+            
             <TimelineMonthsHeader year={year} />
             {Object.entries(groupedMilestones).map(
               ([projectName, milestones]) => (

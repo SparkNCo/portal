@@ -288,7 +288,7 @@ export function AddDeveloperModal({
                   min={1}
                   value={allocation}
                   onChange={(e) => setAllocation(e.target.value)}
-                  className="bg-secondary border-0"
+                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                 />
                 {submitted && !isAllocationValid && (
@@ -348,7 +348,7 @@ export function AddDeveloperModal({
                   min={1}
                   value={fdeAllocation}
                   onChange={(e) => setFdeAllocation(e.target.value)}
-                  className="bg-secondary border-0"
+                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                 />
               </div>

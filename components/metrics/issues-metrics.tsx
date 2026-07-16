@@ -58,12 +58,14 @@ export function IssueMetricsView({
   activeCycleId,
   dateFrom = "",
   dateTo = "",
+  spanAllCycles = false,
 }: {
   readonly data: IssueMetric[];
   readonly cycleMetrics?: CycleMetric[];
   readonly activeCycleId: string;
   readonly dateFrom?: string;
   readonly dateTo?: string;
+  readonly spanAllCycles?: boolean;
 }) {
   const cycles = useMemo(
     () => [...cycleMetrics].sort((a, b) => a.number - b.number),
@@ -73,8 +75,37 @@ export function IssueMetricsView({
   const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
   const [legendOpen, setLegendOpen] = useState(false);
 
+  // When the date range (not the cycle picker) is what the user last edited,
+  // merge every cycle's daily snapshots that fall in range into one series —
+  // same dates across cycles are summed rather than shown as separate points.
+  const mergedAcrossCycles = useMemo(() => {
+    if (!spanAllCycles) return null;
+
+    const byDate = new Map<string, Record<string, number | string>>();
+    for (const cycle of cycles) {
+      for (const snapshot of cycle.issues_averages ?? []) {
+        const date = String(snapshot.date ?? "");
+        if (!date) continue;
+        if (dateFrom && date < dateFrom) continue;
+        if (dateTo && date > dateTo) continue;
+
+        const entry = byDate.get(date) ?? { date };
+        for (const [key, value] of Object.entries(snapshot)) {
+          if (key === "date") continue;
+          entry[key] = ((entry[key] as number) ?? 0) + ((value as number) ?? 0);
+        }
+        byDate.set(date, entry);
+      }
+    }
+    return Array.from(byDate.values()).sort((a, b) =>
+      String(a.date).localeCompare(String(b.date)),
+    );
+  }, [spanAllCycles, cycles, dateFrom, dateTo]);
+
   const uniqueStatuses = useMemo(() => {
-    const raw = activeCycle?.issues_averages ?? [];
+    const raw = spanAllCycles
+      ? (mergedAcrossCycles ?? [])
+      : (activeCycle?.issues_averages ?? []);
     const statuses = Array.from(
       new Set(raw.flatMap((d) => Object.keys(d).filter((k) => k !== "date"))),
     );
@@ -82,9 +113,19 @@ export function IssueMetricsView({
       (a, b) =>
         (STATUS_ORDER.indexOf(a) ?? 99) - (STATUS_ORDER.indexOf(b) ?? 99),
     );
-  }, [activeCycle]);
+  }, [spanAllCycles, mergedAcrossCycles, activeCycle]);
 
   const chartData = useMemo(() => {
+    if (spanAllCycles) {
+      return (mergedAcrossCycles ?? []).map((d) => {
+        const point: Record<string, number | string> = { date: d.date ?? "" };
+        for (const status of uniqueStatuses) {
+          point[status] = (d[status] as number) ?? 0;
+        }
+        return point;
+      });
+    }
+
     const raw = [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
       String(a.date).localeCompare(String(b.date)),
     );
@@ -102,7 +143,14 @@ export function IssueMetricsView({
         }
         return point;
       });
-  }, [activeCycle, uniqueStatuses, dateFrom, dateTo]);
+  }, [spanAllCycles, mergedAcrossCycles, activeCycle, uniqueStatuses, dateFrom, dateTo]);
+
+  let titleSuffix = "";
+  if (spanAllCycles) {
+    titleSuffix = " — All cycles in range";
+  } else if (activeCycle) {
+    titleSuffix = ` — Cycle #${activeCycle.number}`;
+  }
 
   return (
     <Card className="bg-background border-border">
@@ -110,7 +158,7 @@ export function IssueMetricsView({
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <BarChart2 className="h-4 w-4 text-accent" />
           Issues by Status
-          {activeCycle ? ` — Cycle #${activeCycle.number}` : ""}
+          {titleSuffix}
         </CardTitle>
       </CardHeader>
       <CardContent>

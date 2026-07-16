@@ -39,6 +39,11 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [lineFilter, setLineFilter] = useState<LineFilter>("all");
+  // Tracks which control the user touched last, so "Issues by Status" knows
+  // whether to stay scoped to the picked cycle or span every cycle the date
+  // range covers — only a direct edit to the date inputs should trigger the
+  // latter, not the date fields being auto-filled by picking a cycle.
+  const [lastFilterTouched, setLastFilterTouched] = useState<"cycle" | "date" | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["metrics", slug],
@@ -109,6 +114,12 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     if (to && start && start > to) return false;
     return true;
   });
+
+  // The user's last direct edit was the date range, not the cycle picker —
+  // treat that as "show me everything in this range", spanning every cycle
+  // it covers, rather than staying pinned to a single selected cycle.
+  const spanAllCycles =
+    lastFilterTouched === "date" && !!(dateFrom || dateTo);
   return (
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
@@ -133,6 +144,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           <Select
             value={activeCycleId}
             onValueChange={(id) => {
+              setLastFilterTouched("cycle");
               setSelectedCycleId(id);
               const cycle = cycles.find((c: any) => c.cycle_id === id);
               if (cycle?.starts_at) setDateFrom(String(cycle.starts_at).split("T")[0] ?? "");
@@ -164,7 +176,10 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               id="metrics-date-from"
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => {
+                setLastFilterTouched("date");
+                setDateFrom(e.target.value);
+              }}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -179,7 +194,10 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               id="metrics-date-to"
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => {
+                setLastFilterTouched("date");
+                setDateTo(e.target.value);
+              }}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -189,6 +207,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             onClick={() => {
               setDateFrom("");
               setDateTo("");
+              setLastFilterTouched(null);
             }}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
@@ -202,10 +221,11 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         <CycleBarChart data={filteredCycleMetrics} />
         <IssueMetricsView
           data={issueMetrics}
-          cycleMetrics={allCycleMetrics}
+          cycleMetrics={filteredCycleMetrics}
           activeCycleId={activeCycleId}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          spanAllCycles={spanAllCycles}
         />
       </div>
 
