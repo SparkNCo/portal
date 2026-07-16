@@ -129,6 +129,7 @@ export function RoadmapTimeline({
 
         <CardContent className="overflow-x-auto">
           <div className="min-w-[560px]">
+            
             <TimelineMonthsHeader year={year} />
             {Object.entries(groupedMilestones).map(
               ([projectName, milestones]) => (
