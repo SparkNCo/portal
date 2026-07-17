@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { fetchFeatures } from "./fetch-feature.ts";
 import { createRequirements } from "./post-features.ts";
+import { deleteFeature } from "./delete-feature.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 serve(async (req) => {
@@ -18,6 +19,10 @@ serve(async (req) => {
 
   if (req.method === "POST") {
     return createRequirements(req);
+  }
+
+  if (req.method === "DELETE") {
+    return deleteFeature(req);
   }
 
   return new Response("Not found", {
