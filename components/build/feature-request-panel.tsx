@@ -24,21 +24,27 @@ async function uploadFileToLinear(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`, {
-    method: "POST",
-    body: formData,
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
   if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
   const { name, url } = await res.json();
   return { name: name as string, url: url as string };
 }
 
 async function attachFileToIssue(issueId: string, url: string, title: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachment`, {
-    method: "POST",
-    headers: API_HEADERS,
-    body: JSON.stringify({ issueId, url, title }),
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachment`,
+    {
+      method: "POST",
+      headers: API_HEADERS,
+      body: JSON.stringify({ issueId, url, title }),
+    },
+  );
   if (!res.ok) throw new Error(`Failed to attach ${title} to issue`);
   return res.json();
 }
@@ -85,16 +91,21 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
       const issueId = result.issue?.id;
       if (issueId && uploaded.length) {
-        await Promise.all(uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)));
+        await Promise.all(
+          uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),
+        );
       }
 
       return result;
     },
     onSuccess: (data) => {
-      toast.success(`Feature request submitted: ${data.issue?.identifier ?? ""}`);
+      toast.success(
+        `Feature request submitted: ${data.issue?.identifier ?? ""}`,
+      );
       reset();
     },
-    onError: () => toast.error("Failed to submit feature request. Please try again."),
+    onError: () =>
+      toast.error("Failed to submit feature request. Please try again."),
   });
 
   function reset() {
@@ -154,7 +165,9 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               <div className="space-y-1.5 md:col-span-2">
                 <Label>
                   Requirements{" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
                 </Label>
                 <RichTextEditor
                   placeholder="How will you know this feature is working well?"
@@ -175,8 +188,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
               <div className="space-y-1.5">
                 <Label>
-                  Estimate (points){" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
+                  Estimate points{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
                 </Label>
                 <Input
                   type="number"
@@ -185,7 +200,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                   placeholder="e.g. 3"
                   value={estimate}
                   onChange={(e) => setEstimate(e.target.value)}
-                  className="bg-secondary border-0"
+                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
               </div>
             </div>
@@ -193,7 +208,9 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
             <div className="space-y-1.5">
               <Label>
                 Attachments{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
               </Label>
               <input
                 ref={fileInputRef}
