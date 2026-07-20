@@ -40,13 +40,13 @@ export default function AddClientModal({ onClose }: Props) {
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             email,
-            customer_id: stripeId,
             linear_slug: linearSlug,
             clientName: userName,
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
             ...(phoneNumber && { phoneNumber }),
+            ...(stripeId.trim() && { customer_id: stripeId.trim() }),
           }),
         },
       );
@@ -84,6 +84,12 @@ export default function AddClientModal({ onClose }: Props) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
+      <input
+        className={inputClass}
+        placeholder="Linear Slug"
+        value={linearSlug}
+        onChange={(e) => setLinearSlug(e.target.value)}
+      />
       <PhoneField
         value={phoneNumber}
         onChange={setPhoneNumber}
@@ -91,15 +97,9 @@ export default function AddClientModal({ onClose }: Props) {
       />
       <input
         className={inputClass}
-        placeholder="Stripe Customer ID"
+        placeholder="Stripe Customer ID (optional)"
         value={stripeId}
         onChange={(e) => setStripeId(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Linear Slug"
-        value={linearSlug}
-        onChange={(e) => setLinearSlug(e.target.value)}
       />
 
       <ModalError error={error} />
@@ -110,7 +110,7 @@ export default function AddClientModal({ onClose }: Props) {
           setSubmitted(true);
           if (isPhoneValid) mutate();
         }}
-        disabled={isPending || !email || !stripeId || !linearSlug || !userName}
+        disabled={isPending || !email || !linearSlug || !userName}
         pending={isPending}
       />
     </ModalShell>

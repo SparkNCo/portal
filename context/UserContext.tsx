@@ -26,6 +26,7 @@ type Profile = {
   customer_id?: string;
   assignment_id?: Assignment[];
   clientName?: string | null;
+  stripe_customer_id?: string | null;
 };
 
 type UserContextType = {
