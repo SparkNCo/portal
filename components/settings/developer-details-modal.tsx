@@ -38,27 +38,32 @@ export function DeveloperDetailsModal({
 }) {
   return (
     <Dialog open={!!developer} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+      <DialogContent
+        className="w-[95vw] sm:w-full sm:max-w-md max-h-[85vh] overflow-y-auto"
+        aria-describedby={undefined}
+      >
         {developer && (
           <>
             <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/20 text-base font-medium text-accent">
-                  {developer.avatar}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <DialogTitle className="truncate">{developer.name}</DialogTitle>
-                  {developer.email && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {developer.email}
-                    </p>
-                  )}
+              <div className="flex flex-col gap-3 pr-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/20 text-base font-medium text-accent">
+                    {developer.avatar}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <DialogTitle className="truncate">{developer.name}</DialogTitle>
+                    {developer.email && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {developer.email}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 {onEdit && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1 mr-6"
+                    className="gap-1 self-start sm:shrink-0"
                     onClick={onEdit}
                   >
                     <Pencil className="h-3.5 w-3.5" />

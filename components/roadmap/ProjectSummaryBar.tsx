@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Milestone, MilestoneStatus } from "@/components/roadmap/roadmap-timeline";
+import { Milestone } from "@/components/roadmap/roadmap-timeline";
 
 const monthsGrid = [
   "Month 1",
@@ -18,23 +18,17 @@ const monthsGrid = [
   "Month 12",
 ];
 
-const statusColors: Record<MilestoneStatus, string> = {
-  completed: "bg-success/20 border-success/40 text-success",
-  "in-progress": "bg-chart-1/20 border-chart-1/40 text-chart-1",
-  planned: "bg-muted border-border text-muted-foreground",
-  overdue: "bg-warning/20 border-border text-warning",
-  unstarted: "bg-accent/20 border-accent/40 text-accent",
-  next: "bg-accent/20 border-accent/40 text-accent",
-};
-
-const barColors = {
+const barColors: Record<string, string> = {
   completed: "bg-success",
+  done: "bg-success",
   "in-progress": "bg-chart-1",
   planned: "bg-muted-foreground/30",
   overdue: "bg-warning/50",
   unstarted: "bg-accent/50",
   next: "bg-accent/50",
 };
+
+const FALLBACK_BAR_COLOR = "bg-muted-foreground/40";
 
 type ProjectRange = {
   start: Date;
@@ -54,21 +48,21 @@ export function ProjectSummaryBar({
 }: ProjectSummaryBarProps) {
   if (!range) {
     return (
-      <div className="flex items-center gap-4">
-        <div className="w-52 text-sm text-muted-foreground">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+        <div className="w-full text-sm text-muted-foreground sm:w-52">
           {milestones.length} milestones
         </div>
-        <div className="flex-1 grid grid-cols-12 gap-1" />
+        <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1" />
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-4">
-      <div className="w-52 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+      <div className="w-full text-sm text-muted-foreground sm:w-52">
         {milestones.length} milestones
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-1">
+      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
         {monthsGrid.map((_, i) => {
           const startYear = range?.start.getFullYear();
           const endYear = range?.end.getFullYear();
@@ -149,46 +143,49 @@ type MilestoneRowProps = {
 };
 
 export function MilestoneRow({ data, year, onSelect, isSelected }: MilestoneRowProps) {
-  if (!data.createdAt || !data.targetDate) return null;
-
-  const start = new Date(data.createdAt);
-  const end = new Date(data.targetDate);
+  const hasRange = !!data.createdAt && !!data.targetDate;
+  const start = hasRange ? new Date(data.createdAt) : null;
+  const end = hasRange ? new Date(data.targetDate) : null;
 
   return (
     <div
-      className={cn("flex items-center gap-4 cursor-pointer rounded-md transition-colors", isSelected && "bg-accent/10")}
+      className={cn(
+        "flex flex-col gap-1.5 cursor-pointer rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4",
+        isSelected && "bg-accent/10",
+      )}
       onClick={onSelect}
     >
-      <div className="w-52">
+      <div className="w-full sm:w-52">
         <Badge
           variant="outline"
-          className={cn(statusColors[data?.status], isSelected && "ring-1 ring-offset-1 ring-accent")}
+          className={cn(
+            "max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white",
+            isSelected && "ring-1 ring-offset-1 ring-accent",
+          )}
         >
           {data.name}
         </Badge>
       </div>
 
-      <div className="flex-1 grid grid-cols-12 gap-1">
+      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
         {monthsGrid.map((_, i) => {
-          if (year < start.getFullYear() || year > end.getFullYear())
-            return null;
-
-          const startMonth =
-            year === start.getFullYear() ? start.getMonth() : 0;
-          const endMonth = year === end.getFullYear() ? end.getMonth() : 11;
-
-          const isInRange = i >= startMonth && i <= endMonth;
+          const isInRange =
+            hasRange &&
+            year >= start!.getFullYear() &&
+            year <= end!.getFullYear() &&
+            i >= (year === start!.getFullYear() ? start!.getMonth() : 0) &&
+            i <= (year === end!.getFullYear() ? end!.getMonth() : 11);
 
           return (
             <div key={i} className="h-8 relative">
-              {isInRange && (
-                <div
-                  className={cn(
-                    "absolute inset-y-1 inset-x-0 rounded-md",
-                    barColors[data?.status],
-                  )}
-                />
-              )}
+              <div
+                className={cn(
+                  "absolute inset-y-1 inset-x-0 rounded-md",
+                  isInRange
+                    ? (barColors[data?.status] ?? FALLBACK_BAR_COLOR)
+                    : "bg-muted/20",
+                )}
+              />
             </div>
           );
         })}

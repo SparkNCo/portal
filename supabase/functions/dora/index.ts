@@ -31,12 +31,20 @@ async function handleAll(repo: string, token: string, limit: number, schema = "p
     .then((n) => console.log(`✅ pollBranchCreationEvents done (${n} recorded)`))
     .catch((e) => console.error("⚠️ pollBranchCreationEvents failed (non-fatal)", e.message));
 
-  const [cfr, leadTime, mttr, deployFreq] = await Promise.all([
+  // mttr reads the closed_date that leadTime writes for feat branches
+  // (getLastFeatClosedBefore in db.ts), so leadTime must finish — and its
+  // writes must land — before mttr runs. Racing them in the same Promise.all
+  // let mttr read a feat's closed_date before leadTime had written it,
+  // silently dropping that MTTR sample.
+  const [cfr, leadTime, deployFreq] = await Promise.all([
     handleCFR(repo, token, limit).then(r => { console.log("✅ CFR done"); return r; }).catch(e => { console.error("❌ CFR failed", String(e)); throw e; }),
     handleLeadTime(repo, token, limit, since).then(r => { console.log("✅ Lead Time done"); return r; }).catch(e => { console.error("❌ Lead Time failed", String(e)); throw e; }),
-    handleIssueResolutionTime(repo, token, limit, since).then(r => { console.log("✅ MTTR done"); return r; }).catch(e => { console.error("❌ MTTR failed", String(e)); throw e; }),
     handleDeployFreq(repo, token, limit, since).then(r => { console.log("✅ Deploy Freq done"); return r; }).catch(e => { console.error("❌ Deploy Freq failed", String(e)); throw e; }),
   ]);
+
+  const mttr = await handleIssueResolutionTime(repo, token, limit, since)
+    .then(r => { console.log("✅ MTTR done"); return r; })
+    .catch(e => { console.error("❌ MTTR failed", String(e)); throw e; });
 
   console.log("✅ All metrics computed successfully");
   return {

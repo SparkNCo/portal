@@ -70,8 +70,8 @@ export function TimelineMonthsHeader({ year }: TimelineMonthsHeaderProps) {
   const now = new Date();
   return (
     <div className="flex border-b pb-2 mb-4">
-      <div className="w-56" />
-      <div className="flex-1 grid grid-cols-12 gap-1">
+      <div className="hidden w-56 shrink-0 sm:block" />
+      <div className="grid flex-1 grid-cols-12 gap-0.5 sm:gap-1">
         {months.map((month, i) => {
           const isCurrentMonth =
             i === now.getMonth() && year === now.getFullYear();
@@ -80,7 +80,7 @@ export function TimelineMonthsHeader({ year }: TimelineMonthsHeaderProps) {
             <div
               key={month}
               className={cn(
-                "text-xs text-center py-1 rounded",
+                "rounded py-1 text-center text-[10px] sm:text-xs",
                 isCurrentMonth
                   ? "bg-accent/20 text-accent"
                   : "text-muted-foreground",

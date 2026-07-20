@@ -14,6 +14,8 @@ import {
   usePinnedPanels,
   useReorderPinnedPanels,
   useAddPanels,
+  useTogglePanelWidth,
+  useUnpinPanel,
 } from "@/hooks/use-pinned-panels";
 import { PinnedPanelRenderer } from "@/components/dashboard/pinned-panel-renderer";
 import { SortablePinnedPanel } from "@/components/dashboard/sortable-pinned-panel";
@@ -88,6 +90,8 @@ export default function ClientDashboard() {
   const { data: pinnedPanels } = usePinnedPanels(profile?.id);
   const reorderPinnedPanels = useReorderPinnedPanels(profile?.id);
   const addPanels = useAddPanels(profile?.id);
+  const togglePanelWidth = useTogglePanelWidth(profile?.id);
+  const unpinPanel = useUnpinPanel(profile?.id);
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -197,7 +201,18 @@ export default function ClientDashboard() {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {pinnedPanels.map((pin) => (
-                  <SortablePinnedPanel key={pin.panel_id} id={pin.panel_id}>
+                  <SortablePinnedPanel
+                    key={pin.panel_id}
+                    id={pin.panel_id}
+                    fullWidth={pin.full_width}
+                    onToggleWidth={() =>
+                      togglePanelWidth.mutate({
+                        panelId: pin.panel_id,
+                        fullWidth: !pin.full_width,
+                      })
+                    }
+                    onUnpin={() => unpinPanel.mutate(pin.panel_id)}
+                  >
                     <PinnedPanelRenderer
                       panelId={pin.panel_id as PinnablePanelId}
                       slug={slug}
@@ -205,6 +220,7 @@ export default function ClientDashboard() {
                       selectedProjectIds={selectedProjects}
                       onOpenChat={handleOpenChat}
                       onEditIssue={(issue) => setEditingIssue(issue)}
+                      hidePinButton
                     />
                   </SortablePinnedPanel>
                 ))}
