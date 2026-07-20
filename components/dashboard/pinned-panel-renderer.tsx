@@ -48,13 +48,15 @@ function useRoadmapMilestones(slug: string) {
   });
 
   return useMemo(() => {
-    if (!roadmap?.initiative?.projects?.nodes) return [];
-    return roadmap.initiative.projects.nodes.flatMap((project: any) =>
+    const projects = roadmap?.initiative?.projects?.nodes ?? [];
+    const milestones = projects.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
         ...milestone,
         projectName: project.name,
       })),
     );
+    const projectNames = projects.map((project: any) => project.name);
+    return { milestones, projectNames };
   }, [roadmap]);
 }
 
@@ -197,11 +199,15 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const milestones = useRoadmapMilestones(slug);
+  const { milestones, projectNames } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
-      <RoadmapTimeline projectMilestones={milestones} slug={slug} />
+      <RoadmapTimeline
+        projectMilestones={milestones}
+        allProjectNames={projectNames}
+        slug={slug}
+      />
     </div>
   );
 }

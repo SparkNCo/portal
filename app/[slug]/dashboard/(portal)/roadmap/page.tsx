@@ -70,6 +70,9 @@ export default function RoadmapPage() {
     setAllMilestones(milestones);
   }, [roadmap]);
 
+  const allProjectNames: string[] =
+    roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
+
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -104,7 +107,11 @@ export default function RoadmapPage() {
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          <RoadmapTimeline projectMilestones={allMilestones} slug={slug} />
+          <RoadmapTimeline
+            projectMilestones={allMilestones}
+            allProjectNames={allProjectNames}
+            slug={slug}
+          />
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
