@@ -96,7 +96,15 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   if (!linear_slug) throw new Error("linear_slug required");
   if (!clientName) throw new Error("clientName required");
 
-  console.log("[createCustomerFlow] start", { email, linear_slug, clientName });
+  // Stripe Customer ID is optional at creation time — admins can add or
+  // update it later from Settings/Billing. Normalize blank/whitespace input
+  // to null so "not set" is represented consistently everywhere (never "").
+  const normalizedStripeId =
+    typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+      ? stripeCustomerId.trim()
+      : null;
+
+  console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
 
   const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
   const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
@@ -105,7 +113,7 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const { data: clientRecord, error: clientError } = await supabase.schema(schema)
     .from("customers")
-    .insert([{ stripe_customer_id: stripeCustomerId, linear_slug, clientName }])
+    .insert([{ stripe_customer_id: normalizedStripeId, linear_slug, clientName }])
     .select()
     .single();
 

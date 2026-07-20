@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
 import { NextPaymentPanel } from "./billing-panels/next-payment-panel";
 import { InvoicesPanel } from "./billing-panels/invoices-panel";
 import { PendingBalancePanel } from "./billing-panels/pending-balance";
@@ -8,11 +11,16 @@ import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { CreditCard } from "lucide-react";
 
 export async function fetchBillingData({ user }: { user: any }) {
   const customerId = user?.stripe_customer_id ?? user?.customer_id;
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe/client?customer_id=${customerId}`;
-  console.log("[fetchBillingData] requesting", { url, customerId, headers: API_HEADERS });
+  console.log("[fetchBillingData] requesting", {
+    url,
+    customerId,
+    headers: API_HEADERS,
+  });
 
   const res = await fetch(url, { headers: API_HEADERS });
 
@@ -53,12 +61,175 @@ function calculateInvoicesBalance(invoices: any[] = []) {
   };
 }
 
+/* ---------------- Stripe Customer ID ---------------- */
+
+function StripeIdPanel({
+  stripeCustomerId,
+  customerId,
+  isAdmin,
+  onSaved,
+}: {
+  stripeCustomerId?: string | null;
+  customerId?: string;
+  isAdmin: boolean;
+  onSaved?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async (nextValue: string) => {
+      if (!customerId)
+        throw new Error("Missing customer record for this account");
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            customer_id: customerId,
+            stripe_customer_id: nextValue,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to save Stripe Customer ID");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditing(false);
+      setError(null);
+      onSaved?.();
+    },
+    onError: (err: any) => {
+      setError(err?.message ?? "Failed to save Stripe Customer ID");
+    },
+  });
+
+  const startEditing = () => {
+    setValue(stripeCustomerId ?? "");
+    setError(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setError(null);
+    setEditing(false);
+  };
+
+  if (isAdmin && editing) {
+    return (
+      <Card>
+        <CardContent className="bg-background flex flex-col gap-3 pt-4">
+          <p className="text-sm text-foreground">Stripe Customer ID</p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              autoFocus
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="cus_..."
+              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={mutation.isPending || !value.trim()}
+                onClick={() => mutation.mutate(value)}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {mutation.isPending ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={cancelEditing}
+                disabled={mutation.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!stripeCustomerId) {
+    return (
+      <Card className="bg-backghround">
+        <CardContent className="bg-backghround flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4 ">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <CreditCard className="h-6 w-6 text-foreground" />
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground">
+                No Stripe Customer ID on file
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isAdmin
+                  ? "Add one below to enable billing for this account."
+                  : "Contact your administrator to set up billing information."}
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <Button
+              size="sm"
+              className="self-start bg-primary text-primary-foreground hover:bg-primary/90 sm:self-auto"
+              onClick={startEditing}
+            >
+              Add Stripe ID
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-foreground">Stripe Customer ID</p>
+          <p className="font-mono text-base font-medium">{stripeCustomerId}</p>
+        </div>
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="self-start sm:self-auto"
+            onClick={startEditing}
+          >
+            Edit
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function BillingSection({
   billingData,
   isLoading,
+  stripeCustomerId,
+  customerId,
+  isAdmin = false,
+  onStripeIdSaved,
 }: {
   billingData: any;
   isLoading: boolean;
+  stripeCustomerId?: string | null;
+  customerId?: string;
+  isAdmin?: boolean;
+  onStripeIdSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -102,7 +273,14 @@ export function BillingSection({
 
   return (
     <div className="space-y-6">
-      {isLoading ? (
+      <StripeIdPanel
+        stripeCustomerId={stripeCustomerId}
+        customerId={customerId}
+        isAdmin={isAdmin}
+        onSaved={onStripeIdSaved}
+      />
+
+      {!stripeCustomerId ? null : isLoading ? (
         <LoadingDataPanel />
       ) : (
         <div className="space-y-6">

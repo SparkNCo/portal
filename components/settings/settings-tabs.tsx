@@ -9,7 +9,7 @@ import {
   fetchBillingData,
 } from "@/components/settings/billing-section";
 import { StaffingSection } from "@/components/settings/staffing-section";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
@@ -23,6 +23,7 @@ export function SettingsTabs() {
   const [activeTab, setActiveTab] = useState("staffing");
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const queryClient = useQueryClient();
 
   const isAdminViewingCustomer = profile?.role === "admin" && !!customerSlug;
 
@@ -46,14 +47,21 @@ export function SettingsTabs() {
 
   // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise
   const effectiveUserId = targetCustomer?.id ?? profile?.id;
-  const effectiveStripeId = targetCustomer?.stripe_customer_id ?? (profile as any)?.stripe_customer_id;
+  const effectiveStripeId = targetCustomer?.stripe_customer_id ?? profile?.stripe_customer_id;
+  const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
+  const isAdmin = profile?.role === "admin";
+
+  const handleStripeIdSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["billing"] });
+  };
 
   console.log("[SettingsTabs][billing debug]", {
     isAdminViewingCustomer,
     customerSlug,
     customersLoaded: customers?.length ?? null,
     targetCustomer,
-    profileStripeId: (profile as any)?.stripe_customer_id,
+    profileStripeId: profile?.stripe_customer_id,
     effectiveStripeId,
     queryEnabled: !!effectiveStripeId,
   });
@@ -93,7 +101,14 @@ export function SettingsTabs() {
       <div>
         {activeTab === "documents" && <DocumentsDirectory />}
         {activeTab === "billing" && (
-          <BillingSection billingData={billingData} isLoading={isLoading} />
+          <BillingSection
+            billingData={billingData}
+            isLoading={isLoading}
+            stripeCustomerId={effectiveStripeId}
+            customerId={effectiveCustomerId}
+            isAdmin={isAdmin}
+            onStripeIdSaved={handleStripeIdSaved}
+          />
         )}
         {activeTab === "staffing" && (
           <StaffingSection customerId={effectiveUserId} />
