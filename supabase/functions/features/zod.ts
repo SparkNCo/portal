@@ -4,6 +4,10 @@ export const QuerySchema = z.object({
   submission_id: z.string().min(1, "submission_id is required"),
 });
 
+export const DeleteQuerySchema = z.object({
+  id: z.string().uuid("id must be a valid UUID"),
+});
+
 export const FeatureSchema = z.object({
   id: z.string(),
   proposal_id: z.string().nullable(),
@@ -19,6 +23,7 @@ export const FeatureSchema = z.object({
 export const FeaturesSchema = z.array(FeatureSchema);
 
 export const FeatureInputSchema = z.object({
+  id: z.string().uuid().optional(),
   title: z.string().optional(),
   integrations: z.string().optional(),
   description: z.string().optional(),

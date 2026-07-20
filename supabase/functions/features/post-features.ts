@@ -8,9 +8,38 @@ import { CreateRequirementsSchema } from "./zod.ts";
  * Helpers
  * -------------------------------- */
 
+// Features the client already fetched (from GET /features) carry their real
+// DB id — resubmitting the whole list (edit + add-new flows) would otherwise
+// re-insert those as brand-new duplicate rows every time. Only features with
+// no id, or an id that doesn't match an existing row, are actually new.
+const findNewFeatures = async (features) => {
+  const incomingIds = features.map((f) => f.id).filter(Boolean);
+  if (!incomingIds.length) return features;
+
+  const { data: existing, error } = await supabase.schema("marketing")
+    .from("requirements")
+    .select("id")
+    .in("id", incomingIds);
+
+  if (error) {
+    console.error("[createRequirements] ❌ Existing-check error:", error);
+    throw new Error("CHECK_EXISTING_FEATURES_FAILED");
+  }
+
+  const existingIds = new Set((existing ?? []).map((r) => r.id));
+  const newFeatures = features.filter((f) => !f.id || !existingIds.has(f.id));
+
+  console.log(
+    `[createRequirements] 🔎 ${features.length - newFeatures.length} feature(s) already saved, skipping`,
+  );
+
+  return newFeatures;
+};
+
 const buildInsertPayload = (features, proposal_id, submission_id) => {
   return features.map((item, index) => {
     const mapped = {
+      ...(item.id && { id: item.id }),
       proposal_id,
       submission_id,
       feature_name: item.title ?? null,
@@ -26,6 +55,11 @@ const buildInsertPayload = (features, proposal_id, submission_id) => {
 };
 
 const insertRequirements = async (payload) => {
+  if (!payload.length) {
+    console.log("[createRequirements] ℹ️ No new features to insert");
+    return 0;
+  }
+
   console.log(
     "[createRequirements] 📤 Inserting requirements:",
     payload.length,
@@ -151,10 +185,12 @@ export async function createRequirements(req: Request): Promise<Response> {
     });
 
     /* -----------------------------
-       1. Insert requirements
+       1. Insert only genuinely new requirements
     ------------------------------ */
+    const newFeatures = await findNewFeatures(features);
+
     const insertPayload = buildInsertPayload(
-      features,
+      newFeatures,
       proposal_id,
       submission_id,
     );
@@ -198,7 +234,10 @@ export async function createRequirements(req: Request): Promise<Response> {
     console.log("[createRequirements] 🎉 Done");
 
     return new Response(
-      JSON.stringify({ inserted: count ?? features.length }),
+      JSON.stringify({
+        inserted: count ?? newFeatures.length,
+        skipped: features.length - newFeatures.length,
+      }),
       {
         status: 200,
         headers: {
