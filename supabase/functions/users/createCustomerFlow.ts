@@ -70,6 +70,15 @@ export const createCustomerFlow = async (body: any, schema: string) => {
       : null;
 
   console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
+  // Stripe Customer ID is optional at creation time — admins can add or
+  // update it later from Settings/Billing. Normalize blank/whitespace input
+  // to null so "not set" is represented consistently everywhere (never "").
+  const normalizedStripeId =
+    typeof stripeCustomerId === "string" && stripeCustomerId.trim()
+      ? stripeCustomerId.trim()
+      : null;
+
+  console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
 
   // Never trust a client-supplied origin for the redirect URL (open-redirect /
   // token-leak risk) — always use the server-configured portal origin.
