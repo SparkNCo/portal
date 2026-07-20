@@ -62,7 +62,7 @@ export function ProjectRow({
         onToggle={onToggle}
       />
 
-      {!expanded && projectRange && (
+      {!expanded && (
         <ProjectSummaryBar
           milestones={milestones}
           range={projectRange}

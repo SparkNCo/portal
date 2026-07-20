@@ -42,6 +42,7 @@ export type Milestone = {
 
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
+  allProjectNames?: string[];
   slug?: string;
 };
 
@@ -86,6 +87,7 @@ const stateColors: Record<string, string> = {
 
 export function RoadmapTimeline({
   projectMilestones = [],
+  allProjectNames = [],
   slug = "",
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
@@ -99,14 +101,23 @@ export function RoadmapTimeline({
   const INITIAL_YEAR = new Date().getFullYear();
   const [year, setYear] = useState(INITIAL_YEAR);
 
+  // Seed every known project (even ones with zero milestones) so they still
+  // render a row — projects only ever get into `projectMilestones` via a
+  // milestone, so without this a project with no milestones yet would simply
+  // never appear in the timeline at all.
   const groupedMilestones = useMemo(() => {
+    const seeded: Record<string, Milestone[]> = {};
+    for (const name of allProjectNames) {
+      seeded[name] = [];
+    }
+
     return projectMilestones.reduce((acc: Record<string, Milestone[]>, m) => {
       const key = m.projectName ?? "Unknown Project";
       acc[key] ??= [];
       acc[key].push(m);
       return acc;
-    }, {});
-  }, [projectMilestones]);
+    }, seeded);
+  }, [projectMilestones, allProjectNames]);
 
   function handleMilestoneSelect(m: Milestone) {
     setSelectedMilestone((prev) =>
