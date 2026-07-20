@@ -5,6 +5,7 @@ import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
 import { getAllUsers } from "./getAllUsers.ts";
 import { updateUser } from "./updateUser.ts";
+import { updateCustomer } from "./updateCustomer.ts";
 import { getDeveloperProfile } from "./getDeveloperProfile.ts";
 import { updateDeveloperProfile } from "./updateDeveloperProfile.ts";
 
@@ -92,6 +93,11 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   if (url.searchParams.get("type") === "developer-profile") {
     const updatedProfile = await updateDeveloperProfile(body, schema);
     return jsonResponse(updatedProfile);
+  }
+
+  if (url.searchParams.get("type") === "customer") {
+    const updatedCustomer = await updateCustomer(body, schema);
+    return jsonResponse(updatedCustomer);
   }
 
   const updatedUser = await updateUser(body, schema);
