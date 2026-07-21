@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUser } from "../../../context/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import AddDeveloperModal from "./AddDeveloperModal";
 import AddClientModal from "./AddClientModal";
 import AddStakeholderModal from "./AddStakeholderModal";
@@ -22,6 +23,7 @@ import {
   FolderKanban,
   Pencil,
   Eye,
+  Mail,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -190,6 +192,37 @@ export default function AdminUsersPage() {
       queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
       setAssigningUserId(null);
       setSelectedCustomer("");
+    },
+  });
+
+  const {
+    mutate: resendAccountEmail,
+    isPending: resendPending,
+    variables: resendingUser,
+  } = useMutation({
+    mutationFn: async (user: User) => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=resend-account-email`,
+        {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify({
+            id: user.id,
+            origin: globalThis.location.origin,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to resend account email");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, user) => {
+      toast.success(`Account email resent to ${user.email}`);
+    },
+    onError: (err: any, user) => {
+      toast.error(err?.message ?? `Failed to resend email to ${user.email}`);
     },
   });
 
@@ -429,6 +462,21 @@ export default function AdminUsersPage() {
                               Assign
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Resend account validation email"
+                            disabled={resendPending && resendingUser?.id === u.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              resendAccountEmail(u);
+                            }}
+                          >
+                            <Mail
+                              className={`h-4 w-4 ${resendPending && resendingUser?.id === u.id ? "animate-pulse" : ""}`}
+                            />
+                          </Button>
                         </div>
                         <Button
                           variant="ghost"

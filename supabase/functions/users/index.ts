@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
+import { resendAccountEmail } from "./resendAccountEmail.ts";
 import { getAllUsers } from "./getAllUsers.ts";
 import { updateUser } from "./updateUser.ts";
 import { updateCustomer } from "./updateCustomer.ts";
@@ -115,6 +116,11 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
 
   if (type === "customer") {
     const result = await createCustomerFlow(body, schema);
+    return jsonResponse(result);
+  }
+
+  if (type === "resend-account-email") {
+    const result = await resendAccountEmail(body, schema);
     return jsonResponse(result);
   }
 

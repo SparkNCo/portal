@@ -2,41 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
-
-async function resolveAuthUser(
-  email: string,
-  redirectTo: string,
-): Promise<{ authUserId: string; inviteLink: string; isNew: boolean }> {
-  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  });
-
-  if (!inviteError) {
-    return { authUserId: inviteData.user.id, inviteLink: inviteData.properties.action_link, isNew: true };
-  }
-
-  if (!inviteError.message.includes("already been registered")) {
-    throw new Error(`Auth invite failed: ${inviteError.message}`);
-  }
-
-  // User already exists in auth — find them and generate a recovery link instead
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-  if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
-
-  const existingAuthUser = listData.users.find((u: any) => u.email === email);
-  if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
-
-  const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo },
-  });
-  if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
-
-  return { authUserId: existingAuthUser.id, inviteLink: recoveryData.properties.action_link, isNew: false };
-}
+import { resolveAuthUser } from "./resolveAuthUser.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
 // and fill in linear_projects / project_url so DORA metrics can pick this client up.
