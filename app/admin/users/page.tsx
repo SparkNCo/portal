@@ -428,7 +428,7 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center gap-1">
                           {u.role === "developer" && (
                             <Button
                               variant="ghost"
@@ -467,7 +467,8 @@ export default function AdminUsersPage() {
                             size="icon"
                             className="h-8 w-8"
                             title="Resend account validation email"
-                            disabled={resendPending && resendingUser?.id === u.id}
+                            aria-label="Resend account validation email"
+                            disabled={resendPending}
                             onClick={(e) => {
                               e.stopPropagation();
                               resendAccountEmail(u);

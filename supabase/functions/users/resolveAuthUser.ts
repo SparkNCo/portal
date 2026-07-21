@@ -23,13 +23,7 @@ export async function resolveAuthUser(
     throw new Error(`Auth invite failed: ${inviteError.message}`);
   }
 
-  // User already exists in auth — find them and generate a recovery link instead
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-  if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
-
-  const existingAuthUser = listData.users.find((u: any) => u.email === email);
-  if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
-
+  // User already exists in auth — generate a recovery link instead
   const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
     type: "recovery",
     email,
@@ -37,5 +31,5 @@ export async function resolveAuthUser(
   });
   if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
 
-  return { authUserId: existingAuthUser.id, inviteLink: recoveryData.properties.action_link, isNew: false };
+  return { authUserId: recoveryData.user.id, inviteLink: recoveryData.properties.action_link, isNew: false };
 }

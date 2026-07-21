@@ -23,7 +23,7 @@ export const resendAccountEmail = async (body: any, schema: string) => {
   if (!appUser) throw new Error("User not found");
   if (!appUser.email) throw new Error("This user has no email on file");
 
-  console.log("[resendAccountEmail] resolving auth user", { id, email: appUser.email });
+  console.log("[resendAccountEmail] resolving auth user", { id });
 
   const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
 
@@ -37,7 +37,7 @@ export const resendAccountEmail = async (body: any, schema: string) => {
   }
 
   await sendInviteCustomerMail(appUser.email, inviteLink);
-  console.log("[resendAccountEmail] email resent", { id, email: appUser.email });
+  console.log("[resendAccountEmail] email resent", { id, sent: true });
 
   return { sent: true, email: appUser.email };
 };

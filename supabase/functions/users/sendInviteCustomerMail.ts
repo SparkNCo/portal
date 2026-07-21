@@ -63,7 +63,7 @@ function InviteTemplateHtml({ inviteLink }: { inviteLink: string }) {
 
 export async function sendInviteCustomerMail(email: string, inviteLink: string) {
   const from = Deno.env.get("FROM_EMAIL");
-  console.log("[sendInviteCustomerMail] sending", { from, to: email, inviteLink });
+  console.log("[sendInviteCustomerMail] sending", { from, to: email });
 
   const response = await resend.emails.send({
     from,
