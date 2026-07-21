@@ -13,6 +13,7 @@ export async function getStorageData(req: Request, schema: string) {
 
     const user_id = searchParams.get("user_id");
     const category = searchParams.get("category") ?? undefined;
+    const project_slug = searchParams.get("project_slug") ?? undefined;
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: "user_id is required" }), {
@@ -57,6 +58,10 @@ export async function getStorageData(req: Request, schema: string) {
 
     if (category) {
       docQuery = docQuery.eq("category", category);
+    }
+
+    if (project_slug) {
+      docQuery = docQuery.eq("project_slug", project_slug);
     }
 
     const { data, error } = await docQuery;

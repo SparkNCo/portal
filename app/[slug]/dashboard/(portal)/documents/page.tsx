@@ -50,11 +50,11 @@ export default function DocumentsPage() {
           </>
         )}
 
-        <DeveloperDocumentRequests />
+        <DeveloperDocumentRequests customerSlug={slug} />
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
-            <DocumentsList />
+            <DocumentsList projectSlug={slug} />
           </div>
           {canUpload && (
             <div>
