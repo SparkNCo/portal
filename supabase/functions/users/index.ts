@@ -120,6 +120,17 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
   }
 
   if (type === "resend-account-email") {
+    const { requestedBy } = body;
+    const { data: requester } = await supabase.schema(schema)
+      .from("users")
+      .select("role")
+      .eq("email", requestedBy)
+      .maybeSingle();
+
+    if (requester?.role !== "admin") {
+      return jsonResponse({ error: "Unauthorized" }, 403);
+    }
+
     const result = await resendAccountEmail(body, schema);
     return jsonResponse(result);
   }

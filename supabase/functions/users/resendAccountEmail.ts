@@ -9,7 +9,7 @@ import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 // can never create a duplicate customer record (unlike the old workaround of
 // re-running customer creation with the same email).
 export const resendAccountEmail = async (body: any, schema: string) => {
-  const { id, origin } = body;
+  const { id } = body;
 
   if (!id) throw new Error("User id is required");
 
@@ -25,7 +25,9 @@ export const resendAccountEmail = async (body: any, schema: string) => {
 
   console.log("[resendAccountEmail] resolving auth user", { id });
 
-  const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
+  // Never trust a client-supplied origin for the redirect URL (open-redirect /
+  // token-leak risk) — always use the server-configured portal origin.
+  const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
 
   let inviteLink: string;
   try {

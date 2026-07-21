@@ -208,7 +208,7 @@ export default function AdminUsersPage() {
           headers: apiHeaders,
           body: JSON.stringify({
             id: user.id,
-            origin: globalThis.location.origin,
+            requestedBy: profile?.email,
           }),
         },
       );
