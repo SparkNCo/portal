@@ -143,11 +143,7 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen">
       <Header
-        title={
-          profile?.role === "stakeholder"
-            ? "Dashboard"
-            : "Dashboard"
-        }
+        title="Dashboard"
         subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "User")}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
