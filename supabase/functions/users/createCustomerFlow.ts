@@ -2,41 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
-
-async function resolveAuthUser(
-  email: string,
-  redirectTo: string,
-): Promise<{ authUserId: string; inviteLink: string; isNew: boolean }> {
-  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo },
-  });
-
-  if (!inviteError) {
-    return { authUserId: inviteData.user.id, inviteLink: inviteData.properties.action_link, isNew: true };
-  }
-
-  if (!inviteError.message.includes("already been registered")) {
-    throw new Error(`Auth invite failed: ${inviteError.message}`);
-  }
-
-  // User already exists in auth — find them and generate a recovery link instead
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-  if (listError) throw new Error(`Could not list auth users: ${listError.message}`);
-
-  const existingAuthUser = listData.users.find((u: any) => u.email === email);
-  if (!existingAuthUser) throw new Error("User exists in auth but could not be found");
-
-  const { data: recoveryData, error: recoveryError } = await supabase.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo },
-  });
-  if (recoveryError) throw new Error(`Link generation failed: ${recoveryError.message}`);
-
-  return { authUserId: existingAuthUser.id, inviteLink: recoveryData.properties.action_link, isNew: false };
-}
+import { resolveAuthUser } from "./resolveAuthUser.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
 // and fill in linear_projects / project_url so DORA metrics can pick this client up.
@@ -85,7 +51,6 @@ export const createCustomerFlow = async (body: any, schema: string) => {
     email,
     customer_id: stripeCustomerId,
     linear_slug,
-    origin,
     firstName = null,
     lastName = null,
     clientName = null,
@@ -106,7 +71,9 @@ export const createCustomerFlow = async (body: any, schema: string) => {
 
   console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
 
-  const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
+  // Never trust a client-supplied origin for the redirect URL (open-redirect /
+  // token-leak risk) — always use the server-configured portal origin.
+  const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
   const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
   console.log("[createCustomerFlow] auth user resolved", { authUserId, isNew, hasInviteLink: !!inviteLink });
 

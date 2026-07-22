@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
+import { resendAccountEmail } from "./resendAccountEmail.ts";
 import { getAllUsers } from "./getAllUsers.ts";
 import { updateUser } from "./updateUser.ts";
 import { updateCustomer } from "./updateCustomer.ts";
@@ -115,6 +116,38 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
 
   if (type === "customer") {
     const result = await createCustomerFlow(body, schema);
+    return jsonResponse(result);
+  }
+
+  if (type === "resend-account-email") {
+    // Never trust a client-supplied identity (e.g. body.requestedBy) for an
+    // authorization check — resolve the caller from their bearer token so a
+    // spoofed email can't be used to trigger resends for arbitrary users.
+    const token = (req.headers.get("Authorization") ?? "")
+      .replace(/^Bearer\s+/i, "")
+      .trim();
+
+    const { data: authData, error: authError } = token
+      ? await supabase.auth.getUser(token)
+      : { data: null, error: new Error("Missing bearer token") };
+
+    const callerEmail = authData?.user?.email;
+
+    if (authError || !callerEmail) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const { data: requester } = await supabase.schema(schema)
+      .from("users")
+      .select("role")
+      .eq("email", callerEmail)
+      .maybeSingle();
+
+    if (requester?.role !== "admin") {
+      return jsonResponse({ error: "Unauthorized" }, 403);
+    }
+
+    const result = await resendAccountEmail(body, schema);
     return jsonResponse(result);
   }
 

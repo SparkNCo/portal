@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUser } from "../../../context/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import AddDeveloperModal from "./AddDeveloperModal";
 import AddClientModal from "./AddClientModal";
 import AddStakeholderModal from "./AddStakeholderModal";
@@ -13,6 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Users,
   UserPlus,
   UserCheck,
@@ -22,8 +29,10 @@ import {
   FolderKanban,
   Pencil,
   Eye,
+  Mail,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { supabase } from "@/lib/supabase-client";
 
 type User = {
   id: string;
@@ -190,6 +199,45 @@ export default function AdminUsersPage() {
       queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
       setAssigningUserId(null);
       setSelectedCustomer("");
+    },
+  });
+
+  const {
+    mutate: resendAccountEmail,
+    isPending: resendPending,
+    variables: resendingVariables,
+  } = useMutation({
+    mutationFn: async ({ user, emailType }: { user: User; emailType: "invite" | "reset" }) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=resend-account-email`,
+        {
+          method: "POST",
+          headers: {
+            ...apiHeaders,
+            Authorization: `Bearer ${session?.access_token ?? ""}`,
+          },
+          body: JSON.stringify({ id: user.id, emailType }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to resend account email");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, { user, emailType }) => {
+      toast.success(
+        emailType === "reset"
+          ? `Password reset email sent to ${user.email}`
+          : `Invite email resent to ${user.email}`,
+      );
+    },
+    onError: (err: any, { user }) => {
+      toast.error(err?.message ?? `Failed to resend email to ${user.email}`);
     },
   });
 
@@ -395,7 +443,7 @@ export default function AdminUsersPage() {
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center gap-1">
                           {u.role === "developer" && (
                             <Button
                               variant="ghost"
@@ -429,6 +477,35 @@ export default function AdminUsersPage() {
                               Assign
                             </Button>
                           )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Resend account email"
+                                aria-label="Resend account email"
+                                disabled={resendPending && resendingVariables?.user.id === u.id}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Mail
+                                  className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem
+                                onClick={() => resendAccountEmail({ user: u, emailType: "invite" })}
+                              >
+                                Resend invite
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => resendAccountEmail({ user: u, emailType: "reset" })}
+                              >
+                                Send password reset
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <Button
                           variant="ghost"

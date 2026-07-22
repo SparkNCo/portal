@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/headerDashboard";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { UploadDocument } from "@/components/documents/upload-document";
@@ -10,6 +11,7 @@ import { BookOpen } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 export default function DocumentsPage() {
   const { profile } = useUser();
@@ -19,6 +21,46 @@ export default function DocumentsPage() {
 
   const canUpload = profile?.role === "developer" || profile?.role === "admin";
   const canRequest = profile?.role === "customer" || profile?.role === "stakeholder";
+
+  const isAdmin = profile?.role === "admin";
+
+  // documents.project_slug is populated with the customer's Linear project
+  // slug, while `slug` here is the clientName-based route/customer slug
+  // (see DeveloperDocumentRequests). Resolve the authoritative project slug
+  // from the assignment/customer record instead of reusing the route slug.
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json() as Promise<
+        { clientName: string; linear_slug: string | null }[]
+      >;
+    },
+    enabled: isAdmin && !!slug,
+  });
+
+  const assignedProjectSlug = profile?.assignment_id?.find(
+    (a) => a.clientName === slug,
+  )?.linear_slug;
+
+  // Admins resolve the route customer's project slug from the customers
+  // list — never fall back to the admin's own profile.linear_slug, which
+  // belongs to a different account and could scope the fetch to the wrong
+  // customer's documents.
+  const projectSlug =
+    (isAdmin
+      ? (assignedProjectSlug ?? customers?.find((c) => c.clientName === slug)?.linear_slug)
+      : (assignedProjectSlug ?? profile?.linear_slug)) ?? undefined;
+
+  // Withhold DocumentsList until an admin's projectSlug actually resolves —
+  // whether it's still loading, or the customers lookup finished without a
+  // match. Either way, rendering with projectSlug=undefined would make it
+  // fetch every document the admin can see.
+  const projectSlugPending = isAdmin && !projectSlug;
 
   return (
     <div className="min-h-screen">
@@ -50,11 +92,15 @@ export default function DocumentsPage() {
           </>
         )}
 
-        <DeveloperDocumentRequests />
+        <DeveloperDocumentRequests customerSlug={slug} />
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
-            <DocumentsList />
+            {projectSlugPending ? (
+              <p className="text-sm text-muted-foreground">Loading documents…</p>
+            ) : (
+              <DocumentsList projectSlug={projectSlug} />
+            )}
           </div>
           {canUpload && (
             <div>

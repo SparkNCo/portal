@@ -22,9 +22,12 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-async function fetchDocuments(id: string) {
+async function fetchDocuments(id: string, projectSlug?: string) {
+  const params = new URLSearchParams({ user_id: id });
+  if (projectSlug) params.set("project_slug", projectSlug);
+
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?user_id=${id}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?${params.toString()}`,
     { headers: API_HEADERS },
   );
 
@@ -35,7 +38,7 @@ async function fetchDocuments(id: string) {
   return res.json();
 }
 
-export function DocumentsList() {
+export function DocumentsList({ projectSlug }: { readonly projectSlug?: string }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -52,8 +55,8 @@ export function DocumentsList() {
   const { user, profile, loading } = useUser();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId],
-    queryFn: () => fetchDocuments(profile?.id!),
+    queryKey: ["documents", initiativeId, projectSlug],
+    queryFn: () => fetchDocuments(profile?.id!, projectSlug),
     enabled: !!profile?.id,
   });
 

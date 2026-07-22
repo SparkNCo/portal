@@ -5,20 +5,25 @@ import { DocumentRequestsList } from "./document-requests-list";
 
 // Customers and developers share the /documents route. This panel only
 // renders for roles that can fulfill requests, so customers see nothing.
-export function DeveloperDocumentRequests() {
+export function DeveloperDocumentRequests({
+  customerSlug,
+}: {
+  readonly customerSlug?: string;
+}) {
   const { profile } = useUser();
 
   if (profile?.role !== "developer" && profile?.role !== "admin") {
     return null;
   }
 
-  // Admins manage every project, so they see the full queue. Developers only
-  // see requests for the customers they're actually assigned to.
-  // document_requests.customer_slug is populated with clientName (the app
-  // routes by clientName, e.g. /custest/dashboard/..., not linear_slug), so
-  // the filter must compare against profile.assignment_id[].clientName.
+  // Admins are scoped to whichever customer dashboard they're currently
+  // viewing. Developers only see requests for the customers they're actually
+  // assigned to. document_requests.customer_slug is populated with
+  // clientName (the app routes by clientName, e.g. /custest/dashboard/...,
+  // not linear_slug), so the filter must compare against
+  // profile.assignment_id[].clientName.
   if (profile.role === "admin") {
-    return <DocumentRequestsList canManage />;
+    return <DocumentRequestsList canManage customerSlug={customerSlug} />;
   }
 
   const assignedSlugs = Array.from(
