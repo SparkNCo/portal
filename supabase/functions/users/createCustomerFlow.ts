@@ -51,7 +51,6 @@ export const createCustomerFlow = async (body: any, schema: string) => {
     email,
     customer_id: stripeCustomerId,
     linear_slug,
-    origin,
     firstName = null,
     lastName = null,
     clientName = null,
@@ -72,7 +71,9 @@ export const createCustomerFlow = async (body: any, schema: string) => {
 
   console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
 
-  const redirectTo = `${origin ?? "http://localhost:3000"}/set-password`;
+  // Never trust a client-supplied origin for the redirect URL (open-redirect /
+  // token-leak risk) — always use the server-configured portal origin.
+  const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
   const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
   console.log("[createCustomerFlow] auth user resolved", { authUserId, isNew, hasInviteLink: !!inviteLink });
 

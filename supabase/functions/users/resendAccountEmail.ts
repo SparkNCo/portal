@@ -9,9 +9,16 @@ import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 // can never create a duplicate customer record (unlike the old workaround of
 // re-running customer creation with the same email).
 export const resendAccountEmail = async (body: any, schema: string) => {
-  const { id } = body;
+  const { id, emailType } = body;
 
   if (!id) throw new Error("User id is required");
+
+  // The admin picks which copy to send — independent of whether Supabase
+  // ends up generating an "invite" or "recovery" link under the hood (both
+  // redirect to the same set-password page). Defaults to invite copy since
+  // that's also what a brand-new user needs, and lets an admin resend it
+  // as many times as needed if the 24h link expired before the user opened it.
+  const sendAsInvite = emailType !== "reset";
 
   const { data: appUser, error: userError } = await supabase.schema(schema)
     .from("users")
@@ -38,8 +45,8 @@ export const resendAccountEmail = async (body: any, schema: string) => {
     throw new Error(`Could not resolve this user's auth account: ${err.message}`);
   }
 
-  await sendInviteCustomerMail(appUser.email, inviteLink);
-  console.log("[resendAccountEmail] email resent", { id, sent: true });
+  await sendInviteCustomerMail(appUser.email, inviteLink, sendAsInvite);
+  console.log("[resendAccountEmail] email resent", { id, sendAsInvite, sent: true });
 
   return { sent: true, email: appUser.email };
 };

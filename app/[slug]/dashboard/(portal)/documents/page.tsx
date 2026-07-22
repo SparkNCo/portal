@@ -28,7 +28,7 @@ export default function DocumentsPage() {
   // slug, while `slug` here is the clientName-based route/customer slug
   // (see DeveloperDocumentRequests). Resolve the authoritative project slug
   // from the assignment/customer record instead of reusing the route slug.
-  const { data: customers, isLoading: customersLoading } = useQuery({
+  const { data: customers } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
@@ -56,10 +56,11 @@ export default function DocumentsPage() {
       ? (assignedProjectSlug ?? customers?.find((c) => c.clientName === slug)?.linear_slug)
       : (assignedProjectSlug ?? profile?.linear_slug)) ?? undefined;
 
-  // While the admin's lookup is still in flight, projectSlug would be
-  // undefined — DocumentsList would then omit project_slug and fetch every
-  // document the admin can see. Hold off rendering it until resolved.
-  const projectSlugPending = isAdmin && !assignedProjectSlug && customersLoading;
+  // Withhold DocumentsList until an admin's projectSlug actually resolves —
+  // whether it's still loading, or the customers lookup finished without a
+  // match. Either way, rendering with projectSlug=undefined would make it
+  // fetch every document the admin can see.
+  const projectSlugPending = isAdmin && !projectSlug;
 
   return (
     <div className="min-h-screen">

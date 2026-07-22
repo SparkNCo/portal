@@ -14,6 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Users,
   UserPlus,
   UserCheck,
@@ -199,9 +205,9 @@ export default function AdminUsersPage() {
   const {
     mutate: resendAccountEmail,
     isPending: resendPending,
-    variables: resendingUser,
+    variables: resendingVariables,
   } = useMutation({
-    mutationFn: async (user: User) => {
+    mutationFn: async ({ user, emailType }: { user: User; emailType: "invite" | "reset" }) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -214,7 +220,7 @@ export default function AdminUsersPage() {
             ...apiHeaders,
             Authorization: `Bearer ${session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ id: user.id }),
+          body: JSON.stringify({ id: user.id, emailType }),
         },
       );
       if (!res.ok) {
@@ -223,10 +229,14 @@ export default function AdminUsersPage() {
       }
       return res.json();
     },
-    onSuccess: (_data, user) => {
-      toast.success(`Account email resent to ${user.email}`);
+    onSuccess: (_data, { user, emailType }) => {
+      toast.success(
+        emailType === "reset"
+          ? `Password reset email sent to ${user.email}`
+          : `Invite email resent to ${user.email}`,
+      );
     },
-    onError: (err: any, user) => {
+    onError: (err: any, { user }) => {
       toast.error(err?.message ?? `Failed to resend email to ${user.email}`);
     },
   });
@@ -467,22 +477,35 @@ export default function AdminUsersPage() {
                               Assign
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Resend account validation email"
-                            aria-label="Resend account validation email"
-                            disabled={resendPending}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              resendAccountEmail(u);
-                            }}
-                          >
-                            <Mail
-                              className={`h-4 w-4 ${resendPending && resendingUser?.id === u.id ? "animate-pulse" : ""}`}
-                            />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Resend account email"
+                                aria-label="Resend account email"
+                                disabled={resendPending && resendingVariables?.user.id === u.id}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Mail
+                                  className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem
+                                onClick={() => resendAccountEmail({ user: u, emailType: "invite" })}
+                              >
+                                Resend invite
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => resendAccountEmail({ user: u, emailType: "reset" })}
+                              >
+                                Send password reset
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <Button
                           variant="ghost"
