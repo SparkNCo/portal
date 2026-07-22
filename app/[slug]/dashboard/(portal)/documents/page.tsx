@@ -28,7 +28,7 @@ export default function DocumentsPage() {
   // slug, while `slug` here is the clientName-based route/customer slug
   // (see DeveloperDocumentRequests). Resolve the authoritative project slug
   // from the assignment/customer record instead of reusing the route slug.
-  const { data: customers } = useQuery({
+  const { data: customers, isLoading: customersLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(
@@ -43,11 +43,23 @@ export default function DocumentsPage() {
     enabled: isAdmin && !!slug,
   });
 
+  const assignedProjectSlug = profile?.assignment_id?.find(
+    (a) => a.clientName === slug,
+  )?.linear_slug;
+
+  // Admins resolve the route customer's project slug from the customers
+  // list — never fall back to the admin's own profile.linear_slug, which
+  // belongs to a different account and could scope the fetch to the wrong
+  // customer's documents.
   const projectSlug =
-    profile?.assignment_id?.find((a) => a.clientName === slug)?.linear_slug ??
-    customers?.find((c) => c.clientName === slug)?.linear_slug ??
-    profile?.linear_slug ??
-    undefined;
+    (isAdmin
+      ? (assignedProjectSlug ?? customers?.find((c) => c.clientName === slug)?.linear_slug)
+      : (assignedProjectSlug ?? profile?.linear_slug)) ?? undefined;
+
+  // While the admin's lookup is still in flight, projectSlug would be
+  // undefined — DocumentsList would then omit project_slug and fetch every
+  // document the admin can see. Hold off rendering it until resolved.
+  const projectSlugPending = isAdmin && !assignedProjectSlug && customersLoading;
 
   return (
     <div className="min-h-screen">
@@ -83,7 +95,11 @@ export default function DocumentsPage() {
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
-            <DocumentsList projectSlug={projectSlug} />
+            {projectSlugPending ? (
+              <p className="text-sm text-muted-foreground">Loading documents…</p>
+            ) : (
+              <DocumentsList projectSlug={projectSlug} />
+            )}
           </div>
           {canUpload && (
             <div>

@@ -120,11 +120,27 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
   }
 
   if (type === "resend-account-email") {
-    const { requestedBy } = body;
+    // Never trust a client-supplied identity (e.g. body.requestedBy) for an
+    // authorization check — resolve the caller from their bearer token so a
+    // spoofed email can't be used to trigger resends for arbitrary users.
+    const token = (req.headers.get("Authorization") ?? "")
+      .replace(/^Bearer\s+/i, "")
+      .trim();
+
+    const { data: authData, error: authError } = token
+      ? await supabase.auth.getUser(token)
+      : { data: null, error: new Error("Missing bearer token") };
+
+    const callerEmail = authData?.user?.email;
+
+    if (authError || !callerEmail) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
     const { data: requester } = await supabase.schema(schema)
       .from("users")
       .select("role")
-      .eq("email", requestedBy)
+      .eq("email", callerEmail)
       .maybeSingle();
 
     if (requester?.role !== "admin") {

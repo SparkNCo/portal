@@ -26,6 +26,7 @@ import {
   Mail,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { supabase } from "@/lib/supabase-client";
 
 type User = {
   id: string;
@@ -201,15 +202,19 @@ export default function AdminUsersPage() {
     variables: resendingUser,
   } = useMutation({
     mutationFn: async (user: User) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=resend-account-email`,
         {
           method: "POST",
-          headers: apiHeaders,
-          body: JSON.stringify({
-            id: user.id,
-            requestedBy: profile?.email,
-          }),
+          headers: {
+            ...apiHeaders,
+            Authorization: `Bearer ${session?.access_token ?? ""}`,
+          },
+          body: JSON.stringify({ id: user.id }),
         },
       );
       if (!res.ok) {
