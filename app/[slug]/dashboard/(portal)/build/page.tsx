@@ -105,7 +105,7 @@ export default function BuildPage() {
               filterState={noopFilterState}
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Product Decisions"
+              title="Business Reviews"
               compact
             />
           </div>
