@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { PROJECTS_QUERY } from "./query.ts";
+import { PROJECTS_QUERY, MILESTONE_ISSUES_QUERY } from "./query.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
   console.log("[roadmap] getCustomerBySlug: querying customers", { schema, clientName: slug });
@@ -73,6 +73,31 @@ async function fetchFromLinear(initiativeId: string) {
   return data.data;
 }
 
+async function fetchMoreMilestoneIssues(milestoneId: string, after: string | null) {
+  console.log("[roadmap] fetchMoreMilestoneIssues: requesting milestone", { milestoneId, after });
+
+  const res = await fetch(LINEAR_GRAPHQL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: Deno.env.get("LINEAR_API_KEY")!,
+    },
+    body: JSON.stringify({
+      query: MILESTONE_ISSUES_QUERY,
+      variables: { milestoneId, after },
+    }),
+  });
+
+  const data = await res.json();
+
+  if (data.errors) {
+    console.error("[roadmap] fetchMoreMilestoneIssues: Linear GraphQL errors", JSON.stringify(data.errors));
+    throw new Error(`Linear API error: ${data.errors[0]?.message ?? "unknown"}`);
+  }
+
+  return data.data?.projectMilestone?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -84,6 +109,18 @@ Deno.serve(async (req) => {
   try {
     const schema = "portal";
     const { searchParams } = new URL(req.url);
+
+    const milestoneId = searchParams.get("milestoneId");
+    if (milestoneId) {
+      const after = searchParams.get("after");
+      const issues = await fetchMoreMilestoneIssues(milestoneId, after);
+      return new Response(JSON.stringify(issues), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      });
+    }
 
     const rawSlug = searchParams.get("slug");
     const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
