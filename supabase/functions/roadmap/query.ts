@@ -21,7 +21,7 @@ query Projects($initiativeId: String!) {
           nodes {
             id
             description
-            issues(first: 10) {
+            issues(first: 25) {
               nodes {
                 cycle {
                   endsAt

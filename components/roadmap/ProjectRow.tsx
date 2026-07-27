@@ -42,6 +42,37 @@ function sortByTargetDate(milestones: Milestone[]): Milestone[] {
   });
 }
 
+// A project with zero milestones is treated as having a single, nameless
+// one — so it still renders a row/bar instead of an empty state.
+function withPlaceholder(
+  milestones: Milestone[],
+  projectName: string,
+  projectStartDate?: string | null,
+): Milestone[] {
+  if (milestones.length > 0) return milestones;
+
+  return [
+    {
+      id: `placeholder-${projectName}`,
+      createdAt: projectStartDate ?? new Date().toISOString(),
+      currentProgress: {
+        scopeCount: 0,
+        scopeEstimate: 0,
+        unstartedEstimate: 0,
+        unstartedIssueCount: 0,
+      },
+      description: null,
+      issues: { nodes: [] },
+      name: "",
+      progress: 0,
+      progressHistory: [],
+      projectName,
+      status: "unstarted",
+      targetDate: projectStartDate ?? new Date().toISOString(),
+    },
+  ];
+}
+
 function chainMilestones(
   milestones: Milestone[],
   projectStartDate?: string | null,
@@ -91,7 +122,10 @@ export function ProjectRow({
   onMilestoneSelect,
   selectedMilestoneId,
 }: ProjectRowProps) {
-  const chainedMilestones = chainMilestones(milestones, projectStartDate);
+  const chainedMilestones = chainMilestones(
+    withPlaceholder(milestones, projectName, projectStartDate),
+    projectStartDate,
+  );
   const projectRange = getProjectRange(chainedMilestones);
 
   return (

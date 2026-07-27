@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronsRight, RotateCcw, MessageSquare, X, Maximize2, Minimize2, GripVertical, Pencil, Paperclip } from "lucide-react";
+import { Check, RotateCcw, MessageSquare, X, Maximize2, Minimize2, GripVertical, Pencil, Paperclip } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -33,19 +33,10 @@ import {
   type Issue,
   priorityColors,
   statusColors,
-  STATUS_ORDER,
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-
-
-function getNextState(current: string | undefined): string | undefined {
-  if (!current) return undefined;
-  const idx = STATUS_ORDER.indexOf(current);
-  if (idx === -1 || idx === STATUS_ORDER.length - 1) return undefined;
-  return STATUS_ORDER[idx + 1];
-}
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -105,20 +96,18 @@ function TabButton({
 function DescriptionTab({
   issue,
   canAnswer,
-  canAdvanceState,
+  reviewComplete,
   canReopenFromDone,
   currentStateName,
   advancing,
-  nextState,
   onAdvanceState,
 }: {
   issue: Issue;
   canAnswer: boolean;
-  canAdvanceState: boolean;
+  reviewComplete: boolean;
   canReopenFromDone: boolean;
   currentStateName: string | undefined;
   advancing: boolean;
-  nextState: string | undefined;
   onAdvanceState: (targetState: string) => void;
 }) {
   return (
@@ -142,29 +131,40 @@ function DescriptionTab({
         <p className="text-xs text-muted-foreground italic">No description yet.</p>
       )}
 
-      {canAnswer && currentStateName === "Business Review" && nextState && (
+      {canAnswer && currentStateName === "Business Review" && reviewComplete && (
         <Button
           size="sm"
           className="w-full bg-green-600 hover:bg-green-700 text-white"
           disabled={advancing}
-          onClick={() => onAdvanceState(nextState)}
+          onClick={() => onAdvanceState("Development")}
         >
           <Check className="h-3.5 w-3.5 mr-1.5" />
-          {advancing ? "Approving…" : "Approve user stories & acceptance criteria"}
+          {advancing ? "Updating…" : "Complete Review"}
         </Button>
       )}
 
-      {canAdvanceState && nextState && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full"
-          disabled={advancing}
-          onClick={() => onAdvanceState(nextState)}
-        >
-          <ChevronsRight className="h-3 w-3 mr-1" />
-          {advancing ? "Updating…" : `Move to ${nextState}`}
-        </Button>
+      {canAnswer && currentStateName === "UAT" && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            disabled={advancing}
+            onClick={() => onAdvanceState("Done")}
+          >
+            <Check className="h-3.5 w-3.5 mr-1.5" />
+            {advancing ? "Updating…" : "Approved"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            disabled={advancing}
+            onClick={() => onAdvanceState("QA")}
+          >
+            <RotateCcw className="h-3 w-3 mr-1.5" />
+            {advancing ? "Updating…" : "Fixes Required"}
+          </Button>
+        </div>
       )}
 
       {canReopenFromDone && currentStateName === "Done" && (
@@ -1130,7 +1130,6 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
-  const canAdvanceState = role === "admin";
   const canReopenFromDone = role === "stakeholder";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
@@ -1149,7 +1148,12 @@ export function IssueDetailModal({
     "description" | "chat" | "decisions" | "tests" | "design"
   >("description");
 
-  const nextState = getNextState(currentStateName);
+  // "Business Review" is complete once every question raised has an answer
+  // (or none were raised at all) — that's what unlocks "Complete Review".
+  const reviewComplete = !loadingDecisions && decisions.every((d) => d.decision != null);
+
+  // Bug tickets don't go through design — the Design tab isn't relevant for them.
+  const isBugIssue = issue.labels?.nodes?.some((l) => l.name?.toLowerCase() === "bug") ?? false;
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -1230,8 +1234,19 @@ export function IssueDetailModal({
         body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
       });
       const data = await res.json();
-      if (data.success)
+      if (data.success) {
         setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
+        // Refetch every issue list this ticket could appear in — otherwise
+        // closing and reopening the modal re-mounts it with the stale
+        // `issue` prop from the cached list, showing the old state again
+        // and letting the same transition be triggered a second time.
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            ["linear-issues", "linear-issues-developer", "roadmap"].includes(
+              query.queryKey[0] as string,
+            ),
+        });
+      }
     } finally {
       setAdvancing(false);
     }
@@ -1314,18 +1329,24 @@ export function IssueDetailModal({
           <TabButton label="Chat" tab="chat" activeTab={activeTab} onClick={() => setActiveTab("chat")} className="mr-5" />
           <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} className="mr-5" />
           <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="mr-5" />
-          <TabButton label="Design" tab="design" activeTab={activeTab} onClick={() => setActiveTab("design")} />
+          {!isBugIssue && (
+            <TabButton
+              label="Design"
+              tab="design"
+              activeTab={activeTab}
+              onClick={() => setActiveTab("design")}
+            />
+          )}
         </div>
 
         {activeTab === "description" && (
           <DescriptionTab
             issue={issue}
             canAnswer={canAnswer}
-            canAdvanceState={canAdvanceState}
+            reviewComplete={reviewComplete}
             canReopenFromDone={canReopenFromDone}
             currentStateName={currentStateName}
             advancing={advancing}
-            nextState={nextState}
             onAdvanceState={handleAdvanceState}
           />
         )}
@@ -1363,7 +1384,7 @@ export function IssueDetailModal({
           />
         )}
 
-        {activeTab === "design" && <DesignTab issue={issue} />}
+        {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
       </div>
     </div>
   );

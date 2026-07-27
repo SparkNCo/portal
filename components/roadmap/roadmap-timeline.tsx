@@ -60,6 +60,7 @@ function toIssue(issue: any): Issue {
     priorityLabel: issue.priorityLabel ?? "Low",
     state: issue.state,
     description: issue.description ?? null,
+    labels: issue.labels,
   };
 }
 
@@ -102,7 +103,7 @@ export function RoadmapTimeline({
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
-  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [selectedMilestoneKey, setSelectedMilestoneKey] = useState<string | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [showRawData, setShowRawData] = useState(false);
@@ -148,14 +149,20 @@ export function RoadmapTimeline({
   }, [groupedMilestones, projectStartDates]);
 
   function handleMilestoneSelect(m: Milestone) {
-    setSelectedMilestone((prev) =>
-      prev?.name === m.name && prev?.projectName === m.projectName ? null : m,
-    );
+    const key = m.name + m.projectName;
+    setSelectedMilestoneKey((prev) => (prev === key ? null : key));
   }
 
-  const selectedKey = selectedMilestone
-    ? selectedMilestone.name + selectedMilestone.projectName
-    : undefined;
+  const selectedKey = selectedMilestoneKey ?? undefined;
+
+  // Derived from the live `projectMilestones` prop (not stored as its own
+  // snapshot) so that when the underlying query refetches after an issue's
+  // state changes, the open milestone panel picks up the fresh data instead
+  // of continuing to show whatever was captured at click time.
+  const selectedMilestone = useMemo(
+    () => projectMilestones.find((m) => m.name + m.projectName === selectedMilestoneKey) ?? null,
+    [projectMilestones, selectedMilestoneKey],
+  );
 
   // Filters and pagination are scoped to whichever milestone is open —
   // switching milestones shouldn't carry over a stale filter or the extra
@@ -271,7 +278,7 @@ export function RoadmapTimeline({
                 </p>
               </div>
               <button
-                onClick={() => setSelectedMilestone(null)}
+                onClick={() => setSelectedMilestoneKey(null)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-4 w-4" />
