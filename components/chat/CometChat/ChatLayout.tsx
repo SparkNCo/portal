@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
@@ -19,8 +20,9 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const customerSlug = useCustomerSlug();
   const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup } =
-    useCometChat();
+    useCometChat(customerSlug);
 
   const clearNewChatParam = () => router.replace(pathname);
 
@@ -37,7 +39,11 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
     }
   }, [ready]);
 
-  const projectSlug = pathname.split("/")[1] ?? undefined;
+  // When an admin/developer is viewing a specific customer's chat panel,
+  // tag new groups with that customer's slug rather than the route's own
+  // `[slug]` segment — which for that flow is the viewer's own slug, not
+  // the customer's (see dashboards/page.tsx's ?customer= flow).
+  const projectSlug = customerSlug ?? pathname.split("/")[1] ?? undefined;
 
   const handleCreate = async (title: string) => {
     setCreating(true);
