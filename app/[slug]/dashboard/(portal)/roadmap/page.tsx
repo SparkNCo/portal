@@ -118,7 +118,6 @@ export default function RoadmapPage() {
             projectMilestones={allMilestones}
             allProjectNames={allProjectNames}
             projectStartDates={projectStartDates}
-            rawData={roadmap}
             slug={slug}
           />
         </div>

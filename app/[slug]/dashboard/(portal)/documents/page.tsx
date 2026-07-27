@@ -104,7 +104,7 @@ export default function DocumentsPage() {
           </div>
           {canUpload && (
             <div>
-              <UploadDocument />
+              <UploadDocument projectSlug={projectSlug} />
             </div>
           )}
         </div>

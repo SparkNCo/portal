@@ -2,14 +2,13 @@
 
 import type React from "react";
 import { useState, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
-import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { API_HEADERS } from "@/lib/api-headers";
 
@@ -21,6 +20,7 @@ interface UploadedFile {
 
 function useUploadFile() {
   const { user, profile, loading } = useUser();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -55,6 +55,9 @@ function useUploadFile() {
 
       return res.json();
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
   });
 }
 
@@ -62,12 +65,11 @@ function useUploadFile() {
    Component
 --------------------------------*/
 
-export function UploadDocument() {
+export function UploadDocument({ projectSlug }: { readonly projectSlug?: string }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
-  const { slug } = useParams<{ slug: string }>();
   const uploadMutation = useUploadFile();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -108,7 +110,7 @@ export function UploadDocument() {
           file,
           userId: user!.id,
           email: user!.email!,
-          projectSlug: slug ?? "",
+          projectSlug: projectSlug ?? "",
         },
         {
           onSuccess: () => {
