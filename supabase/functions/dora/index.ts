@@ -20,16 +20,43 @@ const handlers: Record<string, (repo: string, token: string, limit: number) => P
   pollEvents: async (repo, token) => ({ recorded: await pollBranchCreationEvents(repo, token, "portal") }),
 };
 
-async function handleAll(repo: string, token: string, limit: number, schema = "portal") {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  console.log("🚀 handleAll started", { repo, limit, since: since.toISOString() });
+// Never look back less than this, even when resuming from a stored
+// last_called. A fixed "last 24h" cutoff silently and permanently drops any
+// qualifying merge that doesn't happen to land within 24h of a cron run — if
+// the cron missed a day, or last_called got advanced without actually
+// capturing everything up to that point (e.g. a row that was reset/recreated
+// from scratch), that merge is gone for good, since the next run only ever
+// looks at "last 24h from now" / "since last_called", never further back.
+// Clamping to a minimum window makes this self-healing instead of
+// permanently trusting a possibly-stale/corrupted checkpoint.
+const MIN_LOOKBACK_DAYS = 90;
+
+async function getSinceForCustomer(linearSlug: string, schema: string): Promise<Date> {
+  const { data, error } = await supabase.schema(schema)
+    .from("dora_metrics")
+    .select("last_called")
+    .eq("linear_slug", linearSlug)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`⚠️ getSinceForCustomer: lookup failed for ${linearSlug}, falling back to ${MIN_LOOKBACK_DAYS}d window`, error.message);
+  }
+
+  const minLookback = new Date(Date.now() - MIN_LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
+  const lastCalled = data?.last_called ? new Date(data.last_called) : null;
+
+  return lastCalled && lastCalled < minLookback ? lastCalled : minLookback;
+}
+
+async function handleAll(repo: string, token: string, limit: number, since: Date, schema = "portal") {
+  console.log(`🚀 [${repo}] handleAll started`, { limit, since: since.toISOString() });
 
   // Best-effort: catches branch creations via GitHub's events feed when no
   // webhook is registered. Never blocks the run — leadTime/mttr fall back to
   // a first-commit-date approximation for anything this doesn't catch.
   await pollBranchCreationEvents(repo, token, schema)
-    .then((n) => console.log(`✅ pollBranchCreationEvents done (${n} recorded)`))
-    .catch((e) => console.error("⚠️ pollBranchCreationEvents failed (non-fatal)", e.message));
+    .then((n) => console.log(`✅ [${repo}] pollBranchCreationEvents done (${n} recorded)`))
+    .catch((e) => console.error(`⚠️ [${repo}] pollBranchCreationEvents failed (non-fatal)`, e.message));
 
   // mttr reads the closed_date that leadTime writes for feat branches
   // (getLastFeatClosedBefore in db.ts), so leadTime must finish — and its
@@ -37,16 +64,16 @@ async function handleAll(repo: string, token: string, limit: number, schema = "p
   // let mttr read a feat's closed_date before leadTime had written it,
   // silently dropping that MTTR sample.
   const [cfr, leadTime, deployFreq] = await Promise.all([
-    handleCFR(repo, token, limit).then(r => { console.log("✅ CFR done"); return r; }).catch(e => { console.error("❌ CFR failed", String(e)); throw e; }),
-    handleLeadTime(repo, token, limit, since).then(r => { console.log("✅ Lead Time done"); return r; }).catch(e => { console.error("❌ Lead Time failed", String(e)); throw e; }),
-    handleDeployFreq(repo, token, limit, since).then(r => { console.log("✅ Deploy Freq done"); return r; }).catch(e => { console.error("❌ Deploy Freq failed", String(e)); throw e; }),
+    handleCFR(repo, token, limit).then(r => { console.log(`✅ [${repo}] CFR done:`, JSON.stringify(r)); return r; }).catch(e => { console.error(`❌ [${repo}] CFR failed`, String(e)); throw e; }),
+    handleLeadTime(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Lead Time done: sample_size=${r.sample_size} avg_lead_hours=${r.avg_lead_hours}`); return r; }).catch(e => { console.error(`❌ [${repo}] Lead Time failed`, String(e)); throw e; }),
+    handleDeployFreq(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Deploy Freq done: total=${r.total_deployments} last_30d=${r.deployments_last_30_days} last_90d=${r.deployments_last_90_days}`); return r; }).catch(e => { console.error(`❌ [${repo}] Deploy Freq failed`, String(e)); throw e; }),
   ]);
 
   const mttr = await handleIssueResolutionTime(repo, token, limit, since)
-    .then(r => { console.log("✅ MTTR done"); return r; })
-    .catch(e => { console.error("❌ MTTR failed", String(e)); throw e; });
+    .then(r => { console.log(`✅ [${repo}] MTTR done: sample_size=${r.sample_size} average_resolution_hours=${r.average_resolution_hours}`); return r; })
+    .catch(e => { console.error(`❌ [${repo}] MTTR failed`, String(e)); throw e; });
 
-  console.log("✅ All metrics computed successfully");
+  console.log(`✅ [${repo}] All metrics computed successfully`);
   return {
     repo,
     details: { cfr, leadTime, mttr, deployFreq },
@@ -73,8 +100,9 @@ async function handleAllCustomers(token: string, limit: number, schema: string) 
   await runWithConcurrency(eligible, CUSTOMER_CONCURRENCY, async (customer) => {
     try {
       const repo = parseRepo(customer.project_url as unknown as string);
-      console.log(`➡️ [dora] handleAllCustomers processing slug=${customer.linear_slug} repo=${repo}`);
-      const result = await handleAll(repo, token, limit, schema);
+      const since = await getSinceForCustomer(customer.linear_slug, schema);
+      console.log(`➡️ [dora] handleAllCustomers processing slug=${customer.linear_slug} repo=${repo} since=${since.toISOString()}`);
+      const result = await handleAll(repo, token, limit, since, schema);
       await saveDoraMetrics(customer.linear_slug, customer.project_url as unknown as string, result, schema);
       succeeded++;
     } catch (error) {
@@ -156,32 +184,36 @@ async function saveDoraMetrics(
   result: Awaited<ReturnType<typeof handleAll>>,
   schema: string,
 ) {
-  console.log("🔍 Fetching existing dorametrics row for slug:", linearSlug);
+  console.log(`🔍 [${linearSlug}] Fetching existing dora_metrics row`);
   const { data: existing, error: fetchError } = await supabase.schema(schema)
     .from("dora_metrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
     .eq("linear_slug", linearSlug)
     .maybeSingle();
 
-  if (fetchError) console.error("❌ Fetch existing error:", fetchError.message);
-  console.log("📦 Existing row found:", !!existing);
+  if (fetchError) console.error(`❌ [${linearSlug}] Fetch existing error:`, fetchError.message);
+  console.log(`📦 [${linearSlug}] Existing row found:`, !!existing, existing ? `(last_called=${existing.last_called})` : "");
 
   const merged = mergeDoraMetrics(existing, result);
-  console.log("🔀 Merged metrics computed");
+  console.log(`🔀 [${linearSlug}] Merged metrics computed`);
+  console.log(`📊 [${linearSlug}] averages:`, JSON.stringify(merged.averages, null, 2));
+  console.log(`📊 [${linearSlug}] sample sizes: lead_time=${merged.lead_time_details.sample_size} mttr=${merged.mttr_details.sample_size} deployments=${merged.deploy_freq_details.total_deployments} cfr(total_non_fix)=${merged.cfr_details.total_non_fix_deployments}`);
 
   const payload = { ...merged, url, last_called: new Date().toISOString() };
 
   let error;
   if (existing) {
+    console.log(`📝 [${linearSlug}] Updating existing dora_metrics row`);
     ({ error } = await supabase.schema(schema).from("dora_metrics").update(payload).eq("linear_slug", linearSlug));
   } else {
+    console.log(`🆕 [${linearSlug}] No existing row — inserting a new one`);
     const { data: customers, error: customerError } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id")
       .eq("linear_slug", linearSlug)
       .limit(1);
 
-    if (customerError) console.error("❌ Customer lookup error:", customerError.message);
+    if (customerError) console.error(`❌ [${linearSlug}] Customer lookup error:`, customerError.message);
     const customer = customers?.[0];
     if (!customer?.customer_id) throw new Error(`No customer found for linear_slug: ${linearSlug}`);
 
@@ -194,7 +226,7 @@ async function saveDoraMetrics(
       .eq("role", "customer")
       .order("created_at", { ascending: true });
 
-    if (userError) console.error("❌ Customer user lookup error:", userError.message);
+    if (userError) console.error(`❌ [${linearSlug}] Customer user lookup error:`, userError.message);
     const customerUserId = customerUsers?.[0]?.id;
     if (!customerUserId) throw new Error(`No customer user found for linear_slug: ${linearSlug}`);
 
@@ -204,10 +236,10 @@ async function saveDoraMetrics(
   }
 
   if (error) {
-    console.error("❌ Supabase write error:", error.message, error.details);
+    console.error(`❌ [${linearSlug}] Supabase write error:`, error.message, error.details);
     throw new Error(`Failed to save dora metrics: ${error.message}`);
   }
-  console.log("✅ Supabase write successful");
+  console.log(`✅ [${linearSlug}] Supabase write successful`);
 }
 
 Deno.serve(async (req) => {
@@ -263,7 +295,8 @@ Deno.serve(async (req) => {
     const repo = parseRepo(repoUrl);
 
     if (method === "all") {
-      const result = await handleAll(repo, token, limit, schema);
+      const since = await getSinceForCustomer(linear_slug, schema);
+      const result = await handleAll(repo, token, limit, since, schema);
       console.log("💾 Saving to dorametrics...");
       await saveDoraMetrics(linear_slug, repoUrl, result, schema);
       console.log("✅ Saved to dorametrics");
