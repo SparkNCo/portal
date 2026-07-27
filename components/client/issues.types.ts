@@ -36,6 +36,28 @@ export const STATUS_ORDER = [
   "Done",
 ];
 
+// Raw color values (not Tailwind classes) for charts that need an actual
+// `fill`/`stroke` value — shared so "Project Stats" and "Issues by Status"
+// never disagree on which color a given status is. Keyed by name (not
+// index/position) so a status is always the same color everywhere,
+// regardless of what else is present in a given chart's data.
+export const CHART_STATUS_COLORS: Record<string, string> = {
+  Completed: "hsl(var(--success))",
+  Done: "hsl(var(--success))",
+  "In Progress": "hsl(var(--warning))",
+  "In Review": "hsl(var(--warning))",
+  Blocked: "hsl(var(--destructive))",
+  "Not Started": "hsl(var(--muted))",
+  Todo: "hsl(var(--muted))",
+  Canceled: "hsl(var(--muted))",
+  Backlog: "hsl(0, 0%, 30%)",
+  Planning: "hsl(50, 90%, 35%)",
+  "Business Review": "hsl(320, 65%, 40%)",
+  Development: "hsl(265, 60%, 45%)",
+  QA: "hsl(210, 70%, 35%)",
+  UAT: "hsl(180, 60%, 30%)",
+};
+
 export type Decision = {
   id: string;
   issue_id: string;

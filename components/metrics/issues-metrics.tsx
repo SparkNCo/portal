@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart2, ChevronDown } from "lucide-react";
+import { CHART_STATUS_COLORS, STATUS_ORDER } from "@/components/client/issues.types";
 
 interface IssueMetric {
   id: string;
@@ -32,25 +33,6 @@ interface CycleMetric {
   name: string;
   issues_averages: Record<string, number | string>[];
 }
-
-const STATUS_ORDER = [
-  "Backlog",
-  "Planning",
-  "Business Review",
-  "Development",
-  "QA",
-  "UAT",
-  "Done",
-];
-
-const LINE_COLORS = [
-  "oklch(0.65 0.2 250)",
-  "oklch(0.7 0.18 140)",
-  "oklch(0.7 0.2 30)",
-  "oklch(0.65 0.2 0)",
-  "oklch(0.65 0.15 300)",
-  "oklch(0.7 0.15 200)",
-];
 
 export function IssueMetricsView({
   data,
@@ -102,18 +84,11 @@ export function IssueMetricsView({
     );
   }, [spanAllCycles, cycles, dateFrom, dateTo]);
 
-  const uniqueStatuses = useMemo(() => {
-    const raw = spanAllCycles
-      ? (mergedAcrossCycles ?? [])
-      : (activeCycle?.issues_averages ?? []);
-    const statuses = Array.from(
-      new Set(raw.flatMap((d) => Object.keys(d).filter((k) => k !== "date"))),
-    );
-    return statuses.sort(
-      (a, b) =>
-        (STATUS_ORDER.indexOf(a) ?? 99) - (STATUS_ORDER.indexOf(b) ?? 99),
-    );
-  }, [spanAllCycles, mergedAcrossCycles, activeCycle]);
+  // Fixed set and order (not derived from whatever happens to be in the
+  // current data) so a status is always in the same stacking position and
+  // gets the same color across every cycle/date range — matches "Project
+  // Stats"' CHART_STATUS_COLORS lookup by name below.
+  const uniqueStatuses = STATUS_ORDER;
 
   const chartData = useMemo(() => {
     if (spanAllCycles) {
@@ -193,14 +168,14 @@ export function IssueMetricsView({
                     }}
                     labelStyle={{ color: "oklch(0.95 0 0)" }}
                   />
-                  {uniqueStatuses.map((status, i) => (
+                  {uniqueStatuses.map((status) => (
                     <Area
                       key={status}
                       type="monotone"
                       dataKey={status}
                       stackId="a"
-                      stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                      fill={LINE_COLORS[i % LINE_COLORS.length]}
+                      stroke={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
+                      fill={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
                       fillOpacity={0.4}
                       strokeWidth={2}
                     />
@@ -220,8 +195,8 @@ export function IssueMetricsView({
               </button>
               {legendOpen && (
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {uniqueStatuses.map((status, i) => {
-                    const color = LINE_COLORS[i % LINE_COLORS.length];
+                  {uniqueStatuses.map((status) => {
+                    const color = CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))";
                     return (
                       <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: 2, background: color, opacity: 0.8 }} />
