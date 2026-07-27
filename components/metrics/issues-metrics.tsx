@@ -34,6 +34,58 @@ interface CycleMetric {
   issues_averages: Record<string, number | string>[];
 }
 
+// Recharts orders a stacked chart's tooltip payload by draw order (last
+// area on top first), not by STATUS_ORDER — sort it explicitly so the
+// popover always lists statuses in the same fixed order as the chart/legend.
+function StatusTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { dataKey?: string; value?: number; color?: string }[];
+  label?: string;
+}) {
+  if (!active || !payload || !payload.length) return null;
+
+  const sorted = [...payload].sort(
+    (a, b) => STATUS_ORDER.indexOf(b.dataKey ?? "") - STATUS_ORDER.indexOf(a.dataKey ?? ""),
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: "oklch(0.13 0 0)",
+        border: "1px solid oklch(0.22 0 0)",
+        borderRadius: "6px",
+        fontSize: "12px",
+        padding: "8px 12px",
+      }}
+    >
+      <p style={{ color: "oklch(0.95 0 0)", marginBottom: 4, fontWeight: 500 }}>{label}</p>
+      {sorted.map((entry) => (
+        <div
+          key={entry.dataKey}
+          style={{ display: "flex", alignItems: "center", gap: 6, color: "oklch(0.85 0 0)" }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: entry.color,
+            }}
+          />
+          <span>
+            {entry.dataKey}: {entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function IssueMetricsView({
   data,
   cycleMetrics = [],
@@ -159,15 +211,7 @@ export function IssueMetricsView({
                     width={30}
                     allowDecimals={false}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "oklch(0.13 0 0)",
-                      border: "1px solid oklch(0.22 0 0)",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    labelStyle={{ color: "oklch(0.95 0 0)" }}
-                  />
+                  <Tooltip content={<StatusTooltip />} />
                   {uniqueStatuses.map((status) => (
                     <Area
                       key={status}
