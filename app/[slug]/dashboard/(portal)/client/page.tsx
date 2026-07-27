@@ -12,6 +12,7 @@ import { API_HEADERS } from "@/lib/api-headers";
 import { Button } from "@/components/components/ui/button";
 import {
   usePinnedPanels,
+  usePinnedPanelsOwnerId,
   useReorderPinnedPanels,
   useAddPanels,
   useTogglePanelWidth,
@@ -87,11 +88,12 @@ export default function ClientDashboard() {
 
   const allIssues: any[] = issuesData ?? [];
 
-  const { data: pinnedPanels } = usePinnedPanels(profile?.id);
-  const reorderPinnedPanels = useReorderPinnedPanels(profile?.id);
-  const addPanels = useAddPanels(profile?.id);
-  const togglePanelWidth = useTogglePanelWidth(profile?.id);
-  const unpinPanel = useUnpinPanel(profile?.id);
+  const pinnedPanelsUserId = usePinnedPanelsOwnerId();
+  const { data: pinnedPanels } = usePinnedPanels(pinnedPanelsUserId);
+  const reorderPinnedPanels = useReorderPinnedPanels(pinnedPanelsUserId);
+  const addPanels = useAddPanels(pinnedPanelsUserId);
+  const togglePanelWidth = useTogglePanelWidth(pinnedPanelsUserId);
+  const unpinPanel = useUnpinPanel(pinnedPanelsUserId);
   const dndSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },

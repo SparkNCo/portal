@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart2, ChevronDown } from "lucide-react";
+import { CHART_STATUS_COLORS, STATUS_ORDER } from "@/components/client/issues.types";
 
 interface IssueMetric {
   id: string;
@@ -33,24 +34,57 @@ interface CycleMetric {
   issues_averages: Record<string, number | string>[];
 }
 
-const STATUS_ORDER = [
-  "Backlog",
-  "Planning",
-  "Business Review",
-  "Development",
-  "QA",
-  "UAT",
-  "Done",
-];
+// Recharts orders a stacked chart's tooltip payload by draw order (last
+// area on top first), not by STATUS_ORDER — sort it explicitly so the
+// popover always lists statuses in the same fixed order as the chart/legend.
+function StatusTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { dataKey?: string; value?: number; color?: string }[];
+  label?: string;
+}) {
+  if (!active || !payload || !payload.length) return null;
 
-const LINE_COLORS = [
-  "oklch(0.65 0.2 250)",
-  "oklch(0.7 0.18 140)",
-  "oklch(0.7 0.2 30)",
-  "oklch(0.65 0.2 0)",
-  "oklch(0.65 0.15 300)",
-  "oklch(0.7 0.15 200)",
-];
+  const sorted = [...payload].sort(
+    (a, b) => STATUS_ORDER.indexOf(b.dataKey ?? "") - STATUS_ORDER.indexOf(a.dataKey ?? ""),
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: "oklch(0.13 0 0)",
+        border: "1px solid oklch(0.22 0 0)",
+        borderRadius: "6px",
+        fontSize: "12px",
+        padding: "8px 12px",
+      }}
+    >
+      <p style={{ color: "oklch(0.95 0 0)", marginBottom: 4, fontWeight: 500 }}>{label}</p>
+      {sorted.map((entry) => (
+        <div
+          key={entry.dataKey}
+          style={{ display: "flex", alignItems: "center", gap: 6, color: "oklch(0.85 0 0)" }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: entry.color,
+            }}
+          />
+          <span>
+            {entry.dataKey}: {entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function IssueMetricsView({
   data,
@@ -102,18 +136,11 @@ export function IssueMetricsView({
     );
   }, [spanAllCycles, cycles, dateFrom, dateTo]);
 
-  const uniqueStatuses = useMemo(() => {
-    const raw = spanAllCycles
-      ? (mergedAcrossCycles ?? [])
-      : (activeCycle?.issues_averages ?? []);
-    const statuses = Array.from(
-      new Set(raw.flatMap((d) => Object.keys(d).filter((k) => k !== "date"))),
-    );
-    return statuses.sort(
-      (a, b) =>
-        (STATUS_ORDER.indexOf(a) ?? 99) - (STATUS_ORDER.indexOf(b) ?? 99),
-    );
-  }, [spanAllCycles, mergedAcrossCycles, activeCycle]);
+  // Fixed set and order (not derived from whatever happens to be in the
+  // current data) so a status is always in the same stacking position and
+  // gets the same color across every cycle/date range — matches "Project
+  // Stats"' CHART_STATUS_COLORS lookup by name below.
+  const uniqueStatuses = STATUS_ORDER;
 
   const chartData = useMemo(() => {
     if (spanAllCycles) {
@@ -184,23 +211,15 @@ export function IssueMetricsView({
                     width={30}
                     allowDecimals={false}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "oklch(0.13 0 0)",
-                      border: "1px solid oklch(0.22 0 0)",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                    }}
-                    labelStyle={{ color: "oklch(0.95 0 0)" }}
-                  />
-                  {uniqueStatuses.map((status, i) => (
+                  <Tooltip content={<StatusTooltip />} />
+                  {uniqueStatuses.map((status) => (
                     <Area
                       key={status}
                       type="monotone"
                       dataKey={status}
                       stackId="a"
-                      stroke={LINE_COLORS[i % LINE_COLORS.length]}
-                      fill={LINE_COLORS[i % LINE_COLORS.length]}
+                      stroke={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
+                      fill={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
                       fillOpacity={0.4}
                       strokeWidth={2}
                     />
@@ -220,8 +239,8 @@ export function IssueMetricsView({
               </button>
               {legendOpen && (
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
-                  {uniqueStatuses.map((status, i) => {
-                    const color = LINE_COLORS[i % LINE_COLORS.length];
+                  {uniqueStatuses.map((status) => {
+                    const color = CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))";
                     return (
                       <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: 2, background: color, opacity: 0.8 }} />

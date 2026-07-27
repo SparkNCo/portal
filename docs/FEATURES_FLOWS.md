@@ -8,9 +8,9 @@ Reference for how the main customer-developer collaboration flows work end to en
 
 | Role | What they can do |
 |---|---|
-| `customer` | Approve tests, submit decisions, record UAT results, approve Business Review, **create Linear projects** |
-| `stakeholder` | Approve tests, submit decisions, record UAT results, approve Business Review |
-| `developer` / `admin` | Create issues, ask questions, advance issue state, create test cases |
+| `customer` | Approve tests, submit decisions, record UAT results, complete Business Review, record UAT outcome (Approved/Fixes Required), **create Linear projects** |
+| `stakeholder` | Same as `customer`, plus reopening a `Done` issue back to `Development` |
+| `developer` / `admin` | Create issues, ask questions, create test cases |
 
 These permissions are derived from `profile.role` (UserContext) and evaluated as `canAnswer` (customer/stakeholder) and `canAsk` (developer/admin) inside `IssueDetailModal`.
 
@@ -77,11 +77,13 @@ Issues move through these states in order:
 Backlog → Planning → Business Review → Development → QA → UAT → Done
 ```
 
-Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
+Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control; Developer/Admin cannot change state from the Issue Detail Modal at all. State only changes at these specific points, gated to `canAnswer` (customer/stakeholder):
 
-- **Developer / Admin** sees a "Move to `<next state>`" button on the Description tab and can advance the issue forward.
-- **Customer / Stakeholder** sees an **"Approve user stories & acceptance criteria"** button specifically when the issue is in **Business Review**, which also advances it to the next state.
-- State is updated via `PATCH /issues` with `{ issueId, stateName }`.
+- **Business Review → Development**: a **"Complete Review"** button appears once every question in the Decisions tab has an answer (or none were asked yet — `reviewComplete`).
+- **UAT → Done / QA**: two buttons appear while the issue is in UAT — **"Approved"** (→ `Done`) and **"Fixes Required"** (→ back to `QA`).
+- **Done → Development**: Stakeholders only can reopen a completed issue via "Move back to Development" (`canReopenFromDone`).
+
+All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 
 ---
 

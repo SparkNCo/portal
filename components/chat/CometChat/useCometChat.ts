@@ -5,7 +5,11 @@ import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { initCometChatUser } from "./initCometChatUser";
 
-export function useCometChat() {
+// `customerSlug` scopes the group list to a single customer's support
+// chats — used when an admin/developer opens a specific customer's chat
+// panel via the Dashboards flow (see ChatLayout). Left undefined, this
+// fetches the caller's normal (unscoped) inbox, same as before.
+export function useCometChat(customerSlug?: string | null) {
   const { profile, loading: profileLoading } = useUser();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CometChat.User | null>(null);
@@ -18,6 +22,13 @@ export function useCometChat() {
       require("@cometchat/chat-sdk-javascript").CometChat;
     init();
   }, [profileLoading]);
+
+  // Re-filter (without re-running the full CometChat login) when the admin
+  // switches which customer's chat panel they're looking at.
+  useEffect(() => {
+    if (!ready) return;
+    fetchGroups().then(setGroups);
+  }, [customerSlug, ready]);
 
   const init = async () => {
     try {
@@ -35,7 +46,11 @@ export function useCometChat() {
     const isAdmin = profile?.role === "admin";
     const builder = new CometChat.GroupsRequestBuilder().setLimit(50);
     if (!isAdmin) builder.joinedOnly(true);
-    return builder.build().fetchNext();
+    const groups = await builder.build().fetchNext();
+    if (!customerSlug) return groups;
+    return groups.filter(
+      (g) => (g.getMetadata() as { projectSlug?: string } | undefined)?.projectSlug === customerSlug,
+    );
   };
 
   const refreshGroups = async () => {

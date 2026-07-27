@@ -18,6 +18,7 @@ import BugsPage from "../bugs/page";
 import DeveloperPage from "../developer/page";
 import DocumentsPage from "../documents/page";
 import SettingsPage from "../settings/page";
+import ChatPage from "../chat/page";
 
 type CustomerSummary = {
   clientName: string;
@@ -50,6 +51,8 @@ function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug:
       return <DocumentsPage />;
     case "settings":
       return <SettingsPage />;
+    case "chat":
+      return <ChatPage />;
     default:
       return <ClientDashboard />;
   }

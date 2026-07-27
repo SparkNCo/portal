@@ -113,7 +113,7 @@ function StripeIdPanel({
   });
 
   const startEditing = () => {
-    setValue(stripeCustomerId ?? "");
+    setValue("");
     setError(null);
     setEditing(true);
   };
@@ -163,17 +163,17 @@ function StripeIdPanel({
 
   if (!stripeCustomerId) {
     return (
-      <Card className="bg-backghround">
-        <CardContent className="bg-backghround flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="bg-background">
+        <CardContent className="bg-background flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4 ">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6 text-foreground" />
             </div>
             <div>
               <p className="text-base font-medium text-foreground">
                 No Stripe Customer ID on file
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-foreground/70">
                 {isAdmin
                   ? "Add one below to enable billing for this account."
                   : "Contact your administrator to set up billing information."}
@@ -194,25 +194,12 @@ function StripeIdPanel({
     );
   }
 
+  if (!isAdmin) return null;
+
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-foreground">Stripe Customer ID</p>
-          <p className="font-mono text-base font-medium">{stripeCustomerId}</p>
-        </div>
-        {isAdmin && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="self-start sm:self-auto"
-            onClick={startEditing}
-          >
-            Edit
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+    <Button size="sm" variant="outline" onClick={startEditing}>
+      Edit Stripe Customer ID (only admins)
+    </Button>
   );
 }
 

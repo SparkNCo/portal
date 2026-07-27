@@ -137,15 +137,17 @@ export function ProjectSummaryBar({
 
 type MilestoneRowProps = {
   data: Milestone;
+  start: string | null;
+  end: string | null;
   year: number;
   onSelect?: () => void;
   isSelected?: boolean;
 };
 
-export function MilestoneRow({ data, year, onSelect, isSelected }: MilestoneRowProps) {
-  const hasRange = !!data.createdAt && !!data.targetDate;
-  const start = hasRange ? new Date(data.createdAt) : null;
-  const end = hasRange ? new Date(data.targetDate) : null;
+export function MilestoneRow({ data, start: startInput, end: endInput, year, onSelect, isSelected }: MilestoneRowProps) {
+  const hasRange = !!startInput && !!endInput;
+  const start = hasRange ? new Date(startInput!) : null;
+  const end = hasRange ? new Date(endInput!) : null;
 
   return (
     <div

@@ -1,9 +1,9 @@
 "use client";
 
 import { Pin } from "lucide-react";
-import { useUser } from "context/UserContext";
 import {
   usePinnedPanels,
+  usePinnedPanelsOwnerId,
   usePinPanel,
   useUnpinPanel,
 } from "@/hooks/use-pinned-panels";
@@ -11,8 +11,7 @@ import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { PINNABLE_PANELS } from "@/lib/pinnable-panels";
 
 export function PinButton({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
-  const { profile } = useUser();
-  const userId = profile?.id;
+  const userId = usePinnedPanelsOwnerId();
 
   const { data: pinnedPanels } = usePinnedPanels(userId);
   const pinPanel = usePinPanel(userId);

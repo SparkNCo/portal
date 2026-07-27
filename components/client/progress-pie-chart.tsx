@@ -10,25 +10,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useMemo } from "react";
-import type { Issue } from "./issues.types";
-
-/** Status → Color mapping */
-const STATUS_COLORS: Record<string, string> = {
-  Completed: "hsl(var(--success))",
-  Done: "hsl(var(--success))",
-  "In Progress": "hsl(var(--warning))",
-  "In Review": "hsl(var(--warning))",
-  Blocked: "hsl(var(--destructive))",
-  "Not Started": "hsl(var(--muted))",
-  Todo: "hsl(var(--muted))",
-  Canceled: "hsl(var(--muted))",
-  QA: "hsl(210, 70%, 35%)",
-  "Business Review": "hsl(30, 100%, 35%)",
-  Development: "hsl(30, 100%, 35%)",
-  UAT: "hsl(180, 60%, 30%)",
-  Backlog: "hsl(0, 0%, 30%)",
-  Planning: "hsl(50, 90%, 35%)",
-};
+import { CHART_STATUS_COLORS, type Issue } from "./issues.types";
 
 type TooltipProps = {
   active?: boolean;
@@ -62,7 +44,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
     return Object.entries(counts).map(([name, value]) => ({
       name,
       value,
-      color: STATUS_COLORS[name] ?? "hsl(var(--muted))",
+      color: CHART_STATUS_COLORS[name] ?? "hsl(var(--muted))",
     }));
   }, [issuesData]);
 

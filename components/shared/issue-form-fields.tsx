@@ -26,6 +26,9 @@ export function TitleContinueRow({
           placeholder="Brief summary..."
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
+          }}
           className="bg-secondary border-0"
         />
       </div>

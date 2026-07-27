@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
@@ -10,7 +11,8 @@ import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LABEL_ICONS } from "@/components/client/issue-cards";
 import type { Issue } from "@/components/client/issues.types";
-import { X, Pencil, Gauge } from "lucide-react";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { X, Pencil, Gauge, Search } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -21,6 +23,7 @@ export type MilestoneStatus =
   | "next";
 
 export type Milestone = {
+  id: string;
   createdAt: string;
   currentProgress: {
     scopeCount: number;
@@ -31,6 +34,7 @@ export type Milestone = {
   description: string | null;
   issues: {
     nodes: any[];
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
   };
   name: string;
   progress: number;
@@ -43,6 +47,8 @@ export type Milestone = {
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
   allProjectNames?: string[];
+  projectStartDates?: Record<string, string | null>;
+  rawData?: unknown;
   slug?: string;
 };
 
@@ -54,6 +60,7 @@ function toIssue(issue: any): Issue {
     priorityLabel: issue.priorityLabel ?? "Low",
     state: issue.state,
     description: issue.description ?? null,
+    labels: issue.labels,
   };
 }
 
@@ -88,15 +95,25 @@ const stateColors: Record<string, string> = {
 export function RoadmapTimeline({
   projectMilestones = [],
   allProjectNames = [],
+  projectStartDates = {},
+  rawData,
   slug = "",
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
-  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [selectedMilestoneKey, setSelectedMilestoneKey] = useState<string | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [showRawData, setShowRawData] = useState(false);
+  const [issueSearch, setIssueSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [extraIssues, setExtraIssues] = useState<any[]>([]);
+  const [issuesCursor, setIssuesCursor] = useState<string | null>(null);
+  const [hasMoreIssues, setHasMoreIssues] = useState(false);
+  const [loadingMoreIssues, setLoadingMoreIssues] = useState(false);
 
   const INITIAL_YEAR = new Date().getFullYear();
   const [year, setYear] = useState(INITIAL_YEAR);
@@ -119,15 +136,90 @@ export function RoadmapTimeline({
     }, seeded);
   }, [projectMilestones, allProjectNames]);
 
+  // Ascending by project start date — projects with no known start date sort last.
+  const sortedProjectEntries = useMemo(() => {
+    return Object.entries(groupedMilestones).sort(([nameA], [nameB]) => {
+      const dateA = projectStartDates[nameA];
+      const dateB = projectStartDates[nameB];
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+  }, [groupedMilestones, projectStartDates]);
+
   function handleMilestoneSelect(m: Milestone) {
-    setSelectedMilestone((prev) =>
-      prev?.name === m.name && prev?.projectName === m.projectName ? null : m,
-    );
+    const key = m.name + m.projectName;
+    setSelectedMilestoneKey((prev) => (prev === key ? null : key));
   }
 
-  const selectedKey = selectedMilestone
-    ? selectedMilestone.name + selectedMilestone.projectName
-    : undefined;
+  const selectedKey = selectedMilestoneKey ?? undefined;
+
+  // Derived from the live `projectMilestones` prop (not stored as its own
+  // snapshot) so that when the underlying query refetches after an issue's
+  // state changes, the open milestone panel picks up the fresh data instead
+  // of continuing to show whatever was captured at click time.
+  const selectedMilestone = useMemo(
+    () => projectMilestones.find((m) => m.name + m.projectName === selectedMilestoneKey) ?? null,
+    [projectMilestones, selectedMilestoneKey],
+  );
+
+  // Filters and pagination are scoped to whichever milestone is open —
+  // switching milestones shouldn't carry over a stale filter or the extra
+  // issues loaded for a different milestone.
+  useEffect(() => {
+    setIssueSearch("");
+    setStatusFilter(null);
+    setPriorityFilter(null);
+    setExtraIssues([]);
+    setIssuesCursor(selectedMilestone?.issues.pageInfo?.endCursor ?? null);
+    setHasMoreIssues(selectedMilestone?.issues.pageInfo?.hasNextPage ?? false);
+  }, [selectedKey]);
+
+  async function handleLoadMoreIssues() {
+    if (!selectedMilestone || loadingMoreIssues) return;
+    setLoadingMoreIssues(true);
+    try {
+      const params = new URLSearchParams({ milestoneId: selectedMilestone.id });
+      if (issuesCursor) params.set("after", issuesCursor);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more issues");
+      const data = await res.json();
+      setExtraIssues((prev) => [...prev, ...(data.nodes ?? [])]);
+      setHasMoreIssues(data.pageInfo?.hasNextPage ?? false);
+      setIssuesCursor(data.pageInfo?.endCursor ?? null);
+    } catch (err) {
+      console.error("Failed to load more milestone issues:", err);
+    } finally {
+      setLoadingMoreIssues(false);
+    }
+  }
+
+  const milestoneIssues: any[] = [...(selectedMilestone?.issues.nodes ?? []), ...extraIssues];
+
+  const availableStatuses = useMemo(
+    () => Array.from(new Set(milestoneIssues.map((i) => i.state?.name).filter(Boolean))),
+    [milestoneIssues],
+  );
+  const availablePriorities = useMemo(
+    () => Array.from(new Set(milestoneIssues.map((i) => i.priorityLabel).filter(Boolean))),
+    [milestoneIssues],
+  );
+
+  const visibleIssues = milestoneIssues.filter((issue) => {
+    if (statusFilter && issue.state?.name !== statusFilter) return false;
+    if (priorityFilter && issue.priorityLabel !== priorityFilter) return false;
+    if (issueSearch.trim()) {
+      const q = issueSearch.toLowerCase();
+      const matchesTitle = issue.title?.toLowerCase().includes(q);
+      const matchesIdentifier = issue.identifier?.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesIdentifier) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
@@ -136,18 +228,26 @@ export function RoadmapTimeline({
           year={year}
           onPrev={() => setYear((y) => y - 1)}
           onNext={() => setYear((y) => y + 1)}
+          onViewRawData={() => {
+            console.log(
+              "Roadmap raw data:",
+              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
+            );
+            setShowRawData(true);
+          }}
         />
 
         <CardContent className="overflow-x-auto px-2 sm:px-6">
           <div className="min-w-0 sm:min-w-[560px]">
             
             <TimelineMonthsHeader year={year} />
-            {Object.entries(groupedMilestones).map(
+            {sortedProjectEntries.map(
               ([projectName, milestones]) => (
                 <ProjectRow
                   key={projectName}
                   projectName={projectName}
                   milestones={milestones}
+                  projectStartDate={projectStartDates[projectName] ?? null}
                   year={year}
                   expanded={!!expandedProjects[projectName]}
                   onToggle={() =>
@@ -178,20 +278,77 @@ export function RoadmapTimeline({
                 </p>
               </div>
               <button
-                onClick={() => setSelectedMilestone(null)}
+                onClick={() => setSelectedMilestoneKey(null)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {selectedMilestone.issues.nodes.length === 0 ? (
+            {milestoneIssues.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No issues in this milestone.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {selectedMilestone.issues.nodes.map((issue: any, i: number) => {
+              <>
+                <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:flex-wrap">
+                  <div className="relative flex-1 sm:max-w-[220px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search by title or ID..."
+                      value={issueSearch}
+                      onChange={(e) => setIssueSearch(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  {availableStatuses.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availableStatuses.map((status) => (
+                        <button
+                          key={status}
+                          onClick={() =>
+                            setStatusFilter((prev) => (prev === status ? null : status))
+                          }
+                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                            statusFilter === status
+                              ? `${stateColors[status] ?? "bg-muted text-foreground"} border-current`
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {availablePriorities.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availablePriorities.map((priority) => (
+                        <button
+                          key={priority}
+                          onClick={() =>
+                            setPriorityFilter((prev) => (prev === priority ? null : priority))
+                          }
+                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                            priorityFilter === priority
+                              ? `${priorityColors[priority] ?? "bg-muted text-foreground"} border-current`
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          {priority}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {visibleIssues.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No issues match the current filters.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {visibleIssues.map((issue: any, i: number) => {
                   const typeLabel = issue.labels?.nodes?.find(
                     (l: any) => LABEL_ICONS[l.name.toLowerCase()],
                   );
@@ -313,7 +470,22 @@ export function RoadmapTimeline({
                   </div>
                   );
                 })}
-              </div>
+                  </div>
+                )}
+
+                {hasMoreIssues && (
+                  <div className="flex justify-center mt-3">
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreIssues}
+                      disabled={loadingMoreIssues}
+                      className="text-xs px-3 py-1.5 rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted disabled:opacity-50"
+                    >
+                      {loadingMoreIssues ? "Loading..." : "Load more issues"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -332,6 +504,21 @@ export function RoadmapTimeline({
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["roadmap", slug] })}
         />
       )}
+
+      <Dialog open={showRawData} onOpenChange={setShowRawData}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Raw Roadmap Data</DialogTitle>
+          </DialogHeader>
+          <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-secondary/30 p-4 text-xs">
+            {JSON.stringify(
+              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
+              null,
+              2,
+            )}
+          </pre>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

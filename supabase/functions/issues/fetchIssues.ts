@@ -3,7 +3,7 @@ import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
-import { GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
+import { syncCustomerLinearProjects } from "./syncLinearProjects.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
   console.log("getCustomerBySlug", slug);
@@ -30,38 +30,6 @@ async function getCustomerBySlug(slug: string, schema: string) {
   }
 
   return data;
-}
-
-async function fetchLinearProjectsByInitiative(initiativeId: string): Promise<string[]> {
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({ query: GET_INITIATIVE_PROJECTS_QUERY, variables: { initiativeId } }),
-  });
-
-  const json = await res.json();
-
-  if (json.errors) {
-    throw new Error(`Linear API error: ${json.errors[0]?.message}`);
-  }
-
-  const projectIds: string[] = (json.data?.initiative?.projects?.nodes ?? []).map((p: any) => p.id);
-
-  return projectIds;
-}
-
-async function saveLinearProjects(customerId: string, projectIds: string[], schema: string) {
-  const { error } = await supabase.schema(schema)
-    .from("customers")
-    .update({ linear_projects: projectIds })
-    .eq("customer_id", customerId);
-
-  if (error) {
-    console.error("Failed to save linear_projects:", error);
-  }
 }
 
 async function fetchIssuesFromLinear(
@@ -161,20 +129,25 @@ export async function handleGetIssues(req: Request): Promise<Response> {
 
   let projectIds: string[] = customer.linear_projects ?? [];
 
+  // Re-sync on every fetch (not just when empty) — linear_projects is
+  // otherwise a stale snapshot the moment a new project is added to the
+  // initiative, regardless of which role is the one viewing this customer's
+  // dashboard. Falls back to whatever was already stored if the sync itself
+  // fails, so a Linear hiccup doesn't take the whole page down.
+  if (customer.linear_slug) {
+    const synced = await syncCustomerLinearProjects(customer.customer_id, customer.linear_slug, schema);
+    if (synced) {
+      projectIds = synced;
+      console.log(`Synced ${synced.length} projects for ${slug}`);
+    }
+  }
+
   if (!projectIds.length) {
-    if (!customer.linear_slug) {
-      throw new Error("No Linear projects configured and no linear_slug to look them up");
-    }
-
-    console.log(`No projects stored for ${slug}, fetching from Linear initiative: ${customer.linear_slug}`);
-    projectIds = await fetchLinearProjectsByInitiative(customer.linear_slug);
-
-    if (!projectIds.length) {
-      throw new Error(`No projects found in Linear for initiative: ${customer.linear_slug}`);
-    }
-
-    await saveLinearProjects(customer.customer_id, projectIds, schema);
-    console.log(`Saved ${projectIds.length} projects for ${slug}`);
+    throw new Error(
+      customer.linear_slug
+        ? `No projects found in Linear for initiative: ${customer.linear_slug}`
+        : "No Linear projects configured and no linear_slug to look them up",
+    );
   }
 
   const issues = await fetchIssuesFromLinear(projectIds, ticketStatuses);

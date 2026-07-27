@@ -22,9 +22,13 @@ export default function BuildPage() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
+  // Linear's issues query has no pagination and caps at 100 results — fetching
+  // every issue for the project (all statuses, full history) risks Business
+  // Review / UAT tickets falling outside that cap. Filtering by status
+  // server-side keeps the result set to just what this page needs.
   const { data: issuesData } = useQuery({
-    queryKey: ["linear-issues", slug],
-    queryFn: () => fetchIssues(slug),
+    queryKey: ["linear-issues", slug, "Business Review,UAT"],
+    queryFn: () => fetchIssues(slug, ["Business Review", "UAT"]),
     enabled: !!slug,
   });
 
@@ -105,7 +109,7 @@ export default function BuildPage() {
               filterState={noopFilterState}
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Product Decisions"
+              title="Business Reviews"
               compact
             />
           </div>

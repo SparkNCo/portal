@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Map } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Code2, Map } from "lucide-react";
 import { CardHeader, CardTitle } from "../ui/card";
 import { Button } from "@/components/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ interface TimelineHeaderProps {
   year: number;
   onPrev: () => void;
   onNext: () => void;
+  onViewRawData?: () => void;
 }
 
 interface TimelineMonthsHeaderProps {
@@ -40,7 +41,7 @@ interface TimelineMonthsHeaderProps {
    Components
 ========================= */
 
-export function TimelineHeader({ year, onPrev, onNext }: TimelineHeaderProps) {
+export function TimelineHeader({ year, onPrev, onNext, onViewRawData }: TimelineHeaderProps) {
   return (
     <CardHeader className="flex flex-row justify-between">
       <CardTitle className="flex items-center gap-2">
@@ -49,6 +50,12 @@ export function TimelineHeader({ year, onPrev, onNext }: TimelineHeaderProps) {
       </CardTitle>
 
       <div className="flex items-center gap-2">
+        {onViewRawData && (
+          <Button size="sm" variant="outline" className="gap-1" onClick={onViewRawData}>
+            <Code2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Raw Data</span>
+          </Button>
+        )}
         <Button size="icon" variant="ghost" onClick={onPrev}>
           <ChevronLeft className="h-4 w-4" />
         </Button>

@@ -47,7 +47,7 @@ function useRoadmapMilestones(slug: string) {
     enabled: Boolean(slug),
   });
 
-  return useMemo(() => {
+  const derived = useMemo(() => {
     const projects = roadmap?.initiative?.projects?.nodes ?? [];
     const milestones = projects.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
@@ -56,8 +56,16 @@ function useRoadmapMilestones(slug: string) {
       })),
     );
     const projectNames = projects.map((project: any) => project.name);
-    return { milestones, projectNames };
+    // Milestones don't carry their own start date, so the first milestone's
+    // start is the project's createdAt; each milestone after that starts
+    // where the previous one's targetDate ends (chained in ProjectRow).
+    const projectStartDates: Record<string, string | null> = Object.fromEntries(
+      projects.map((project: any) => [project.name, project.createdAt ?? null]),
+    );
+    return { milestones, projectNames, projectStartDates };
   }, [roadmap]);
+
+  return { ...derived, rawData: roadmap };
 }
 
 export function PinnedPanelRenderer({
@@ -131,7 +139,7 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Product Decisions"
+          title="Business Review"
           compact
         />
       </div>
@@ -199,13 +207,15 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames } = useRoadmapMilestones(slug);
+  const { milestones, projectNames, projectStartDates, rawData } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
       <RoadmapTimeline
         projectMilestones={milestones}
         allProjectNames={projectNames}
+        projectStartDates={projectStartDates}
+        rawData={rawData}
         slug={slug}
       />
     </div>
