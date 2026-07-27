@@ -18,7 +18,7 @@ async function navigateToRoadmap(page: any) {
 }
 
 async function expandFirstProject(page: any) {
-  const expandBtn = page.getByRole('button', { name: 'Expand' }).first();
+  const expandBtn = page.getByRole('button', { name: /^Expand /i }).first();
   await expandBtn.waitFor({ state: 'visible', timeout: 15_000 });
   await expandBtn.click();
 }
@@ -59,8 +59,8 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByText('Client Dashboard')).toBeVisible();
   });
 
-  test('Client dashboard loads Product Decisions and Acceptance Testing cards', async ({ page }) => {
-    await expect(page.getByText('Product Decisions')).toBeVisible({ timeout: 15_000 });
+  test('Client dashboard loads Business Review and Acceptance Testing cards', async ({ page }) => {
+    await expect(page.getByText('Business Review')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Acceptance Testing')).toBeVisible({ timeout: 15_000 });
   });
 
@@ -137,23 +137,23 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
     // Either project rows are shown or there are no milestones (empty grid)
-    const expandBtn  = page.getByRole('button', { name: 'Expand' }).first();
+    const expandBtn  = page.getByRole('button', { name: /^Expand /i }).first();
     const emptyGrid  = page.locator('[class*="min-w"]').first();
     await expect(expandBtn.or(emptyGrid)).toBeVisible({ timeout: 15_000 });
   });
 
-  test('Roadmap — Expand button expands a project row and Collapse button collapses it', async ({ page }) => {
+  test('Roadmap — clicking a project header expands it, and collapses it again', async ({ page }) => {
     await navigateToRoadmap(page);
 
     await expandFirstProject(page);
 
-    // After expanding the button label should change to "Collapse"
-    await expect(page.getByRole('button', { name: 'Collapse' }).first()).toBeVisible({ timeout: 5_000 });
+    // After expanding the accessible name should switch to "Collapse <project>"
+    await expect(page.getByRole('button', { name: /^Collapse /i }).first()).toBeVisible({ timeout: 5_000 });
 
-    await page.getByRole('button', { name: 'Collapse' }).first().click();
+    await page.getByRole('button', { name: /^Collapse /i }).first().click();
 
-    // After collapsing the button label should revert to "Expand"
-    await expect(page.getByRole('button', { name: 'Expand' }).first()).toBeVisible({ timeout: 5_000 });
+    // After collapsing it should revert to "Expand <project>"
+    await expect(page.getByRole('button', { name: /^Expand /i }).first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('Roadmap — expanding a project shows individual milestone rows', async ({ page }) => {
@@ -169,8 +169,8 @@ test.describe('Stakeholder — panels', () => {
   test('Roadmap — clicking a milestone opens the detail card', async ({ page }) => {
     await navigateToRoadmap(page);
 
-    await page.getByRole('button', { name: 'Expand' }).first().waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByRole('button', { name: 'Expand' }).first().click();
+    await page.getByRole('button', { name: /^Expand /i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    await page.getByRole('button', { name: /^Expand /i }).first().click();
 
     // Click the first clickable milestone bar/row inside the expanded view
     const milestoneTarget = page.locator('[class*="cursor-pointer"]').first();
@@ -184,8 +184,8 @@ test.describe('Stakeholder — panels', () => {
   test('Roadmap — closing the milestone detail card removes it', async ({ page }) => {
     await navigateToRoadmap(page);
 
-    await page.getByRole('button', { name: 'Expand' }).first().waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByRole('button', { name: 'Expand' }).first().click();
+    await page.getByRole('button', { name: /^Expand /i }).first().waitFor({ state: 'visible', timeout: 15_000 });
+    await page.getByRole('button', { name: /^Expand /i }).first().click();
 
     const milestoneTarget = page.locator('[class*="cursor-pointer"]').first();
     await milestoneTarget.waitFor({ state: 'visible', timeout: 10_000 });

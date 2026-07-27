@@ -16,7 +16,7 @@ export const PINNABLE_PANELS: Record<
   roadmap_timeline: { label: "Roadmap Timeline", sourceDashboard: "monitor" },
   metrics_panel: { label: "Cycle & Issue Metrics", sourceDashboard: "monitor" },
   build_product_decisions: {
-    label: "Product Decisions",
+    label: "Business Review",
     sourceDashboard: "build",
   },
   build_acceptance_testing: {

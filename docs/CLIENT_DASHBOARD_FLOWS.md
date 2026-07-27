@@ -129,7 +129,7 @@ See `supabase/functions/dora/lifecycle.ts` (shared by `leadTime.ts` and `mttr.ts
 
 **How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). Each run also polls GitHub's events feed for new branch-creation events before computing metrics. CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Lead Time, MTTR, and Deploy Frequency are cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries (deduped by `pr_number`, never overwritten). A gap of more than 24 hours between cron runs causes PRs merged in that gap to be permanently missed from those three metrics (though they still appear in CFR's scan).
 
-### 3. Product Decisions — `PriorityTasks` (Business Review)
+### 3. Business Review — `PriorityTasks` (Business Review)
 
 **Source:** `components/client/priority-tasks.tsx` + `components/client/issue-detail-modal.tsx`
 
@@ -147,7 +147,7 @@ The **chat icon** on each card navigates to the Chat page with that issue pre-se
 
 Shows all issues currently in the **UAT** state. These are issues that have been built, passed internal QA, and are now ready for the client to test and sign off on.
 
-Same interaction model as the Product Decisions card — clicking an issue opens the modal where the client can record UAT test results in the Tests tab.
+Same interaction model as the Business Review card — clicking an issue opens the modal where the client can record UAT test results in the Tests tab.
 
 Issues are also sorted by question count descending.
 
@@ -198,7 +198,7 @@ User lands on /{slug}/dashboard/client
 | `components/headerDashboard.tsx` | Sticky top header with title, subtitle, and mobile menu toggle |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
-| `components/client/priority-tasks.tsx` | Reusable issue list — used for both Product Decisions and Acceptance Testing |
+| `components/client/priority-tasks.tsx` | Reusable issue list — used for both Business Review and Acceptance Testing |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |

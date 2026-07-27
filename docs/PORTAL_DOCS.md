@@ -595,7 +595,7 @@ It's also triggered on-demand right after a new customer is created: `createCust
 - **Lead Time, MTTR, and Deploy Frequency** are cumulative and stored in `dora_metrics`. Each run only fetches PRs merged in the **last 24 hours** (`since`) and appends new, deduped entries (by `pr_number`) to the existing lists — it never overwrites or drops old entries.
 - **Implication:** as long as the daily cron runs without gaps, every qualifying merged PR eventually gets captured. If the cron misses a run for more than 24 hours, any PRs merged during that gap fall outside the `since` window of the next run and are **permanently missed** from those three metrics (they still show up in CFR's sliding-window scan, since that doesn't depend on accumulation).
 
-**Product Decisions — `PriorityTasks` (Business Review)**  
+**Business Review — `PriorityTasks` (Business Review)**  
 Issues in Business Review state, sorted by unanswered question count. Client reviews and approves user stories here.
 
 **Acceptance Testing — `PriorityTasks` (UAT)**  
@@ -627,7 +627,7 @@ User lands on /{slug}/dashboard/client
 | `app/[slug]/dashboard/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
-| `components/client/priority-tasks.tsx` | Issue list (Product Decisions + Acceptance Testing) |
+| `components/client/priority-tasks.tsx` | Issue list (Business Review + Acceptance Testing) |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |

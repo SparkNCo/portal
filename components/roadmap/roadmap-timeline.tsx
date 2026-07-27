@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
@@ -43,6 +44,8 @@ export type Milestone = {
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
   allProjectNames?: string[];
+  projectStartDates?: Record<string, string | null>;
+  rawData?: unknown;
   slug?: string;
 };
 
@@ -88,6 +91,8 @@ const stateColors: Record<string, string> = {
 export function RoadmapTimeline({
   projectMilestones = [],
   allProjectNames = [],
+  projectStartDates = {},
+  rawData,
   slug = "",
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
@@ -97,6 +102,7 @@ export function RoadmapTimeline({
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [showRawData, setShowRawData] = useState(false);
 
   const INITIAL_YEAR = new Date().getFullYear();
   const [year, setYear] = useState(INITIAL_YEAR);
@@ -119,6 +125,18 @@ export function RoadmapTimeline({
     }, seeded);
   }, [projectMilestones, allProjectNames]);
 
+  // Ascending by project start date — projects with no known start date sort last.
+  const sortedProjectEntries = useMemo(() => {
+    return Object.entries(groupedMilestones).sort(([nameA], [nameB]) => {
+      const dateA = projectStartDates[nameA];
+      const dateB = projectStartDates[nameB];
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+  }, [groupedMilestones, projectStartDates]);
+
   function handleMilestoneSelect(m: Milestone) {
     setSelectedMilestone((prev) =>
       prev?.name === m.name && prev?.projectName === m.projectName ? null : m,
@@ -136,18 +154,26 @@ export function RoadmapTimeline({
           year={year}
           onPrev={() => setYear((y) => y - 1)}
           onNext={() => setYear((y) => y + 1)}
+          onViewRawData={() => {
+            console.log(
+              "Roadmap raw data:",
+              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
+            );
+            setShowRawData(true);
+          }}
         />
 
         <CardContent className="overflow-x-auto px-2 sm:px-6">
           <div className="min-w-0 sm:min-w-[560px]">
             
             <TimelineMonthsHeader year={year} />
-            {Object.entries(groupedMilestones).map(
+            {sortedProjectEntries.map(
               ([projectName, milestones]) => (
                 <ProjectRow
                   key={projectName}
                   projectName={projectName}
                   milestones={milestones}
+                  projectStartDate={projectStartDates[projectName] ?? null}
                   year={year}
                   expanded={!!expandedProjects[projectName]}
                   onToggle={() =>
@@ -332,6 +358,21 @@ export function RoadmapTimeline({
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["roadmap", slug] })}
         />
       )}
+
+      <Dialog open={showRawData} onOpenChange={setShowRawData}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Raw Roadmap Data</DialogTitle>
+          </DialogHeader>
+          <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-secondary/30 p-4 text-xs">
+            {JSON.stringify(
+              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
+              null,
+              2,
+            )}
+          </pre>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

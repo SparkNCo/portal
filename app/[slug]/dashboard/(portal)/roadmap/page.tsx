@@ -73,6 +73,13 @@ export default function RoadmapPage() {
   const allProjectNames: string[] =
     roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
 
+  // Milestones don't carry their own start date, so the first milestone's
+  // start is the project's createdAt; each milestone after that starts
+  // where the previous one's targetDate ends (chained in ProjectRow).
+  const projectStartDates: Record<string, string | null> = Object.fromEntries(
+    (roadmap?.initiative?.projects?.nodes ?? []).map((p: any) => [p.name, p.createdAt ?? null]),
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -110,6 +117,8 @@ export default function RoadmapPage() {
           <RoadmapTimeline
             projectMilestones={allMilestones}
             allProjectNames={allProjectNames}
+            projectStartDates={projectStartDates}
+            rawData={roadmap}
             slug={slug}
           />
         </div>
