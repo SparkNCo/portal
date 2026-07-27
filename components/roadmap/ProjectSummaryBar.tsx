@@ -158,15 +158,17 @@ export function MilestoneRow({ data, start: startInput, end: endInput, year, onS
       onClick={onSelect}
     >
       <div className="w-full sm:w-52">
-        <Badge
-          variant="outline"
-          className={cn(
-            "max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white",
-            isSelected && "ring-1 ring-offset-1 ring-accent",
-          )}
-        >
-          {data.name}
-        </Badge>
+        {data.name && (
+          <Badge
+            variant="outline"
+            className={cn(
+              "max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white",
+              isSelected && "ring-1 ring-offset-1 ring-accent",
+            )}
+          >
+            {data.name}
+          </Badge>
+        )}
       </div>
 
       <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">

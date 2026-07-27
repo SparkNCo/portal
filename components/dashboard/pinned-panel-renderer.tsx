@@ -65,7 +65,7 @@ function useRoadmapMilestones(slug: string) {
     return { milestones, projectNames, projectStartDates };
   }, [roadmap]);
 
-  return { ...derived, rawData: roadmap };
+  return derived;
 }
 
 export function PinnedPanelRenderer({
@@ -207,7 +207,7 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames, projectStartDates, rawData } = useRoadmapMilestones(slug);
+  const { milestones, projectNames, projectStartDates } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
@@ -215,7 +215,6 @@ function RoadmapTimelinePinned({
         projectMilestones={milestones}
         allProjectNames={projectNames}
         projectStartDates={projectStartDates}
-        rawData={rawData}
         slug={slug}
       />
     </div>
