@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
@@ -225,13 +224,6 @@ export function RoadmapTimeline({
           year={year}
           onPrev={() => setYear((y) => y - 1)}
           onNext={() => setYear((y) => y + 1)}
-          onViewRawData={() => {
-            console.log(
-              "Roadmap raw data:",
-              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
-            );
-            setShowRawData(true);
-          }}
         />
 
         <CardContent className="overflow-x-auto px-2 sm:px-6">
@@ -501,21 +493,6 @@ export function RoadmapTimeline({
           onSaved={() => queryClient.invalidateQueries({ queryKey: ["roadmap", slug] })}
         />
       )}
-
-      <Dialog open={showRawData} onOpenChange={setShowRawData}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Raw Roadmap Data</DialogTitle>
-          </DialogHeader>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-secondary/30 p-4 text-xs">
-            {JSON.stringify(
-              rawData ?? { projectMilestones, allProjectNames, projectStartDates },
-              null,
-              2,
-            )}
-          </pre>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
