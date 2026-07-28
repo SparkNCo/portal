@@ -48,6 +48,9 @@ async function uploadTestAttachment(file: File) {
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`, {
     method: "POST",
+    // No Content-Type here — the browser sets multipart/form-data with the
+    // correct boundary on its own.
+    headers: API_HEADERS,
     body: formData,
   });
   if (!res.ok) throw new Error(`Failed to upload ${file.name}`);

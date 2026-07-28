@@ -14,7 +14,7 @@ import {
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
-import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
@@ -27,6 +27,10 @@ async function uploadFileToLinear(file: File) {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`,
     {
       method: "POST",
+      // No Content-Type here — the browser sets multipart/form-data with
+      // the correct boundary on its own; overriding it (e.g. with the JSON
+      // headers) would break the upload.
+      headers: API_HEADERS,
       body: formData,
     },
   );
@@ -40,7 +44,7 @@ async function attachFileToIssue(issueId: string, url: string, title: string) {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachment`,
     {
       method: "POST",
-      headers: API_HEADERS,
+      headers: API_JSON_HEADERS,
       body: JSON.stringify({ issueId, url, title }),
     },
   );
