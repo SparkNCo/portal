@@ -18,17 +18,16 @@ const monthsGrid = [
   "Month 12",
 ];
 
-const barColors: Record<string, string> = {
-  completed: "bg-success",
-  done: "bg-success",
-  "in-progress": "bg-chart-1",
-  planned: "bg-muted-foreground/30",
-  overdue: "bg-warning/50",
-  unstarted: "bg-accent/50",
-  next: "bg-accent/50",
-};
-
-const FALLBACK_BAR_COLOR = "bg-muted-foreground/40";
+// Color reflects actual completion + due date rather than Linear's own
+// `status` field: all scope done → green; still-open scope past its target
+// date → orange (overdue); still-open scope not yet due → blue.
+function getMilestoneBarColor(m: Milestone): string {
+  if (m.progress >= 1) return "bg-success";
+  if (m.targetDate && new Date(m.targetDate).getTime() < Date.now()) {
+    return "bg-warning/50";
+  }
+  return "bg-accent/50";
+}
 
 type ProjectRange = {
   start: Date;
@@ -185,9 +184,7 @@ export function MilestoneRow({ data, start: startInput, end: endInput, year, onS
               <div
                 className={cn(
                   "absolute inset-y-1 inset-x-0 rounded-md",
-                  isInRange
-                    ? (barColors[data?.status] ?? FALLBACK_BAR_COLOR)
-                    : "bg-muted/20",
+                  isInRange ? getMilestoneBarColor(data) : "bg-muted/20",
                 )}
               />
             </div>

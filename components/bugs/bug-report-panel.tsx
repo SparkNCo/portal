@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bug } from "lucide-react";
+import { Bug, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/components/ui/button";
 import {
   TitleContinueRow,
   ProjectField,
@@ -15,10 +17,16 @@ import {
 } from "@/components/shared/issue-form-fields";
 import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
 
-function buildBugDescription(steps: string, expected: string, actual: string) {
+function buildBugDescription(steps: string[], expected: string, actual: string) {
+  const stepsList = steps
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s, i) => `${i + 1}. ${s}`)
+    .join("\n");
+
   return `
 ### Steps to Reproduce
-${steps}
+${stepsList}
 
 ### Expected Behavior
 ${expected}
@@ -31,11 +39,19 @@ ${actual}
 export function BugReportPanel({ slug }: { slug: string }) {
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
-  const [steps, setSteps] = useState("");
+  const [steps, setSteps] = useState<string[]>([""]);
   const [expected, setExpected] = useState("");
   const [actual, setActual] = useState("");
   const [priority, setPriority] = useState("medium");
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const stepRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusStepIndex, setFocusStepIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focusStepIndex === null) return;
+    stepRefs.current[focusStepIndex]?.focus();
+    setFocusStepIndex(null);
+  }, [focusStepIndex, steps.length]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", slug],
@@ -55,11 +71,32 @@ export function BugReportPanel({ slug }: { slug: string }) {
   function reset() {
     setDetailsRevealed(false);
     setTitle("");
-    setSteps("");
+    setSteps([""]);
     setExpected("");
     setActual("");
     setPriority("medium");
     setSelectedProjectId("");
+  }
+
+  function updateStep(index: number, value: string) {
+    setSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
+  }
+
+  function addStep() {
+    setSteps((prev) => [...prev, ""]);
+  }
+
+  function removeStep(index: number) {
+    setSteps((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }
+
+  function handleStepKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (index === steps.length - 1) {
+      setSteps((prev) => [...prev, ""]);
+    }
+    setFocusStepIndex(index + 1);
   }
 
   function handleSubmit() {
@@ -95,12 +132,38 @@ export function BugReportPanel({ slug }: { slug: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
                 <Label>Steps to Reproduce</Label>
-                <Textarea
-                  placeholder="1. Go to... 2. Click on..."
-                  value={steps}
-                  onChange={(e) => setSteps(e.target.value)}
-                  className="bg-secondary border-0 min-h-[80px] resize-none"
-                />
+                <div className="space-y-2">
+                  {steps.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-4 shrink-0 text-xs text-muted-foreground">
+                        {i + 1}.
+                      </span>
+                      <Input
+                        ref={(el) => { stepRefs.current[i] = el; }}
+                        placeholder={i === 0 ? "Go to..." : "Click on..."}
+                        value={step}
+                        onChange={(e) => updateStep(i, e.target.value)}
+                        onKeyDown={(e) => handleStepKeyDown(e, i)}
+                        className="bg-secondary border-0"
+                      />
+                      {steps.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => removeStep(i)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addStep}>
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    Add step
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-1.5">
