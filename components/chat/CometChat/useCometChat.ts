@@ -5,11 +5,18 @@ import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { initCometChatUser } from "./initCometChatUser";
 
-// `customerSlug` scopes the group list to a single customer's support
-// chats — used when an admin/developer opens a specific customer's chat
-// panel via the Dashboards flow (see ChatLayout). Left undefined, this
-// fetches the caller's normal (unscoped) inbox, same as before.
-export function useCometChat(customerSlug?: string | null) {
+// `customerId` scopes the group list to a single customer's support chats —
+// used when an admin/developer opens a specific customer's chat panel via
+// the Dashboards flow (see ChatLayout). It's the customer's portal user id
+// (not the display slug), since `clientName` shows up formatted differently
+// depending on which flow produced it (raw vs slugified at onboarding),
+// which made slug-based matching unreliable — a chat created right after
+// onboarding (slugified) would never match one viewed in a later normal
+// session (raw). Left undefined, this fetches the caller's normal
+// (unscoped) inbox, same as before.
+const MAX_GROUP_PAGES = 20;
+
+export function useCometChat(customerId?: string | null) {
   const { profile, loading: profileLoading } = useUser();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CometChat.User | null>(null);
@@ -28,7 +35,7 @@ export function useCometChat(customerSlug?: string | null) {
   useEffect(() => {
     if (!ready) return;
     fetchGroups().then(setGroups);
-  }, [customerSlug, ready]);
+  }, [customerId, ready]);
 
   const init = async () => {
     try {
@@ -46,10 +53,23 @@ export function useCometChat(customerSlug?: string | null) {
     const isAdmin = profile?.role === "admin";
     const builder = new CometChat.GroupsRequestBuilder().setLimit(50);
     if (!isAdmin) builder.joinedOnly(true);
-    const groups = await builder.build().fetchNext();
-    if (!customerSlug) return groups;
-    return groups.filter(
-      (g) => (g.getMetadata() as { projectSlug?: string } | undefined)?.projectSlug === customerSlug,
+    const request = builder.build();
+
+    // A single `fetchNext()` only returns the first page — loop until the
+    // SDK reports no more results (bounded, so a misbehaving request can't
+    // spin forever) instead of silently missing a customer's group past
+    // the first 50 results.
+    const all: CometChat.Group[] = [];
+    for (let page = 0; page < MAX_GROUP_PAGES; page++) {
+      const batch = await request.fetchNext();
+      if (!batch.length) break;
+      all.push(...batch);
+      if (batch.length < 50) break;
+    }
+
+    if (!customerId) return all;
+    return all.filter(
+      (g) => (g.getMetadata() as { customerId?: string } | undefined)?.customerId === customerId,
     );
   };
 
@@ -76,6 +96,7 @@ export function useCometChat(customerSlug?: string | null) {
 
   const createSupportGroup = async (
     title: string,
+    groupCustomerId?: string,
     projectSlug?: string,
   ): Promise<CometChat.Group | null> => {
     if (!profile) return null;
@@ -83,6 +104,11 @@ export function useCometChat(customerSlug?: string | null) {
       const memberUids = new Set<string>();
       memberUids.add(profile.id);
       let assignees: any[] = [];
+      // The customer this group belongs to, for tagging — resolved from the
+      // creator's own identity when they're a customer/stakeholder, since
+      // that's more reliable than a value threaded in from the caller.
+      let resolvedCustomerId: string | undefined =
+        profile.role === "customer" ? profile.id : groupCustomerId;
 
       if (profile.role === "stakeholder") {
         // Step 1: find the customer this stakeholder is assigned to
@@ -96,6 +122,7 @@ export function useCometChat(customerSlug?: string | null) {
           .filter(Boolean);
 
         if (customerIds.length > 0) {
+          resolvedCustomerId = customerIds[0];
           // Add the customer(s)
           customerIds.forEach((id: string) => memberUids.add(id));
 
@@ -143,7 +170,9 @@ export function useCometChat(customerSlug?: string | null) {
         CometChat.GROUP_TYPE.PUBLIC,
         "",
       );
-      if (projectSlug) group.setMetadata({ projectSlug });
+      if (resolvedCustomerId || projectSlug) {
+        group.setMetadata({ customerId: resolvedCustomerId, projectSlug });
+      }
       const members = Array.from(memberUids).map(
         (uid) =>
           new CometChat.GroupMember(

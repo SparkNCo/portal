@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_HEADERS } from "@/lib/api-headers";
 
 /* -----------------------------
@@ -38,7 +39,15 @@ async function fetchDocuments(id: string, projectSlug?: string) {
   return res.json();
 }
 
-export function DocumentsList({ projectSlug }: { readonly projectSlug?: string }) {
+type CustomerSummary = { clientName: string; linear_slug: string | null };
+
+export function DocumentsList({
+  projectSlug,
+  customers,
+}: {
+  readonly projectSlug?: string;
+  readonly customers?: CustomerSummary[];
+}) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -53,11 +62,18 @@ export function DocumentsList({ projectSlug }: { readonly projectSlug?: string }
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
   const { user, profile, loading } = useUser();
+  // Whose `document_permissions` rows decide which documents show up —
+  // the customer being viewed (admin/dev browsing their dashboard), or the
+  // logged-in user's own when not viewing anyone. Previously this always
+  // used the logged-in user's own id, so an admin viewing a customer's
+  // Documents panel saw the admin's own (near-empty) permission set instead
+  // of the customer's documents.
+  const documentsOwnerId = usePinnedPanelsOwnerId();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId, projectSlug],
-    queryFn: () => fetchDocuments(profile?.id!, projectSlug),
-    enabled: !!profile?.id,
+    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId],
+    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug),
+    enabled: !!documentsOwnerId,
   });
 
   const documents = useMemo(() => {
@@ -95,10 +111,13 @@ export function DocumentsList({ projectSlug }: { readonly projectSlug?: string }
   }, [filteredDocs]);
 
   // `project_slug` is the customer's Linear initiative slug, not a display
-  // name. Developers resolve it via their `assignment_id` list (one entry
-  // per assigned customer); a customer isn't in their own assignment_id, so
-  // fall back to their own profile's clientName/linear_slug — no extra
-  // fetch needed in either case.
+  // name. Developers/stakeholders resolve it via their `assignment_id` list
+  // (one entry per assigned customer); a customer isn't in their own
+  // assignment_id, so fall back to their own profile's clientName/linear_slug.
+  // Neither source has anything for an admin (admins aren't assigned to
+  // customers) — that's why an admin viewing a customer's Documents panel
+  // used to see the raw slug as the group header instead of a name; the
+  // `customers` list (passed down when available) covers that case too.
   const slugToInitiativeName = useMemo(() => {
     const map = new Map<string, string>();
     for (const a of profile?.assignment_id ?? []) {
@@ -107,8 +126,11 @@ export function DocumentsList({ projectSlug }: { readonly projectSlug?: string }
     if (profile?.linear_slug && profile?.clientName) {
       map.set(profile.linear_slug, profile.clientName);
     }
+    for (const c of customers ?? []) {
+      if (c.linear_slug && c.clientName) map.set(c.linear_slug, c.clientName);
+    }
     return map;
-  }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName]);
+  }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
 
   return (
     <Card className="bg-background border-border">

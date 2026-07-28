@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
@@ -21,8 +22,17 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   const router = useRouter();
   const pathname = usePathname();
   const customerSlug = useCustomerSlug();
+  // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
+  // to the caller's own id when no customer is being viewed) — appropriate
+  // for pinned panels, but wrong here: an unscoped inbox (own /chat, not
+  // viewing a customer's dashboard) must stay unfiltered, not filtered down
+  // to "groups tagged with my own id" (which never matches, since groups
+  // are tagged with the customer's id). Only apply an id when a customer is
+  // actually being viewed.
+  const viewedCustomerId = usePinnedPanelsOwnerId();
+  const customerId = customerSlug ? viewedCustomerId : undefined;
   const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
-    useCometChat(customerSlug);
+    useCometChat(customerId);
 
   const clearNewChatParam = () => router.replace(pathname);
 
@@ -48,7 +58,7 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   const handleCreate = async (title: string) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title, projectSlug);
+      const created = await createSupportGroup(title, customerId, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);

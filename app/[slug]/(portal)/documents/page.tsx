@@ -99,7 +99,7 @@ export default function DocumentsPage() {
             {projectSlugPending ? (
               <p className="text-sm text-muted-foreground">Loading documents…</p>
             ) : (
-              <DocumentsList projectSlug={projectSlug} />
+              <DocumentsList projectSlug={projectSlug} customers={customers} />
             )}
           </div>
           {canUpload && (
