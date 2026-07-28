@@ -13,6 +13,7 @@ type Props = Readonly<{
   onCloseGroup: (group: Group) => void;
   onCloseDirect: (entry: DirectChatEntry) => void;
   isCustomer: boolean;
+  canLeaveChats: boolean;
   onCreateChat: () => void;
 }>;
 
@@ -21,6 +22,7 @@ type GroupItemProps = Readonly<{
   isSelected: boolean;
   onSelect: () => void;
   onClose: () => void;
+  canLeave: boolean;
 }>;
 
 type GroupSectionProps = Readonly<{
@@ -29,6 +31,7 @@ type GroupSectionProps = Readonly<{
   selectedGroup: Group | null;
   onSelectGroup: (group: Group) => void;
   onCloseGroup: (group: Group) => void;
+  canLeaveChats: boolean;
 }>;
 
 function GroupAvatar({ name }: Readonly<{ name: string }>) {
@@ -45,7 +48,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
   );
 }
 
-function GroupItem({ group, isSelected, onSelect, onClose }: GroupItemProps) {
+function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   return (
     <div
       className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
@@ -65,18 +68,20 @@ function GroupItem({ group, isSelected, onSelect, onClose }: GroupItemProps) {
           </div>
         </div>
       </button>
-      <button
-        onClick={onClose}
-        className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
-        title="Leave chat"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      {canLeave && (
+        <button
+          onClick={onClose}
+          className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+          title="Leave chat"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
 
-function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup }: GroupSectionProps) {
+function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup, canLeaveChats }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -95,6 +100,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
           isSelected={selectedGroup?.getGuid() === group.getGuid()}
           onSelect={() => onSelectGroup(group)}
           onClose={() => onCloseGroup(group)}
+          canLeave={canLeaveChats}
         />
       ))}
     </div>
@@ -122,6 +128,7 @@ export default function ChatSideBar({
   onCloseGroup,
   onCloseDirect,
   isCustomer,
+  canLeaveChats,
   onCreateChat,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
@@ -165,6 +172,7 @@ export default function ChatSideBar({
                     selectedGroup={selectedGroup}
                     onSelectGroup={onSelectGroup}
                     onCloseGroup={onCloseGroup}
+                    canLeaveChats={canLeaveChats}
                   />
                 ))
               : groups.map((group) => (
@@ -174,6 +182,7 @@ export default function ChatSideBar({
                     isSelected={selectedGroup?.getGuid() === group.getGuid()}
                     onSelect={() => onSelectGroup(group)}
                     onClose={() => onCloseGroup(group)}
+                    canLeave={canLeaveChats}
                   />
                 ))}
 

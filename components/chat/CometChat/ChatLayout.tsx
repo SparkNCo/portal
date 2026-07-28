@@ -21,7 +21,7 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   const router = useRouter();
   const pathname = usePathname();
   const customerSlug = useCustomerSlug();
-  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup } =
+  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
     useCometChat(customerSlug);
 
   const clearNewChatParam = () => router.replace(pathname);
@@ -69,9 +69,20 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   }
 
   const isCustomer = profile?.role === "customer";
+  // Admins shouldn't remove themselves from a group — chats need to stay
+  // readable by admins. Customers/developers/stakeholders can actually
+  // leave, dropping the chat off their own list (the group and its
+  // history are untouched for everyone else, including admins, who list
+  // all public groups regardless of membership).
+  const canLeaveChats = profile?.role !== "admin";
   const hasNoChats = groups.length === 0 && directChats.length === 0;
 
   const hasActiveChat = selectedGroup !== null || selectedDirect !== null;
+
+  const handleLeaveGroup = async (g: Group) => {
+    const left = await leaveGroup(g.getGuid());
+    if (left && selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null);
+  };
 
   return (
     <div className="flex flex-row w-full h-full">
@@ -84,9 +95,10 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
           selectedDirect={selectedDirect}
           onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
           onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
-          onCloseGroup={(g) => { if (selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null); }}
+          onCloseGroup={handleLeaveGroup}
           onCloseDirect={(e) => { setDirectChats((prev) => prev.filter((d) => d.uid !== e.uid || d.title !== e.title)); if (selectedDirect?.uid === e.uid && selectedDirect?.title === e.title) setSelectedDirect(null); }}
           isCustomer={isCustomer}
+          canLeaveChats={canLeaveChats}
           onCreateChat={() => setShowCreateModal(true)}
         />
       </div>

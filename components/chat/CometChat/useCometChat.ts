@@ -59,6 +59,21 @@ export function useCometChat(customerSlug?: string | null) {
     return list;
   };
 
+  // Actually leaves the group in CometChat (removes the caller as a member)
+  // rather than just hiding it locally — the group itself and its history
+  // are untouched, so admins (who list all public groups regardless of
+  // membership) still see it.
+  const leaveGroup = async (guid: string): Promise<boolean> => {
+    try {
+      await CometChat.leaveGroup(guid);
+      setGroups((prev) => prev.filter((g) => g.getGuid() !== guid));
+      return true;
+    } catch (err) {
+      console.error("Leave group error:", err);
+      return false;
+    }
+  };
+
   const createSupportGroup = async (
     title: string,
     projectSlug?: string,
@@ -157,5 +172,6 @@ export function useCometChat(customerSlug?: string | null) {
     profileLoading,
     refreshGroups,
     createSupportGroup,
+    leaveGroup,
   };
 }
