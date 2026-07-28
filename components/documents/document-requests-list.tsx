@@ -129,13 +129,6 @@ function RequestRow({
     },
   });
 
-  const releaseMutation = useMutation({
-    mutationFn: () =>
-      patchDocumentRequest({ action: "release", id: request.id, releasedBy: profile?.email }),
-    onSuccess: invalidate,
-    onError: (err: Error) => toast.error(err.message),
-  });
-
   const claimedByMe = request.claimed_by === profile?.email;
   const claimedBySomeoneElse = !!request.claimed_by && !claimedByMe;
 
@@ -149,7 +142,6 @@ function RequestRow({
 
   function handleCancelFulfill() {
     setShowFulfill(false);
-    if (claimedByMe) releaseMutation.mutate();
   }
 
   return (
@@ -202,18 +194,6 @@ function RequestRow({
                 Upload & Share
               </>
             )}
-          </Button>
-        )}
-
-        {canManage && profile?.role === "admin" && claimedBySomeoneElse && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={releaseMutation.isPending}
-            onClick={() => releaseMutation.mutate()}
-            className="flex-shrink-0"
-          >
-            Release claim
           </Button>
         )}
       </div>
