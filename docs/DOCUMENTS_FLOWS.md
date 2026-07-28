@@ -1,7 +1,7 @@
 # Documents — Flows & How It Works
 
 > Reference for the Documents page and all its panels.  
-> Main page: `app/[slug]/dashboard/(portal)/documents/page.tsx` → `DocumentsPage`
+> Main page: `app/[slug]/(portal)/documents/page.tsx` → `DocumentsPage`
 
 ---
 
@@ -156,7 +156,7 @@ Documents uploaded by a user have `owner` permission for that user. Documents sh
 ## Full data flow
 
 ```
-User lands on /{slug}/dashboard/documents
+User lands on /{slug}/documents
           │
           ├── GET /storage?user_id={id}
           │     → all accessible documents loaded
@@ -193,7 +193,7 @@ User lands on /{slug}/dashboard/documents
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/documents/page.tsx` | Page shell — layout and component composition |
+| `app/[slug]/(portal)/documents/page.tsx` | Page shell — layout and component composition |
 | `components/documents/documents-list.tsx` | Document list with search, category filter, project grouping |
 | `components/documents/document-list-panel.tsx` | Individual document rows with all actions (open, download, share, category, delete) |
 | `components/documents/ShareDocumentModal.tsx` | Share modal and `useShareDocument` mutation |

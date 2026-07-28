@@ -9,7 +9,7 @@ async function loginAsDeveloper(page: any) {
     test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set in .env.test');
   }
 
-  await performLogin(page, email!, password!, '/dashboard/developer');
+  await performLogin(page, email!, password!, '/developer');
 }
 
 // ---------------------------------------------------------------------------
@@ -28,8 +28,8 @@ test.describe('Developer — login', () => {
       test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/dashboard/developer');
-    expect(page.url()).toContain('/dashboard/developer');
+    await performLogin(page, email!, password!, '/developer');
+    expect(page.url()).toContain('/developer');
   });
 
 });

@@ -34,7 +34,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 **How accounts are created:** Directly in the **Supabase Authentication UI** — admins are not created through the portal itself.
 
 **What they can do:**
-- Access the **Admin Panel** (`/admin`) to create and manage all other users (developers, customers, stakeholders).
+- Access the **Admin Panel** (`/users`) to create and manage all other users (developers, customers, stakeholders).
 - Assign developers and stakeholders to customers.
 - Preview any customer's full portal (Dashboard, Roadmap, Documents, Chat, Settings) via the Dashboards view.
 - Ask questions on issues (same permissions as developers). Cannot change issue state directly (see 4.2).
@@ -143,14 +143,14 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 
 | Role | Redirect destination | Condition |
 |---|---|---|
-| `admin` | `/{userName}/dashboard/admin` | Requires `userName` set on the account |
-| `customer` | `/{clientName}/dashboard/client` | Always |
-| `developer` | `/{assignment[0].clientName}/dashboard/developer` | Always |
-| `stakeholder` | `/{assignment[0].clientName}/dashboard/client` | Requires at least one customer assignment |
+| `admin` | `/{userName}/users` | Requires `userName` set on the account |
+| `customer` | `/{clientName}/dashboard` | Always |
+| `developer` | `/{assignment[0].clientName}/developer` | Always |
+| `stakeholder` | `/{assignment[0].clientName}/dashboard` | Requires at least one customer assignment |
 
 > **Important:** Stakeholders with no assignment cannot log in — they see "No client assigned to this account. Contact your administrator." The admin must assign them to a customer first (see Admin Panel section).
 
-> **Admin redirect history:** originally `/{clientName}/dashboard/admin` — broken, since `clientName` only populates when a user has a `customer_id` linked to a `customers` row, which admins never do, so it always resolved to `/null/dashboard/admin`. Briefly changed to a slug-less `/admin` — also broken, since there's no `app/admin/page.tsx`, only `app/admin/users/page.tsx` (so `/admin` 404s). Now uses `userName` as the slug: `/{userName}/dashboard/admin`, landing on `app/[slug]/dashboard/(portal)/admin/page.tsx` (same `AdminUsersPage`, wrapped in the normal Sidebar + Header shell). Admin accounts with no `userName` set can't log in — they see "No username set on this admin account. Contact your administrator."
+> **Admin redirect history:** originally `/{clientName}/admin` — broken, since `clientName` only populates when a user has a `customer_id` linked to a `customers` row, which admins never do, so it always resolved to `/null/admin`. Briefly changed to a slug-less `/admin` — also broken, since there's no `app/admin/page.tsx`, only `app/admin/users/page.tsx` (so `/admin` 404s). Now uses `userName` as the slug: `/{userName}/users`, landing on `app/[slug]/(portal)/users/page.tsx` (same `AdminUsersPage`, wrapped in the normal Sidebar + Header shell). Admin accounts with no `userName` set can't log in — they see "No username set on this admin account. Contact your administrator."
 
 ### 2.2 Forgot Password Flow
 
@@ -198,8 +198,8 @@ The invitation email link lands the user on `/set-password`. The page detects th
 
 | Role | Redirect |
 |---|---|
-| `customer` | `/{clientName}/dashboard/dashboards?customer={clientName}&panel=client` |
-| Everyone else | `/{clientName}/dashboard/dashboards` |
+| `customer` | `/{clientName}/dashboards/{clientName}/dashboard` |
+| Everyone else | `/{clientName}/dashboards` |
 
 ### 2.4 Error states
 
@@ -539,11 +539,11 @@ A **Service** is a Supabase-only concept — no link to Linear (an earlier versi
 
 ## 5. Client Dashboard
 
-> Main page: `app/[slug]/dashboard/(portal)/client/page.tsx` → `ClientDashboard`
+> Main page: `app/[slug]/(portal)/dashboard/page.tsx` → `ClientDashboard`
 
 ### Who sees it
 
-Users with `role === "customer"` or `role === "stakeholder"` after login. URL: `/{clientName}/dashboard/client`.
+Users with `role === "customer"` or `role === "stakeholder"` after login. URL: `/{clientName}/dashboard`.
 
 ### 5.1 Data loaded on mount
 
@@ -612,13 +612,13 @@ Issues in UAT state, sorted by question count. Client records test results here.
 The chat icon on each card (hover to reveal) navigates to the chat page with the issue pre-selected:
 
 ```
-/acme/dashboard/client  →  /acme/dashboard/chat?newChat=SPA-42%20Issue%20title
+/acme/dashboard  →  /acme/chat?newChat=SPA-42%20Issue%20title
 ```
 
 ### 5.5 Data flow
 
 ```
-User lands on /{slug}/dashboard/client
+User lands on /{slug}/dashboard
   ├── AuthGate → session check
   ├── GET /issues?slug  → allIssues, businessReviewIssues, uatIssues
   ├── GET /decisions/counts  (refetches every 30s)
@@ -629,8 +629,8 @@ User lands on /{slug}/dashboard/client
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/client/page.tsx` | Main client dashboard page |
-| `app/[slug]/dashboard/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
+| `app/[slug]/(portal)/dashboard/page.tsx` | Main client dashboard page |
+| `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Issue list (Business Review + Acceptance Testing) |
@@ -645,11 +645,11 @@ User lands on /{slug}/dashboard/client
 
 ## 6. Developer Dashboard
 
-> Main page: `app/[slug]/dashboard/(portal)/developer/page.tsx` → `DeveloperDashboard`
+> Main page: `app/[slug]/(portal)/developer/page.tsx` → `DeveloperDashboard`
 
 ### Who sees it
 
-Users with `role === "developer"` after login. URL: `/{clientName}/dashboard/developer`.
+Users with `role === "developer"` after login. URL: `/{clientName}/developer`.
 
 ### Key difference from Client Dashboard
 
@@ -718,7 +718,7 @@ Full-width `PriorityTasks` with all active issues. Title changes to the selected
 ### 6.6 Data flow
 
 ```
-User lands on /{slug}/dashboard/developer
+User lands on /{slug}/developer
   ├── AuthGate → session check
   ├── profile.assignment_id[] → projects list
   ├── Promise.all → GET /issues per customer (parallel)
@@ -731,7 +731,7 @@ User lands on /{slug}/dashboard/developer
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/developer/page.tsx` | Main developer dashboard |
+| `app/[slug]/(portal)/developer/page.tsx` | Main developer dashboard |
 | `components/developer/quick-links.tsx` | Quick Links card |
 | `components/developer/tool-shortcuts.tsx` | Tool Shortcuts card |
 | `components/client/priority-tasks.tsx` | Issue list with filter/sort |
@@ -743,7 +743,7 @@ User lands on /{slug}/dashboard/developer
 
 ## 7. Roadmap
 
-> Main page: `app/[slug]/dashboard/(portal)/roadmap/page.tsx` → `RoadmapPage`
+> Main page: `app/[slug]/(portal)/monitor/page.tsx` → `RoadmapPage`
 
 ### Who sees it
 
@@ -813,7 +813,7 @@ Stacked area chart showing issue distribution across statuses over time for the 
 ### 7.5 Data flow
 
 ```
-User lands on /{slug}/dashboard/roadmap
+User lands on /{slug}/monitor
   ├── GET /roadmap/?slug → milestones flattened → RoadmapTimeline
   ├── GET /get-dora-metrics?linear_name= → SoftwareKPIs (4 DORA tiles)
   └── GET /issueMetrics/?slug → MetricsPanel (CycleBarChart + IssueMetricsView)
@@ -823,7 +823,7 @@ User lands on /{slug}/dashboard/roadmap
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/roadmap/page.tsx` | Main page |
+| `app/[slug]/(portal)/monitor/page.tsx` | Main page |
 | `components/roadmap/software-kpis.tsx` | Software KPIs — fetches/renders the 4 DORA tiles |
 | `components/roadmap/roadmap-timeline.tsx` | Timeline shell + milestone detail panel |
 | `components/roadmap/ProjectRow.tsx` | Collapsed / expanded project row toggle |
@@ -841,7 +841,7 @@ User lands on /{slug}/dashboard/roadmap
 
 ## 8. Documents
 
-> Main page: `app/[slug]/dashboard/(portal)/documents/page.tsx`
+> Main page: `app/[slug]/(portal)/documents/page.tsx`
 
 ### Who sees it
 
@@ -920,7 +920,7 @@ Comma-separated email input → `POST /storage/share` with `{ document_id, email
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/documents/page.tsx` | Page shell |
+| `app/[slug]/(portal)/documents/page.tsx` | Page shell |
 | `components/documents/documents-list.tsx` | Document list with search, filter, grouping |
 | `components/documents/document-list-panel.tsx` | Document rows with all actions |
 | `components/documents/ShareDocumentModal.tsx` | Share modal |
@@ -933,7 +933,7 @@ Comma-separated email input → `POST /storage/share` with `{ document_id, email
 
 ## 9. Chat
 
-> Main page: `app/[slug]/dashboard/(portal)/chat/page.tsx` → `CometChatPage`
+> Main page: `app/[slug]/(portal)/chat/page.tsx` → `CometChatPage`
 
 ### Who sees it
 
@@ -992,7 +992,7 @@ For any UID not yet in CometChat → `CometChat.createUser()` is called first. G
 ### 9.5 Opening chat from an issue card
 
 ```
-/acme/dashboard/client  →  /acme/dashboard/chat?newChat=SPA-42%20Issue%20title
+/acme/dashboard  →  /acme/chat?newChat=SPA-42%20Issue%20title
 ```
 
 The `?newChat` param pre-fills the modal title and opens it automatically.
@@ -1000,7 +1000,7 @@ The `?newChat` param pre-fills the modal title and opens it automatically.
 ### 9.6 Data flow
 
 ```
-User lands on /{slug}/dashboard/chat
+User lands on /{slug}/chat
   ├── CometChat.init
   ├── supabase.auth.getUser → resolve UID
   ├── CometChat.login (auto-create user if missing)
@@ -1014,7 +1014,7 @@ User lands on /{slug}/dashboard/chat
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/chat/page.tsx` | Page entry — reads `?newChat` param |
+| `app/[slug]/(portal)/chat/page.tsx` | Page entry — reads `?newChat` param |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, selection state, auto-open logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — groups, direct chats, projectSlug grouping |
 | `components/chat/CometChat/useCometChat.ts` | SDK init, login, group fetch, group creation |
@@ -1030,7 +1030,7 @@ User lands on /{slug}/dashboard/chat
 
 ## 10. Settings
 
-> Main page: `app/[slug]/dashboard/(portal)/settings/page.tsx`
+> Main page: `app/[slug]/(portal)/settings/page.tsx`
 
 ### Who sees it
 
@@ -1097,7 +1097,7 @@ Shows card brand, last 4 digits, expiry. "Add Card" or "Update Card" button call
 ### 10.4 Data flow
 
 ```
-User lands on /{slug}/dashboard/settings
+User lands on /{slug}/settings
   ├── if admin viewing customer:
   │     GET /users?type=customers → resolve effectiveUserId + effectiveCustomerId
   ├── GET /stripe/client?customer_id → billing data
@@ -1125,7 +1125,7 @@ User lands on /{slug}/dashboard/settings
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/settings/page.tsx` | Page shell |
+| `app/[slug]/(portal)/settings/page.tsx` | Page shell |
 | `components/settings/settings-tabs.tsx` | Tab switcher, ID resolution for admin |
 | `components/settings/staffing-section.tsx` | Team list + Cal.com button |
 | `components/settings/developer-details-modal.tsx` | Popup shown when a team member card is clicked |

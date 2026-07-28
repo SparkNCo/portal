@@ -2,18 +2,17 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { Header } from "@/components/headerDashboard";
 import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, User } from "lucide-react";
-import { CustomerSlugProvider } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import AddClientModal from "@/app/admin/users/AddClientModal";
-import ClientDashboard from "../client/page";
-import RoadmapPage from "../roadmap/page";
+import ClientDashboard from "../dashboard/page";
+import RoadmapPage from "../monitor/page";
 import BuildPage from "../build/page";
 import BugsPage from "../bugs/page";
 import DeveloperPage from "../developer/page";
@@ -38,9 +37,9 @@ type DeveloperAssignment = {
 };
 
 
-function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug: string }) {
+export function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug: string }) {
   switch (panel) {
-    case "roadmap":
+    case "monitor":
       return <RoadmapPage />;
     case "build":
       return <BuildPage />;
@@ -60,16 +59,18 @@ function PanelRenderer({ panel, slug }: { readonly panel: string; readonly slug:
 }
 
 function CustomerCard({
+  urlSlug,
   email,
   clientName,
   linear_slug,
 }: {
+  readonly urlSlug: string;
   readonly email: string;
   readonly clientName: string;
   readonly linear_slug: string;
 }) {
   return (
-    <Link href={`dashboards?customer=${clientName}&panel=client`}>
+    <Link href={`/${urlSlug}/dashboards/${encodeURIComponent(clientName)}/dashboard`}>
       <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
           <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
@@ -102,11 +103,9 @@ function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
 }
 
 function DashboardsContent() {
-  const searchParams = useSearchParams();
+  const { slug: urlSlug } = useParams<{ slug: string }>();
   const { profile, loading } = useUser();
   const queryClient = useQueryClient();
-  const customer = searchParams.get("customer");
-  const panel = searchParams.get("panel") ?? "client";
   const [showAddCustomer, setShowAddCustomer] = useState(false);
 
   const isAdmin = profile?.role === "admin";
@@ -143,16 +142,6 @@ function DashboardsContent() {
     },
     enabled: isDeveloper && !!profile?.id,
   });
-
-  // If a specific customer dashboard is selected, render it immediately
-  // without waiting for the profile — ClientDashboard uses customerSlug from context
-  if (customer) {
-    return (
-      <CustomerSlugProvider value={customer}>
-        <PanelRenderer panel={panel} slug={customer} />
-      </CustomerSlugProvider>
-    );
-  }
 
   if (loading) return <LoadingDataPanel />;
 
@@ -192,6 +181,7 @@ function DashboardsContent() {
           {cards.map((c) => (
             <CustomerCard
               key={c.clientName}
+              urlSlug={urlSlug}
               email={c.email}
               clientName={c.clientName}
               linear_slug={c.linear_slug}

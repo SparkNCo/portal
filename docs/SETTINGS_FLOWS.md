@@ -1,7 +1,7 @@
 # Settings — Flows & How It Works
 
 > Reference for the Settings page and its tabs.  
-> Main page: `app/[slug]/dashboard/(portal)/settings/page.tsx` → `SettingsPage`
+> Main page: `app/[slug]/(portal)/settings/page.tsx` → `SettingsPage`
 
 ---
 
@@ -176,7 +176,7 @@ Both the Add and Update buttons call `POST /stripe/create-customer-portal` with 
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/dashboard/settings
+User lands on /{slug}/settings
           │
           ├── if admin viewing customer
           │     → GET /users?type=customers
@@ -217,7 +217,7 @@ User lands on /{slug}/dashboard/settings
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/settings/page.tsx` | Page shell |
+| `app/[slug]/(portal)/settings/page.tsx` | Page shell |
 | `components/settings/settings-tabs.tsx` | Tab switcher — resolves effective IDs for admin, fetches billing data |
 | `components/settings/staffing-section.tsx` | Team members list + Request Change (Cal.com) button |
 | `components/settings/developer-details-modal.tsx` | Popup shown when a team member card is clicked (name, role, date added, bio, tech stack) |

@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
-import { fetchIssues } from "../client/page";
+import { fetchIssues } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 

@@ -42,7 +42,7 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   // When an admin/developer is viewing a specific customer's chat panel,
   // tag new groups with that customer's slug rather than the route's own
   // `[slug]` segment — which for that flow is the viewer's own slug, not
-  // the customer's (see dashboards/page.tsx's ?customer= flow).
+  // the customer's (see dashboards/[customer]/[panel]/page.tsx).
   const projectSlug = customerSlug ?? pathname.split("/")[1] ?? undefined;
 
   const handleCreate = async (title: string) => {

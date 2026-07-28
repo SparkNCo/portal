@@ -9,7 +9,7 @@ async function loginAsAdmin(page: any) {
     test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set in .env.test');
   }
 
-  await performLogin(page, email!, password!, '/dashboard/admin');
+  await performLogin(page, email!, password!, '/users');
 }
 
 // ---------------------------------------------------------------------------
@@ -28,8 +28,8 @@ test.describe('Admin — login', () => {
       test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/dashboard/admin');
-    expect(page.url()).toContain('/dashboard/admin');
+    await performLogin(page, email!, password!, '/users');
+    expect(page.url()).toContain('/users');
   });
 
 });
@@ -69,11 +69,11 @@ test.describe('Admin — panels', () => {
     await page.getByRole('link', { name: 'Dashboards' }).click();
     await page.waitForURL('**/dashboards', { timeout: 10_000 });
 
-    const firstCard = page.locator('a[href*="customer="]').first();
+    const firstCard = page.locator('a[href*="/dashboards/"]').first();
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
 
-    await expect(page).toHaveURL(/customer=.+/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/dashboards\/.+\/dashboard/, { timeout: 10_000 });
     await expect(page.getByText('Client Dashboard')).toBeVisible({ timeout: 10_000 });
   });
 

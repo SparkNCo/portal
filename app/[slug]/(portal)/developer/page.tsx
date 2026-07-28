@@ -11,7 +11,7 @@ import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useState, useEffect } from "react";
-import { fetchIssues, fetchPoliciesStatus } from "../client/page";
+import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 
 export default function DeveloperDashboard() {

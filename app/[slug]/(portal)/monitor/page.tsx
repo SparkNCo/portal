@@ -10,7 +10,7 @@ import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { useParams } from "next/navigation";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
-import { fetchIssues } from "../client/page";
+import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { API_HEADERS } from "@/lib/api-headers";
 

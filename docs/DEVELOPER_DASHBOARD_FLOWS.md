@@ -1,13 +1,13 @@
 # Developer Dashboard — Flows & How It Works
 
 > Reference for the developer-facing dashboard and everything it renders.  
-> Main page: `app/[slug]/dashboard/(portal)/developer/page.tsx` → `DeveloperDashboard`
+> Main page: `app/[slug]/(portal)/developer/page.tsx` → `DeveloperDashboard`
 
 ---
 
 ## Who sees this dashboard
 
-The developer dashboard is the landing page for users with `role === "developer"` after login. The URL follows the pattern `/{clientName}/dashboard/developer`, where `clientName` is the slug of the first customer the developer is assigned to.
+The developer dashboard is the landing page for users with `role === "developer"` after login. The URL follows the pattern `/{clientName}/developer`, where `clientName` is the slug of the first customer the developer is assigned to.
 
 ---
 
@@ -146,7 +146,7 @@ Clicking any issue card opens the **Issue Detail Modal** with four tabs: Descrip
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/dashboard/developer
+User lands on /{slug}/developer
           │
           ├── AuthGate checks Supabase session → if invalid, redirect to /
           │
@@ -201,9 +201,9 @@ allIssues (merged, Done removed, sorted by question count)
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/developer/page.tsx` | Main developer dashboard page |
-| `app/[slug]/dashboard/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
-| `app/[slug]/dashboard/(portal)/client/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |
+| `app/[slug]/(portal)/developer/page.tsx` | Main developer dashboard page |
+| `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
+| `app/[slug]/(portal)/dashboard/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |
 | `components/developer/quick-links.tsx` | Quick Links card with Airtable form links |
 | `components/developer/tool-shortcuts.tsx` | Tool Shortcuts card (JumpCloud, PostHog, GitHub) |
 | `components/client/priority-tasks.tsx` | Issue list with filter, sort, and search |

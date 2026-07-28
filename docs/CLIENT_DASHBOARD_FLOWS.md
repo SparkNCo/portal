@@ -1,7 +1,7 @@
 # Client Dashboard — Flows & How It Works
 
 > Reference for the client-facing dashboard and everything it renders.  
-> Main page: `app/[slug]/dashboard/(portal)/client/page.tsx` → `ClientDashboard`
+> Main page: `app/[slug]/(portal)/dashboard/page.tsx` → `ClientDashboard`
 
 ---
 
@@ -9,13 +9,13 @@
 
 The client dashboard is the landing page for users with `role === "customer"` or `role === "stakeholder"` after login. Both roles see the same page and the same data.
 
-The URL follows the pattern `/{clientName}/dashboard/client`, where `clientName` is the slug stored on the user's profile (e.g. `/acme/dashboard/client`).
+The URL follows the pattern `/{clientName}/dashboard`, where `clientName` is the slug stored on the user's profile (e.g. `/acme/dashboard`).
 
 ---
 
 ## Layout & Navigation
 
-Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/dashboard/(portal)/layout.tsx`. That layout wraps all content with two things:
+Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/(portal)/layout.tsx`. That layout wraps all content with two things:
 
 - **AuthGate** — checks that a valid Supabase session exists. If not, redirects to `/`.
 - **Sidebar** — the left navigation panel (60px wide on desktop, slide-in drawer on mobile).
@@ -158,7 +158,7 @@ Issues are also sorted by question count descending.
 Each issue card has a small chat icon button (visible on hover). Clicking it navigates to the chat page and opens a new conversation pre-titled with the issue identifier and name. The routing logic strips the last segment of the current URL and replaces it with `/chat`:
 
 ```
-/acme/dashboard/client  →  /acme/dashboard/chat?newChat=SPA-42%20Fix%20login%20bug
+/acme/dashboard  →  /acme/chat?newChat=SPA-42%20Fix%20login%20bug
 ```
 
 ---
@@ -166,7 +166,7 @@ Each issue card has a small chat icon button (visible on hover). Clicking it nav
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/dashboard/client
+User lands on /{slug}/dashboard
           │
           ├── AuthGate checks Supabase session → if invalid, redirect to /
           │
@@ -192,8 +192,8 @@ User lands on /{slug}/dashboard/client
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/client/page.tsx` | Main client dashboard page |
-| `app/[slug]/dashboard/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
+| `app/[slug]/(portal)/dashboard/page.tsx` | Main client dashboard page |
+| `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
 | `components/sidebar.tsx` | Sidebar with role-based navigation and logout |
 | `components/headerDashboard.tsx` | Sticky top header with title, subtitle, and mobile menu toggle |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |

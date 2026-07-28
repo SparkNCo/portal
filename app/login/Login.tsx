@@ -61,7 +61,7 @@ export default function LoginForm({
           customer.assignment_id?.[0]?.linear_slug ??
           customer.clientName;
         if (clientName) {
-          router.push(`/${clientName}/dashboard/client`);
+          router.push(`/${clientName}/dashboard`);
           onLoginSuccess(customer.email);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");
@@ -71,7 +71,7 @@ export default function LoginForm({
       }
       if (customer?.role === "admin") {
         if (customer.userName) {
-          router.push(`/${customer.userName}/dashboard/admin`);
+          router.push(`/${customer.userName}/users`);
         } else {
           setErrorMessage("No username set on this admin account. Contact your administrator.");
           setLoading(false);
@@ -82,13 +82,13 @@ export default function LoginForm({
           customer.assignment_id?.[0]?.clientName ??
           customer.assignment_id?.[0]?.linear_slug;
         if (clientName) {
-          router.push(`/${clientName}/dashboard/developer`);
+          router.push(`/${clientName}/developer`);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");
           setLoading(false);
         }
       } else {
-        router.push(`/${customer.clientName}/dashboard/client`);
+        router.push(`/${customer.clientName}/dashboard`);
       }
       onLoginSuccess(customer.email);
     }

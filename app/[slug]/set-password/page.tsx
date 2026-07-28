@@ -57,7 +57,7 @@ export default function SetPasswordPage() {
     }
 
     setDone(true);
-    setTimeout(() => router.replace(`/${slug}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(`/${slug}/dashboard`), 1500);
   }
 
   const inputClass =

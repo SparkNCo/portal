@@ -127,9 +127,9 @@ function SetPasswordForm() {
     };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
-    let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
+    let redirectPath = `/${slugifiedClientName}/dashboards`;
     if (isCustomer) {
-      redirectPath = `/${slugifiedClientName}/dashboard/dashboards?customer=${slugifiedClientName}&panel=client`;
+      redirectPath = `/${slugifiedClientName}/dashboards/${slugifiedClientName}/dashboard`;
     }
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {

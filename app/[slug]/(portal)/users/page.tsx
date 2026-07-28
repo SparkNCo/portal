@@ -13,7 +13,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!loading && profile?.role !== "admin") {
-      router.replace("./client");
+      router.replace("./dashboard");
     }
   }, [loading, profile, router]);
 

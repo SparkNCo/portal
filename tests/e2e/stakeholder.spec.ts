@@ -9,12 +9,12 @@ async function loginAsStakeholder(page: any) {
     test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
   }
 
-  await performLogin(page, email!, password!, '/dashboard/client');
+  await performLogin(page, email!, password!, '/dashboard');
 }
 
 async function navigateToRoadmap(page: any) {
-  await page.getByRole('link', { name: 'Roadmap' }).click();
-  await page.waitForURL('**/roadmap', { timeout: 10_000 });
+  await page.getByRole('link', { name: 'Monitor' }).click();
+  await page.waitForURL('**/monitor', { timeout: 10_000 });
 }
 
 async function expandFirstProject(page: any) {
@@ -39,8 +39,8 @@ test.describe('Stakeholder — login', () => {
       test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/dashboard/client');
-    expect(page.url()).toContain('/dashboard/client');
+    await performLogin(page, email!, password!, '/dashboard');
+    expect(page.url()).toContain('/dashboard');
   });
 
 });
@@ -68,7 +68,7 @@ test.describe('Stakeholder — panels', () => {
 
   test('sidebar shows the correct nav items for a stakeholder', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Roadmap' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Monitor' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
 
@@ -82,7 +82,7 @@ test.describe('Stakeholder — panels', () => {
   test('Roadmap — page header and subtitle are visible', async ({ page }) => {
     await navigateToRoadmap(page);
 
-    await expect(page.getByText('Roadmap')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Monitor')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Project timeline and progress')).toBeVisible();
   });
 

@@ -1,7 +1,7 @@
 # Roadmap — Flows & How It Works
 
 > Reference for the Roadmap page and all its panels.  
-> Main page: `app/[slug]/dashboard/(portal)/roadmap/page.tsx` → `RoadmapPage`
+> Main page: `app/[slug]/(portal)/monitor/page.tsx` → `RoadmapPage`
 
 ---
 
@@ -9,7 +9,7 @@
 
 The Roadmap is accessible to `customer`, `stakeholder`, and `admin` (when previewing a customer). It appears in the sidebar nav for those roles. Developers do not have a Roadmap link in their sidebar.
 
-The URL follows the pattern `/{clientName}/dashboard/roadmap`.
+The URL follows the pattern `/{clientName}/monitor`.
 
 ---
 
@@ -212,7 +212,7 @@ The following components exist in `components/metrics/cycle-metrics.tsx` and are
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/dashboard/roadmap
+User lands on /{slug}/monitor
           │
           ├── AuthGate checks Supabase session → if invalid, redirect to /
           │
@@ -238,7 +238,7 @@ User lands on /{slug}/dashboard/roadmap
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/roadmap/page.tsx` | Main roadmap page — fetches roadmap data, renders all sections |
+| `app/[slug]/(portal)/monitor/page.tsx` | Main roadmap page — fetches roadmap data, renders all sections |
 | `components/roadmap/software-kpis.tsx` | Software KPIs — fetches and renders the four DORA metric tiles |
 | `components/roadmap/roadmap-timeline.tsx` | Timeline shell — year nav, project grouping, milestone selection, issue detail panel |
 | `components/roadmap/ProjectRow.tsx` | Single project row — toggles between collapsed and expanded view |

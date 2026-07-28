@@ -1,7 +1,7 @@
 # Chat — Flows & How It Works
 
 > Reference for the standalone Chat page and CometChat integration.  
-> Main page: `app/[slug]/dashboard/(portal)/chat/page.tsx` → `CometChatPage`
+> Main page: `app/[slug]/(portal)/chat/page.tsx` → `CometChatPage`
 
 ---
 
@@ -114,7 +114,7 @@ After creation, the groups list refreshes and the new group is selected automati
 When a user clicks the chat icon on an issue card in the Priority Tasks list, the app navigates to the chat page with the issue pre-selected as a new chat title:
 
 ```
-/acme/dashboard/client  →  /acme/dashboard/chat?newChat=SPA-42%20Fix%20login%20bug
+/acme/dashboard  →  /acme/chat?newChat=SPA-42%20Fix%20login%20bug
 ```
 
 The `?newChat` param is passed to `ChatLayout` as `initialTitle`, which pre-fills the `CreateChatModal` title field and opens it automatically.
@@ -124,7 +124,7 @@ The `?newChat` param is passed to `ChatLayout` as `initialTitle`, which pre-fill
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/dashboard/chat
+User lands on /{slug}/chat
           │
           ├── CometChat.init(APP_ID)
           │
@@ -153,7 +153,7 @@ User lands on /{slug}/dashboard/chat
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/chat/page.tsx` | Page entry — reads `?newChat` param, wraps in Suspense |
+| `app/[slug]/(portal)/chat/page.tsx` | Page entry — reads `?newChat` param, wraps in Suspense |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, group selection state, auto-open modal logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — group list, direct chats, grouped by projectSlug |
 | `components/chat/CometChat/useCometChat.ts` | SDK init, login, group fetching, group creation logic |
