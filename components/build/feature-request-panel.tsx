@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Lightbulb, Paperclip, File as FileIcon, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -64,7 +63,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [estimate, setEstimate] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +84,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
         slug,
         type: "feature",
         ...(selectedProjectId && { projectId: selectedProjectId }),
-        ...(estimate && { estimate: Number(estimate) }),
       });
 
       const issueId = result.issue?.id;
@@ -114,7 +111,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     setDescription("");
     setRequirements("");
     setPriority("medium");
-    setEstimate("");
     setSelectedProjectId("");
     setAttachments([]);
   }
@@ -185,24 +181,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               />
 
               <PriorityField value={priority} onValueChange={setPriority} />
-
-              <div className="space-y-1.5">
-                <Label>
-                  Estimate points{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="e.g. 3"
-                  value={estimate}
-                  onChange={(e) => setEstimate(e.target.value)}
-                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                />
-              </div>
             </div>
 
             <div className="space-y-1.5">

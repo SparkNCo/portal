@@ -1,16 +1,17 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { Header } from "@/components/headerDashboard";
 import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User } from "lucide-react";
+import { Plus, User } from "lucide-react";
 import { CustomerSlugProvider } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import AddClientModal from "@/app/admin/users/AddClientModal";
 import ClientDashboard from "../client/page";
 import RoadmapPage from "../roadmap/page";
 import BuildPage from "../build/page";
@@ -87,11 +88,26 @@ function CustomerCard({
   );
 }
 
+function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+      aria-label="Add Customer"
+    >
+      <Plus className="h-6 w-6" />
+    </button>
+  );
+}
+
 function DashboardsContent() {
   const searchParams = useSearchParams();
   const { profile, loading } = useUser();
+  const queryClient = useQueryClient();
   const customer = searchParams.get("customer");
   const panel = searchParams.get("panel") ?? "client";
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
 
   const isAdmin = profile?.role === "admin";
   const isDeveloper = profile?.role === "developer";
@@ -171,7 +187,7 @@ function DashboardsContent() {
         }
       />
 
-      {cards.length ? (
+      {cards.length || isAdmin ? (
         <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
             <CustomerCard
@@ -181,11 +197,23 @@ function DashboardsContent() {
               linear_slug={c.linear_slug}
             />
           ))}
+          {isAdmin && (
+            <AddCustomerCard onClick={() => setShowAddCustomer(true)} />
+          )}
         </div>
       ) : (
         <p className="p-6 text-sm text-muted-foreground">
           No dashboards assigned yet.
         </p>
+      )}
+
+      {showAddCustomer && (
+        <AddClientModal
+          onClose={() => {
+            setShowAddCustomer(false);
+            queryClient.invalidateQueries({ queryKey: ["customers"] });
+          }}
+        />
       )}
     </div>
   );

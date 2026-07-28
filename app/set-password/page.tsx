@@ -1,18 +1,33 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
-import { KeyRound, Eye, EyeOff } from "lucide-react";
+import { KeyRound, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useUser } from "context/UserContext";
+
+// Supabase redirects an invite link it can no longer honor (expired/already
+// used) back to `redirectTo` with `error_code` in either the query string or
+// the hash fragment — it never gets far enough to fire a SIGNED_IN/SIGNED_OUT
+// auth event, so without this check the page is stuck on "Verifying invite
+// link..." forever.
+function getInviteErrorCode(searchParams: URLSearchParams): string | null {
+  const fromQuery = searchParams.get("error_code");
+  if (fromQuery) return fromQuery;
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_code");
+}
 
 function SetPasswordForm() {
   const router = useRouter();
   const { reloadUser } = useUser();
+  const searchParams = useSearchParams();
 
+  const [expiredInvite] = useState(() => getInviteErrorCode(searchParams) === "otp_expired");
+  const [showExpiredModal, setShowExpiredModal] = useState(expiredInvite);
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -55,6 +70,10 @@ function SetPasswordForm() {
   }
 
   useEffect(() => {
+    // An expired invite link never establishes a session — no point waiting
+    // on one.
+    if (expiredInvite) return;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) resolveSession(session);
     });
@@ -147,7 +166,13 @@ function SetPasswordForm() {
         </CardHeader>
 
         <CardContent>
-          {!ready && !error && (
+          {expiredInvite && (
+            <p className="text-sm text-destructive">
+              This invite link has expired. Please contact your administrator for a new login link.
+            </p>
+          )}
+
+          {!expiredInvite && !ready && !error && (
             <p className="text-sm text-muted-foreground animate-pulse">
               Verifying invite link...
             </p>
@@ -272,6 +297,29 @@ function SetPasswordForm() {
           )}
         </CardContent>
       </Card>
+
+      {showExpiredModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-96 bg-background border-border shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                Invite link expired
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This invite link has expired. Please contact your administrator for a new login link.
+              </p>
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => setShowExpiredModal(false)}>
+                  Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
