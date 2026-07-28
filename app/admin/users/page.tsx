@@ -79,7 +79,6 @@ export default function AdminUsersPage() {
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string | null>(null);
 
   const {
     data: users = [],
@@ -100,6 +99,27 @@ export default function AdminUsersPage() {
 
   const customerIds = customers.map((c) => c.id);
 
+  // `/functions/v1/users` (plain) doesn't join `clientName` — only
+  // `?type=customers` does. Needed for the Projects view's group titles.
+  const { data: customerDetails = [] } = useQuery<
+    { id: string; clientName: string | null }[]
+  >({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: apiHeaders },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json();
+    },
+    enabled: customerIds.length > 0,
+  });
+
+  const initiativeNameByCustomerId = new Map(
+    customerDetails.map((c) => [c.id, c.clientName]),
+  );
+
   const { data: allAssignments = [], isLoading: allAssignmentsLoading } =
     useQuery({
       queryKey: ["all-assignments", customerIds],
@@ -114,30 +134,16 @@ export default function AdminUsersPage() {
       },
     });
 
-  // ── Developer assignments (expanded user panel) ──
+  // ── Developer assignments (expanded user panel) ── only developer rows
+  // can expand, so this only ever fires for that role.
   const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
     useQuery({
       queryKey: ["developer-assignments", expandedUser?.id],
-      enabled: !!expandedUser?.id && (expandedUser.role === "developer" || expandedUser.role === "stakeholder"),
+      enabled: !!expandedUser?.id && expandedUser.role === "developer",
       queryFn: async () => {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${expandedUser!.id}`,
           { headers: apiHeaders },
-        );
-        const data = await res.json();
-        return data;
-      },
-    });
-
-  // ── Customer assignments (expanded user panel) ──
-  const { data: customerAssignments, isLoading: customerAssignmentsLoading } =
-    useQuery({
-      queryKey: ["customer-assignments", expandedUser?.id],
-      enabled: !!expandedUser?.id && expandedUser.role === "customer",
-      queryFn: async () => {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${expandedUser!.id}`,
-          { headers: API_JSON_HEADERS },
         );
         const data = await res.json();
         return data;
@@ -157,17 +163,7 @@ export default function AdminUsersPage() {
     return acc;
   }, {});
 
-  const userAssignments =
-    expandedUser?.role === "customer"
-      ? customerAssignments
-      : developerAssignments; // used for both developer and stakeholder
-  const assignmentsLoading =
-    expandedUser?.role === "customer"
-      ? customerAssignmentsLoading
-      : developerAssignmentsLoading;
-
   const filteredUsers = users.filter((u: User) => {
-    if (roleFilter && u.role !== roleFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -177,6 +173,8 @@ export default function AdminUsersPage() {
     }
     return true;
   });
+
+  const ROLES = ["admin", "developer", "customer", "stakeholder"] as const;
 
   const { mutate: assignUser } = useMutation({
     mutationFn: async () => {
@@ -365,265 +363,217 @@ export default function AdminUsersPage() {
 
       {/* ── Users view ── */}
       {view === "users" && (
-        <Card className="bg-background border-border">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Users className="h-4 w-4 text-accent" />
-              Users
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search by email or username..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-              <div className="flex gap-1.5">
-                {(["admin", "developer", "customer", "stakeholder"] as const).map((role) => (
-                  <button
-                    key={role}
-                    onClick={() =>
-                      setRoleFilter(roleFilter === role ? null : role)
-                    }
-                    className={`text-xs px-3 py-1.5 rounded-md border font-medium transition-all ${
-                      roleFilter === role
-                        ? `${roleColors[role]} border-current`
-                        : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
-                    }`}
-                  >
+        <div className="space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by email or username..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          {/* One panel per role — only developer rows can expand to show assignments */}
+          {ROLES.map((role) => {
+            const roleUsers = filteredUsers.filter((u: User) => u.role === role);
+            return (
+              <Card key={role} className="bg-background border-border">
+                <CardHeader>
+                  <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize">
+                    <Users className="h-4 w-4 text-accent" />
                     {role}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No users found</p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {filteredUsers.map((u: User) => {
-                const isExpanded = expandedUser?.id === u.id;
-                return (
-                  <div
-                    key={u.id}
-                    className="rounded-lg border border-border bg-secondary/30 transition-colors group"
-                  >
-                    <div className="flex items-center justify-between p-3 hover:bg-secondary/50">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
-                          {getInitials(u.email)}
-                        </div>
-                        <div className="min-w-0">
-                          <p
-                            title={u.email}
-                            className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate max-w-[15ch]"
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {roleUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No {role}s found
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {roleUsers.map((u: User) => {
+                        const isExpanded = expandedUser?.id === u.id;
+                        return (
+                          <div
+                            key={u.id}
+                            className="rounded-lg border border-border bg-secondary/30 transition-colors group"
                           >
-                            {u.email}
-                          </p>
-                          <Badge
-                            variant="secondary"
-                            className={
-                              roleColors[u.role] ?? "bg-muted text-foreground"
-                            }
-                          >
-                            {u.role}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center gap-1">
-                          {u.role === "developer" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-xs"
-                              onClick={() => setViewingProfileUser(u)}
-                            >
-                              <Eye className="h-4 w-4" />
-                              View Profile
-                            </Button>
-                          )}
-                          {u.role === "developer" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-xs"
-                              onClick={() => setEditingProfileUser(u)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                              Edit Profile
-                            </Button>
-                          )}
-                          {(u.role === "developer" || u.role === "stakeholder") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-1 text-xs"
-                              onClick={() => { setAssigningUserId(u.id); setAssigningUserRole(u.role); }}
-                            >
-                              <UserCheck className="h-4 w-4" />
-                              Assign
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                title="Resend account email"
-                                aria-label="Resend account email"
-                                disabled={resendPending && resendingVariables?.user.id === u.id}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Mail
-                                  className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
-                                />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                              <DropdownMenuItem
-                                onClick={() => resendAccountEmail({ user: u, emailType: "invite" })}
-                              >
-                                Resend invite
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => resendAccountEmail({ user: u, emailType: "reset" })}
-                              >
-                                Send password reset
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setExpandedUser(isExpanded ? null : u)}
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-3 border-t border-border">
-                        {assignmentsLoading && (
-                          <p className="text-sm text-muted-foreground animate-pulse">
-                            Loading...
-                          </p>
-                        )}
-                        {!assignmentsLoading &&
-                          userAssignments?.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
-                              No assignments found
-                            </p>
-                          )}
-                        {!assignmentsLoading && userAssignments?.length > 0 && (
-                          <div className="space-y-2">
-                            {expandedUser?.role === "customer"
-                              ? userAssignments.map((a: Assignment) => (
-                                  <div
-                                    key={a.user_id}
-                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                            <div className="flex items-center justify-between p-3 hover:bg-secondary/50">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+                                  {getInitials(u.email)}
+                                </div>
+                                <div className="min-w-0">
+                                  <p
+                                    title={u.email}
+                                    className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate max-w-[15ch]"
                                   >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                                        {a.email?.slice(0, 2).toUpperCase()}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p
-                                          title={a.email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
-                                        >
-                                          {a.email}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
-                                          {a.role}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                      {a.joined && (
-                                        <span>
-                                          Joined{" "}
-                                          {new Date(
-                                            a.joined,
-                                          ).toLocaleDateString()}
-                                        </span>
-                                      )}
-                                      {a.allocation && (
-                                        <span className="font-medium text-foreground">
-                                          {a.allocation}h/week
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))
-                              : userAssignments.map((a: any) => (
-                                  <div
-                                    key={a.id}
-                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                    {u.email}
+                                  </p>
+                                  <Badge
+                                    variant="secondary"
+                                    className={
+                                      roleColors[u.role] ?? "bg-muted text-foreground"
+                                    }
                                   >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                                        {a.customer_email
-                                          ?.slice(0, 2)
-                                          .toUpperCase()}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p
-                                          title={a.customer_email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                    {u.role}
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center gap-1">
+                                  {u.role === "developer" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 text-xs"
+                                      onClick={() => setViewingProfileUser(u)}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                      View Profile
+                                    </Button>
+                                  )}
+                                  {u.role === "developer" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 text-xs"
+                                      onClick={() => setEditingProfileUser(u)}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                      Edit Profile
+                                    </Button>
+                                  )}
+                                  {(u.role === "developer" || u.role === "stakeholder") && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 text-xs"
+                                      onClick={() => { setAssigningUserId(u.id); setAssigningUserRole(u.role); }}
+                                    >
+                                      <UserCheck className="h-4 w-4" />
+                                      Assign
+                                    </Button>
+                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        title="Resend account email"
+                                        aria-label="Resend account email"
+                                        disabled={resendPending && resendingVariables?.user.id === u.id}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Mail
+                                          className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                        />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                      <DropdownMenuItem
+                                        onClick={() => resendAccountEmail({ user: u, emailType: "invite" })}
+                                      >
+                                        Resend invite
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => resendAccountEmail({ user: u, emailType: "reset" })}
+                                      >
+                                        Send password reset
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                                {u.role === "developer" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => setExpandedUser(isExpanded ? null : u)}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {isExpanded && u.role === "developer" && (
+                              <div className="px-4 pb-4 pt-3 border-t border-border">
+                                {developerAssignmentsLoading && (
+                                  <p className="text-sm text-muted-foreground animate-pulse">
+                                    Loading...
+                                  </p>
+                                )}
+                                {!developerAssignmentsLoading &&
+                                  developerAssignments?.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                      No assignments found
+                                    </p>
+                                  )}
+                                {!developerAssignmentsLoading && developerAssignments?.length > 0 && (
+                                  <div className="space-y-2">
+                                    {developerAssignments.map((a: any) => {
+                                      const initiativeName = a.clientName ?? a.customer_email;
+                                      return (
+                                        <div
+                                          key={a.id}
+                                          className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
                                         >
-                                          {a.customer_email}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
-                                          Customer
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                      {a.joined && (
-                                        <span>
-                                          Joined{" "}
-                                          {new Date(
-                                            a.joined,
-                                          ).toLocaleDateString()}
-                                        </span>
-                                      )}
-                                      <span className="font-medium text-foreground">
-                                        {a.allocation}h/week
-                                      </span>
-                                    </div>
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                              {initiativeName?.slice(0, 2).toUpperCase()}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p
+                                                title={initiativeName}
+                                                className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                              >
+                                                {initiativeName}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground capitalize">
+                                                Customer
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                            {a.joined && (
+                                              <span>
+                                                Joined{" "}
+                                                {new Date(
+                                                  a.joined,
+                                                ).toLocaleDateString()}
+                                              </span>
+                                            )}
+                                            <span className="font-medium text-foreground">
+                                              {a.allocation}h/week
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                ))}
+                                )}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       {/* ── Projects view ── */}
@@ -653,22 +603,25 @@ export default function AdminUsersPage() {
 
             {!allAssignmentsLoading && (
               <div className="space-y-4">
-                {Object.values(projectsMap).map(({ customer, developers }) => (
+                {Object.values(projectsMap).map(({ customer, developers }) => {
+                  const initiativeName =
+                    initiativeNameByCustomerId.get(customer.id) ?? customer.email;
+                  return (
                   <div
                     key={customer.id}
                     className="rounded-lg border border-border bg-secondary/30"
                   >
-                    {/* Customer header */}
+                    {/* Initiative header */}
                     <div className="flex items-center gap-3 p-3 border-b border-border">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
-                        {getInitials(customer.email)}
+                        {initiativeName.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
-                          title={customer.email}
+                          title={initiativeName}
                           className="text-sm font-semibold text-card-foreground truncate max-w-[15ch]"
                         >
-                          {customer.email}
+                          {initiativeName}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {developers.length === 0
@@ -724,7 +677,8 @@ export default function AdminUsersPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
