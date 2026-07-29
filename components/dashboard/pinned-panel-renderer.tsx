@@ -56,13 +56,8 @@ function useRoadmapMilestones(slug: string) {
       })),
     );
     const projectNames = projects.map((project: any) => project.name);
-    // Milestones don't carry their own start date, so the first milestone's
-    // start is the project's createdAt; each milestone after that starts
-    // where the previous one's targetDate ends (chained in ProjectRow).
-    const projectStartDates: Record<string, string | null> = Object.fromEntries(
-      projects.map((project: any) => [project.name, project.createdAt ?? null]),
-    );
-    return { milestones, projectNames, projectStartDates };
+    const cycles = roadmap?.cycles?.nodes ?? [];
+    return { milestones, projectNames, cycles };
   }, [roadmap]);
 
   return derived;
@@ -207,14 +202,14 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames, projectStartDates } = useRoadmapMilestones(slug);
+  const { milestones, projectNames, cycles } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
       <RoadmapTimeline
         projectMilestones={milestones}
         allProjectNames={projectNames}
-        projectStartDates={projectStartDates}
+        cycles={cycles}
         slug={slug}
       />
     </div>

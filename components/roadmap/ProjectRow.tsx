@@ -1,28 +1,32 @@
 import { Box, ChevronDown, ChevronRight } from "lucide-react";
 import { MilestoneRow, ProjectSummaryBar } from "./ProjectSummaryBar";
 import { Milestone } from "./roadmap-timeline";
-
-export interface ProjectRange {
-  start: Date;
-  end: Date;
-}
+import type { TimeBucket } from "./TimelineHeader";
 
 export interface ChainedMilestone extends Milestone {
-  // Previous milestone's targetDate (or the project's start date for the
-  // first milestone) — replaces createdAt as the bar's rendered start so
-  // milestones sit back-to-back instead of overlapping.
-  chainStart: string | null;
+  // Which cycles this milestone actually has issues in — used to highlight
+  // cycle columns directly by membership. Milestones frequently have no
+  // targetDate at all, so date-range logic can't be relied on; cycle
+  // membership comes straight from each issue's own `cycle` field instead.
+  cycleIds: Set<string>;
 }
+
+export type CycleSelection = {
+  projectName: string;
+  // null means "the whole project" (collapsed summary row); a milestone
+  // name scopes the selection to just that milestone's issues instead.
+  milestoneName: string | null;
+  cycleKey: string;
+};
 
 interface ProjectRowProps {
   projectName: string;
   milestones: Milestone[];
-  projectStartDate?: string | null;
-  year: number;
+  buckets: TimeBucket[];
   expanded: boolean;
   onToggle: () => void;
-  onMilestoneSelect?: (m: Milestone) => void;
-  selectedMilestoneId?: string;
+  selection: CycleSelection | null;
+  onCycleSelect: (selection: CycleSelection) => void;
 }
 
 interface ProjectHeaderProps {
@@ -31,30 +35,24 @@ interface ProjectHeaderProps {
   onToggle: () => void;
 }
 
-// Milestones without a targetDate can't be placed on the chain — sort them
-// to the end instead of letting an Invalid Date/NaN comparison scramble the
-// real, dated milestones around them.
-function sortByTargetDate(milestones: Milestone[]): Milestone[] {
-  return [...milestones].sort((a, b) => {
-    const aTime = a.targetDate ? new Date(a.targetDate).getTime() : Number.POSITIVE_INFINITY;
-    const bTime = b.targetDate ? new Date(b.targetDate).getTime() : Number.POSITIVE_INFINITY;
-    return aTime - bTime;
-  });
+function getCycleIds(milestone: Milestone): Set<string> {
+  const ids = new Set<string>();
+  for (const issue of milestone.issues?.nodes ?? []) {
+    const cycleId = issue?.cycle?.id;
+    if (cycleId) ids.add(cycleId);
+  }
+  return ids;
 }
 
 // A project with zero milestones is treated as having a single, nameless
-// one — so it still renders a row/bar instead of an empty state.
-function withPlaceholder(
-  milestones: Milestone[],
-  projectName: string,
-  projectStartDate?: string | null,
-): Milestone[] {
+// one — so it still renders a row instead of an empty state.
+function withPlaceholder(milestones: Milestone[], projectName: string): Milestone[] {
   if (milestones.length > 0) return milestones;
 
   return [
     {
       id: `placeholder-${projectName}`,
-      createdAt: projectStartDate ?? new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       currentProgress: {
         scopeCount: 0,
         scopeEstimate: 0,
@@ -68,44 +66,13 @@ function withPlaceholder(
       progressHistory: [],
       projectName,
       status: "unstarted",
-      targetDate: projectStartDate ?? new Date().toISOString(),
+      targetDate: "",
     },
   ];
 }
 
-function chainMilestones(
-  milestones: Milestone[],
-  projectStartDate?: string | null,
-): ChainedMilestone[] {
-  const sorted = sortByTargetDate(milestones);
-  // A running cursor, not just "the previous entry", so a milestone with no
-  // targetDate of its own doesn't wipe out the chain for every milestone
-  // after it — it's skipped and the cursor only advances on a real date.
-  let cursor = projectStartDate ?? null;
-  return sorted.map((m) => {
-    if (!m.targetDate) return { ...m, chainStart: null };
-
-    let chainStart = cursor ?? m.createdAt ?? null;
-    // A later cursor (e.g. the project's createdAt) landing after this
-    // milestone's own targetDate would invert the range — clamp instead of
-    // letting the bar disappear.
-    if (chainStart && new Date(chainStart).getTime() > new Date(m.targetDate).getTime()) {
-      chainStart = m.targetDate;
-    }
-
-    cursor = m.targetDate;
-    return { ...m, chainStart };
-  });
-}
-
-export function getProjectRange(chainedMilestones: ChainedMilestone[]): ProjectRange | null {
-  const withDates = chainedMilestones.filter((m) => m.chainStart && m.targetDate);
-  if (!withDates.length) return null;
-
-  return {
-    start: new Date(Math.min(...withDates.map((m) => new Date(m.chainStart!).getTime()))),
-    end: new Date(Math.max(...withDates.map((m) => new Date(m.targetDate).getTime()))),
-  };
+function withCycleIds(milestones: Milestone[]): ChainedMilestone[] {
+  return milestones.map((m) => ({ ...m, cycleIds: getCycleIds(m) }));
 }
 
 /* =========================
@@ -115,18 +82,15 @@ export function getProjectRange(chainedMilestones: ChainedMilestone[]): ProjectR
 export function ProjectRow({
   projectName,
   milestones,
-  projectStartDate,
-  year,
+  buckets,
   expanded,
   onToggle,
-  onMilestoneSelect,
-  selectedMilestoneId,
+  selection,
+  onCycleSelect,
 }: ProjectRowProps) {
-  const chainedMilestones = chainMilestones(
-    withPlaceholder(milestones, projectName, projectStartDate),
-    projectStartDate,
-  );
-  const projectRange = getProjectRange(chainedMilestones);
+  const chainedMilestones = withCycleIds(withPlaceholder(milestones, projectName));
+
+  const isThisProjectSelected = selection?.projectName === projectName;
 
   return (
     <div className="mb-6 space-y-3">
@@ -137,18 +101,19 @@ export function ProjectRow({
       />
 
       {!expanded && (
-        <button
-          type="button"
-          onClick={onToggle}
-          className="block w-full appearance-none border-0 bg-transparent p-0 text-left"
-          aria-label={`Expand ${projectName}`}
-        >
-          <ProjectSummaryBar
-            milestones={chainedMilestones}
-            range={projectRange}
-            year={year}
-          />
-        </button>
+        <ProjectSummaryBar
+          projectName={projectName}
+          milestones={chainedMilestones}
+          buckets={buckets}
+          selectedCycleKey={
+            isThisProjectSelected && selection?.milestoneName === null
+              ? selection.cycleKey
+              : null
+          }
+          onCycleClick={(cycleKey) =>
+            onCycleSelect({ projectName, milestoneName: null, cycleKey })
+          }
+        />
       )}
 
       {expanded &&
@@ -156,11 +121,16 @@ export function ProjectRow({
           <MilestoneRow
             key={m.projectName + m.name}
             data={m}
-            start={m.chainStart}
-            end={m.targetDate}
-            year={year}
-            onSelect={() => onMilestoneSelect?.(m)}
-            isSelected={selectedMilestoneId === m.name + m.projectName}
+            cycleIds={m.cycleIds}
+            buckets={buckets}
+            selectedCycleKey={
+              isThisProjectSelected && selection?.milestoneName === m.name
+                ? selection.cycleKey
+                : null
+            }
+            onCycleClick={(cycleKey) =>
+              onCycleSelect({ projectName, milestoneName: m.name, cycleKey })
+            }
           />
         ))}
     </div>

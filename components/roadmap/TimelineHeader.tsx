@@ -1,64 +1,70 @@
-import { Calendar, ChevronLeft, ChevronRight, Map } from "lucide-react";
+import { ChevronLeft, ChevronRight, Map } from "lucide-react";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { CardHeader, CardTitle } from "../ui/card";
 import { Button } from "@/components/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /* =========================
-   Constants
-========================= */
-
-const months: readonly string[] = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-/* =========================
    Types
 ========================= */
 
-interface TimelineHeaderProps {
-  year: number;
-  onPrev: () => void;
-  onNext: () => void;
+// A single cycle column on the timeline's x-axis.
+export type TimeBucket = {
+  key: string;
+  label: string;
+  start: Date;
+  end: Date;
+  isActive: boolean;
+};
+
+interface TimelineBucketsHeaderProps {
+  buckets: TimeBucket[];
 }
 
-interface TimelineMonthsHeaderProps {
-  year: number;
+/* =========================
+   Helpers
+========================= */
+
+export function formatDate(d: Date): string {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 /* =========================
    Components
 ========================= */
 
-export function TimelineHeader({ year, onPrev, onNext }: TimelineHeaderProps) {
+interface TimelineHeaderProps {
+  onPrev: () => void;
+  onNext: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
+
+export function TimelineHeader({ onPrev, onNext, canGoBack, canGoForward }: TimelineHeaderProps) {
   return (
-    <CardHeader className="flex flex-row justify-between">
+    <CardHeader className="flex flex-row flex-wrap justify-between gap-2">
       <CardTitle className="flex items-center gap-2">
         <Map className="h-4 w-4 text-accent" />
         Projects Timeline
       </CardTitle>
 
-      <div className="flex items-center gap-2">
-        <Button size="icon" variant="ghost" onClick={onPrev}>
+      <div className="flex items-center gap-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onPrev}
+          disabled={!canGoBack}
+          aria-label="Show earlier cycles"
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-
-        <Button variant="outline" size="sm">
-          <Calendar className="h-3 w-3 mr-1" />
-          {year}
-        </Button>
-
-        <Button size="icon" variant="ghost" onClick={onNext}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={onNext}
+          disabled={!canGoForward}
+          aria-label="Show later cycles"
+        >
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -66,28 +72,44 @@ export function TimelineHeader({ year, onPrev, onNext }: TimelineHeaderProps) {
   );
 }
 
-export function TimelineMonthsHeader({ year }: TimelineMonthsHeaderProps) {
-  const now = new Date();
+export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
   return (
     <div className="flex border-b pb-2 mb-4">
       <div className="hidden w-56 shrink-0 sm:block" />
-      <div className="grid flex-1 grid-cols-12 gap-0.5 sm:gap-1">
-        {months.map((month, i) => {
-          const isCurrentMonth =
-            i === now.getMonth() && year === now.getFullYear();
+      <div
+        className="grid flex-1 gap-0.5 sm:gap-1"
+        style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
+      >
+        {buckets.map((bucket) => {
+          const isCurrent = bucket.isActive;
 
           return (
-            <div
-              key={month}
-              className={cn(
-                "rounded py-1 text-center text-[10px] sm:text-xs",
-                isCurrentMonth
-                  ? "bg-accent/20 text-accent"
-                  : "text-muted-foreground",
-              )}
-            >
-              {month.slice(0, 3)}
-            </div>
+            <Tooltip.Provider key={bucket.key} delayDuration={150}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <div
+                    className={cn(
+                      "rounded py-1 text-center text-[10px] sm:text-xs cursor-default",
+                      isCurrent
+                        ? "bg-accent/20 text-accent"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {bucket.label}
+                  </div>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    className="z-50 rounded-md bg-popover px-3 py-2 text-xs shadow-md"
+                  >
+                    {formatDate(bucket.start)} – {formatDate(bucket.end)}
+                    <Tooltip.Arrow className="fill-popover" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
           );
         })}
       </div>
