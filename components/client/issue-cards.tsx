@@ -59,7 +59,7 @@ export function LabelPill({
     <Badge
       variant="secondary"
       className="border-transparent text-white"
-      style={{ backgroundColor: label.color }}
+      style={{ backgroundColor: "#8D1111" }}
     >
       {label.name}
     </Badge>
@@ -107,8 +107,8 @@ export function IssueCard({
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
-      )}
-      <div className="p-4">
+      )} 
+      <div className="p-4 ">
         <div className="flex items-center gap-2 mb-2">
           {typeIcon && (
             <typeIcon.Icon
@@ -163,7 +163,7 @@ export function IssueListRow({
     <div className="group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
       <button
         type="button"
-        className="absolute inset-0 rounded-lg cursor-pointer"
+        className="absolute inset-0 rounded-lg cursor-pointer "
         onClick={onOpen}
         aria-label={issue.title}
       />
@@ -173,19 +173,19 @@ export function IssueListRow({
           title="Recently updated"
         />
       )}
-      <span className="text-[10px] font-mono text-muted-foreground w-14 flex-shrink-0">
+      <span className="text-xs font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
       <Badge
         variant="outline"
-        className={`text-[10px] flex-shrink-0 ${priorityColors[issue.priorityLabel]}`}
+        className={`text-xs flex-shrink-0 ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
       {issue.estimate != null && (
         <Badge
           variant="outline"
-          className="gap-1 text-[10px] flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
+          className="gap-1 text-xs flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
         >
           <Gauge className="h-3 w-3" />
           {issue.estimate}
