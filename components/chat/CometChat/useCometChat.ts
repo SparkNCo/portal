@@ -16,6 +16,14 @@ import { initCometChatUser } from "./initCometChatUser";
 // (unscoped) inbox, same as before.
 const MAX_GROUP_PAGES = 20;
 
+// CometChat makes whoever calls `createGroupWithMembers` the group's owner,
+// and an owner can't leave a group without transferring ownership first
+// (`ERR_OWNER_EXIT_FORBIDDEN`). Support chats are meant to be leaveable by
+// the customer/stakeholder who started them, so ownership is handed off to
+// a fixed staff account right after creation — same account already used
+// elsewhere for staff-authored messages (see StaffChatInput.tsx/Chat.tsx).
+const SUPPORT_OWNER_UID = process.env.NEXT_PUBLIC_COMET_ADMIN_UID as string | undefined;
+
 export function useCometChat(customerId?: string | null) {
   const { profile, loading: profileLoading } = useUser();
   const [ready, setReady] = useState(false);
@@ -103,6 +111,7 @@ export function useCometChat(customerId?: string | null) {
     try {
       const memberUids = new Set<string>();
       memberUids.add(profile.id);
+      if (SUPPORT_OWNER_UID) memberUids.add(SUPPORT_OWNER_UID);
       let assignees: any[] = [];
       // The customer this group belongs to, for tagging — resolved from the
       // creator's own identity when they're a customer/stakeholder, since
@@ -186,6 +195,18 @@ export function useCometChat(customerId?: string | null) {
         members,
         [],
       );
+
+      // Hand ownership to the fixed staff account so the creator (if not
+      // already that account) can leave later without hitting
+      // ERR_OWNER_EXIT_FORBIDDEN.
+      if (SUPPORT_OWNER_UID && profile.id !== SUPPORT_OWNER_UID) {
+        try {
+          await CometChat.transferGroupOwnership(guid, SUPPORT_OWNER_UID);
+        } catch (transferErr) {
+          console.error("Failed to transfer group ownership:", transferErr);
+        }
+      }
+
       return (response as any).group ?? null;
     } catch (err) {
       console.error("Create group error:", err);

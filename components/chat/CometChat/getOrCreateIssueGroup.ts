@@ -4,6 +4,12 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const groupCreationInFlight = new Map<string, Promise<CometChat.Group>>();
 
+// Same rationale as useCometChat.ts's SUPPORT_OWNER_UID: CometChat makes the
+// creator the group's owner, and an owner can't leave without transferring
+// ownership first — hand it off to the fixed staff account so whoever
+// started the issue thread can still leave it later.
+const SUPPORT_OWNER_UID = process.env.NEXT_PUBLIC_COMET_ADMIN_UID as string | undefined;
+
 async function resolveGroupName(baseTitle: string): Promise<string> {
   const groupsReq = new CometChat.GroupsRequestBuilder().setLimit(100).build();
   let allGroups: CometChat.Group[] = [];
@@ -50,6 +56,7 @@ async function buildIssueGroup(
 
   const memberUids = new Set<string>();
   if (profile?.id) memberUids.add(profile.id);
+  if (SUPPORT_OWNER_UID) memberUids.add(SUPPORT_OWNER_UID);
 
   try {
     if (profile?.role === "stakeholder") {
@@ -96,6 +103,15 @@ async function buildIssueGroup(
   );
 
   const response = await CometChat.createGroupWithMembers(group, members, []);
+
+  if (SUPPORT_OWNER_UID && profile?.id !== SUPPORT_OWNER_UID) {
+    try {
+      await CometChat.transferGroupOwnership(deterministicGuid, SUPPORT_OWNER_UID);
+    } catch (transferErr) {
+      console.error("Failed to transfer issue group ownership:", transferErr);
+    }
+  }
+
   return (response as any).group ?? response;
 }
 

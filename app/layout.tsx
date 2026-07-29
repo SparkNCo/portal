@@ -15,7 +15,7 @@ export const metadata = {
   title: "S&C Software Monitoring",
   description: "",
   icons: {
-    icon: "/icon2.svg",
+    icon: "/icon.svg",
   },
 };
 
