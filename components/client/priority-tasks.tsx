@@ -118,6 +118,7 @@ export function PriorityTasks({
         <div className="flex items-center gap-2 flex-wrap">
           <input
             type="text"
+            aria-label="Search by title"
             placeholder="Search by title..."
             value={titleFilter}
             onChange={(e) => setTitleFilter(e.target.value)}

@@ -140,6 +140,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                       </span>
                       <Input
                         ref={(el) => { stepRefs.current[i] = el; }}
+                        aria-label={`Step ${i + 1}`}
                         placeholder={i === 0 ? "Go to..." : "Click on..."}
                         value={step}
                         onChange={(e) => updateStep(i, e.target.value)}
@@ -153,6 +154,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                           size="icon"
                           className="h-8 w-8 flex-shrink-0"
                           onClick={() => removeStep(i)}
+                          aria-label={`Remove step ${i + 1}`}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
@@ -167,8 +169,9 @@ export function BugReportPanel({ slug }: { slug: string }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Expected</Label>
+                <Label htmlFor="bug-expected">Expected</Label>
                 <Textarea
+                  id="bug-expected"
                   placeholder="What should happen"
                   value={expected}
                   onChange={(e) => setExpected(e.target.value)}
@@ -177,8 +180,9 @@ export function BugReportPanel({ slug }: { slug: string }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label>Actual</Label>
+                <Label htmlFor="bug-actual">Actual</Label>
                 <Textarea
+                  id="bug-actual"
                   placeholder="What actually happened"
                   value={actual}
                   onChange={(e) => setActual(e.target.value)}

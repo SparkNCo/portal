@@ -216,6 +216,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
                       e.stopPropagation();
                       removeFile(file.name);
                     }}
+                    aria-label={`Remove ${file.name}`}
                   >
                     <X className="h-3 w-3" />
                   </Button>

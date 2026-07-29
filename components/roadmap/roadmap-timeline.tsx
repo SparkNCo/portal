@@ -267,8 +267,10 @@ export function RoadmapTimeline({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedMilestoneKey(null)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close milestone details"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -285,6 +287,7 @@ export function RoadmapTimeline({
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                     <input
                       type="text"
+                      aria-label="Search by title or ID"
                       placeholder="Search by title or ID..."
                       value={issueSearch}
                       onChange={(e) => setIssueSearch(e.target.value)}

@@ -135,7 +135,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   return (
     <Card className="bg-background">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle level={2} className="flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-chart-2" />
           Request a Feature
         </CardTitle>
@@ -152,8 +152,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <Label>Description</Label>
+                <Label htmlFor="feature-description">Description</Label>
                 <RichTextEditor
+                  id="feature-description"
+                  ariaLabel="Description"
                   placeholder="Describe the feature you'd like in plain language..."
                   value={description}
                   onChange={setDescription}
@@ -163,13 +165,15 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               </div>
 
               <div className="space-y-1.5 md:col-span-2">
-                <Label>
+                <Label htmlFor="feature-requirements">
                   Requirements{" "}
                   <span className="text-muted-foreground font-normal">
                     (optional)
                   </span>
                 </Label>
                 <RichTextEditor
+                  id="feature-requirements"
+                  ariaLabel="Requirements (optional)"
                   placeholder="How will you know this feature is working well?"
                   value={requirements}
                   onChange={setRequirements}
@@ -188,13 +192,14 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label>
+              <Label htmlFor="feature-attachments">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)
                 </span>
               </Label>
               <input
+                id="feature-attachments"
                 ref={fileInputRef}
                 type="file"
                 multiple
@@ -230,6 +235,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                         size="icon"
                         className="h-6 w-6 flex-shrink-0"
                         onClick={() => removeFile(file.name)}
+                        aria-label={`Remove ${file.name}`}
                       >
                         <X className="h-3 w-3" />
                       </Button>

@@ -369,6 +369,7 @@ export default function AdminUsersPage() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <input
               type="text"
+              aria-label="Search by email or username"
               placeholder="Search by email or username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}

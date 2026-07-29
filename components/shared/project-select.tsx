@@ -10,14 +10,16 @@ export function ProjectSelect({
   projects,
   value,
   onValueChange,
+  id,
 }: {
   projects: { id: string; name: string }[];
   value: string;
   onValueChange: (value: string) => void;
+  id?: string;
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="bg-secondary border-0">
+      <SelectTrigger id={id} className="bg-secondary border-0">
         <SelectValue
           placeholder={projects.length ? "Select a project…" : "Loading projects…"}
         />
