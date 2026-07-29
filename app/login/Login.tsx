@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Eye, EyeOff } from "lucide-react";
+import { useUser } from "context/UserContext";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -17,7 +16,6 @@ export default function LoginForm({
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -30,28 +28,7 @@ export default function LoginForm({
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  const {
-    data: customer,
-    isLoading: customerLoading,
-    error: customerError,
-  } = useQuery({
-    queryKey: ["customer", sessionEmail],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(
-          sessionEmail!,
-        )}`,
-        { headers: API_JSON_HEADERS },
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch customer");
-
-      const data = await res.json();
-
-      return data;
-    },
-    enabled: !!sessionEmail,
-  });
+  const { profile: customer, loading: customerLoading } = useUser();
 
   useEffect(() => {
     if (customer) {
@@ -92,7 +69,7 @@ export default function LoginForm({
       }
       onLoginSuccess(customer.email);
     }
-  }, [customer, customerError]);
+  }, [customer]);
 
   const login = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -110,18 +87,6 @@ export default function LoginForm({
       return;
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user?.email) {
-      setErrorMessage("User session not found");
-      setLoading(false);
-      return;
-    }
-
-    setSessionEmail(user.email);
     setLoading(false);
   };
 
