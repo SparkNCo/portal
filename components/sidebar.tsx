@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, safeDecodeURIComponent } from "@/lib/utils";
 import {
   LayoutDashboard,
   Code2,
@@ -65,8 +65,13 @@ export function Sidebar() {
   // just the ones this component's own layout owns — so `customer`/`panel`
   // show up here whenever the active page is the nested
   // `dashboards/[customer]/[panel]` route, alongside the outer `[slug]`.
-  const { slug: urlSlug, customer: selectedCustomer, panel: selectedPanelParam } =
+  const { slug: urlSlug, customer: selectedCustomerParam, panel: selectedPanelParam } =
     useParams<{ slug: string; customer?: string; panel?: string }>();
+  // Not reliably decoded by useParams() — normalize before it's re-encoded
+  // into nav links below, or repeated navigation stacks encoding on encoding.
+  const selectedCustomer = selectedCustomerParam
+    ? safeDecodeURIComponent(selectedCustomerParam)
+    : selectedCustomerParam;
   const selectedPanel = selectedPanelParam ?? "dashboard";
   const isViewingCustomer =
     (profile?.role === "admin" || profile?.role === "developer") &&

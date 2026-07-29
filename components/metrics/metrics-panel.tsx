@@ -49,7 +49,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     queryKey: ["metrics", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issueMetrics/?slug=${slug}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issueMetrics/?slug=${encodeURIComponent(slug)}`,
         {
           headers: API_JSON_HEADERS,
         },

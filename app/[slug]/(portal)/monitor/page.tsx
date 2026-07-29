@@ -2,7 +2,7 @@
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { useEffect, useState } from "react";
-import { LoadingDataPanel } from "@/components/loader";
+import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useQuery } from "@tanstack/react-query";
@@ -38,7 +38,7 @@ export default function RoadmapPage() {
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
         { headers: API_HEADERS },
       );
 
@@ -75,24 +75,6 @@ export default function RoadmapPage() {
 
   const roadmapCycles = roadmap?.cycles?.nodes ?? [];
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen">
-        <Header title={pageTitle} subtitle="Project timeline and progress" />
-        <LoadingDataPanel />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen">
-        <Header title={pageTitle} subtitle="Project timeline and progress" />
-        <p className="p-6 text-destructive">Failed to load roadmap</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen">
       <Header title={pageTitle} subtitle="Project timeline and progress" />
@@ -109,12 +91,23 @@ export default function RoadmapPage() {
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          <RoadmapTimeline
-            projectMilestones={allMilestones}
-            allProjectNames={allProjectNames}
-            cycles={roadmapCycles}
-            slug={slug}
-          />
+          {isLoading && (
+            <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Loading roadmap…
+            </div>
+          )}
+          {!isLoading && error && (
+            <p className="p-6 text-destructive">Failed to load roadmap</p>
+          )}
+          {!isLoading && !error && (
+            <RoadmapTimeline
+              projectMilestones={allMilestones}
+              allProjectNames={allProjectNames}
+              cycles={roadmapCycles}
+              slug={slug}
+            />
+          )}
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">

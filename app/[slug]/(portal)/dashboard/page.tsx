@@ -10,6 +10,7 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_HEADERS } from "@/lib/api-headers";
 import { Button } from "@/components/components/ui/button";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   usePinnedPanels,
   usePinnedPanelsOwnerId,
@@ -48,8 +49,6 @@ export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues?${params.toString()}`,
     { headers: API_HEADERS },
   );
-  console.log("END CCALL");
-
   if (!res.ok) throw new Error("Failed to fetch issues");
   return res.json();
 }
@@ -80,10 +79,18 @@ export default function ClientDashboard() {
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   // 🔹 Issues query
-  const { data: issuesData, isLoading: issuesLoading } = useQuery({
+  const {
+    data: issuesData,
+    isLoading: issuesLoading,
+    isFetching: issuesFetching,
+    error: issuesError,
+    refetch: refetchIssues,
+  } = useQuery({
     queryKey: ["linear-issues", slug],
     queryFn: () => fetchIssues(slug),
     enabled: !!slug,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
   });
 
   const allIssues: any[] = issuesData ?? [];
@@ -149,6 +156,27 @@ export default function ClientDashboard() {
         subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "User")}`}
       />
       <div className="p-4 md:p-6 space-y-6 ">
+        {issuesError && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Failed to load your issues — panels below may be showing
+              incomplete data.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 shrink-0"
+              onClick={() => refetchIssues()}
+              disabled={issuesFetching}
+            >
+              {issuesFetching ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {issuesFetching ? "Retrying…" : "Retry"}
+            </Button>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <Button
