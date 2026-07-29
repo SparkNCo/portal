@@ -74,9 +74,14 @@ export default function AdminUsersPage() {
   const [showAddStakeholderModal, setShowAddStakeholderModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
-  const [assigningUserRole, setAssigningUserRole] = useState<string>("developer");
-  const [editingProfileUser, setEditingProfileUser] = useState<User | null>(null);
-  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
+  const [assigningUserRole, setAssigningUserRole] =
+    useState<string>("developer");
+  const [editingProfileUser, setEditingProfileUser] = useState<User | null>(
+    null,
+  );
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(
+    null,
+  );
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
 
@@ -87,9 +92,12 @@ export default function AdminUsersPage() {
   } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
-        headers: apiHeaders,
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`,
+        {
+          headers: apiHeaders,
+        },
+      );
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json();
     },
@@ -205,7 +213,13 @@ export default function AdminUsersPage() {
     isPending: resendPending,
     variables: resendingVariables,
   } = useMutation({
-    mutationFn: async ({ user, emailType }: { user: User; emailType: "invite" | "reset" }) => {
+    mutationFn: async ({
+      user,
+      emailType,
+    }: {
+      user: User;
+      emailType: "invite" | "reset";
+    }) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -276,14 +290,19 @@ export default function AdminUsersPage() {
         <AddClientModal onClose={() => setShowAddCustomerModal(false)} />
       )}
       {showAddStakeholderModal && (
-        <AddStakeholderModal onClose={() => setShowAddStakeholderModal(false)} />
+        <AddStakeholderModal
+          onClose={() => setShowAddStakeholderModal(false)}
+        />
       )}
       {assigningUserId && (
         <AssignCustomerModal
           userId={assigningUserId}
           userRole={assigningUserRole}
           customers={customers}
-          onClose={() => { setAssigningUserId(null); setAssigningUserRole("developer"); }}
+          onClose={() => {
+            setAssigningUserId(null);
+            setAssigningUserRole("developer");
+          }}
         />
       )}
       {editingProfileUser && (
@@ -379,7 +398,9 @@ export default function AdminUsersPage() {
 
           {/* One panel per role — only developer rows can expand to show assignments */}
           {ROLES.map((role) => {
-            const roleUsers = filteredUsers.filter((u: User) => u.role === role);
+            const roleUsers = filteredUsers.filter(
+              (u: User) => u.role === role,
+            );
             return (
               <Card key={role} className="bg-background border-border">
                 <CardHeader>
@@ -410,18 +431,10 @@ export default function AdminUsersPage() {
                                 <div className="min-w-0">
                                   <p
                                     title={u.email}
-                                    className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate max-w-[15ch]"
+                                    className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate"
                                   >
                                     {u.email}
                                   </p>
-                                  <Badge
-                                    variant="secondary"
-                                    className={
-                                      roleColors[u.role] ?? "bg-muted text-foreground"
-                                    }
-                                  >
-                                    {u.role}
-                                  </Badge>
                                 </div>
                               </div>
 
@@ -449,12 +462,16 @@ export default function AdminUsersPage() {
                                       Edit Profile
                                     </Button>
                                   )}
-                                  {(u.role === "developer" || u.role === "stakeholder") && (
+                                  {(u.role === "developer" ||
+                                    u.role === "stakeholder") && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 gap-1 text-xs"
-                                      onClick={() => { setAssigningUserId(u.id); setAssigningUserRole(u.role); }}
+                                      onClick={() => {
+                                        setAssigningUserId(u.id);
+                                        setAssigningUserRole(u.role);
+                                      }}
                                     >
                                       <UserCheck className="h-4 w-4" />
                                       Assign
@@ -468,7 +485,10 @@ export default function AdminUsersPage() {
                                         className="h-8 w-8"
                                         title="Resend account email"
                                         aria-label="Resend account email"
-                                        disabled={resendPending && resendingVariables?.user.id === u.id}
+                                        disabled={
+                                          resendPending &&
+                                          resendingVariables?.user.id === u.id
+                                        }
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <Mail
@@ -476,14 +496,27 @@ export default function AdminUsersPage() {
                                         />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuContent
+                                      align="end"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <DropdownMenuItem
-                                        onClick={() => resendAccountEmail({ user: u, emailType: "invite" })}
+                                        onClick={() =>
+                                          resendAccountEmail({
+                                            user: u,
+                                            emailType: "invite",
+                                          })
+                                        }
                                       >
                                         Resend invite
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
-                                        onClick={() => resendAccountEmail({ user: u, emailType: "reset" })}
+                                        onClick={() =>
+                                          resendAccountEmail({
+                                            user: u,
+                                            emailType: "reset",
+                                          })
+                                        }
                                       >
                                         Send password reset
                                       </DropdownMenuItem>
@@ -495,7 +528,9 @@ export default function AdminUsersPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => setExpandedUser(isExpanded ? null : u)}
+                                    onClick={() =>
+                                      setExpandedUser(isExpanded ? null : u)
+                                    }
                                   >
                                     {isExpanded ? (
                                       <ChevronUp className="h-4 w-4" />
@@ -520,49 +555,53 @@ export default function AdminUsersPage() {
                                       No assignments found
                                     </p>
                                   )}
-                                {!developerAssignmentsLoading && developerAssignments?.length > 0 && (
-                                  <div className="space-y-2">
-                                    {developerAssignments.map((a: any) => {
-                                      const initiativeName = a.clientName ?? a.customer_email;
-                                      return (
-                                        <div
-                                          key={a.id}
-                                          className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
-                                        >
-                                          <div className="flex items-center gap-3 min-w-0">
-                                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                                              {initiativeName?.slice(0, 2).toUpperCase()}
+                                {!developerAssignmentsLoading &&
+                                  developerAssignments?.length > 0 && (
+                                    <div className="space-y-2">
+                                      {developerAssignments.map((a: any) => {
+                                        const initiativeName =
+                                          a.clientName ?? a.customer_email;
+                                        return (
+                                          <div
+                                            key={a.id}
+                                            className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                          >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                                {initiativeName
+                                                  ?.slice(0, 2)
+                                                  .toUpperCase()}
+                                              </div>
+                                              <div className="min-w-0">
+                                                <p
+                                                  title={initiativeName}
+                                                  className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                                >
+                                                  {initiativeName}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground capitalize">
+                                                  Customer
+                                                </p>
+                                              </div>
                                             </div>
-                                            <div className="min-w-0">
-                                              <p
-                                                title={initiativeName}
-                                                className="font-medium text-card-foreground truncate max-w-[15ch]"
-                                              >
-                                                {initiativeName}
-                                              </p>
-                                              <p className="text-xs text-muted-foreground capitalize">
-                                                Customer
-                                              </p>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                            {a.joined && (
-                                              <span>
-                                                Joined{" "}
-                                                {new Date(
-                                                  a.joined,
-                                                ).toLocaleDateString()}
+                                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                              {a.joined && (
+                                                <span>
+                                                  Joined{" "}
+                                                  {new Date(
+                                                    a.joined,
+                                                  ).toLocaleDateString()}
+                                                </span>
+                                              )}
+                                              <span className="font-medium text-foreground">
+                                                {a.allocation}h/week
                                               </span>
-                                            )}
-                                            <span className="font-medium text-foreground">
-                                              {a.allocation}h/week
-                                            </span>
+                                            </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                               </div>
                             )}
                           </div>
@@ -606,78 +645,79 @@ export default function AdminUsersPage() {
               <div className="space-y-4">
                 {Object.values(projectsMap).map(({ customer, developers }) => {
                   const initiativeName =
-                    initiativeNameByCustomerId.get(customer.id) ?? customer.email;
+                    initiativeNameByCustomerId.get(customer.id) ??
+                    customer.email;
                   return (
-                  <div
-                    key={customer.id}
-                    className="rounded-lg border border-border bg-secondary/30"
-                  >
-                    {/* Initiative header */}
-                    <div className="flex items-center gap-3 p-3 border-b border-border">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
-                        {initiativeName.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          title={initiativeName}
-                          className="text-sm font-semibold text-card-foreground truncate max-w-[15ch]"
-                        >
-                          {initiativeName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {developers.length === 0
-                            ? "No assignees"
-                            : `${developers.length} assignee${developers.length > 1 ? "s" : ""}`}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Developers */}
-                    {developers.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-muted-foreground">
-                        No developers assigned yet.
-                      </p>
-                    ) : (
-                      <div className="divide-y divide-border">
-                        {developers.map((dev) => (
-                          <div
-                            key={dev.user_id}
-                            className="flex items-center justify-between px-4 py-2.5 text-sm"
+                    <div
+                      key={customer.id}
+                      className="rounded-lg border border-border bg-secondary/30"
+                    >
+                      {/* Initiative header */}
+                      <div className="flex items-center gap-3 p-3 border-b border-border">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
+                          {initiativeName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            title={initiativeName}
+                            className="text-sm font-semibold text-card-foreground truncate max-w-[15ch]"
                           >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
-                                {dev.email?.slice(0, 2).toUpperCase()}
-                              </div>
-                              <div className="min-w-0">
-                                <p
-                                  title={dev.email}
-                                  className="font-medium text-card-foreground truncate max-w-[15ch]"
-                                >
-                                  {dev.email}
-                                </p>
-                                <p className="text-xs text-muted-foreground capitalize">
-                                  {dev.role}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              {dev.joined && (
-                                <span>
-                                  Joined{" "}
-                                  {new Date(dev.joined).toLocaleDateString()}
-                                </span>
-                              )}
-                              {dev.allocation && (
-                                <span className="font-medium text-foreground">
-                                  {dev.allocation}h/week
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                            {initiativeName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {developers.length === 0
+                              ? "No assignees"
+                              : `${developers.length} assignee${developers.length > 1 ? "s" : ""}`}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Developers */}
+                      {developers.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-muted-foreground">
+                          No developers assigned yet.
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-border">
+                          {developers.map((dev) => (
+                            <div
+                              key={dev.user_id}
+                              className="flex items-center justify-between px-4 py-2.5 text-sm"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
+                                  {dev.email?.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p
+                                    title={dev.email}
+                                    className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                  >
+                                    {dev.email}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {dev.role}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                {dev.joined && (
+                                  <span>
+                                    Joined{" "}
+                                    {new Date(dev.joined).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {dev.allocation && (
+                                  <span className="font-medium text-foreground">
+                                    {dev.allocation}h/week
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
