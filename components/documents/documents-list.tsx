@@ -152,7 +152,7 @@ export function DocumentsList({
                 className="w-48 bg-secondary border-0 pl-9 text-sm"
               />
             </div>
-            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn">
+            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn" aria-label="Filter documents">
               <Filter className="h-4 w-4" />
             </Button>
           </div>

@@ -148,7 +148,12 @@ export function DocumentRow({
               {["write", "owner"].includes(doc.permission) && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      aria-label={`Change category for ${doc.name}`}
+                    >
                       <Settings className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
@@ -184,6 +189,7 @@ export function DocumentRow({
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => handleOpen(doc)}
+                aria-label={`Open ${doc.name}`}
               >
                 <ExternalLink
                   className={cn(
@@ -202,6 +208,7 @@ export function DocumentRow({
                     setSelectedDoc(doc);
                     setIsShareOpen(true);
                   }}
+                  aria-label={`Share ${doc.name}`}
                 >
                   <Share2 className="h-4 w-4" />
                 </Button>
@@ -212,6 +219,7 @@ export function DocumentRow({
                 size="icon"
                 className="h-8 w-8"
                 onClick={() => handleDownload(doc)}
+                aria-label={`Download ${doc.name}`}
               >
                 <Download
                   className={cn(
@@ -233,6 +241,7 @@ export function DocumentRow({
                       user_id: user.id,
                     })
                   }
+                  aria-label={`Delete ${doc.name}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
