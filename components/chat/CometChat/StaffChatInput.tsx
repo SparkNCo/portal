@@ -79,6 +79,7 @@ export default function StaffChatInput() {
       {/* Input */}
       <div className="flex border-t p-2 gap-2">
         <input
+          aria-label="Talk with support"
           className="flex-1 border rounded-lg px-3 py-2"
           placeholder="Talk with support..."
           value={message}

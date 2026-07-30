@@ -219,6 +219,7 @@ export default function ConversationChat({ user, notification }: Props) {
       {/* Input */}
       <div className="flex border-t p-2 gap-2">
         <input
+          aria-label="Type a message"
           className="flex-1 border rounded-lg px-3 py-2"
           value={message}
           onChange={(e) => setMessage(e.target.value)}

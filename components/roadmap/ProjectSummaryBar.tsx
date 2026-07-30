@@ -47,9 +47,7 @@ export function ProjectSummaryBar({
 }: ProjectSummaryBarProps) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-      <div className="w-full text-sm text-muted-foreground sm:w-52">
-        {milestones.length} milestones
-      </div>
+      <div className="hidden shrink-0 sm:block sm:w-52" />
 
       <div
         className="grid gap-0.5 sm:flex-1 sm:gap-1"

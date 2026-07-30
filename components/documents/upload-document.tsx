@@ -176,6 +176,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
           className="hidden"
           onChange={handleFileSelect}
           accept="*/*"
+          aria-label="Upload document files"
         />
 
         {uploadedFiles.length > 0 && (

@@ -121,6 +121,7 @@ export function IssueGroupChat({
       <div className="px-3 py-2 border-t border-border">
         <div className="flex items-center gap-1.5 bg-secondary/50 border border-border rounded-lg px-2.5 py-1.5">
           <input
+            aria-label="Type a message"
             className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -130,6 +131,7 @@ export function IssueGroupChat({
           <button
             onClick={sendMessage}
             disabled={!message.trim() || sending}
+            aria-label="Send message"
             className="w-6 h-6 flex items-center justify-center rounded-md bg-accent text-accent-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
           >
             <Send className="w-3 h-3" />

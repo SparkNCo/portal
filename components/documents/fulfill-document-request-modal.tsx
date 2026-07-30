@@ -166,6 +166,7 @@ export function FulfillDocumentRequestModal({
             type="file"
             className="hidden"
             onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
+            aria-label="Upload requested document file"
           />
 
           {file && (

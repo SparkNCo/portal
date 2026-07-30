@@ -34,6 +34,7 @@ interface ProjectRowProps {
 
 interface ProjectHeaderProps {
   projectName: string;
+  milestoneCount: number;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -100,6 +101,7 @@ export function ProjectRow({
     <div className="mb-6 space-y-3">
       <ProjectHeader
         projectName={projectName}
+        milestoneCount={milestones.length}
         expanded={expanded}
         onToggle={onToggle}
       />
@@ -156,23 +158,33 @@ export function ProjectRow({
   );
 }
 
-function ProjectHeader({ projectName, expanded, onToggle }: ProjectHeaderProps) {
+function ProjectHeader({
+  projectName,
+  milestoneCount,
+  expanded,
+  onToggle,
+}: ProjectHeaderProps) {
   return (
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center justify-between gap-2 appearance-none border-0 bg-transparent p-0 text-left"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-left transition-colors hover:bg-secondary/50"
       aria-expanded={expanded}
       aria-label={expanded ? `Collapse ${projectName}` : `Expand ${projectName}`}
     >
-      <div className="flex items-center gap-2">
-        <Box className="h-4 w-4 text-accent" />
-        <h3 className="text-sm font-semibold">{projectName}</h3>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20">
+          <Box className="h-4 w-4 text-accent" />
+        </div>
+        <h3 className="truncate text-sm font-semibold">{projectName}</h3>
+        <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+          {milestoneCount} milestone{milestoneCount === 1 ? "" : "s"}
+        </span>
       </div>
       {expanded ? (
-        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
       ) : (
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       )}
     </button>
   );
