@@ -664,51 +664,79 @@ export default function AdminUsersPage() {
                         </div>
                       </div>
 
-                      {/* Developers */}
-                      {developers.length === 0 ? (
-                        <p className="px-4 py-3 text-sm text-muted-foreground">
-                          No developers assigned yet.
-                        </p>
-                      ) : (
-                        <div className="divide-y divide-border">
-                          {developers.map((dev) => (
-                            <div
-                              key={dev.user_id}
-                              className="flex items-center justify-between px-4 py-2.5 text-sm"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
-                                  {dev.email?.slice(0, 2).toUpperCase()}
+                      {/* Members: customer first, then stakeholders, then developers */}
+                      {(() => {
+                        const stakeholders = developers.filter(
+                          (a) => a.role === "stakeholder",
+                        );
+                        const devs = developers.filter(
+                          (a) => a.role === "developer",
+                        );
+                        const members = [
+                          {
+                            key: customer.id,
+                            email: customer.email,
+                            role: "customer",
+                            joined: undefined as string | undefined,
+                            allocation: undefined as number | undefined,
+                          },
+                          ...stakeholders.map((a) => ({
+                            key: a.user_id,
+                            email: a.email,
+                            role: a.role,
+                            joined: a.joined,
+                            allocation: a.allocation,
+                          })),
+                          ...devs.map((a) => ({
+                            key: a.user_id,
+                            email: a.email,
+                            role: a.role,
+                            joined: a.joined,
+                            allocation: a.allocation,
+                          })),
+                        ];
+
+                        return (
+                          <div className="divide-y divide-border">
+                            {members.map((m) => (
+                              <div
+                                key={m.key}
+                                className="flex items-center justify-between px-4 py-2.5 text-sm"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
+                                    {m.email?.slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p
+                                      title={m.email}
+                                      className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                    >
+                                      {m.email}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground capitalize">
+                                      {m.role}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <p
-                                    title={dev.email}
-                                    className="font-medium text-card-foreground truncate max-w-[15ch]"
-                                  >
-                                    {dev.email}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground capitalize">
-                                    {dev.role}
-                                  </p>
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                  {m.joined && (
+                                    <span>
+                                      Joined{" "}
+                                      {new Date(m.joined).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  {m.role === "developer" && m.allocation && (
+                                    <span className="font-medium text-foreground">
+                                      {m.allocation}h/week
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                {dev.joined && (
-                                  <span>
-                                    Joined{" "}
-                                    {new Date(dev.joined).toLocaleDateString()}
-                                  </span>
-                                )}
-                                {dev.allocation && (
-                                  <span className="font-medium text-foreground">
-                                    {dev.allocation}h/week
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}

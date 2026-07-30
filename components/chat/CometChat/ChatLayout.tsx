@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
@@ -42,6 +44,32 @@ export default function ChatLayout({
   const customerId = customerSlug ? viewedCustomerId : undefined;
   const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
     useCometChat(customerId);
+
+  const isAdmin = profile?.role === "admin";
+  // Empty string = no filter (show every customer's chats).
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+
+  // Admin-only: lets the unscoped inbox be filtered down to one customer at
+  // a time (matched against each group's `customerId` metadata) rather than
+  // needing to know an email or dig through every project's chats.
+  const { data: allUsers } = useQuery({
+    queryKey: ["all-users-for-chat-filter"],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
+        headers: API_JSON_HEADERS,
+      });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json() as Promise<{ id: string; userName?: string; role: string }[]>;
+    },
+    enabled: isAdmin,
+  });
+
+  const customerOptions = useMemo(() => {
+    return (allUsers ?? [])
+      .filter((u) => u.role === "customer" && u.userName)
+      .map((u) => ({ id: u.id, userName: u.userName! }))
+      .sort((a, b) => a.userName.localeCompare(b.userName));
+  }, [allUsers]);
 
   const clearNewChatParam = () => router.replace(pathname);
 
@@ -94,7 +122,13 @@ export default function ChatLayout({
   // history are untouched for everyone else, including admins, who list
   // all public groups regardless of membership).
   const canLeaveChats = profile?.role !== "admin";
-  const hasNoChats = groups.length === 0 && directChats.length === 0;
+  const visibleGroups = isAdmin && selectedCustomerId
+    ? groups.filter((g) => {
+        const groupCustomerId = (g.getMetadata() as { customerId?: string } | undefined)?.customerId;
+        return groupCustomerId === selectedCustomerId;
+      })
+    : groups;
+  const hasNoChats = visibleGroups.length === 0 && directChats.length === 0;
 
   const hasActiveChat = selectedGroup !== null || selectedDirect !== null;
 
@@ -108,7 +142,7 @@ export default function ChatLayout({
       {/* Sidebar: full-width on mobile when no chat active, fixed 288px on sm+ */}
       <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
         <ChatSideBar
-          groups={groups}
+          groups={visibleGroups}
           directChats={directChats}
           selectedGroup={selectedGroup}
           selectedDirect={selectedDirect}
@@ -119,6 +153,10 @@ export default function ChatLayout({
           isCustomer={isCustomer}
           canLeaveChats={canLeaveChats}
           onCreateChat={() => setShowCreateModal(true)}
+          showCustomerFilter={isAdmin}
+          customerOptions={customerOptions}
+          selectedCustomerId={selectedCustomerId}
+          onSelectedCustomerIdChange={setSelectedCustomerId}
         />
       </div>
 

@@ -73,13 +73,17 @@ export function Sidebar() {
     ? safeDecodeURIComponent(selectedCustomerParam)
     : selectedCustomerParam;
   const selectedPanel = selectedPanelParam ?? "dashboard";
+  // Developers viewing an assigned customer via the older nested
+  // `/{devSlug}/dashboards/[customer]/[panel]` flow (dormant — its nav
+  // entry is commented out below, but the route still exists).
   const isViewingCustomer =
-    (profile?.role === "admin" || profile?.role === "developer") &&
-    !!selectedCustomer;
-  // Admins don't have a personal `[slug]` route anymore — their customer
-  // drill-down lives under the fixed `/admin/dashboards` base instead.
-  const dashboardsBasePath =
-    profile?.role === "admin" ? "/admin" : `/${urlSlug}`;
+    profile?.role === "developer" && !!selectedCustomer;
+  const dashboardsBasePath = `/${urlSlug}`;
+  // Admins browsing a customer's own dashboard directly (e.g. /lualink/...)
+  // — the exact same route tree the customer itself uses. Their own pages
+  // live under the slug-less /admin, so any `[slug]` segment here means
+  // they're viewing a customer.
+  const isAdminViewingCustomerSlug = profile?.role === "admin" && !!urlSlug;
 
   const customerPanelItems = [
     { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -163,6 +167,40 @@ export function Sidebar() {
                 {item.label}
               </Link>
             ))}
+          </>
+        ) : isAdminViewingCustomerSlug ? (
+          <>
+            <Link
+              href="/admin/dashboards"
+              onClick={close}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
+            >
+              <ChevronLeft className="h-3 w-3" />
+              All customers
+            </Link>
+            {clientNavItems
+              .filter((item) => item.href !== "chat")
+              .map((item) => {
+                const isActive =
+                  pathname.endsWith(`/${item.href}`) ||
+                  pathname.includes(`/${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={close}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-primary font-semibold"
+                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
           </>
         ) : (
           navItems.map((item) => {

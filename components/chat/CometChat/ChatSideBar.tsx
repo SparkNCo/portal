@@ -1,7 +1,20 @@
 import { useState } from "react";
 import type { Group } from "@cometchat/chat-sdk-javascript";
 import { Plus, MessageSquare, Bot, X, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
+
+// Radix Select reserves the empty string for "no value" internally, so "no
+// customer selected" (show every chat) needs its own sentinel instead.
+const ALL_CUSTOMERS_VALUE = "__all__";
+
+type CustomerOption = { id: string; userName: string };
 
 type Props = Readonly<{
   groups: Group[];
@@ -15,6 +28,12 @@ type Props = Readonly<{
   isCustomer: boolean;
   canLeaveChats: boolean;
   onCreateChat: () => void;
+  // Admin-only: single-select dropdown to filter the group list down to one
+  // customer at a time (via each group's `customerId` metadata).
+  showCustomerFilter?: boolean;
+  customerOptions?: CustomerOption[];
+  selectedCustomerId?: string;
+  onSelectedCustomerIdChange?: (id: string) => void;
 }>;
 
 type GroupItemProps = Readonly<{
@@ -130,6 +149,10 @@ export default function ChatSideBar({
   isCustomer,
   canLeaveChats,
   onCreateChat,
+  showCustomerFilter,
+  customerOptions = [],
+  selectedCustomerId,
+  onSelectedCustomerIdChange,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
   const groupedBySlug = groupBySlug(groups);
@@ -153,12 +176,39 @@ export default function ChatSideBar({
         )}
       </div>
 
+      {showCustomerFilter && (
+        <div className="px-3 py-2 border-b">
+          <Select
+            value={selectedCustomerId?.trim() ? selectedCustomerId : ALL_CUSTOMERS_VALUE}
+            onValueChange={(value) =>
+              onSelectedCustomerIdChange?.(value === ALL_CUSTOMERS_VALUE ? "" : value)
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All customers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CUSTOMERS_VALUE}>All customers</SelectItem>
+              {customerOptions.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.userName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {hasNoChats ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              {isCustomer ? "No chats yet. Create one to get started." : "No chats yet."}
+              {showCustomerFilter && selectedCustomerId
+                ? "No chats found for that customer."
+                : isCustomer
+                  ? "No chats yet. Create one to get started."
+                  : "No chats yet."}
             </p>
           </div>
         ) : (

@@ -29,17 +29,27 @@ type DeveloperAssignment = {
 
 function CustomerCard({
   basePath,
+  isAdmin,
   email,
   clientName,
   linear_slug,
 }: {
   readonly basePath: string;
+  readonly isAdmin: boolean;
   readonly email: string;
   readonly clientName: string;
   readonly linear_slug: string;
 }) {
+  // Admins adopt the customer's own routes wholesale (same URL a customer
+  // would see, e.g. /lualink/dashboard) instead of a nested admin-only path —
+  // developers viewing an assigned customer still go through `basePath`
+  // (the older nested `/{devSlug}/dashboards/[customer]/[panel]` flow).
+  const href = isAdmin
+    ? `/${encodeURIComponent(clientName)}/dashboard`
+    : `${basePath}/${encodeURIComponent(clientName)}/dashboard`;
+
   return (
-    <Link href={`${basePath}/${encodeURIComponent(clientName)}/dashboard`}>
+    <Link href={href}>
       <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
           <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
@@ -153,6 +163,7 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
             <CustomerCard
               key={c.clientName}
               basePath={basePath}
+              isAdmin={isAdmin}
               email={c.email}
               clientName={c.clientName}
               linear_slug={c.linear_slug}
