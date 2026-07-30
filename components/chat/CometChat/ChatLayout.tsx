@@ -26,7 +26,7 @@ export default function ChatLayout({
   readonly initialTitle?: string;
   // The caller's own `[slug]` route segment, if it has one — used to tag
   // brand-new chat groups when no customer is being viewed. Routes with no
-  // personal slug (e.g. /admin/chat) simply omit this.
+  // personal slug (e.g. /admin/chats) simply omit this.
   readonly fallbackProjectSlug?: string;
 }) {
   const { profile } = useUser();

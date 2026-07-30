@@ -420,7 +420,7 @@ export default function AdminUsersPage() {
                               </div>
 
                               <div className="flex items-center gap-1">
-                                <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex items-center gap-1">
+                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1">
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
@@ -556,7 +556,7 @@ export default function AdminUsersPage() {
                                               <div className="min-w-0">
                                                 <p
                                                   title={initiativeName}
-                                                  className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                                  className="font-medium text-card-foreground truncate"
                                                 >
                                                   {initiativeName}
                                                 </p>
@@ -652,7 +652,7 @@ export default function AdminUsersPage() {
                         <div className="flex-1 min-w-0">
                           <p
                             title={initiativeName}
-                            className="text-sm font-semibold text-card-foreground truncate max-w-[15ch]"
+                            className="text-sm font-semibold text-card-foreground truncate"
                           >
                             {initiativeName}
                           </p>
@@ -710,7 +710,7 @@ export default function AdminUsersPage() {
                                   <div className="min-w-0">
                                     <p
                                       title={m.email}
-                                      className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                      className="font-medium text-card-foreground truncate"
                                     >
                                       {m.email}
                                     </p>

@@ -43,7 +43,7 @@ const developerNavItems = [
 const adminNavItems = [
   { href: "users", label: "Users", icon: Shield },
   { href: "dashboards", label: "Dashboards", icon: LayoutGrid },
-  { href: "chat", label: "Chat", icon: MessageCircle },
+  { href: "chats", label: "Chat", icon: MessageCircle },
 ];
 
 const stakeholderNavItems = [
