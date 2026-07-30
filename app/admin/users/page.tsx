@@ -458,52 +458,57 @@ export default function AdminUsersPage() {
                                       Assign
                                     </Button>
                                   )}
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        title="Resend account email"
-                                        aria-label="Resend account email"
-                                        disabled={
-                                          resendPending &&
-                                          resendingVariables?.user.id === u.id
-                                        }
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <Mail
-                                          className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
-                                        />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                      align="end"
+                                </div>
+                                {/* Kept outside the hover-only wrapper above —
+                                    while its (portaled) menu is open, moving the
+                                    mouse toward it leaves the row's bounding box,
+                                    which would flip this trigger to display:none
+                                    mid-interaction and throw off its position. */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      title="Resend account email"
+                                      aria-label="Resend account email"
+                                      disabled={
+                                        resendPending &&
+                                        resendingVariables?.user.id === u.id
+                                      }
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          resendAccountEmail({
-                                            user: u,
-                                            emailType: "invite",
-                                          })
-                                        }
-                                      >
-                                        Resend invite
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() =>
-                                          resendAccountEmail({
-                                            user: u,
-                                            emailType: "reset",
-                                          })
-                                        }
-                                      >
-                                        Send password reset
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
+                                      <Mail
+                                        className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                      />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        resendAccountEmail({
+                                          user: u,
+                                          emailType: "invite",
+                                        })
+                                      }
+                                    >
+                                      Resend invite
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        resendAccountEmail({
+                                          user: u,
+                                          emailType: "reset",
+                                        })
+                                      }
+                                    >
+                                      Send password reset
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 {u.role === "developer" && (
                                   <Button
                                     variant="ghost"

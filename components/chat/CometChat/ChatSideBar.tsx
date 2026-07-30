@@ -82,9 +82,6 @@ function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItem
           <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
             {group.getName()}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {group.getMembersCount()} members
-          </div>
         </div>
       </button>
       {canLeave && (

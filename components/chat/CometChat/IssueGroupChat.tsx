@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
 
@@ -107,10 +107,17 @@ export function IssueGroupChat({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
-        {messages.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-4 italic">
-            No messages yet. Start the conversation.
-          </p>
+        {sending && !guid ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Creating chat and adding users…
+          </div>
+        ) : (
+          messages.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4 italic">
+              No messages yet. Start the conversation.
+            </p>
+          )
         )}
         {messages.map((msg, i) => (
           <MessageBubble key={msg.getId?.() ?? i} msg={msg} index={i} user={user} compact />

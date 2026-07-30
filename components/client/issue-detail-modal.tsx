@@ -1274,9 +1274,12 @@ function TestsTab({
 
 export function IssueDetailModal({
   issue,
+  slug,
   onClose,
 }: {
   issue: Issue;
+  // Which customer this issue belongs to — passed through to the Chat tab.
+  slug?: string;
   onClose: () => void;
 }) {
   const { profile } = useUser();
@@ -1560,7 +1563,7 @@ export function IssueDetailModal({
 
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
-            <IssueCometChat issueId={issue.id} issueTitle={issue.title} />
+            <IssueCometChat issueId={issue.id} issueTitle={issue.title} slug={slug} />
           </div>
         )}
 

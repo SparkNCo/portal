@@ -11,10 +11,15 @@ export function IssueCometChat({
   issueId,
   issueTitle,
   linearPostedAt,
+  slug,
 }: {
   readonly issueId: string;
   readonly issueTitle: string;
   readonly linearPostedAt?: number;
+  // Which customer this issue belongs to — lets a brand-new chat group get
+  // tagged with the right customer even when a developer/admin (not the
+  // customer) sends the first message.
+  readonly slug?: string;
 }) {
   const { profile, loading: profileLoading } = useUser();
   const [user, setUser] = useState<CometChat.User | null>(null);
@@ -54,7 +59,7 @@ export function IssueCometChat({
     <IssueGroupChat
       user={user}
       group={group}
-      onCreateGroup={() => getOrCreateIssueGroup(issueId, issueTitle, profile)}
+      onCreateGroup={() => getOrCreateIssueGroup(issueId, issueTitle, profile, slug)}
       onGroupCreated={setGroup}
     />
   );

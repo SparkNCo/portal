@@ -29,6 +29,33 @@ async function fetchAssigneeUids(url: string, memberUids: Set<string>) {
   assignees.filter((a) => a.user_id).forEach((a) => memberUids.add(a.user_id));
 }
 
+// clientName shows up formatted differently depending on which flow produced
+// it (raw vs slugified at onboarding) — fold case/spaces/hyphens so a slug
+// from either flow still matches (same rationale as use-pinned-panels.ts).
+function normalizeSlug(value: string): string {
+  return value.trim().toLowerCase().replaceAll(/[\s-]+/g, "-");
+}
+
+// Resolves a customer's own portal user id from their clientName-based slug
+// — needed when a developer/admin (not the customer) sends the first
+// message on an issue's chat, so the group can still be tagged with the
+// right customer for admin's chat filter.
+async function resolveCustomerIdBySlug(slug: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+      { headers: API_JSON_HEADERS },
+    );
+    const customers: { id: string; clientName: string }[] = await res.json();
+    const match = customers.find(
+      (c) => c.clientName && normalizeSlug(c.clientName) === normalizeSlug(slug),
+    );
+    return match?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function buildGroupGuid(issueId: string): string {
   const safeId = issueId.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   return `issue_${safeId}`;
@@ -47,6 +74,7 @@ async function buildIssueGroup(
   issueId: string,
   issueTitle: string,
   profile: any,
+  slug?: string,
 ): Promise<CometChat.Group> {
   const deterministicGuid = buildGroupGuid(issueId);
 
@@ -81,11 +109,24 @@ async function buildIssueGroup(
           memberUids,
         );
       }
-    } else if (profile?.id) {
+    } else if (profile?.role === "customer") {
       await fetchAssigneeUids(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${profile.id}`,
         memberUids,
       );
+    } else if (slug) {
+      // Developer/admin sending the first message — resolve which customer
+      // this issue belongs to from the page's own slug instead of guessing
+      // off the creator's id (which isn't a customer_id at all here).
+      const customerId = await resolveCustomerIdBySlug(slug);
+      if (customerId) {
+        resolvedCustomerId = customerId;
+        memberUids.add(customerId);
+        await fetchAssigneeUids(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerId}`,
+          memberUids,
+        );
+      }
     }
   } catch {}
 
@@ -127,11 +168,12 @@ export function getOrCreateIssueGroup(
   issueId: string,
   issueTitle: string,
   profile: any,
+  slug?: string,
 ): Promise<CometChat.Group> {
   if (groupCreationInFlight.has(issueId)) {
     return groupCreationInFlight.get(issueId)!;
   }
-  const promise = buildIssueGroup(issueId, issueTitle, profile);
+  const promise = buildIssueGroup(issueId, issueTitle, profile, slug);
   groupCreationInFlight.set(issueId, promise);
   promise.finally(() => groupCreationInFlight.delete(issueId));
   return promise;

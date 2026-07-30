@@ -177,34 +177,12 @@ export default function ClientDashboard() {
             </Button>
           </div>
         )}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              size="sm"
-              onClick={() => setSelectedProjects(new Set())}
-              className={
-                selectedProjects.size === 0
-                  ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-              }
-            >
-              All
-            </Button>
-            {projects.map((p) => (
-              <Button
-                key={p.id}
-                size="sm"
-                onClick={() => toggleProject(p.id)}
-                className={
-                  selectedProjects.has(p.id)
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                }
-              >
-                {p.name}
-              </Button>
-            ))}
-          </div>
+        {/* Project filter buttons (All / per-project) hidden for now — may
+            come back later. `selectedProjects` stays wired into the pinned
+            panels below (progress_pie_chart, build_product_decisions,
+            build_acceptance_testing), currently always empty so nothing is
+            filtered out. */}
+        <div className="flex items-center justify-end gap-3">
           <RequestProjectDialog
             slug={slug}
             requestedBy={profile?.email}

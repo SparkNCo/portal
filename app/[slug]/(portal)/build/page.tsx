@@ -110,6 +110,7 @@ export default function BuildPage() {
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
               title="Business Reviews"
+              slug={slug}
               compact
             />
           </div>
@@ -121,6 +122,7 @@ export default function BuildPage() {
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
               title="Acceptance Testing"
+              slug={slug}
               compact
             />
           </div>

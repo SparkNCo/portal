@@ -617,6 +617,7 @@ export function RoadmapTimeline({
       {selectedIssue && (
         <IssueDetailModal
           issue={selectedIssue}
+          slug={slug}
           onClose={() => setSelectedIssue(null)}
         />
       )}

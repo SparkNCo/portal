@@ -170,6 +170,7 @@ export default function BugsPage() {
                 onOpenChat={() => {}}
                 onEditIssue={(issue) => setEditingIssue(issue)}
                 title="Bugs"
+                slug={slug}
               />
             </>
           )}

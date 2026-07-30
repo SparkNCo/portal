@@ -93,9 +93,6 @@ export default function GroupChat({ user, group }: Props) {
         </div>
         <div>
           <div className="text-sm font-semibold">{group.getName()}</div>
-          <div className="text-xs text-muted-foreground">
-            {group.getMembersCount()} members
-          </div>
         </div>
       </div>
 

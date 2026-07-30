@@ -89,10 +89,11 @@ export function PinnedPanelRenderer({
     selectedProjectIds.has(i.project?.id);
 
   if (panelId === "progress_pie_chart") {
+    const issues = allIssues.filter(matchesSelectedProject);
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <ProgressPieChart issuesData={allIssues} />
+        <ProgressPieChart issuesData={issues} />
       </div>
     );
   }
@@ -138,6 +139,7 @@ export function PinnedPanelRenderer({
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
           title="Business Review"
+          slug={slug}
           compact
         />
       </div>
@@ -157,6 +159,7 @@ export function PinnedPanelRenderer({
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
           title="Acceptance Testing"
+          slug={slug}
           compact
         />
       </div>
@@ -187,6 +190,7 @@ export function PinnedPanelRenderer({
           onOpenChat={() => {}}
           onEditIssue={onEditIssue}
           title="Bugs"
+          slug={slug}
           compact
         />
       </div>
