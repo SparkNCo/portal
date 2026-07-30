@@ -47,13 +47,7 @@ export default function LoginForm({
         return;
       }
       if (customer?.role === "admin") {
-        if (customer.userName) {
-          router.push(`/${customer.userName}/users`);
-        } else {
-          setErrorMessage("No username set on this admin account. Contact your administrator.");
-          setLoading(false);
-          return;
-        }
+        router.push("/admin/users");
       } else if (customer?.role === "developer") {
         const clientName =
           customer.assignment_id?.[0]?.clientName ??

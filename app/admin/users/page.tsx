@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { supabase } from "@/lib/supabase-client";
+import { Header } from "@/components/headerDashboard";
 
 type User = {
   id: string;
@@ -290,7 +291,9 @@ export default function AdminUsersPage() {
     );
   }
   return (
-    <div className="sm:px-6 py-6 space-y-4 ">
+    <div className="min-h-screen">
+      <Header title="Admin Panel" subtitle="Manage users and settings" />
+      <div className="sm:px-6 py-6 space-y-4 ">
       {showAddDevModal && (
         <AddDeveloperModal onClose={() => setShowAddDevModal(false)} />
       )}
@@ -714,6 +717,7 @@ export default function AdminUsersPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

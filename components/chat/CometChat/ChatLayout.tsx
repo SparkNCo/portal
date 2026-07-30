@@ -17,7 +17,16 @@ type Group = ReturnType<typeof useCometChat>["groups"][number];
 
 export type DirectChatEntry = { uid: string; title: string };
 
-export default function ChatLayout({ initialTitle }: { readonly initialTitle?: string }) {
+export default function ChatLayout({
+  initialTitle,
+  fallbackProjectSlug,
+}: {
+  readonly initialTitle?: string;
+  // The caller's own `[slug]` route segment, if it has one — used to tag
+  // brand-new chat groups when no customer is being viewed. Routes with no
+  // personal slug (e.g. /admin/chat) simply omit this.
+  readonly fallbackProjectSlug?: string;
+}) {
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
@@ -50,10 +59,10 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   }, [ready]);
 
   // When an admin/developer is viewing a specific customer's chat panel,
-  // tag new groups with that customer's slug rather than the route's own
+  // tag new groups with that customer's slug rather than the caller's own
   // `[slug]` segment — which for that flow is the viewer's own slug, not
   // the customer's (see dashboards/[customer]/[panel]/page.tsx).
-  const projectSlug = customerSlug ?? pathname.split("/")[1] ?? undefined;
+  const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
   const handleCreate = async (title: string) => {
     setCreating(true);

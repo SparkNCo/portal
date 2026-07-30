@@ -76,6 +76,10 @@ export function Sidebar() {
   const isViewingCustomer =
     (profile?.role === "admin" || profile?.role === "developer") &&
     !!selectedCustomer;
+  // Admins don't have a personal `[slug]` route anymore — their customer
+  // drill-down lives under the fixed `/admin/dashboards` base instead.
+  const dashboardsBasePath =
+    profile?.role === "admin" ? "/admin" : `/${urlSlug}`;
 
   const customerPanelItems = [
     { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -136,7 +140,7 @@ export function Sidebar() {
         {isViewingCustomer ? (
           <>
             <Link
-              href={`/${urlSlug}/dashboards`}
+              href={`${dashboardsBasePath}/dashboards`}
               onClick={close}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
@@ -146,7 +150,7 @@ export function Sidebar() {
             {customerPanelItems.map((item) => (
               <Link
                 key={item.href}
-                href={`/${urlSlug}/dashboards/${encodeURIComponent(selectedCustomer!)}/${item.href}`}
+                href={`${dashboardsBasePath}/dashboards/${encodeURIComponent(selectedCustomer!)}/${item.href}`}
                 onClick={close}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",

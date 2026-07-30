@@ -130,6 +130,8 @@ function SetPasswordForm() {
     let redirectPath = `/${slugifiedClientName}/dashboards`;
     if (isCustomer) {
       redirectPath = `/${slugifiedClientName}/dashboards/${slugifiedClientName}/dashboard`;
+    } else if (role === "admin") {
+      redirectPath = "/admin/users";
     }
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {

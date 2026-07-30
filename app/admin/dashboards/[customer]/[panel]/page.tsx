@@ -5,7 +5,7 @@ import { CustomerSlugProvider } from "context/CustomerSlugContext";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import { PanelRenderer } from "@/components/dashboard/panel-renderer";
 
-export default function CustomerDashboardPage() {
+export default function AdminCustomerDashboardPage() {
   // useParams() doesn't reliably hand back a decoded segment here, so
   // `customer` (the customer's clientName) can still be percent-encoded —
   // decode it once so everything downstream (context, fetches, nav links)
