@@ -49,15 +49,7 @@ export default function LoginForm({
       if (customer?.role === "admin") {
         router.push("/admin/users");
       } else if (customer?.role === "developer") {
-        const clientName =
-          customer.assignment_id?.[0]?.clientName ??
-          customer.assignment_id?.[0]?.linear_slug;
-        if (clientName) {
-          router.push(`/${clientName}/developer`);
-        } else {
-          setErrorMessage("No client assigned to this account. Contact your administrator.");
-          setLoading(false);
-        }
+        router.push("/dev/developer");
       } else {
         router.push(`/${customer.clientName}/dashboard`);
       }

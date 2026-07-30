@@ -17,7 +17,17 @@ export default function DocumentsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: urlSlug } = useParams<{ slug: string }>();
-  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+  // Developers have no `linear_slug` of their own (that's a customer-account
+  // field) and, under `/dev/documents`, no `[slug]` route segment either —
+  // fall back to their first assignment, same customer this page would have
+  // resolved to via the old `/{assignedClientName}/documents` URL.
+  const slug =
+    customerSlug ??
+    urlSlug ??
+    profile?.linear_slug ??
+    profile?.assignment_id?.[0]?.clientName ??
+    profile?.assignment_id?.[0]?.linear_slug ??
+    "";
 
   const canUpload = profile?.role === "developer" || profile?.role === "admin";
   const canRequest = profile?.role === "customer" || profile?.role === "stakeholder";

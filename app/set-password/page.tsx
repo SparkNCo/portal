@@ -132,6 +132,8 @@ function SetPasswordForm() {
       redirectPath = `/${slugifiedClientName}/dashboards/${slugifiedClientName}/dashboard`;
     } else if (role === "admin") {
       redirectPath = "/admin/users";
+    } else if (role === "developer") {
+      redirectPath = "/dev/developer";
     }
 
     const patchRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
