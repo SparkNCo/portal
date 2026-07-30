@@ -51,6 +51,29 @@ import { DemoTab } from "./demo-tab";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
+// Linear-hosted attachments (issue description images, UAT/QA evidence)
+// require Linear's own API key to view — portal users don't have a Linear
+// account, so their browser can't load these URLs directly. Route them
+// through our backend proxy, which fetches with our key instead.
+const LINEAR_UPLOAD_HOST = "uploads.linear.app";
+
+function toProxiedImageUrl(url: string | undefined | null) {
+  if (!url) return url ?? undefined;
+
+  try {
+    if (new URL(url).hostname !== LINEAR_UPLOAD_HOST) return url;
+  } catch {
+    return url;
+  }
+
+  // A plain <img> can't send the `apikey`/Authorization headers every other
+  // request uses, so pass the anon key as a query param instead — Supabase's
+  // gateway accepts it either way, and this key is already public (it's in
+  // every fetch call's headers, visible in the network tab regardless).
+  const apikey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}&apikey=${apikey}`;
+}
+
 // Reuses Linear's asset storage (same endpoint FeatureRequestPanel uses for
 // attachments) — just uploads a file and returns its public URL, no local DB row.
 async function uploadTestAttachment(file: File) {
@@ -138,9 +161,23 @@ function DescriptionTab({
           [&_strong]:font-semibold
           [&_p]:mb-5 [&_p:last-child]:mb-0
           [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
-          [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
+          [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1
+          [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2 [&_img]:block"
         >
-          <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkBreaks]}
+            components={{
+              img: ({ src, alt, ...props }) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  {...props}
+                  src={toProxiedImageUrl(typeof src === "string" ? src : undefined)}
+                  alt={alt ?? ""}
+                  loading="lazy"
+                />
+              ),
+            }}
+          >
             {issue.description}
           </ReactMarkdown>
         </div>
@@ -1045,12 +1082,12 @@ function TestsTab({
                         IMAGE_EXT_RE.test(att.name) ? (
                           <a
                             key={ai}
-                            href={att.url}
+                            href={toProxiedImageUrl(att.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
                             <img
-                              src={att.url}
+                              src={toProxiedImageUrl(att.url)}
                               alt={att.name}
                               className="h-14 w-14 rounded border border-border object-cover"
                             />
@@ -1076,12 +1113,12 @@ function TestsTab({
                         IMAGE_EXT_RE.test(att.name) ? (
                           <a
                             key={ai}
-                            href={att.url}
+                            href={toProxiedImageUrl(att.url)}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
                             <img
-                              src={att.url}
+                              src={toProxiedImageUrl(att.url)}
                               alt={att.name}
                               className="h-14 w-14 rounded border border-border object-cover"
                             />

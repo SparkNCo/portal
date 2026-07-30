@@ -58,6 +58,12 @@ async function buildIssueGroup(
   if (profile?.id) memberUids.add(profile.id);
   if (SUPPORT_OWNER_UID) memberUids.add(SUPPORT_OWNER_UID);
 
+  // Tagged on the group so admins/developers viewing a specific customer's
+  // dashboard (ChatLayout's customerId-scoped fetch) can find this chat —
+  // same metadata shape as useCometChat.ts's createSupportGroup.
+  let resolvedCustomerId: string | undefined =
+    profile?.role === "customer" ? profile.id : undefined;
+
   try {
     if (profile?.role === "stakeholder") {
       const stakeholderRes = await fetch(
@@ -68,6 +74,7 @@ async function buildIssueGroup(
       const customerIds = stakeholderAssignments.map((a) => a.customer_id).filter(Boolean);
 
       if (customerIds.length > 0) {
+        resolvedCustomerId = customerIds[0];
         customerIds.forEach((id: string) => memberUids.add(id));
         await fetchAssigneeUids(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerIds[0]}&onlyDev=true`,
@@ -98,6 +105,7 @@ async function buildIssueGroup(
 
   const groupName = await resolveGroupName(issueTitle);
   const group = new CometChat.Group(deterministicGuid, groupName, CometChat.GROUP_TYPE.PUBLIC, "");
+  if (resolvedCustomerId) group.setMetadata({ customerId: resolvedCustomerId });
   const members = Array.from(memberUids).map(
     (uid) => new CometChat.GroupMember(uid, CometChat.GROUP_MEMBER_SCOPE.PARTICIPANT),
   );

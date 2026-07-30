@@ -57,6 +57,10 @@ export type RawCycle = {
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
   allProjectNames?: string[];
+  // Maps project name -> Linear project id, so clicking a cycle can filter
+  // the issues panel down to just that project (and milestone, when the
+  // click came from a milestone row) instead of every issue in the cycle.
+  projectIdsByName?: Record<string, string>;
   cycles?: RawCycle[];
   slug?: string;
 };
@@ -104,6 +108,7 @@ const stateColors: Record<string, string> = {
 export function RoadmapTimeline({
   projectMilestones = [],
   allProjectNames = [],
+  projectIdsByName = {},
   cycles: rawCycles = [],
   slug = "",
 }: RoadmapTimelineProps) {
@@ -212,8 +217,12 @@ export function RoadmapTimeline({
     setPriorityFilter(null);
     setCycleIssuesLoading(true);
 
+    const params = new URLSearchParams({ cycleId: selection.cycleKey });
+    if (selection.projectId) params.set("projectId", selection.projectId);
+    if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+
     fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?cycleId=${selection.cycleKey}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
       { headers: API_JSON_HEADERS },
     )
       .then((res) => {
@@ -240,7 +249,7 @@ export function RoadmapTimeline({
     return () => {
       cancelled = true;
     };
-  }, [selection?.cycleKey]);
+  }, [selection?.cycleKey, selection?.projectId, selection?.milestoneId]);
 
   async function handleLoadMoreCycleIssues() {
     if (!selection || loadingMoreCycleIssues) return;
@@ -248,6 +257,8 @@ export function RoadmapTimeline({
     try {
       const params = new URLSearchParams({ cycleId: selection.cycleKey });
       if (cycleIssuesCursor) params.set("after", cycleIssuesCursor);
+      if (selection.projectId) params.set("projectId", selection.projectId);
+      if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
         { headers: API_JSON_HEADERS },
@@ -312,6 +323,7 @@ export function RoadmapTimeline({
                   <ProjectRow
                     key={projectName}
                     projectName={projectName}
+                    projectId={projectIdsByName[projectName] ?? null}
                     milestones={milestones}
                     buckets={buckets}
                     expanded={!!expandedProjects[projectName]}

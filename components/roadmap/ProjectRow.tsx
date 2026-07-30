@@ -13,14 +13,17 @@ export interface ChainedMilestone extends Milestone {
 
 export type CycleSelection = {
   projectName: string;
+  projectId: string | null;
   // null means "the whole project" (collapsed summary row); a milestone
-  // name scopes the selection to just that milestone's issues instead.
+  // name/id scopes the selection to just that milestone's issues instead.
   milestoneName: string | null;
+  milestoneId: string | null;
   cycleKey: string;
 };
 
 interface ProjectRowProps {
   projectName: string;
+  projectId: string | null;
   milestones: Milestone[];
   buckets: TimeBucket[];
   expanded: boolean;
@@ -81,6 +84,7 @@ function withCycleIds(milestones: Milestone[]): ChainedMilestone[] {
 
 export function ProjectRow({
   projectName,
+  projectId,
   milestones,
   buckets,
   expanded,
@@ -111,7 +115,13 @@ export function ProjectRow({
               : null
           }
           onCycleClick={(cycleKey) =>
-            onCycleSelect({ projectName, milestoneName: null, cycleKey })
+            onCycleSelect({
+              projectName,
+              projectId,
+              milestoneName: null,
+              milestoneId: null,
+              cycleKey,
+            })
           }
         />
       )}
@@ -129,7 +139,16 @@ export function ProjectRow({
                 : null
             }
             onCycleClick={(cycleKey) =>
-              onCycleSelect({ projectName, milestoneName: m.name, cycleKey })
+              onCycleSelect({
+                projectName,
+                projectId,
+                // The placeholder milestone used for projects with none yet
+                // has an empty name and no real Linear id — treat it as "no
+                // milestone" so it only filters by project.
+                milestoneName: m.name || null,
+                milestoneId: m.name ? m.id : null,
+                cycleKey,
+              })
             }
           />
         ))}

@@ -97,10 +97,28 @@ async function fetchCyclesForInitiative(projects: any[]) {
   return cyclesData?.team?.cycles ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
-async function fetchCycleIssues(cycleId: string, after: string | null) {
-  console.log("[roadmap] fetchCycleIssues: requesting cycle", { cycleId, after });
+async function fetchCycleIssues(
+  cycleId: string,
+  after: string | null,
+  projectId: string | null,
+  milestoneId: string | null,
+) {
+  const filter: Record<string, unknown> = {};
+  if (projectId) filter.project = { id: { eq: projectId } };
+  if (milestoneId) filter.projectMilestone = { id: { eq: milestoneId } };
 
-  const data = await linearRequest(CYCLE_ISSUES_QUERY, { cycleId, after });
+  console.log("[roadmap] fetchCycleIssues: requesting cycle", {
+    cycleId,
+    after,
+    projectId,
+    milestoneId,
+  });
+
+  const data = await linearRequest(CYCLE_ISSUES_QUERY, {
+    cycleId,
+    after,
+    filter: Object.keys(filter).length ? filter : null,
+  });
 
   return data?.cycle?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
@@ -120,7 +138,9 @@ Deno.serve(async (req) => {
     const cycleId = searchParams.get("cycleId");
     if (cycleId) {
       const after = searchParams.get("after");
-      const issues = await fetchCycleIssues(cycleId, after);
+      const projectId = searchParams.get("projectId");
+      const milestoneId = searchParams.get("milestoneId");
+      const issues = await fetchCycleIssues(cycleId, after, projectId, milestoneId);
       return new Response(JSON.stringify(issues), {
         headers: {
           ...corsHeaders,

@@ -131,13 +131,15 @@ query GetTeamCycles($teamId: String!) {
 
 // Fetched on demand when a cycle block is clicked — gives the real, complete
 // set of issues in that cycle (team-wide), rather than whatever happened to
-// already be loaded via project milestones.
+// already be loaded via project milestones. `$filter` narrows it down to a
+// single project and/or milestone when the click came from a specific row
+// instead of the collapsed per-project summary.
 export const CYCLE_ISSUES_QUERY = `
-query CycleIssues($cycleId: String!, $after: String) {
+query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
   cycle(id: $cycleId) {
     id
     number
-    issues(first: 25, after: $after) {
+    issues(first: 25, after: $after, filter: $filter) {
       nodes {
         id
         identifier

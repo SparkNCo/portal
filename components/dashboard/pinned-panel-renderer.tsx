@@ -56,8 +56,11 @@ function useRoadmapMilestones(slug: string) {
       })),
     );
     const projectNames = projects.map((project: any) => project.name);
+    const projectIdsByName: Record<string, string> = Object.fromEntries(
+      projects.map((project: any) => [project.name, project.id]),
+    );
     const cycles = roadmap?.cycles?.nodes ?? [];
-    return { milestones, projectNames, cycles };
+    return { milestones, projectNames, projectIdsByName, cycles };
   }, [roadmap]);
 
   return derived;
@@ -202,13 +205,15 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames, cycles } = useRoadmapMilestones(slug);
+  const { milestones, projectNames, projectIdsByName, cycles } =
+    useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
       <RoadmapTimeline
         projectMilestones={milestones}
         allProjectNames={projectNames}
+        projectIdsByName={projectIdsByName}
         cycles={cycles}
         slug={slug}
       />

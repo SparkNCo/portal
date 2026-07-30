@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Users,
-  UserPlus,
   UserCheck,
   ChevronDown,
   ChevronUp,
@@ -30,6 +29,7 @@ import {
   Pencil,
   Eye,
   Mail,
+  Plus,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { supabase } from "@/lib/supabase-client";
@@ -184,6 +184,14 @@ export default function AdminUsersPage() {
 
   const ROLES = ["admin", "developer", "customer", "stakeholder"] as const;
 
+  // No "add admin" flow exists — admins are created outside this UI, so that
+  // role never gets an add box.
+  const addHandlersByRole: Partial<Record<(typeof ROLES)[number], () => void>> = {
+    developer: () => setShowAddDevModal(true),
+    customer: () => setShowAddCustomerModal(true),
+    stakeholder: () => setShowAddStakeholderModal(true),
+  };
+
   const { mutate: assignUser } = useMutation({
     mutationFn: async () => {
       const res = await fetch(
@@ -323,7 +331,7 @@ export default function AdminUsersPage() {
       )}
 
       {/* ── View toggle ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <div className="flex gap-1 p-1 rounded-lg bg-secondary/40 border border-border">
           <button
             onClick={() => setView("users")}
@@ -347,36 +355,6 @@ export default function AdminUsersPage() {
             <FolderKanban className="h-3.5 w-3.5" />
             Projects
           </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            onClick={() => setShowAddDevModal(true)}
-          >
-            <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Developer</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            onClick={() => setShowAddCustomerModal(true)}
-          >
-            <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Customer</span>
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            onClick={() => setShowAddStakeholderModal(true)}
-          >
-            <UserPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Stakeholder</span>
-          </Button>
         </div>
       </div>
 
@@ -409,7 +387,7 @@ export default function AdminUsersPage() {
                     {role}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
                   {roleUsers.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">
                       No {role}s found
@@ -608,6 +586,17 @@ export default function AdminUsersPage() {
                         );
                       })}
                     </div>
+                  )}
+                  {addHandlersByRole[role] && (
+                    <button
+                      type="button"
+                      onClick={addHandlersByRole[role]}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+                      aria-label={`Add ${role}`}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add {role}
+                    </button>
                   )}
                 </CardContent>
               </Card>

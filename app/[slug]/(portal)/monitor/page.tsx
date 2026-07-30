@@ -73,6 +73,10 @@ export default function RoadmapPage() {
   const allProjectNames: string[] =
     roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
 
+  const projectIdsByName: Record<string, string> = Object.fromEntries(
+    (roadmap?.initiative?.projects?.nodes ?? []).map((p: any) => [p.name, p.id]),
+  );
+
   const roadmapCycles = roadmap?.cycles?.nodes ?? [];
 
   return (
@@ -104,6 +108,7 @@ export default function RoadmapPage() {
             <RoadmapTimeline
               projectMilestones={allMilestones}
               allProjectNames={allProjectNames}
+              projectIdsByName={projectIdsByName}
               cycles={roadmapCycles}
               slug={slug}
             />
