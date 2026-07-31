@@ -116,18 +116,18 @@ If no metrics are available yet, the card shows "No metrics available."
 
 **None of these are derived from GitHub issues anymore.** Everything comes from Git branch and commit history in `supabase/functions/dora/`. Full pipeline diagram: `supabase/functions/dora/diagrams/dora-flow.mmd`.
 
-**Calculation notes — Lead Time for Changes / MTTR:** a PR only counts if its **branch name** (not the PR title) starts with `feat/` (Lead Time) or `fix/` (MTTR) and contains a Linear id, e.g. `feat/SPA-123-add-login`. For each qualifying merged PR:
+**Calculation notes — Lead Time for Changes / MTTR:** a PR only counts if its **title** (`pr.title`, not `pr.head.ref`) starts with `feat/` (Lead Time) or `fix/` (MTTR) and contains a Linear id, e.g. `feat/SPA-123-add-login`. It's checked against the title because every PR here is opened staging→main, so `pr.head.ref` is always the literal string `"staging"` and carries no branch identity — the working branch is created with the same name that later becomes the PR title, which is what makes title-matching work. For each qualifying merged PR:
 - **Dev start** (`branch_created_at`) — the branch-creation timestamp recorded in `portal.dora_branch_events`, captured by the `github-webhook` function (GitHub `create` event) or, when no webhook is registered, by `dora/events.ts` polling GitHub's events feed. If neither caught it, it falls back to the earliest commit date on the PR (`dev_start_source: "first_commit_fallback"` in the raw result).
 - **Dev completion** — the merge timestamp, only counted once `isSquashMergeForPR` confirms the merge actually landed as a squash commit (a regular merge commit or rebase is excluded).
 - The metric value is `dev_completed_at - branch_created_at` in hours, averaged across all matching branches.
 
 See `supabase/functions/dora/lifecycle.ts` (shared by `leadTime.ts` and `mttr.ts`).
 
-**Calculation notes — Deploy Frequency:** same `feat/`/`fix/` branch-name qualification as above, plus confirmation via GitHub's compare API that the squash commit is reachable on `main` (`isCommitOnMain`). There is no CI-status gate. See `supabase/functions/dora/deployFreq.ts`.
+**Calculation notes — Deploy Frequency:** same title-based `feat/`/`fix/` qualification as above, plus confirmation via GitHub's compare API that the squash commit is reachable on `main` (`isCommitOnMain`). There is no CI-status gate. See `supabase/functions/dora/deployFreq.ts`.
 
-**Calculation notes — Change Failure Rate:** the only metric that still looks at **all** merged PRs (not just `feat/`/`fix/`) and at PR title/commits rather than branch name. A PR is treated as a "hotfix" when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:` (or match `fix: SPA-<id>`). A non-hotfix deployment counts as "failed" if the next chronological deployment is a hotfix. See `supabase/functions/dora/cfr.ts` (`ERROR_SIGNALS`, `isHotfix` in `github.ts`) — unchanged by the Git-history migration.
+**Calculation notes — Change Failure Rate:** the only metric that still looks at **all** merged PRs (not just `feat/`/`fix/`) and at PR title/commits/labels rather than a qualifying-branch check. A PR is treated as a "hotfix" when its title, labels, or commit messages start with `revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, or `fix:`, or the title matches `fix: SPA-<id>`, **or** the title is itself a qualifying `fix/`-type title (added once `fix/` PRs became first-class qualifying work for the other three metrics, so CFR still flags them as "reactive work" even without any other hotfix signal). A non-hotfix deployment counts as "failed" if the next chronological deployment is a hotfix. See `supabase/functions/dora/cfr.ts` (`ERROR_SIGNALS`, `isHotfix` in `github.ts`) — unchanged by the Git-history migration.
 
-**How `dora` is triggered:** not on its own schedule — it's called once per day, per customer, at the end of the `issueMetrics` cron job (`triggerDoraForAllCustomers()` in `supabase/functions/issueMetrics/index.ts`). Each run also polls GitHub's events feed for new branch-creation events before computing metrics. CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Lead Time, MTTR, and Deploy Frequency are cumulative: each run only looks at PRs merged in the last 24 hours and appends new entries (deduped by `pr_number`, never overwritten). A gap of more than 24 hours between cron runs causes PRs merged in that gap to be permanently missed from those three metrics (though they still appear in CFR's scan).
+**How `dora` is triggered:** on its **own cron**, decoupled from `issueMetrics` — `POST /dora { method: "allCustomers" }` iterates every customer with a `linear_slug` and `project_url`, since GitHub's API is slower/more rate-limited than Linear's and shouldn't share a run/timeout budget with it. (`issueMetrics` no longer triggers `dora` at the end of its own run — a stale comment to that effect still lives in `createCustomerFlow.ts`, but the code it describes is gone, so a newly created customer's DORA numbers populate on the next `dora` cron run, not immediately.) Each run also polls GitHub's events feed for new branch-creation events before computing metrics. CFR is recomputed from scratch each run (sliding window over the last `limit` merged PRs). Lead Time, MTTR, and Deploy Frequency are cumulative: each run fetches PRs merged within a since-window that's always **at least 90 days**, extended further back if that customer hasn't run successfully in longer than that — a self-healing floor that replaced an earlier fixed 24h window which could permanently drop merges from a missed run.
 
 ### 3. Business Review — `PriorityTasks` (Business Review)
 
@@ -137,7 +137,7 @@ Shows all issues currently in the **Business Review** state. These are issues wh
 
 Issues are sorted by question count — those with the most unanswered questions appear first.
 
-Clicking any issue card opens the **Issue Detail Modal** with five tabs: Description, Chat, Tests, Decisions, and Design. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design and Demo are hidden for Bug issues). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 The **chat icon** on each card navigates to the Chat page with that issue pre-selected (via `?newChat=...` query param).
 
@@ -199,7 +199,7 @@ User lands on /{slug}/dashboard
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | DORA Metrics card |
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Business Review and Acceptance Testing |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design tabs |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design / Demo tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |

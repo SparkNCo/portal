@@ -1,13 +1,15 @@
 # Developer Dashboard — Flows & How It Works
 
 > Reference for the developer-facing dashboard and everything it renders.  
-> Main page: `app/[slug]/(portal)/developer/page.tsx` → `DeveloperDashboard`
+> Main page: `app/dev/developer/page.tsx` → `DevDeveloperPage`, a thin client-side wrapper that renders `DeveloperDashboard` (the actual implementation lives in `app/[slug]/(portal)/developer/page.tsx`, re-exported here rather than duplicated).
 
 ---
 
 ## Who sees this dashboard
 
-The developer dashboard is the landing page for users with `role === "developer"` after login. The URL follows the pattern `/{clientName}/developer`, where `clientName` is the slug of the first customer the developer is assigned to.
+The developer dashboard is the landing page for users with `role === "developer"` after login, at the fixed route **`/dev/developer`** — no customer slug in the URL. Unlike customers/stakeholders, a developer isn't tied to one customer (they can be assigned to several at once — see below), so their own pages live under the slug-less `/dev/*` route tree rather than `/{slug}/*`.
+
+> **Routing history:** this used to be `/{clientName}/developer`, slug-based off the first assignment's `clientName`. That's why the underlying component still physically lives at `app/[slug]/(portal)/developer/page.tsx` — `app/dev/developer/page.tsx` just re-exports it under the new slug-less path. See `app/docs/LOGIN_FLOWS.md` for the redirect-history note and `app/docs/CHAT_FLOWS.md` for the equivalent change on the Chat page (`/dev/chat`).
 
 ---
 
@@ -137,7 +139,7 @@ The card title changes dynamically:
 - `"All Tasks"` when no project filter is active
 - The customer's `clientName` when a specific project is selected
 
-Clicking any issue card opens the **Issue Detail Modal** with four tabs: Description, Chat, Tests, and Decisions. See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design and Demo are hidden for Bug issues). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 > **Note:** The `CreateIssue` button is currently commented out at the bottom of the page. It would allow developers to create new issues directly from their dashboard.
 
@@ -146,7 +148,7 @@ Clicking any issue card opens the **Issue Detail Modal** with four tabs: Descrip
 ## Full data flow on page load
 
 ```
-User lands on /{slug}/developer
+User lands on /dev/developer
           │
           ├── AuthGate checks Supabase session → if invalid, redirect to /
           │
@@ -201,13 +203,15 @@ allIssues (merged, Done removed, sorted by question count)
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/(portal)/developer/page.tsx` | Main developer dashboard page |
-| `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
+| `app/dev/developer/page.tsx` | Main entry point (`/dev/developer`) — re-exports `DeveloperDashboard` |
+| `app/[slug]/(portal)/developer/page.tsx` | `DeveloperDashboard` implementation. Also still reused directly by `panel-renderer.tsx`'s `case "developer"`, for the older/dormant nested `/{devSlug}/dashboards/[customer]/[panel]` flow (its Sidebar nav entry is commented out, but the route and panel case still exist) |
+| `app/dev/layout.tsx` | Layout for every `/dev/*` route — AuthGate, Sidebar, and an extra `role !== "developer"` redirect-home guard (since there's no slug to imply ownership here) |
+| `app/[slug]/(portal)/layout.tsx` | Shared layout for slug-based routes — AuthGate, Sidebar, ConsentProvider |
 | `app/[slug]/(portal)/dashboard/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |
 | `components/developer/quick-links.tsx` | Quick Links card with Airtable form links |
 | `components/developer/tool-shortcuts.tsx` | Tool Shortcuts card (JumpCloud, PostHog, GitHub) |
 | `components/client/priority-tasks.tsx` | Issue list with filter, sort, and search |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal — Description / Chat / Tests / Decisions |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal — Description / Chat / Tests / Decisions / Design / Demo |
 | `components/client/issue-cards.tsx` | Individual issue card and list row rendering |
 | `components/ui/PolicyApprovalModal.tsx` | Blocking policy agreement modal shown on first access |
 | `context/UserContext.tsx` | Provides `profile` including `assignment_id[]` |
