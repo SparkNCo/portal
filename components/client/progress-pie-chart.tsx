@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useMemo } from "react";
-import { CHART_STATUS_COLORS, type Issue } from "./issues.types";
+import { CHART_STATUS_COLORS, STATUS_ORDER, type Issue } from "./issues.types";
 
 type TooltipProps = {
   active?: boolean;
@@ -41,11 +41,17 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
       counts[stateName] = (counts[stateName] || 0) + 1;
     }
 
-    return Object.entries(counts).map(([name, value]) => ({
-      name,
-      value,
-      color: CHART_STATUS_COLORS[name] ?? "hsl(var(--muted))",
-    }));
+    return Object.entries(counts)
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: CHART_STATUS_COLORS[name] ?? "hsl(var(--muted))",
+      }))
+      .sort((a, b) => {
+        const ai = STATUS_ORDER.indexOf(a.name);
+        const bi = STATUS_ORDER.indexOf(b.name);
+        return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
+      });
   }, [issuesData]);
 
   const TOTAL_TASKS = chartData.reduce((sum, item) => sum + item.value, 0);

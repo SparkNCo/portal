@@ -1,7 +1,12 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
-import { PROJECTS_QUERY, MILESTONE_ISSUES_QUERY } from "./query.ts";
+import {
+  PROJECTS_QUERY,
+  PROJECT_TEAM_QUERY,
+  TEAM_CYCLES_QUERY,
+  CYCLE_ISSUES_QUERY,
+} from "./query.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
   console.log("[roadmap] getCustomerBySlug: querying customers", { schema, clientName: slug });
@@ -32,31 +37,32 @@ async function getCustomerBySlug(slug: string, schema: string) {
   return data;
 }
 
-async function fetchFromLinear(initiativeId: string) {
-  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId);
-
+async function linearRequest(query: string, variables: Record<string, unknown>) {
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: Deno.env.get("LINEAR_API_KEY")!,
     },
-    body: JSON.stringify({
-      query: PROJECTS_QUERY,
-      variables: { initiativeId },
-    }),
+    body: JSON.stringify({ query, variables }),
   });
 
   const data = await res.json();
 
-  console.log("[roadmap] fetchFromLinear: response status", res.status);
-
   if (data.errors) {
-    console.error("[roadmap] fetchFromLinear: Linear GraphQL errors", JSON.stringify(data.errors));
+    console.error("[roadmap] Linear GraphQL errors", JSON.stringify(data.errors));
     throw new Error(`Linear API error: ${data.errors[0]?.message ?? "unknown"}`);
   }
 
-  const projects = data.data?.initiative?.projects?.nodes ?? [];
+  return data.data;
+}
+
+async function fetchFromLinear(initiativeId: string) {
+  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId);
+
+  const data = await linearRequest(PROJECTS_QUERY, { initiativeId });
+
+  const projects = data?.initiative?.projects?.nodes ?? [];
   console.log(
     "[roadmap] fetchFromLinear: projects returned",
     projects.length,
@@ -66,36 +72,55 @@ async function fetchFromLinear(initiativeId: string) {
     })),
   );
 
-  if (!data.data?.initiative) {
+  if (!data?.initiative) {
     console.error("[roadmap] fetchFromLinear: no initiative found for id", initiativeId);
   }
 
-  return data.data;
+  return data;
 }
 
-async function fetchMoreMilestoneIssues(milestoneId: string, after: string | null) {
-  console.log("[roadmap] fetchMoreMilestoneIssues: requesting milestone", { milestoneId, after });
+// Cycles belong to a team, not a project — resolve the first project's team,
+// then fetch that team's full cycle list. Every project in an initiative
+// typically shares one team, so the first project found is enough.
+async function fetchCyclesForInitiative(projects: any[]) {
+  const firstProjectId = projects[0]?.id;
+  if (!firstProjectId) return { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({
-      query: MILESTONE_ISSUES_QUERY,
-      variables: { milestoneId, after },
-    }),
-  });
-
-  const data = await res.json();
-
-  if (data.errors) {
-    console.error("[roadmap] fetchMoreMilestoneIssues: Linear GraphQL errors", JSON.stringify(data.errors));
-    throw new Error(`Linear API error: ${data.errors[0]?.message ?? "unknown"}`);
+  const teamData = await linearRequest(PROJECT_TEAM_QUERY, { projectId: firstProjectId });
+  const teamId = teamData?.project?.teams?.nodes?.[0]?.id;
+  if (!teamId) {
+    console.error("[roadmap] fetchCyclesForInitiative: no team found for project", firstProjectId);
+    return { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
   }
 
-  return data.data?.projectMilestone?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+  const cyclesData = await linearRequest(TEAM_CYCLES_QUERY, { teamId });
+  return cyclesData?.team?.cycles ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+}
+
+async function fetchCycleIssues(
+  cycleId: string,
+  after: string | null,
+  projectId: string | null,
+  milestoneId: string | null,
+) {
+  const filter: Record<string, unknown> = {};
+  if (projectId) filter.project = { id: { eq: projectId } };
+  if (milestoneId) filter.projectMilestone = { id: { eq: milestoneId } };
+
+  console.log("[roadmap] fetchCycleIssues: requesting cycle", {
+    cycleId,
+    after,
+    projectId,
+    milestoneId,
+  });
+
+  const data = await linearRequest(CYCLE_ISSUES_QUERY, {
+    cycleId,
+    after,
+    filter: Object.keys(filter).length ? filter : null,
+  });
+
+  return data?.cycle?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
 Deno.serve(async (req) => {
@@ -110,10 +135,12 @@ Deno.serve(async (req) => {
     const schema = "portal";
     const { searchParams } = new URL(req.url);
 
-    const milestoneId = searchParams.get("milestoneId");
-    if (milestoneId) {
+    const cycleId = searchParams.get("cycleId");
+    if (cycleId) {
       const after = searchParams.get("after");
-      const issues = await fetchMoreMilestoneIssues(milestoneId, after);
+      const projectId = searchParams.get("projectId");
+      const milestoneId = searchParams.get("milestoneId");
+      const issues = await fetchCycleIssues(cycleId, after, projectId, milestoneId);
       return new Response(JSON.stringify(issues), {
         headers: {
           ...corsHeaders,
@@ -156,10 +183,11 @@ Deno.serve(async (req) => {
     const initiativeId = customer.linear_slug;
 
     const data = await fetchFromLinear(initiativeId);
+    const cycles = await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
 
-    console.log("[roadmap] returning response for slug", slug);
+    console.log("[roadmap] returning response for slug", slug, "- cycles:", cycles.nodes.length);
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ ...data, cycles }), {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/json",

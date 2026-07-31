@@ -147,4 +147,11 @@ export type PriorityTasksProps = {
   title?: string;
   compact?: boolean;
   headerAction?: ReactNode;
+  // Which customer these issues belong to — passed through to the issue
+  // detail modal's Chat tab so a brand-new chat group gets tagged with the
+  // right customer even when a developer/admin (not the customer) sends the
+  // first message. Omit it on pages spanning multiple customers (e.g. the
+  // developer dashboard) — each issue there already carries its own
+  // `_project` (clientName), which the modal falls back to per-issue.
+  slug?: string;
 };

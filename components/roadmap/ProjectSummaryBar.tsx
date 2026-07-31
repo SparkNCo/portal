@@ -2,115 +2,93 @@ import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Milestone } from "@/components/roadmap/roadmap-timeline";
+import type { ChainedMilestone } from "./ProjectRow";
+import { formatDate, type TimeBucket } from "./TimelineHeader";
 
-const monthsGrid = [
-  "Month 1",
-  "Month 2",
-  "Month 3",
-  "Month 4",
-  "Month 5",
-  "Month 6",
-  "Month 7",
-  "Month 8",
-  "Month 9",
-  "Month 10",
-  "Month 11",
-  "Month 12",
-];
+function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; projectName: string }) {
+  return (
+    <div className="mb-1 pb-1 border-b border-border/50">
+      <div className="font-medium">
+        {bucket.label}
+        <span className="ml-1.5 font-normal text-muted-foreground">
+          {formatDate(bucket.start)} – {formatDate(bucket.end)}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground">{projectName}</div>
+    </div>
+  );
+}
 
-const barColors: Record<string, string> = {
-  completed: "bg-success",
-  done: "bg-success",
-  "in-progress": "bg-chart-1",
-  planned: "bg-muted-foreground/30",
-  overdue: "bg-warning/50",
-  unstarted: "bg-accent/50",
-  next: "bg-accent/50",
-};
-
-const FALLBACK_BAR_COLOR = "bg-muted-foreground/40";
-
-type ProjectRange = {
-  start: Date;
-  end: Date;
-} | null;
+// Color reflects actual completion + due date rather than Linear's own
+// `status` field: all scope done → green; still-open scope past its target
+// date → orange (overdue); still-open scope not yet due → blue.
+function getMilestoneBarColor(m: Milestone): string {
+  if (m.progress >= 1) return "bg-success";
+  if (m.targetDate && new Date(m.targetDate).getTime() < Date.now()) {
+    return "bg-warning/50";
+  }
+  return "bg-accent/50";
+}
 
 type ProjectSummaryBarProps = {
-  milestones: Milestone[];
-  range: ProjectRange;
-  year: number;
+  projectName: string;
+  milestones: ChainedMilestone[];
+  buckets: TimeBucket[];
+  selectedCycleKey?: string | null;
+  onCycleClick: (cycleKey: string) => void;
 };
 
 export function ProjectSummaryBar({
+  projectName,
   milestones,
-  range,
-  year,
+  buckets,
+  selectedCycleKey,
+  onCycleClick,
 }: ProjectSummaryBarProps) {
-  if (!range) {
-    return (
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-        <div className="w-full text-sm text-muted-foreground sm:w-52">
-          {milestones.length} milestones
-        </div>
-        <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1" />
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-      <div className="w-full text-sm text-muted-foreground sm:w-52">
-        {milestones.length} milestones
-      </div>
+      <div className="hidden shrink-0 sm:block sm:w-52" />
 
-      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
-        {monthsGrid.map((_, i) => {
-          const startYear = range?.start.getFullYear();
-          const endYear = range?.end.getFullYear();
-
-          if (year < startYear || year > endYear) return <div key={i} />;
-
-          const startMonth = year === startYear ? range.start.getMonth() : 0;
-          const endMonth = year === endYear ? range.end.getMonth() : 11;
-
-          const isInRange = i >= startMonth && i <= endMonth;
-
-          // Month boundaries
-          const monthStart = new Date(year, i, 1);
-          const monthEnd = new Date(year, i + 1, 0, 23, 59, 59);
-
-          const milestonesInMonth = milestones.filter((m) => {
-            if (!m.targetDate) return false;
-
-            const target = new Date(m.targetDate);
-
-            return (
-              target >= monthStart &&
-              target <= monthEnd &&
-              target >= range.start &&
-              target <= range.end
-            );
-          });
+      <div
+        className="grid gap-0.5 sm:flex-1 sm:gap-1"
+        style={{ gridTemplateColumns: `repeat(${buckets.length || 1}, minmax(0, 1fr))` }}
+      >
+        {buckets.map((bucket) => {
+          const milestonesInBucket = milestones.filter((m) => m.cycleIds.has(bucket.key));
+          const isInRange = milestonesInBucket.length > 0;
+          const isSelected = selectedCycleKey === bucket.key;
 
           return (
-            <Tooltip.Provider key={i} delayDuration={150}>
+            <Tooltip.Provider key={bucket.key} delayDuration={150}>
               <Tooltip.Root>
                 <Tooltip.Trigger asChild>
-                  <div className="h-8 relative cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => onCycleClick(bucket.key)}
+                    className="h-8 relative cursor-pointer"
+                    aria-label={`View issues in ${bucket.label}`}
+                  >
                     {isInRange && (
-                      <div className="absolute inset-y-2 inset-x-0 bg-accent/40 rounded-md" />
+                      <div
+                        className={cn(
+                          "absolute inset-y-2 inset-x-0 rounded-md bg-accent/40",
+                          isSelected && "ring-2 ring-accent",
+                        )}
+                      />
                     )}
-                  </div>
+                  </button>
                 </Tooltip.Trigger>
 
-                {milestonesInMonth.length > 0 && (
-                  <Tooltip.Portal>
-                    <Tooltip.Content
-                      side="top"
-                      align="center"
-                      className="z-50 max-w-xs rounded-md bg-popover px-3 py-2 text-sm shadow-md"
-                    >
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    className="z-50 max-w-xs rounded-md bg-popover px-3 py-2 text-sm shadow-md"
+                  >
+                    <CycleTooltipHeader bucket={bucket} projectName={projectName} />
+                    {milestonesInBucket.length > 0 && (
                       <div className="space-y-2">
-                        {milestonesInMonth.map((m) => (
+                        {milestonesInBucket.map((m) => (
                           <div
                             key={m?.projectName + m?.status}
                             className="flex flex-col"
@@ -122,10 +100,10 @@ export function ProjectSummaryBar({
                           </div>
                         ))}
                       </div>
-                      <Tooltip.Arrow className="fill-popover" />
-                    </Tooltip.Content>
-                  </Tooltip.Portal>
-                )}
+                    )}
+                    <Tooltip.Arrow className="fill-popover" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
               </Tooltip.Root>
             </Tooltip.Provider>
           );
@@ -137,60 +115,77 @@ export function ProjectSummaryBar({
 
 type MilestoneRowProps = {
   data: Milestone;
-  start: string | null;
-  end: string | null;
-  year: number;
-  onSelect?: () => void;
-  isSelected?: boolean;
+  cycleIds: Set<string>;
+  buckets: TimeBucket[];
+  selectedCycleKey?: string | null;
+  onCycleClick: (cycleKey: string) => void;
 };
 
-export function MilestoneRow({ data, start: startInput, end: endInput, year, onSelect, isSelected }: MilestoneRowProps) {
-  const hasRange = !!startInput && !!endInput;
-  const start = hasRange ? new Date(startInput!) : null;
-  const end = hasRange ? new Date(endInput!) : null;
-
+export function MilestoneRow({
+  data,
+  cycleIds,
+  buckets,
+  selectedCycleKey,
+  onCycleClick,
+}: MilestoneRowProps) {
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5 cursor-pointer rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4",
-        isSelected && "bg-accent/10",
-      )}
-      onClick={onSelect}
-    >
+    <div className="flex flex-col gap-1.5 rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4">
       <div className="w-full sm:w-52">
         {data.name && (
           <Badge
             variant="outline"
-            className={cn(
-              "max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white",
-              isSelected && "ring-1 ring-offset-1 ring-accent",
-            )}
+            className="max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white"
           >
             {data.name}
           </Badge>
         )}
       </div>
 
-      <div className="grid grid-cols-12 gap-0.5 sm:flex-1 sm:gap-1">
-        {monthsGrid.map((_, i) => {
-          const isInRange =
-            hasRange &&
-            year >= start!.getFullYear() &&
-            year <= end!.getFullYear() &&
-            i >= (year === start!.getFullYear() ? start!.getMonth() : 0) &&
-            i <= (year === end!.getFullYear() ? end!.getMonth() : 11);
+      <div
+        className="grid gap-0.5 sm:flex-1 sm:gap-1"
+        style={{ gridTemplateColumns: `repeat(${buckets.length || 1}, minmax(0, 1fr))` }}
+      >
+        {buckets.map((bucket) => {
+          const isInRange = cycleIds.has(bucket.key);
+          const isSelected = selectedCycleKey === bucket.key;
 
           return (
-            <div key={i} className="h-8 relative">
-              <div
-                className={cn(
-                  "absolute inset-y-1 inset-x-0 rounded-md",
-                  isInRange
-                    ? (barColors[data?.status] ?? FALLBACK_BAR_COLOR)
-                    : "bg-muted/20",
-                )}
-              />
-            </div>
+            <Tooltip.Provider key={bucket.key} delayDuration={150}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onCycleClick(bucket.key)}
+                    className="h-8 relative cursor-pointer"
+                    aria-label={`View ${data.name || "milestone"} issues in ${bucket.label}`}
+                  >
+                    <div
+                      className={cn(
+                        "absolute inset-y-1 inset-x-0 rounded-md",
+                        isInRange ? getMilestoneBarColor(data) : "bg-muted/20",
+                        isSelected && "ring-2 ring-accent",
+                      )}
+                    />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    align="center"
+                    className="z-50 max-w-xs rounded-md bg-popover px-3 py-2 text-sm shadow-md"
+                  >
+                    <CycleTooltipHeader bucket={bucket} projectName={data.projectName} />
+                    {data.name && (
+                      <div className="flex flex-col">
+                        <span className="font-medium">{data.name}</span>
+                        <span className="text-xs text-muted-foreground">{data.status}</span>
+                      </div>
+                    )}
+                    <Tooltip.Arrow className="fill-popover" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
           );
         })}
       </div>

@@ -175,7 +175,7 @@ async function fetchMilestones(projectId: string) {
 
 async function fetchLabels(slug: string) {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/labels?slug=${slug}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/labels?slug=${encodeURIComponent(slug)}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to fetch labels");

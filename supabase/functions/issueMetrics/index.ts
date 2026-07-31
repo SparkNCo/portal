@@ -166,11 +166,24 @@ async function handlePut(req: Request, schema: string) {
   return jsonResponse({ projects: byProject });
 }
 
+// Debug trace for one specific customer (users.id) while diagnosing why
+// their cycle_metrics isn't updating — remove once resolved.
+const DEBUG_CUSTOMER_ID = "60ecb62b-05fb-452f-b2fe-bf7bc84765c3";
+
 async function processIssueMetricsForCustomer(
   customer: { id: string; linear_projects?: string[] | null },
   schema: string,
 ) {
+  const isDebugTarget = customer.id === DEBUG_CUSTOMER_ID;
   const linearProjects: string[] = customer.linear_projects ?? [];
+
+  if (isDebugTarget) {
+    console.log("[DEBUG issueMetrics] customer found in getAllCustomers()", {
+      customerId: customer.id,
+      linearProjects,
+    });
+  }
+
   if (!linearProjects.length) {
     console.log(`⏭️ [issueMetrics] skipping customer ${customer.id}: no linear_projects`);
     return;
@@ -182,6 +195,17 @@ async function processIssueMetricsForCustomer(
     console.log(`🔧 [issueMetrics] processing customer ${customer.id}, linear_projects=`, linearProjects);
 
     const projects = (await fetchProjectDetails(linearProjects)).filter(Boolean);
+
+    if (isDebugTarget) {
+      console.log(
+        "[DEBUG issueMetrics] projects fetched from Linear:",
+        projects.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          issueCount: p.issues?.nodes?.length ?? 0,
+        })),
+      );
+    }
 
     const cyclesByProjectLight = projects.map((project: any) => {
       const cyclesMap = new Map();
@@ -197,6 +221,18 @@ async function processIssueMetricsForCustomer(
       };
     });
 
+    if (isDebugTarget) {
+      console.log(
+        "[DEBUG issueMetrics] active cycles found per project:",
+        cyclesByProjectLight.map((p) => ({
+          projectId: p.projectId,
+          projectName: p.projectName,
+          cycleCount: p.cycles.length,
+          cycleIds: p.cycles.map((c: any) => c.id),
+        })),
+      );
+    }
+
     const [cycleIssues, cyclesByProject] = await Promise.all([
       resolveCycleIssues(cyclesByProjectLight),
       resolveFullCycles(cyclesByProjectLight),
@@ -210,13 +246,33 @@ async function processIssueMetricsForCustomer(
       cycleIssues,
     );
 
+    if (isDebugTarget) {
+      console.log("[DEBUG issueMetrics] built metrics/cycles before upsert", {
+        metricsCount: metrics.length,
+        cyclesCount: cycles.length,
+        cycles: cycles.map((c) => ({
+          project_id: c.project_id,
+          cycle_id: c.cycle_id,
+          name: c.name,
+          is_active: c.is_active,
+        })),
+      });
+    }
+
     await Promise.all([
       upsertIssueMetrics(metrics, schema),
       upsertCycleMetrics(cycles, schema),
     ]);
 
+    if (isDebugTarget) {
+      console.log("[DEBUG issueMetrics] upsert completed successfully");
+    }
+
     console.log(`✅ [issueMetrics] saved metrics for customer ${customer.id}`);
   } catch (err) {
+    if (isDebugTarget) {
+      console.error("[DEBUG issueMetrics] threw before/during upsert:", err);
+    }
     console.error(`❌ [issueMetrics] failed to process customer ${customer.id}:`, String(err));
   }
 }
@@ -231,6 +287,11 @@ async function handlePost(schema: string) {
   const customers = await getAllCustomers(schema);
 
   console.log(`🚀 [issueMetrics] handlePost started, customers found:`, customers.length);
+
+  console.log(
+    "[DEBUG issueMetrics] is target customer present in getAllCustomers()?",
+    customers.some((c) => c.id === DEBUG_CUSTOMER_ID),
+  );
 
   await runWithConcurrency(customers, CUSTOMER_CONCURRENCY, async (customer) => {
     await processIssueMetricsForCustomer(customer, schema);

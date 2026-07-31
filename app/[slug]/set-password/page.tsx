@@ -6,9 +6,11 @@ import { supabase } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function SetPasswordPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug: rawSlug } = useParams<{ slug: string }>();
+  const slug = rawSlug ? safeDecodeURIComponent(rawSlug) : rawSlug;
   const router = useRouter();
 
   const [ready, setReady] = useState(false);
@@ -57,7 +59,7 @@ export default function SetPasswordPage() {
     }
 
     setDone(true);
-    setTimeout(() => router.replace(`/${slug}/dashboard/client`), 1500);
+    setTimeout(() => router.replace(`/${slug}/dashboard`), 1500);
   }
 
   const inputClass =

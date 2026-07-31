@@ -14,6 +14,9 @@ export const metadata = {
   metadataBase: new URL(defaultUrl),
   title: "S&C Software Monitoring",
   description: "",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 const geistSans = Geist({

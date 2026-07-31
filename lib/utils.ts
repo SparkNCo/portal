@@ -10,3 +10,17 @@ export const POPOVER_ANIMATION_CLASSES =
 
 export const MENU_ITEM_BASE_CLASSES =
   'relative flex cursor-default select-none items-center rounded-sm py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground'
+
+// Route params read via useParams() aren't reliably decoded in this app, so a
+// value like a customer's clientName can arrive still percent-encoded (or,
+// after repeated navigations through a link that re-encodes it, encoded more
+// than once). Decoding is idempotent on already-plain text, so this always
+// normalizes back to the real string; falls back to the raw value only if
+// it's not valid percent-encoding at all (e.g. contains a literal '%').
+export function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}

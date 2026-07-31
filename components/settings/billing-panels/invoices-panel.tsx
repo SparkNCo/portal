@@ -104,6 +104,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
                 variant="ghost"
                 size="icon"
                 onClick={() => window.open(invoice.invoicePdf, "_blank")}
+                aria-label={`Download invoice from ${formatDateFromUnix(invoice.created)}`}
               >
                 <Download className="h-4 w-4" />
               </Button>

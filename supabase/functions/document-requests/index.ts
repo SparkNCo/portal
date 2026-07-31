@@ -3,7 +3,6 @@ import { corsHeaders } from "../utils/headers.ts";
 import { createDocumentRequest } from "./createDocumentRequest.ts";
 import { markDocumentRequestDone } from "./markDocumentRequestDone.ts";
 import { claimDocumentRequest } from "./claimDocumentRequest.ts";
-import { releaseDocumentRequest } from "./releaseDocumentRequest.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,8 +20,6 @@ Deno.serve(async (req) => {
 
       if (body.action === "claim") {
         res = await claimDocumentRequest(body, schema);
-      } else if (body.action === "release") {
-        res = await releaseDocumentRequest(body, schema);
       } else {
         res = await markDocumentRequestDone(body, schema);
       }

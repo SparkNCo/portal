@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Check, RotateCcw, MessageSquare, X, Maximize2, Minimize2, GripVertical, Pencil, Paperclip } from "lucide-react";
+import {
+  Check,
+  RotateCcw,
+  MessageSquare,
+  X,
+  Maximize2,
+  Minimize2,
+  GripVertical,
+  Pencil,
+  Paperclip,
+} from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -37,8 +47,32 @@ import {
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { DemoTab } from "./demo-tab";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
+
+// Linear-hosted attachments (issue description images, UAT/QA evidence)
+// require Linear's own API key to view — portal users don't have a Linear
+// account, so their browser can't load these URLs directly. Route them
+// through our backend proxy, which fetches with our key instead.
+const LINEAR_UPLOAD_HOST = "uploads.linear.app";
+
+function toProxiedImageUrl(url: string | undefined | null) {
+  if (!url) return url ?? undefined;
+
+  try {
+    if (new URL(url).hostname !== LINEAR_UPLOAD_HOST) return url;
+  } catch {
+    return url;
+  }
+
+  // A plain <img> can't send the `apikey`/Authorization headers every other
+  // request uses, so pass the anon key as a query param instead — Supabase's
+  // gateway accepts it either way, and this key is already public (it's in
+  // every fetch call's headers, visible in the network tab regardless).
+  const apikey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}&apikey=${apikey}`;
+}
 
 // Reuses Linear's asset storage (same endpoint FeatureRequestPanel uses for
 // attachments) — just uploads a file and returns its public URL, no local DB row.
@@ -46,10 +80,16 @@ async function uploadTestAttachment(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`, {
-    method: "POST",
-    body: formData,
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`,
+    {
+      method: "POST",
+      // No Content-Type here — the browser sets multipart/form-data with the
+      // correct boundary on its own.
+      headers: API_HEADERS,
+      body: formData,
+    },
+  );
   if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
   const { name, url } = await res.json();
   return { name: name as string, url: url as string };
@@ -121,27 +161,45 @@ function DescriptionTab({
           [&_strong]:font-semibold
           [&_p]:mb-5 [&_p:last-child]:mb-0
           [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
-          [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1"
+          [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1
+          [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2 [&_img]:block"
         >
-          <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+          <ReactMarkdown
+            remarkPlugins={[remarkBreaks]}
+            components={{
+              img: ({ src, alt, ...props }) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  {...props}
+                  src={toProxiedImageUrl(typeof src === "string" ? src : undefined)}
+                  alt={alt ?? ""}
+                  loading="lazy"
+                />
+              ),
+            }}
+          >
             {issue.description}
           </ReactMarkdown>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground italic">No description yet.</p>
+        <p className="text-xs text-muted-foreground italic">
+          No description yet.
+        </p>
       )}
 
-      {canAnswer && currentStateName === "Business Review" && reviewComplete && (
-        <Button
-          size="sm"
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
-          disabled={advancing}
-          onClick={() => onAdvanceState("Development")}
-        >
-          <Check className="h-3.5 w-3.5 mr-1.5" />
-          {advancing ? "Updating…" : "Complete Review"}
-        </Button>
-      )}
+      {canAnswer &&
+        currentStateName === "Business Review" &&
+        reviewComplete && (
+          <Button
+            size="sm"
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            disabled={advancing}
+            onClick={() => onAdvanceState("Development")}
+          >
+            <Check className="h-3.5 w-3.5 mr-1.5" />
+            {advancing ? "Updating…" : "Complete Review"}
+          </Button>
+        )}
 
       {canAnswer && currentStateName === "UAT" && (
         <div className="flex gap-2">
@@ -210,15 +268,18 @@ function DecisionsTab({
     if (!questionText.trim() || submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
-        method: "POST",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({
-          issueId: issue.id,
-          question: questionText.trim(),
-          ownerEmail,
-        }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            issueId: issue.id,
+            question: questionText.trim(),
+            ownerEmail,
+          }),
+        },
+      );
       const newDecision = await res.json();
       if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
       setQuestionText("");
@@ -265,7 +326,9 @@ function DecisionsTab({
 
       {!loadingDecisions && decisions.length === 0 && (
         <p className="text-xs text-muted-foreground italic">
-          {canAnswer ? "No questions from your team yet." : "No questions asked yet."}
+          {canAnswer
+            ? "No questions from your team yet."
+            : "No questions asked yet."}
         </p>
       )}
 
@@ -288,7 +351,9 @@ function DecisionsTab({
               </p>
               <p className="text-[10px] text-success/60">
                 {d.decision_by} ·{" "}
-                {d.decided_at ? new Date(d.decided_at).toLocaleDateString() : ""}
+                {d.decided_at
+                  ? new Date(d.decided_at).toLocaleDateString()
+                  : ""}
               </p>
             </div>
           )}
@@ -423,8 +488,14 @@ function SortableStepRow({
   onChange: (text: string) => void;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: step.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -443,7 +514,9 @@ function SortableStepRow({
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <span className="w-4 shrink-0 text-[10px] text-muted-foreground">{index + 1}.</span>
+      <span className="w-4 shrink-0 text-[10px] text-muted-foreground">
+        {index + 1}.
+      </span>
       <input
         className="flex-1 rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder={`Step ${index + 1}…`}
@@ -492,7 +565,10 @@ function StepsEditor({
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={steps.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          items={steps.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
           <div className="space-y-1.5">
             {steps.map((step, i) => (
               <SortableStepRow
@@ -500,7 +576,9 @@ function StepsEditor({
                 step={step}
                 index={i}
                 onChange={(text) =>
-                  onChange(steps.map((s) => (s.id === step.id ? { ...s, text } : s)))
+                  onChange(
+                    steps.map((s) => (s.id === step.id ? { ...s, text } : s)),
+                  )
                 }
                 onRemove={() => onChange(steps.filter((s) => s.id !== step.id))}
               />
@@ -512,7 +590,9 @@ function StepsEditor({
         type="button"
         size="sm"
         variant="outline"
-        onClick={() => onChange([...steps, { id: crypto.randomUUID(), text: "" }])}
+        onClick={() =>
+          onChange([...steps, { id: crypto.randomUUID(), text: "" }])
+        }
       >
         + Add step
       </Button>
@@ -544,7 +624,8 @@ function TestUatSection({
   const hasUatRecord = test.actual?.some((entry) => entry.kind === "uat");
   const alreadyRecordedUat = isUatStage && hasUatRecord;
   const statusAllowsRecording =
-    test.status === "approved" || (isQaStage && (test.status === "draft" || test.status === "passed"));
+    test.status === "approved" ||
+    (isQaStage && (test.status === "draft" || test.status === "passed"));
 
   if (!canRecordResult || !statusAllowsRecording) return null;
 
@@ -576,7 +657,9 @@ function TestUatSection({
   }
 
   function handleRemoveFile(index: number) {
-    setUatForm((f) => (f ? { ...f, files: f.files.filter((_, fi) => fi !== index) } : f));
+    setUatForm((f) =>
+      f ? { ...f, files: f.files.filter((_, fi) => fi !== index) } : f,
+    );
   }
 
   return (
@@ -613,7 +696,9 @@ function TestUatSection({
               key={`${file.name}-${i}`}
               className="flex items-center justify-between rounded border border-border bg-secondary/30 px-2 py-1"
             >
-              <span className="truncate text-[11px] text-foreground">{file.name}</span>
+              <span className="truncate text-[11px] text-foreground">
+                {file.name}
+              </span>
               <button
                 type="button"
                 onClick={() => handleRemoveFile(i)}
@@ -667,16 +752,23 @@ function TestsTab({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [showNewTestForm, setShowNewTestForm] = useState(false);
-  const [testForm, setTestForm] = useState<{ title: string; steps: StepDraft[]; expected: string }>({
+  const [testForm, setTestForm] = useState<{
+    title: string;
+    steps: StepDraft[];
+    expected: string;
+  }>({
     title: "",
     steps: [],
     expected: "",
   });
   const [uatForm, setUatForm] = useState<UatFormState>(null);
   const uatFileInputRef = useRef<HTMLInputElement>(null);
-  const [editForm, setEditForm] = useState<
-    { testId: string; title: string; steps: StepDraft[]; expected: string } | null
-  >(null);
+  const [editForm, setEditForm] = useState<{
+    testId: string;
+    title: string;
+    steps: StepDraft[];
+    expected: string;
+  } | null>(null);
 
   // Developers can author/edit test cases while the issue is being scoped, built, or QA'd,
   // not once it's gone to the client for UAT.
@@ -702,17 +794,20 @@ function TestsTab({
         .map((s) => s.text.trim())
         .filter(Boolean)
         .map((d, i) => ({ order: i + 1, description: d }));
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests`, {
-        method: "POST",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({
-          issue_id: issue.id,
-          title: testForm.title.trim(),
-          steps,
-          expected: testForm.expected.trim(),
-          created_by: userEmail,
-        }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            issue_id: issue.id,
+            title: testForm.title.trim(),
+            steps,
+            expected: testForm.expected.trim(),
+            created_by: userEmail,
+          }),
+        },
+      );
       const created = await res.json();
       if (created.id) setTests((prev) => [...prev, created]);
       setTestForm({ title: "", steps: [], expected: "" });
@@ -726,7 +821,10 @@ function TestsTab({
     setEditForm({
       testId: test.id,
       title: test.title,
-      steps: test.steps.map((s) => ({ id: crypto.randomUUID(), text: s.description })),
+      steps: test.steps.map((s) => ({
+        id: crypto.randomUUID(),
+        text: s.description,
+      })),
       expected: test.expected,
     });
   }
@@ -739,19 +837,24 @@ function TestsTab({
         .map((s) => s.text.trim())
         .filter(Boolean)
         .map((d, i) => ({ order: i + 1, description: d }));
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`, {
-        method: "PATCH",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({
-          test_id: editForm.testId,
-          title: editForm.title.trim(),
-          steps,
-          expected: editForm.expected.trim(),
-        }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            test_id: editForm.testId,
+            title: editForm.title.trim(),
+            steps,
+            expected: editForm.expected.trim(),
+          }),
+        },
+      );
       const updated = await res.json();
       if (updated.id)
-        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        setTests((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t)),
+        );
       setEditForm(null);
     } finally {
       setSubmitting(false);
@@ -759,11 +862,14 @@ function TestsTab({
   }
 
   async function handleApproveTest(testId: string) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/approve`, {
-      method: "PATCH",
-      headers: API_JSON_HEADERS,
-      body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
-    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/approve`,
+      {
+        method: "PATCH",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
+      },
+    );
     const updated = await res.json();
     if (updated.id)
       setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -773,21 +879,28 @@ function TestsTab({
     if (!uatForm || submitting) return;
     setSubmitting(true);
     try {
-      const attachments = await Promise.all(uatForm.files.map(uploadTestAttachment));
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
-        method: "PATCH",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({
-          test_id: uatForm.testId,
-          actual: uatForm.actual,
-          recorded_by: userEmail,
-          kind: isQaStage ? "qa" : "uat",
-          attachments,
-        }),
-      });
+      const attachments = await Promise.all(
+        uatForm.files.map(uploadTestAttachment),
+      );
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            test_id: uatForm.testId,
+            actual: uatForm.actual,
+            recorded_by: userEmail,
+            kind: isQaStage ? "qa" : "uat",
+            attachments,
+          }),
+        },
+      );
       const updated = await res.json();
       if (updated.id)
-        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        setTests((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t)),
+        );
       setUatForm(null);
     } finally {
       setSubmitting(false);
@@ -798,17 +911,22 @@ function TestsTab({
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`, {
-        method: "PATCH",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({
-          test_id: test.id,
-          passed: test.status !== "passed",
-        }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            test_id: test.id,
+            passed: test.status !== "passed",
+          }),
+        },
+      );
       const updated = await res.json();
       if (updated.id)
-        setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        setTests((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t)),
+        );
     } finally {
       setSubmitting(false);
     }
@@ -821,7 +939,9 @@ function TestsTab({
       )}
 
       {!loadingTests && tests.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">No test cases yet.</p>
+        <p className="text-xs text-muted-foreground italic">
+          No test cases yet.
+        </p>
       )}
 
       {tests.map((t) => (
@@ -829,16 +949,18 @@ function TestsTab({
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-medium text-foreground">{t.title}</p>
             <div className="flex items-center gap-1.5 shrink-0">
-              {canManageTests && t.status === "draft" && editForm?.testId !== t.id && (
-                <button
-                  type="button"
-                  onClick={() => handleStartEdit(t)}
-                  className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  aria-label="Edit test case"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              )}
+              {canManageTests &&
+                t.status === "draft" &&
+                editForm?.testId !== t.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(t)}
+                    className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    aria-label="Edit test case"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
                   t.status === "passed"
@@ -865,7 +987,9 @@ function TestsTab({
                   className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, title: e.target.value })
+                  }
                   autoFocus
                 />
               </div>
@@ -882,11 +1006,17 @@ function TestsTab({
                   rows={2}
                   placeholder="Expected result…"
                   value={editForm.expected}
-                  onChange={(e) => setEditForm({ ...editForm, expected: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, expected: e.target.value })
+                  }
                 />
               </div>
               <div className="flex gap-2 justify-end">
-                <Button size="sm" variant="ghost" onClick={() => setEditForm(null)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditForm(null)}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -934,7 +1064,10 @@ function TestsTab({
           {t.actual && t.actual.length > 0 && (
             <div className="space-y-2">
               {t.actual.map((entry, i) => (
-                <div key={`${entry.recorded_at}-${i}`} className="border-l-2 border-border pl-2">
+                <div
+                  key={`${entry.recorded_at}-${i}`}
+                  className="border-l-2 border-border pl-2"
+                >
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                     {entry.kind === "qa"
                       ? "QA Evidence"
@@ -947,9 +1080,14 @@ function TestsTab({
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.attachments.map((att, ai) =>
                         IMAGE_EXT_RE.test(att.name) ? (
-                          <a key={ai} href={att.url} target="_blank" rel="noopener noreferrer">
+                          <a
+                            key={ai}
+                            href={toProxiedImageUrl(att.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <img
-                              src={att.url}
+                              src={toProxiedImageUrl(att.url)}
                               alt={att.name}
                               className="h-14 w-14 rounded border border-border object-cover"
                             />
@@ -973,9 +1111,14 @@ function TestsTab({
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.attachments.map((att, ai) =>
                         IMAGE_EXT_RE.test(att.name) ? (
-                          <a key={ai} href={att.url} target="_blank" rel="noopener noreferrer">
+                          <a
+                            key={ai}
+                            href={toProxiedImageUrl(att.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <img
-                              src={att.url}
+                              src={toProxiedImageUrl(att.url)}
                               alt={att.name}
                               className="h-14 w-14 rounded border border-border object-cover"
                             />
@@ -1010,7 +1153,11 @@ function TestsTab({
           )}
 
           {canAnswer && t.status === "draft" && editForm?.testId !== t.id && (
-            <Button size="sm" className="w-full" onClick={() => handleApproveTest(t.id)}>
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => handleApproveTest(t.id)}
+            >
               Approve test case
             </Button>
           )}
@@ -1043,7 +1190,9 @@ function TestsTab({
                 }
                 onClick={() => handleTogglePassed(t)}
               >
-                {t.status === "passed" ? "Revert to Approved" : "Mark as Passed"}
+                {t.status === "passed"
+                  ? "Revert to Approved"
+                  : "Mark as Passed"}
               </Button>
             )}
         </div>
@@ -1061,7 +1210,9 @@ function TestsTab({
                   className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={testForm.title}
-                  onChange={(e) => setTestForm((f) => ({ ...f, title: e.target.value }))}
+                  onChange={(e) =>
+                    setTestForm((f) => ({ ...f, title: e.target.value }))
+                  }
                   autoFocus
                 />
               </div>
@@ -1078,7 +1229,9 @@ function TestsTab({
                   rows={2}
                   placeholder="Expected result…"
                   value={testForm.expected}
-                  onChange={(e) => setTestForm((f) => ({ ...f, expected: e.target.value }))}
+                  onChange={(e) =>
+                    setTestForm((f) => ({ ...f, expected: e.target.value }))
+                  }
                 />
               </div>
               <div className="flex gap-2 justify-end">
@@ -1121,9 +1274,12 @@ function TestsTab({
 
 export function IssueDetailModal({
   issue,
+  slug,
   onClose,
 }: {
   issue: Issue;
+  // Which customer this issue belongs to — passed through to the Chat tab.
+  slug?: string;
   onClose: () => void;
 }) {
   const { profile } = useUser();
@@ -1145,15 +1301,17 @@ export function IssueDetailModal({
   const [tests, setTests] = useState<TestCase[]>([]);
   const [loadingTests, setLoadingTests] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "description" | "chat" | "decisions" | "tests" | "design"
+    "description" | "chat" | "decisions" | "tests" | "design" | "demo"
   >("description");
 
   // "Business Review" is complete once every question raised has an answer
   // (or none were raised at all) — that's what unlocks "Complete Review".
-  const reviewComplete = !loadingDecisions && decisions.every((d) => d.decision != null);
+  const reviewComplete =
+    !loadingDecisions && decisions.every((d) => d.decision != null);
 
   // Bug tickets don't go through design — the Design tab isn't relevant for them.
-  const isBugIssue = issue.labels?.nodes?.some((l) => l.name?.toLowerCase() === "bug") ?? false;
+  const isBugIssue =
+    issue.labels?.nodes?.some((l) => l.name?.toLowerCase() === "bug") ?? false;
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -1183,15 +1341,17 @@ export function IssueDetailModal({
         setLoadingDecisions(false);
       });
 
-    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?issue_id=${issue.id}`, {
-      headers: API_HEADERS,
-    })
+    fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?issue_id=${issue.id}`,
+      {
+        headers: API_HEADERS,
+      },
+    )
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setTests(data);
       })
       .finally(() => setLoadingTests(false));
-
   }, [issue.id]);
 
   const queryClient = useQueryClient();
@@ -1228,11 +1388,14 @@ export function IssueDetailModal({
     if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
-        method: "PATCH",
-        headers: API_JSON_HEADERS,
-        body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
+        },
+      );
       const data = await res.json();
       if (data.success) {
         setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
@@ -1255,7 +1418,9 @@ export function IssueDetailModal({
   return (
     <div
       className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-all duration-200 ${
-        visible ? "bg-black/60 backdrop-blur-sm" : "bg-transparent backdrop-blur-none"
+        visible
+          ? "bg-black/60 backdrop-blur-sm"
+          : "bg-transparent backdrop-blur-none"
       }`}
     >
       <button
@@ -1270,7 +1435,9 @@ export function IssueDetailModal({
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
             : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]"
         } ${
-          visible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-2"
+          visible
+            ? "opacity-100 scale-100 translate-y-0"
+            : "opacity-0 scale-95 translate-y-2"
         }`}
       >
         {/* Header */}
@@ -1282,13 +1449,19 @@ export function IssueDetailModal({
               </span>
               <Badge
                 variant="outline"
-                className={priorityColors[issue.priorityLabel as keyof typeof priorityColors]}
+                className={
+                  priorityColors[
+                    issue.priorityLabel as keyof typeof priorityColors
+                  ]
+                }
               >
                 {issue.priorityLabel}
               </Badge>
               <Badge
                 variant="secondary"
-                className={statusColors[currentStateName as keyof typeof statusColors]}
+                className={
+                  statusColors[currentStateName as keyof typeof statusColors]
+                }
               >
                 {currentStateName}
               </Badge>
@@ -1297,7 +1470,9 @@ export function IssueDetailModal({
               {issue.labels?.nodes?.map((l) => (
                 <LabelPill key={l.id} label={l} iconOnly />
               ))}
-              <h2 className="text-base font-semibold leading-snug">{issue.title}</h2>
+              <h2 className="text-base font-semibold leading-snug">
+                {issue.title}
+              </h2>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
@@ -1325,16 +1500,51 @@ export function IssueDetailModal({
 
         {/* Tab bar */}
         <div className="flex border-b border-border px-5 flex-shrink-0">
-          <TabButton label="Description" tab="description" activeTab={activeTab} onClick={() => setActiveTab("description")} className="mr-5" />
-          <TabButton label="Chat" tab="chat" activeTab={activeTab} onClick={() => setActiveTab("chat")} className="mr-5" />
-          <TabButton label="Tests" tab="tests" activeTab={activeTab} onClick={() => setActiveTab("tests")} badge={tests.length} className="mr-5" />
-          <TabButton label="Decisions" tab="decisions" activeTab={activeTab} onClick={() => setActiveTab("decisions")} badge={decisions.length} className="mr-5" />
+          <TabButton
+            label="Description"
+            tab="description"
+            activeTab={activeTab}
+            onClick={() => setActiveTab("description")}
+            className="mr-5"
+          />
+          <TabButton
+            label="Chat"
+            tab="chat"
+            activeTab={activeTab}
+            onClick={() => setActiveTab("chat")}
+            className="mr-5"
+          />
+          <TabButton
+            label="Tests"
+            tab="tests"
+            activeTab={activeTab}
+            onClick={() => setActiveTab("tests")}
+            badge={tests.length}
+            className="mr-5"
+          />
+          <TabButton
+            label="Decisions"
+            tab="decisions"
+            activeTab={activeTab}
+            onClick={() => setActiveTab("decisions")}
+            badge={decisions.length}
+            className="mr-5"
+          />
           {!isBugIssue && (
             <TabButton
               label="Design"
               tab="design"
               activeTab={activeTab}
               onClick={() => setActiveTab("design")}
+              className="mr-5"
+            />
+          )}
+          {!isBugIssue && (
+            <TabButton
+              label="Demo"
+              tab="demo"
+              activeTab={activeTab}
+              onClick={() => setActiveTab("demo")}
             />
           )}
         </div>
@@ -1353,7 +1563,7 @@ export function IssueDetailModal({
 
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
-            <IssueCometChat issueId={issue.id} issueTitle={issue.title} />
+            <IssueCometChat issueId={issue.id} issueTitle={issue.title} slug={slug} />
           </div>
         )}
 
@@ -1385,6 +1595,8 @@ export function IssueDetailModal({
         )}
 
         {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
+
+        {activeTab === "demo" && !isBugIssue && <DemoTab issue={issue} />}
       </div>
     </div>
   );

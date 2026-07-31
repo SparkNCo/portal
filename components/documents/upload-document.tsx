@@ -176,6 +176,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
           className="hidden"
           onChange={handleFileSelect}
           accept="*/*"
+          aria-label="Upload document files"
         />
 
         {uploadedFiles.length > 0 && (
@@ -216,6 +217,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
                       e.stopPropagation();
                       removeFile(file.name);
                     }}
+                    aria-label={`Remove ${file.name}`}
                   >
                     <X className="h-3 w-3" />
                   </Button>

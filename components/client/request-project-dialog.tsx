@@ -78,7 +78,7 @@ export function RequestProjectDialog({
         className="bg-accent text-accent-foreground hover:bg-accent/90"
       >
         <Plus className="h-4 w-4 mr-2" />
-        New project Request
+        New Project Request
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>

@@ -139,8 +139,11 @@ export function IssueMetricsView({
   // Fixed set and order (not derived from whatever happens to be in the
   // current data) so a status is always in the same stacking position and
   // gets the same color across every cycle/date range — matches "Project
-  // Stats"' CHART_STATUS_COLORS lookup by name below.
-  const uniqueStatuses = STATUS_ORDER;
+  // Stats"' CHART_STATUS_COLORS lookup by name below. Backlog is excluded:
+  // this chart is always scoped to a single cycle (or cycles), and Backlog
+  // issues never belong to a cycle, so it would only ever show as a flat
+  // zero line/legend entry.
+  const uniqueStatuses = STATUS_ORDER.filter((status) => status !== "Backlog");
 
   const chartData = useMemo(() => {
     if (spanAllCycles) {

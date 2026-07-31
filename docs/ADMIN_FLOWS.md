@@ -17,52 +17,39 @@ The role comes from the global `UserContext`, which loads the user profile from 
 
 ## Page Structure
 
-The page has **two views** toggled from a switcher at the top:
+The page has **two views** toggled from a switcher at the top: **Users** and **Projects**.
 
-| View | Description |
-|---|---|
-| **Users** | Lists every user in the system with their roles and lets you manage them |
-| **Projects** | Shows each customer and which developers / stakeholders are assigned to them |
-
-Three action buttons sit in the top-right corner:
-
-- `Add Developer`
-- `Add Customer`
-- `Add Stakeholder`
+There is no top-right "Add X" button row anymore — each role gets its own **"Add {role}"** dashed-border button at the bottom of that role's own section in the Users view (see below). There's no "Add Admin" — that role has no creation flow in this UI at all (admins are created directly in Supabase Auth).
 
 ---
 
 ## Users View
 
-### What it loads
+### Layout
 
-When the **Users** view mounts, it calls `GET /users` to fetch every registered user. Each row shows:
+`GET /users` loads every registered user once, on mount. Rather than one combined, role-filterable list, the view renders **four separate, always-visible cards** — one per role (Admin, Developer, Customer, Stakeholder), each listing only that role's matching users. There's no way to hide a role section; the single **text search** box (by email or username, client-side, no extra API calls) narrows the members shown within all four simultaneously. There is no separate role-filter control — search is the only filter.
 
-- Initials avatar (generated from the email)
-- Email
-- Colored role badge (admin, developer, customer, stakeholder)
-- Expand arrow button
-- **View Profile** button (visible on hover, developers only) — opens `ViewDeveloperProfileModal`, sits to the left of Edit Profile
-- **Edit Profile** button (visible on hover, developers only) — opens `EditDeveloperProfileModal`
-- **Assign** button (visible on hover, only for developers and stakeholders)
+Each user row shows an initials avatar (from the email) and their email — **no colored role badge**, since which card a row is under already conveys the role.
 
-### Search & filters
+### Row actions
 
-Two ways to narrow the list down:
+- **View Profile** (developers only) — opens `ViewDeveloperProfileModal`, to the left of Edit Profile.
+- **Edit Profile** (developers only) — opens `EditDeveloperProfileModal`.
+- **Assign** (developers and stakeholders only) — opens `AssignCustomerModal`.
+- **Resend account email** (📧 icon, every role) — a dropdown with **"Resend invite"** and **"Send password reset"**. See below.
+- **Expand arrow** (developers only) — see "Expanding a user" below. Customers and stakeholders have no expand affordance in this view at all (a customer's assignees are only visible via the Projects view instead).
 
-1. **Text search** — filters by email or username in real time, no extra API calls.
-2. **Role filter** — pill buttons for admin / developer / customer / stakeholder. Can be combined with the text search.
+On screens `sm` and up, View Profile/Edit Profile/Assign only appear on row hover; the Resend-email and Expand buttons are always visible.
 
-If nothing matches, an empty state with an icon is shown.
+### Resend Account Email
+
+**Source:** `supabase/functions/users/resendAccountEmail.ts`, `PATCH`-less action: `POST /users?type=resend-account-email` with `{ id, emailType: "invite" | "reset" }`.
+
+Lets an admin re-trigger the account-setup email for **any existing user of any role** without touching `users`/`customers` at all — it only re-resolves the Supabase Auth user and re-sends the email, so (unlike the old workaround of re-running customer creation with the same email) it can never create a duplicate record. Useful when a user's original 24h invite link expired before they opened it. The admin picks which copy to send (invite vs. password-reset copy); both redirect to the same `/set-password` page under the hood. A toast confirms which email address it was sent to, or shows the error if the user's auth account couldn't be resolved.
 
 ### Expanding a user
 
-Clicking the arrow on any user opens a panel showing their **current assignments**:
-
-- **Customer** → shows the developers and stakeholders assigned to them, with role, join date, and weekly hours.
-- **Developer / Stakeholder** → shows the customers they are assigned to, with join date and weekly hours.
-
-Data loads on demand when the row expands — it is not prefetched. The query is `GET /assignments?developer={id}` or `GET /assignments?customer_id={id}` depending on the role.
+Clicking the arrow on a **developer** row opens a panel showing the customers they're assigned to, with join date and weekly hours (`GET /assignments?developer={id}`, loaded on demand, not prefetched). This is developer-only now — customer and stakeholder rows have no expand button in the Users view.
 
 ---
 
@@ -70,11 +57,11 @@ Data loads on demand when the row expands — it is not prefetched. The query is
 
 This view presents the same assignment data but organized **from the customer's perspective**.
 
-Each block represents a **customer** and lists all developers and stakeholders assigned to them — email, role, join date, and weekly hours.
+Each block represents a **customer** and lists everyone assigned to them, **customer first, then stakeholders, then developers** — email, role, join date, and weekly hours (weekly hours only shown for developers).
 
-If a customer has no one assigned, the block shows "No developers assigned yet."
+If a customer has no one assigned, the block shows "No assignees."
 
-Data loads in batch when the view mounts: all customer IDs are collected first, then a single request `GET /assignments?customer_id=id1,id2,...` is made for all of them at once.
+`GET /assignments?customer_id=id1,id2,...` (all customer ids collected first, one batched request) actually fires as soon as the customer list is known — it isn't gated behind switching to this view, so by the time an admin clicks over to Projects the data has often already loaded.
 
 ---
 
@@ -114,15 +101,15 @@ This is the most complete flow because a customer requires two external integrat
 
 | Field | Required | Notes |
 |---|---|---|
+| Client name | ✅ Yes | Sent as `clientName` — display name seen by developers, and the "who's this row" fallback used across the portal wherever a customer name is shown |
 | Email | ✅ Yes | |
-| Client name | No | Display name seen by developers |
+| Linear Slug | ✅ Yes | Identifies the customer's Linear workspace — needed to create and list issues |
 | First name | No | |
 | Last name | No | |
 | Phone number | No | |
-| Stripe Customer ID | ✅ Yes | Used for billing and payments |
-| Linear Slug | ✅ Yes | Identifies the customer's Linear workspace — needed to create and list issues |
+| Stripe Customer ID | No | Sent as `customer_id`, only included in the request at all if non-empty. Used for billing once set — a customer can be created without one and have it added later |
 
-> **Important:** The "Create" button stays disabled until all three required fields (email, Stripe ID, and Linear slug) are filled in.
+> **Important:** The "Create" button stays disabled until Client name, Email, and Linear Slug are filled in. **Stripe Customer ID is not required to create a customer** — this changed from an earlier version where it was mandatory.
 
 On confirm, calls `POST /users?type=customer` with all fields.  
 The customer receives an invitation email, just like developers.
@@ -134,7 +121,7 @@ The `linear_slug` is critical: without it the customer won't see their issues in
 1. Creates the `customers` row with `linear_slug`, `clientName`, and the Stripe ID.
 2. Looks up the Linear initiative identified by `linear_slug`, collects its projects (`linear_projects`), and for each project scans its issues' attachments for a linked GitHub issue/PR to derive the repo's GitHub URL (`project_url`). Both are saved back onto the `customers` row. This step is best-effort — if Linear lookups fail or return nothing, customer creation still succeeds.
 3. Upserts the `users` row for the customer and sends the invite email.
-4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute metrics for the new customer. That call's final step also runs `triggerDoraForAllCustomers()`, so `/dora` runs for this (and every other eligible) customer right away — no need to wait for the next cron run.
+4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute Linear cycle/issue metrics for the new customer. This **no longer** cascades into DORA — `issueMetrics` and `dora` were decoupled onto separate crons (GitHub's API is slower/more rate-limited than Linear's), so this customer's DORA tiles stay empty until the next scheduled `dora` cron run picks them up, not immediately. See `app/docs/ROADMAP_FLOWS.md` for how `dora`'s own cron and since-window work.
 
 ---
 
@@ -267,6 +254,7 @@ Recommended order when bringing a new customer into the system:
 | Create assignment | POST | `/assignments` |
 | Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
 | Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
+| Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |
 | Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
 ---
@@ -284,5 +272,6 @@ Recommended order when bringing a new customer into the system:
 | `app/admin/users/ViewDeveloperProfileModal.tsx` | Fetches a developer's bio/tech stack and renders the same popup shown on the Staffing tab |
 | `components/settings/developer-details-modal.tsx` | Shared popup component — used from both Staffing (customer view) and here (admin preview) |
 | `components/shared/tech-stack-picker.tsx` | Shared drag-to-reorder tech stack chip editor — used by Edit Developer Profile and the customer-facing Add Developer modal |
+| `supabase/functions/users/resendAccountEmail.ts` | Resends a user's invite or password-reset email without touching `users`/`customers` |
 | `supabase/functions/developer-requests/` | Edge function — emails all admins when a customer requests a Spark & Co FDE developer |
 | `context/UserContext.tsx` | Provides `profile.role` for access control |

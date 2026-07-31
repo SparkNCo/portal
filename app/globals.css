@@ -58,7 +58,7 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
     --accent: 220 70% 50%;
-    --accent-foreground: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --warning: 35 93% 58%;
@@ -92,4 +92,17 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Browser autofill (Chrome/Edge/Safari) ignores background-color and forces
+   its own light grey fill, which breaks contrast on dark inputs. Force it
+   back to match the input's own bg-foreground/text-background colors. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--foreground)) inset;
+  -webkit-text-fill-color: hsl(var(--background));
+  caret-color: hsl(var(--background));
+  transition: background-color 9999s ease-in-out 0s;
 }

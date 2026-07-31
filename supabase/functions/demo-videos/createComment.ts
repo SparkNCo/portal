@@ -1,0 +1,30 @@
+// @ts-nocheck
+import { supabase } from "../client.ts";
+import { SCHEMA, getUserIdByEmail } from "./helpers.ts";
+
+export const createComment = async (
+  demoVideoId: string,
+  email: string,
+  body: string,
+) => {
+  const trimmedBody = body.trim();
+
+  if (!trimmedBody) throw new Error("Comment can't be empty");
+
+  const authorId = await getUserIdByEmail(supabase, email);
+
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("demo_video_comments")
+    .insert({
+      demo_video_id: demoVideoId,
+      author_id: authorId,
+      body: trimmedBody,
+    })
+    .select("*, author:users!author_id(id, email, userName, role)")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  return data;
+};
