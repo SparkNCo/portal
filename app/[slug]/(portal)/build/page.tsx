@@ -12,11 +12,13 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { Issue } from "@/components/client/issues.types";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function BuildPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);

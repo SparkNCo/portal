@@ -20,6 +20,7 @@ import {
   UncompletedIssuesList,
 } from "./cycle-metrics";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -30,7 +31,8 @@ interface Project {
 export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const slug =
     slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 

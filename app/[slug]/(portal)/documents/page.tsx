@@ -12,11 +12,13 @@ import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function DocumentsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   // Developers have no `linear_slug` of their own (that's a customer-account
   // field) and, under `/dev/documents`, no `[slug]` route segment either —
   // fall back to their first assignment, same customer this page would have

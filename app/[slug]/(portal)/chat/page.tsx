@@ -4,10 +4,12 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Header } from "@/components/headerDashboard";
 import ChatLayout from "@/components/chat/CometChat/ChatLayout";
 import { LoadingDataPanel } from "@/components/loader";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 function ChatContent() {
   const searchParams = useSearchParams();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const initialTitle = searchParams.get("newChat") ?? undefined;
 
   return (

@@ -13,11 +13,13 @@ import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { API_HEADERS } from "@/lib/api-headers";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function RoadmapPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const { data: issuesData } = useQuery({

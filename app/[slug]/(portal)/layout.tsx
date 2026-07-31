@@ -5,12 +5,14 @@ import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
 import { useUser } from "context/UserContext";
 import { CustomerSlugProvider } from "context/CustomerSlugContext";
+import { safeDecodeURIComponent } from "@/lib/utils";
 import type React from "react";
 
 function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   const { isOpen, close } = useSidebar();
   const { profile } = useUser();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
 
   const content = (
     <div className="min-h-screen bg-background">

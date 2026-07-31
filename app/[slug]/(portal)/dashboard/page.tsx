@@ -24,6 +24,7 @@ import { SortablePinnedPanel } from "@/components/dashboard/sortable-pinned-pane
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { DEFAULT_PANEL_IDS, type PinnablePanelId } from "@/lib/pinnable-panels";
 import type { Issue } from "@/components/client/issues.types";
+import { safeDecodeURIComponent } from "@/lib/utils";
 import {
   DndContext,
   closestCenter,
@@ -69,7 +70,8 @@ export async function fetchPoliciesStatus(userId: string) {
 export default function ClientDashboard() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const router = useRouter();
   const pathname = usePathname();
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
