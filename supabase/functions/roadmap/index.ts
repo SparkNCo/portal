@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import {
   PROJECTS_QUERY,
   PROJECT_TEAM_QUERY,
@@ -19,7 +20,7 @@ async function getCustomerBySlug(slug: string, schema: string) {
       linear_slug
     `,
     )
-    .ilike("clientName", slug)
+    .ilike("clientName", escapeIlike(slug))
     .maybeSingle();
 
   if (error) {

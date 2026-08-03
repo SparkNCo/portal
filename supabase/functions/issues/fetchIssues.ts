@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
 import { syncCustomerLinearProjects } from "./syncLinearProjects.ts";
@@ -17,7 +18,7 @@ async function getCustomerBySlug(slug: string, schema: string) {
       linear_slug
     `,
     )
-    .ilike("clientName", slug)
+    .ilike("clientName", escapeIlike(slug))
     .maybeSingle();
 
   if (error) {

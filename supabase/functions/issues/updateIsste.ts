@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
+import { escapeIlike } from "../utils/slug.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -366,7 +367,7 @@ export async function handleGetProjects(req: Request): Promise<Response> {
     const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(slug)}&select=linear_projects`,
+      `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(escapeIlike(slug))}&select=linear_projects`,
       {
         headers: {
           apikey: serviceKey,
@@ -409,7 +410,7 @@ export async function handleGetLabels(req: Request): Promise<Response> {
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
   const res = await fetch(
-    `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(slug)}&select=linear_projects`,
+    `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(escapeIlike(slug))}&select=linear_projects`,
     {
       headers: {
         apikey: serviceKey,
