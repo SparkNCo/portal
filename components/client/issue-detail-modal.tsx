@@ -211,17 +211,13 @@ function TabButton({
 
 function DescriptionTab({
   issue,
-  canAnswer,
   reviewComplete,
-  canReopenFromDone,
   currentStateName,
   advancing,
   onAdvanceState,
 }: {
   issue: Issue;
-  canAnswer: boolean;
   reviewComplete: boolean;
-  canReopenFromDone: boolean;
   currentStateName: string | undefined;
   advancing: boolean;
   onAdvanceState: (targetState: string) => void;
@@ -257,21 +253,19 @@ function DescriptionTab({
         </p>
       )}
 
-      {canAnswer &&
-        currentStateName === "Business Review" &&
-        reviewComplete && (
-          <Button
-            size="sm"
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
-            disabled={advancing}
-            onClick={() => onAdvanceState("Development")}
-          >
-            <Check className="h-3.5 w-3.5 mr-1.5" />
-            {advancing ? "Updating…" : "Complete Review"}
-          </Button>
-        )}
+      {currentStateName === "Business Review" && reviewComplete && (
+        <Button
+          size="sm"
+          className="w-full bg-green-600 hover:bg-green-700 text-white"
+          disabled={advancing}
+          onClick={() => onAdvanceState("Development")}
+        >
+          <Check className="h-3.5 w-3.5 mr-1.5" />
+          {advancing ? "Updating…" : "Complete Review"}
+        </Button>
+      )}
 
-      {canAnswer && currentStateName === "UAT" && (
+      {currentStateName === "UAT" && (
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -295,7 +289,7 @@ function DescriptionTab({
         </div>
       )}
 
-      {canReopenFromDone && currentStateName === "Done" && (
+      {currentStateName === "Done" && (
         <Button
           size="sm"
           variant="outline"
@@ -1320,7 +1314,6 @@ export function IssueDetailModal({
   const role = profile?.role;
   const canAnswer = role === "customer" || role === "stakeholder";
   const canAsk = role === "developer" || role === "admin";
-  const canReopenFromDone = role === "stakeholder";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
@@ -1586,9 +1579,7 @@ export function IssueDetailModal({
         {activeTab === "description" && (
           <DescriptionTab
             issue={issue}
-            canAnswer={canAnswer}
             reviewComplete={reviewComplete}
-            canReopenFromDone={canReopenFromDone}
             currentStateName={currentStateName}
             advancing={advancing}
             onAdvanceState={handleAdvanceState}
