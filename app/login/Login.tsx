@@ -38,7 +38,7 @@ export default function LoginForm({
           customer.assignment_id?.[0]?.linear_slug ??
           customer.clientName;
         if (clientName) {
-          router.push(`/${clientName}/dashboard`);
+          router.push(`/${clientName.toLowerCase()}/dashboard`);
           onLoginSuccess(customer.email);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");
@@ -51,7 +51,7 @@ export default function LoginForm({
       } else if (customer?.role === "developer") {
         router.push("/dev/developer");
       } else {
-        router.push(`/${customer.clientName}/dashboard`);
+        router.push(`/${customer.clientName?.toLowerCase()}/dashboard`);
       }
       onLoginSuccess(customer.email);
     }

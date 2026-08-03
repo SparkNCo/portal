@@ -57,21 +57,97 @@ const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 // through our backend proxy, which fetches with our key instead.
 const LINEAR_UPLOAD_HOST = "uploads.linear.app";
 
-function toProxiedImageUrl(url: string | undefined | null) {
-  if (!url) return url ?? undefined;
+// A plain <img src> can't send the Authorization header Supabase's gateway
+// requires (query-param apikey alone is no longer accepted — it 401s before
+// the request even reaches the function), so this fetches the image with the
+// proper headers and hands back a blob URL instead.
+//
+// Cached by source URL (module-level, outside the hook) so the same image
+// is only ever fetched once — without this, every remount (React Strict
+// Mode's double effect invocation in dev, or the same attachment rendered by
+// more than one ProxiedImage instance) re-fetched and revoked-then-recreated
+// the blob URL right as the <img> was displaying it, producing a visible
+// flash. Never revoked: these are small thumbnails and the cache lives for
+// the page's lifetime, same trade-off as the browser's own image cache.
+const proxiedImageCache = new Map<string, string>();
 
-  try {
-    if (new URL(url).hostname !== LINEAR_UPLOAD_HOST) return url;
-  } catch {
-    return url;
-  }
+function useProxiedImageUrl(url: string | undefined | null) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(() =>
+    url ? proxiedImageCache.get(url) : undefined,
+  );
 
-  // A plain <img> can't send the `apikey`/Authorization headers every other
-  // request uses, so pass the anon key as a query param instead — Supabase's
-  // gateway accepts it either way, and this key is already public (it's in
-  // every fetch call's headers, visible in the network tab regardless).
-  const apikey = process.env.NEXT_PUBLIC_SUPABASE_KEY;
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}&apikey=${apikey}`;
+  useEffect(() => {
+    if (!url) {
+      setResolvedUrl(undefined);
+      return;
+    }
+
+    const cached = proxiedImageCache.get(url);
+    if (cached) {
+      setResolvedUrl(cached);
+      return;
+    }
+
+    let isLinearUpload: boolean;
+    try {
+      isLinearUpload = new URL(url).hostname === LINEAR_UPLOAD_HOST;
+    } catch {
+      isLinearUpload = false;
+    }
+
+    if (!isLinearUpload) {
+      setResolvedUrl(url);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}`,
+      { headers: API_HEADERS },
+    )
+      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error("Failed to load image"))))
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        proxiedImageCache.set(url, objectUrl);
+        setResolvedUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedUrl(undefined);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  return resolvedUrl;
+}
+
+function ProxiedImage({
+  src,
+  alt,
+  className,
+  linkable,
+}: {
+  readonly src: string | undefined | null;
+  readonly alt: string;
+  readonly className?: string;
+  readonly linkable?: boolean;
+}) {
+  const resolvedSrc = useProxiedImageUrl(src);
+  if (!resolvedSrc) return null;
+
+  // eslint-disable-next-line @next/next/no-img-element
+  const img = <img src={resolvedSrc} alt={alt} loading="lazy" className={className} />;
+  return linkable ? (
+    <a href={resolvedSrc} target="_blank" rel="noopener noreferrer">
+      {img}
+    </a>
+  ) : (
+    img
+  );
 }
 
 // Reuses Linear's asset storage (same endpoint FeatureRequestPanel uses for
@@ -167,14 +243,8 @@ function DescriptionTab({
           <ReactMarkdown
             remarkPlugins={[remarkBreaks]}
             components={{
-              img: ({ src, alt, ...props }) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  {...props}
-                  src={toProxiedImageUrl(typeof src === "string" ? src : undefined)}
-                  alt={alt ?? ""}
-                  loading="lazy"
-                />
+              img: ({ src, alt }) => (
+                <ProxiedImage src={typeof src === "string" ? src : undefined} alt={alt ?? ""} />
               ),
             }}
           >
@@ -1080,49 +1150,13 @@ function TestsTab({
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.attachments.map((att, ai) =>
                         IMAGE_EXT_RE.test(att.name) ? (
-                          <a
+                          <ProxiedImage
                             key={ai}
-                            href={toProxiedImageUrl(att.url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <img
-                              src={toProxiedImageUrl(att.url)}
-                              alt={att.name}
-                              className="h-14 w-14 rounded border border-border object-cover"
-                            />
-                          </a>
-                        ) : (
-                          <a
-                            key={ai}
-                            href={att.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 rounded border border-border bg-secondary/30 px-2 py-1 text-[10px] text-foreground hover:bg-secondary"
-                          >
-                            <Paperclip className="h-3 w-3" />
-                            {att.name}
-                          </a>
-                        ),
-                      )}
-                    </div>
-                  )}
-                  {entry.attachments && entry.attachments.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {entry.attachments.map((att, ai) =>
-                        IMAGE_EXT_RE.test(att.name) ? (
-                          <a
-                            key={ai}
-                            href={toProxiedImageUrl(att.url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <img
-                              src={toProxiedImageUrl(att.url)}
-                              alt={att.name}
-                              className="h-14 w-14 rounded border border-border object-cover"
-                            />
-                          </a>
+                            src={att.url}
+                            alt={att.name}
+                            className="h-14 w-14 rounded border border-border object-cover"
+                            linkable
+                          />
                         ) : (
                           <a
                             key={ai}

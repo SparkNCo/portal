@@ -35,7 +35,7 @@ async function getSinceForCustomer(linearSlug: string, schema: string): Promise<
   const { data, error } = await supabase.schema(schema)
     .from("dora_metrics")
     .select("last_called")
-    .eq("linear_slug", linearSlug)
+    .ilike("linear_slug", linearSlug)
     .maybeSingle();
 
   if (error) {
@@ -188,7 +188,7 @@ async function saveDoraMetrics(
   const { data: existing, error: fetchError } = await supabase.schema(schema)
     .from("dora_metrics")
     .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
-    .eq("linear_slug", linearSlug)
+    .ilike("linear_slug", linearSlug)
     .maybeSingle();
 
   if (fetchError) console.error(`❌ [${linearSlug}] Fetch existing error:`, fetchError.message);
@@ -204,13 +204,13 @@ async function saveDoraMetrics(
   let error;
   if (existing) {
     console.log(`📝 [${linearSlug}] Updating existing dora_metrics row`);
-    ({ error } = await supabase.schema(schema).from("dora_metrics").update(payload).eq("linear_slug", linearSlug));
+    ({ error } = await supabase.schema(schema).from("dora_metrics").update(payload).ilike("linear_slug", linearSlug));
   } else {
     console.log(`🆕 [${linearSlug}] No existing row — inserting a new one`);
     const { data: customers, error: customerError } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id")
-      .eq("linear_slug", linearSlug)
+      .ilike("linear_slug", linearSlug)
       .limit(1);
 
     if (customerError) console.error(`❌ [${linearSlug}] Customer lookup error:`, customerError.message);

@@ -11,7 +11,7 @@ export async function getCustomerBySlug(slug: string, schema: string) {
       linear_slug
     `,
     )
-    .eq("linear_slug", slug)
+    .ilike("linear_slug", slug)
     .maybeSingle();
 
   if (error || !data) {
@@ -25,7 +25,7 @@ export async function getProjectIdsBySlug(slug: string, schema: string): Promise
   const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_projects")
-    .eq("linear_slug", slug)
+    .ilike("linear_slug", slug)
     .maybeSingle();
 
   if (error) throw new Error(`Failed to fetch customer: ${error.message}`);

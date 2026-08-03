@@ -18,7 +18,7 @@ async function getCustomerBySlug(slug: string) {
       stripe_customer_id
     `,
     )
-    .eq("linear_slug", slug)
+    .ilike("linear_slug", slug)
     .maybeSingle();
 
   if (clientError) {

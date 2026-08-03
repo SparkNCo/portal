@@ -56,7 +56,7 @@ export default function DocumentsPage() {
   });
 
   const assignedProjectSlug = profile?.assignment_id?.find(
-    (a) => a.clientName === slug,
+    (a) => a.clientName?.toLowerCase() === slug.toLowerCase(),
   )?.linear_slug;
 
   // Admins resolve the route customer's project slug from the customers
@@ -65,7 +65,7 @@ export default function DocumentsPage() {
   // customer's documents.
   const projectSlug =
     (isAdmin
-      ? (assignedProjectSlug ?? customers?.find((c) => c.clientName === slug)?.linear_slug)
+      ? (assignedProjectSlug ?? customers?.find((c) => c.clientName?.toLowerCase() === slug.toLowerCase())?.linear_slug)
       : (assignedProjectSlug ?? profile?.linear_slug)) ?? undefined;
 
   // Withhold DocumentsList until an admin's projectSlug actually resolves —
