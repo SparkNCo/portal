@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
+import { escapeIlike } from "../utils/slug.ts";
 
 const GET_FIRST_TEAM_QUERY = `
   query GetFirstTeam {
@@ -107,7 +108,7 @@ async function resolveCustomer(slug: string, schema: string): Promise<{ teamId: 
   const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_projects, linear_slug")
-    .ilike("clientName", slug)
+    .ilike("clientName", escapeIlike(slug))
     .maybeSingle();
 
   let teamId: string | null = null;
@@ -180,7 +181,7 @@ async function syncCustomerLinearProjects(slug: string, linearSlug: string, sche
     const { error } = await supabase.schema(schema)
       .from("customers")
       .update({ linear_projects: projectIds })
-      .ilike("clientName", slug);
+      .ilike("clientName", escapeIlike(slug));
 
     if (error) {
       console.error("[handleCreateProject] Failed to update customers.linear_projects:", error);

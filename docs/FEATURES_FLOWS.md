@@ -77,11 +77,11 @@ Issues move through these states in order:
 Backlog → Planning → Business Review → Development → QA → UAT → Done
 ```
 
-Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control; Developer/Admin cannot change state from the Issue Detail Modal at all. State only changes at these specific points, gated to `canAnswer` (customer/stakeholder):
+Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control. State only changes at these specific points, available to every role:
 
 - **Business Review → Development**: a **"Complete Review"** button appears once every question in the Decisions tab has an answer (or none were asked yet — `reviewComplete`).
 - **UAT → Done / QA**: two buttons appear while the issue is in UAT — **"Approved"** (→ `Done`) and **"Fixes Required"** (→ back to `QA`).
-- **Done → Development**: Stakeholders only can reopen a completed issue via "Move back to Development" (`canReopenFromDone`).
+- **Done → Development**: a **"Move back to Development"** button reopens a completed issue.
 
 All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 

@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
 import { resolveAuthUser } from "./resolveAuthUser.ts";
+import { escapeIlike } from "../utils/slug.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
 // and fill in linear_projects / project_url so DORA metrics can pick this client up.
@@ -70,6 +71,19 @@ export const createCustomerFlow = async (body: any, schema: string) => {
       : null;
 
   console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
+
+  // clientName doubles as the URL slug and is matched case-insensitively
+  // everywhere — two customers differing only by case would collide on every
+  // .maybeSingle() lookup, so reject the duplicate up front instead of
+  // creating a broken pair.
+  const { data: existingClient, error: existingClientError } = await supabase.schema(schema)
+    .from("customers")
+    .select("customer_id")
+    .ilike("clientName", escapeIlike(clientName))
+    .maybeSingle();
+
+  if (existingClientError) throw new Error(existingClientError.message);
+  if (existingClient) throw new Error(`A customer named "${clientName}" already exists`);
 
   // Never trust a client-supplied origin for the redirect URL (open-redirect /
   // token-leak risk) — always use the server-configured portal origin.

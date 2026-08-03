@@ -2,6 +2,7 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
 import { runWithConcurrency } from "../utils/concurrency.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import {
   getAllCustomers,
   upsertIssueMetrics,
@@ -28,7 +29,7 @@ async function handleGet(searchParams: URLSearchParams, schema: string) {
   const { data: customerRow, error: customerError } = await supabase.schema(schema)
     .from("customers")
     .select("customer_id, linear_slug")
-    .ilike("clientName", slug)
+    .ilike("clientName", escapeIlike(slug))
     .maybeSingle();
 
   if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);

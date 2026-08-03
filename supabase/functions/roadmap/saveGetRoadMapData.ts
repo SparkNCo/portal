@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { redis } from "../lib/redis.ts";
 import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import { PROJECTS_QUERY } from "./query.ts";
 import { RoadmapResponseSchema } from "./zod.ts";
 
@@ -18,7 +19,7 @@ async function getCustomerBySlug(slug: string) {
       stripe_customer_id
     `,
     )
-    .ilike("linear_slug", slug)
+    .ilike("linear_slug", escapeIlike(slug))
     .maybeSingle();
 
   if (clientError) {
