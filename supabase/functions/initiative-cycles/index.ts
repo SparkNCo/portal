@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
     const { data: existing, error: fetchError } = await supabase.schema("portal")
       .from("cycle_metrics")
       .select("project_id, number")
-      .eq("customer_id", linearSlug)
+      .ilike("customer_id", linearSlug)
       .in("project_id", projectIds)
       .in("number", numbers);
 

@@ -107,7 +107,7 @@ async function resolveCustomer(slug: string, schema: string): Promise<{ teamId: 
   const { data, error } = await supabase.schema(schema)
     .from("customers")
     .select("linear_projects, linear_slug")
-    .eq("clientName", slug)
+    .ilike("clientName", slug)
     .maybeSingle();
 
   let teamId: string | null = null;
@@ -180,7 +180,7 @@ async function syncCustomerLinearProjects(slug: string, linearSlug: string, sche
     const { error } = await supabase.schema(schema)
       .from("customers")
       .update({ linear_projects: projectIds })
-      .eq("clientName", slug);
+      .ilike("clientName", slug);
 
     if (error) {
       console.error("[handleCreateProject] Failed to update customers.linear_projects:", error);

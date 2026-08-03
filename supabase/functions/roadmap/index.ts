@@ -19,7 +19,7 @@ async function getCustomerBySlug(slug: string, schema: string) {
       linear_slug
     `,
     )
-    .eq("clientName", slug)
+    .ilike("clientName", slug)
     .maybeSingle();
 
   if (error) {

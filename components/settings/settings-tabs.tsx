@@ -42,7 +42,7 @@ export function SettingsTabs() {
   });
 
   const targetCustomer = isAdminViewingCustomer
-    ? (customers ?? []).find((c) => c.clientName === customerSlug)
+    ? (customers ?? []).find((c) => c.clientName?.toLowerCase() === customerSlug?.toLowerCase())
     : null;
 
   // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise

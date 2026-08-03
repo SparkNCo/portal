@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const { data: customerRow, error: customerError } = await supabase.schema("portal")
       .from("customers")
       .select("linear_slug")
-      .eq("clientName", userName)
+      .ilike("clientName", userName)
       .maybeSingle();
 
     if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);

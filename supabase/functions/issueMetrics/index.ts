@@ -28,7 +28,7 @@ async function handleGet(searchParams: URLSearchParams, schema: string) {
   const { data: customerRow, error: customerError } = await supabase.schema(schema)
     .from("customers")
     .select("customer_id, linear_slug")
-    .eq("clientName", slug)
+    .ilike("clientName", slug)
     .maybeSingle();
 
   if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);

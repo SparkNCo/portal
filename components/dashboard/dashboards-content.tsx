@@ -45,8 +45,8 @@ function CustomerCard({
   // developers viewing an assigned customer still go through `basePath`
   // (the older nested `/{devSlug}/dashboards/[customer]/[panel]` flow).
   const href = isAdmin
-    ? `/${encodeURIComponent(clientName)}/dashboard`
-    : `${basePath}/${encodeURIComponent(clientName)}/dashboard`;
+    ? `/${encodeURIComponent(clientName.toLowerCase())}/dashboard`
+    : `${basePath}/${encodeURIComponent(clientName.toLowerCase())}/dashboard`;
 
   return (
     <Link href={href}>

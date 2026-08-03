@@ -121,13 +121,13 @@ export function DocumentsList({
   const slugToInitiativeName = useMemo(() => {
     const map = new Map<string, string>();
     for (const a of profile?.assignment_id ?? []) {
-      if (a.linear_slug && a.clientName) map.set(a.linear_slug, a.clientName);
+      if (a.linear_slug && a.clientName) map.set(a.linear_slug.toLowerCase(), a.clientName);
     }
     if (profile?.linear_slug && profile?.clientName) {
-      map.set(profile.linear_slug, profile.clientName);
+      map.set(profile.linear_slug.toLowerCase(), profile.clientName);
     }
     for (const c of customers ?? []) {
-      if (c.linear_slug && c.clientName) map.set(c.linear_slug, c.clientName);
+      if (c.linear_slug && c.clientName) map.set(c.linear_slug.toLowerCase(), c.clientName);
     }
     return map;
   }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
@@ -207,7 +207,7 @@ export function DocumentsList({
                 <div className="flex items-center gap-2">
                   <FolderOpen className="h-4 w-4 text-accent shrink-0" />
                   <span className="text-sm font-medium text-foreground capitalize">
-                    {slugToInitiativeName.get(slug) ?? slug}
+                    {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
                   </span>
                   <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
                     {docs.length} {docs.length === 1 ? "file" : "files"}

@@ -366,7 +366,7 @@ export async function handleGetProjects(req: Request): Promise<Response> {
     const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+      `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(slug)}&select=linear_projects`,
       {
         headers: {
           apikey: serviceKey,
@@ -409,7 +409,7 @@ export async function handleGetLabels(req: Request): Promise<Response> {
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
 
   const res = await fetch(
-    `${supabaseUrl}/rest/v1/customers?clientName=eq.${slug}&select=linear_projects`,
+    `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(slug)}&select=linear_projects`,
     {
       headers: {
         apikey: serviceKey,
