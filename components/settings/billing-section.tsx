@@ -63,6 +63,99 @@ function calculateInvoicesBalance(invoices: any[] = []) {
 
 /* ---------------- Stripe Customer ID ---------------- */
 
+/* ---------------- Billing mode (manual vs automatic) ---------------- */
+// SPA-384: routed through the standalone `stripe-test` endpoint rather than
+// `users?type=customer`, to keep this in-progress toggle isolated from the
+// already-deployed `users` function.
+
+function BillingModeToggle({
+  customerId,
+  billingMode,
+  onSaved,
+}: {
+  customerId?: string;
+  billingMode: "automatic" | "manual";
+  onSaved?: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async (nextMode: "automatic" | "manual") => {
+      if (!customerId)
+        throw new Error("Missing customer record for this account");
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            customer_id: customerId,
+            billing_mode: nextMode,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to save billing mode");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      setError(null);
+      onSaved?.();
+    },
+    onError: (err: any) => {
+      setError(err?.message ?? "Failed to save billing mode");
+    },
+  });
+
+  return (
+    <Card>
+      <CardContent className="bg-background flex flex-col gap-3 pt-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-foreground">Invoicing</p>
+          <p className="text-xs text-foreground/70">
+            Automatic charges this client through Stripe. Manual hides the
+            Stripe billing dashboard — invoice this client outside the portal.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={billingMode === "automatic" ? "default" : "outline"}
+            disabled={mutation.isPending || billingMode === "automatic"}
+            onClick={() => mutation.mutate("automatic")}
+            className={
+              billingMode === "automatic"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : ""
+            }
+          >
+            Automatic
+          </Button>
+          <Button
+            size="sm"
+            variant={billingMode === "manual" ? "default" : "outline"}
+            disabled={mutation.isPending || billingMode === "manual"}
+            onClick={() => mutation.mutate("manual")}
+            className={
+              billingMode === "manual"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : ""
+            }
+          >
+            Manual
+          </Button>
+        </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 function StripeIdPanel({
   stripeCustomerId,
   customerId,
@@ -208,15 +301,19 @@ export function BillingSection({
   isLoading,
   stripeCustomerId,
   customerId,
+  billingMode = "automatic",
   isAdmin = false,
   onStripeIdSaved,
+  onBillingModeSaved,
 }: {
   billingData: any;
   isLoading: boolean;
   stripeCustomerId?: string | null;
   customerId?: string;
+  billingMode?: "automatic" | "manual";
   isAdmin?: boolean;
   onStripeIdSaved?: () => void;
+  onBillingModeSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -258,6 +355,48 @@ export function BillingSection({
 
   /* ---------------- UI ---------------- */
 
+  const isManual = billingMode === "manual";
+
+  let billingContent: React.ReactNode = null;
+  if (stripeCustomerId) {
+    if (isManual) {
+      billingContent = (
+        <Card className="bg-background">
+          <CardContent className="bg-background flex items-center gap-4 pt-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <CreditCard className="h-6 w-6 text-foreground" />
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground">
+                This client is invoiced manually
+              </p>
+              <p className="text-sm text-foreground/70">
+                Billing details, invoices, and payment methods are handled
+                outside the portal.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    } else if (isLoading) {
+      billingContent = <LoadingDataPanel />;
+    } else {
+      billingContent = (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <PendingBalancePanel balance={balance} />
+            <NextPaymentPanel billingData={billingData} isLoading={isLoading} />{" "}
+          </div>
+          <InvoicesPanel invoices={invoices} />
+          <PaymentMethodPanel
+            paymentMethod={billingData?.paymentMethod}
+            onUpdatePaymentMethod={handleUpdatePaymentMethod}
+          />
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="space-y-6">
       <StripeIdPanel
@@ -267,24 +406,15 @@ export function BillingSection({
         onSaved={onStripeIdSaved}
       />
 
-      {!stripeCustomerId ? null : isLoading ? (
-        <LoadingDataPanel />
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <PendingBalancePanel balance={balance} />
-            <NextPaymentPanel
-              billingData={billingData}
-              isLoading={isLoading}
-            />{" "}
-          </div>
-          <InvoicesPanel invoices={invoices} />
-          <PaymentMethodPanel
-            paymentMethod={billingData?.paymentMethod}
-            onUpdatePaymentMethod={handleUpdatePaymentMethod}
-          />
-        </div>
+      {stripeCustomerId && isAdmin && (
+        <BillingModeToggle
+          customerId={customerId}
+          billingMode={billingMode}
+          onSaved={onBillingModeSaved}
+        />
       )}
+
+      {billingContent}
     </div>
   );
 }

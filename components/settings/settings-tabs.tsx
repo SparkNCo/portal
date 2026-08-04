@@ -51,8 +51,31 @@ export function SettingsTabs() {
   const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
   const isAdmin = profile?.role === "admin";
 
+  // SPA-384: billing_mode lives behind its own `stripe-test` endpoint for now
+  // (kept out of `users` so that function stays untouched while it's being
+  // tested) — fetched separately rather than from the `customers` list above.
+  const { data: billingModeData } = useQuery({
+    queryKey: ["billing-mode", effectiveCustomerId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test?customer_id=${effectiveCustomerId}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch billing mode");
+      return res.json() as Promise<{ billing_mode: "automatic" | "manual" }>;
+    },
+    enabled: !!effectiveCustomerId,
+  });
+
+  const effectiveBillingMode = billingModeData?.billing_mode ?? "automatic";
+
   const handleStripeIdSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["billing"] });
+  };
+
+  const handleBillingModeSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["billing-mode", effectiveCustomerId] });
     queryClient.invalidateQueries({ queryKey: ["billing"] });
   };
 
@@ -72,7 +95,7 @@ export function SettingsTabs() {
       console.log("[SettingsTabs][billing debug] queryFn firing with stripeId:", effectiveStripeId);
       return fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } });
     },
-    enabled: !!effectiveStripeId,
+    enabled: !!effectiveStripeId && effectiveBillingMode === "automatic",
     staleTime: 1000 * 30,
   });
 
@@ -106,8 +129,10 @@ export function SettingsTabs() {
             isLoading={isLoading}
             stripeCustomerId={effectiveStripeId}
             customerId={effectiveCustomerId}
+            billingMode={effectiveBillingMode}
             isAdmin={isAdmin}
             onStripeIdSaved={handleStripeIdSaved}
+            onBillingModeSaved={handleBillingModeSaved}
           />
         )}
         {activeTab === "staffing" && (
