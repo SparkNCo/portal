@@ -127,7 +127,7 @@ function SetPasswordForm() {
     };
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
-    let redirectPath = `/${slugifiedClientName}/dashboards`;
+    let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
     if (isCustomer) {
       redirectPath = `/${slugifiedClientName}/dashboard`;
     } else if (role === "admin") {
