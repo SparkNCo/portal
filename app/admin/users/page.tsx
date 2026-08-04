@@ -241,7 +241,11 @@ export default function AdminUsersPage() {
             ...apiHeaders,
             Authorization: `Bearer ${session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ id: user.id, emailType }),
+          body: JSON.stringify({
+            id: user.id,
+            emailType,
+            testRedirectOrigin: window.location.origin,
+          }),
         },
       );
       if (!res.ok) {

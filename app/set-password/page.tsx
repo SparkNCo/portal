@@ -246,13 +246,6 @@ function SetPasswordForm() {
 
               <input
                 className={inputClass}
-                placeholder={isCustomer ? "Client name" : "User name"}
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
-
-              <input
-                className={inputClass}
                 placeholder="Phone number (optional)"
                 value={phoneNumber}
                 onChange={(e) =>
