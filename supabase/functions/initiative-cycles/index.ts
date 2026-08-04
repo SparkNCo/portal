@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
+import { escapeIlike } from "../utils/slug.ts";
 
 const LINEAR_GRAPHQL = "https://api.linear.app/graphql";
 
@@ -213,7 +214,7 @@ Deno.serve(async (req) => {
     const { data: existing, error: fetchError } = await supabase.schema("portal")
       .from("cycle_metrics")
       .select("project_id, number")
-      .eq("customer_id", linearSlug)
+      .ilike("customer_id", escapeIlike(linearSlug))
       .in("project_id", projectIds)
       .in("number", numbers);
 

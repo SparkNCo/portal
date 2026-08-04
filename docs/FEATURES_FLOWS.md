@@ -8,9 +8,9 @@ Reference for how the main customer-developer collaboration flows work end to en
 
 | Role | What they can do |
 |---|---|
-| `customer` | Approve tests, submit decisions, record UAT results, approve Business Review, **create Linear projects** |
-| `stakeholder` | Approve tests, submit decisions, record UAT results, approve Business Review |
-| `developer` / `admin` | Create issues, ask questions, advance issue state, create test cases |
+| `customer` | Approve tests, submit decisions, record UAT results, complete Business Review, record UAT outcome (Approved/Fixes Required), **create Linear projects** |
+| `stakeholder` | Same as `customer`, plus reopening a `Done` issue back to `Development` |
+| `developer` / `admin` | Create issues, ask questions, create test cases |
 
 These permissions are derived from `profile.role` (UserContext) and evaluated as `canAnswer` (customer/stakeholder) and `canAsk` (developer/admin) inside `IssueDetailModal`.
 
@@ -37,13 +37,13 @@ These permissions are derived from `profile.role` (UserContext) and evaluated as
 
 **How the Project dropdown gets populated:** `CreateIssue` calls `GET /issues/projects?slug={slug}`, which reads the `linear_projects` array from `portal.customers` and fetches their names from Linear. This means the dropdown always reflects `customers.linear_projects` as the source of truth — including any projects created via the portal.
 
-`profile.linear_slug` is only set directly on the profile for `role: "customer"` users (their `users.customer_id` points to a `customers` row, which has `linear_slug`). Stakeholders/developers don't have it at the top level — their customer associations live in `profile.assignment_id[].linear_slug`, keyed by `clientName`. Pages rendering `CreateIssue` for non-customer roles (e.g. `app/[slug]/dashboard/(portal)/client/page.tsx`) must compute `linearSlug` by matching `profile.assignment_id[].clientName` against the currently selected customer slug and pass it as the `linearSlug` prop — otherwise the Project dropdown stays empty for stakeholders.
+`profile.linear_slug` is only set directly on the profile for `role: "customer"` users (their `users.customer_id` points to a `customers` row, which has `linear_slug`). Stakeholders/developers don't have it at the top level — their customer associations live in `profile.assignment_id[].linear_slug`, keyed by `clientName`. Pages rendering `CreateIssue` for non-customer roles (e.g. `app/[slug]/(portal)/dashboard/page.tsx`) must compute `linearSlug` by matching `profile.assignment_id[].clientName` against the currently selected customer slug and pass it as the `linearSlug` prop — otherwise the Project dropdown stays empty for stakeholders.
 
 ---
 
 ## 1b. New Project Request *(Client Dashboard)*
 
-**Entry point:** "New project Request" button — `components/client/request-project-dialog.tsx` — rendered next to the project filters on the Client Dashboard (`app/[slug]/dashboard/(portal)/client/page.tsx`).
+**Entry point:** "New project Request" button — `components/client/request-project-dialog.tsx` — rendered next to the project filters on the Client Dashboard (`app/[slug]/(portal)/dashboard/page.tsx`).
 
 Unlike Bug/Feature/UAT, this does **not** create anything in Linear. It notifies the agency's admins by email so they can scope and create the project manually.
 
@@ -77,11 +77,13 @@ Issues move through these states in order:
 Backlog → Planning → Business Review → Development → QA → UAT → Done
 ```
 
-Defined in `STATUS_ORDER` (`components/client/issues.types.ts`).
+Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control. State only changes at these specific points, available to every role:
 
-- **Developer / Admin** sees a "Move to `<next state>`" button on the Description tab and can advance the issue forward.
-- **Customer / Stakeholder** sees an **"Approve user stories & acceptance criteria"** button specifically when the issue is in **Business Review**, which also advances it to the next state.
-- State is updated via `PATCH /issues` with `{ issueId, stateName }`.
+- **Business Review → Development**: a **"Complete Review"** button appears once every question in the Decisions tab has an answer (or none were asked yet — `reviewComplete`).
+- **UAT → Done / QA**: two buttons appear while the issue is in UAT — **"Approved"** (→ `Done`) and **"Fixes Required"** (→ back to `QA`).
+- **Done → Development**: a **"Move back to Development"** button reopens a completed issue.
+
+All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 
 ---
 
@@ -182,28 +184,25 @@ Decisions data is fetched from Supabase `decisions` table on modal open.
 
 ## 5. CometChat (Issue Chat)
 
-**Where:** Chat tab inside the Issue Detail Modal (`components/chat/CometChat/IssueCometChat.tsx`).
+**Where:** Chat tab inside the Issue Detail Modal (`components/chat/CometChat/IssueCometChat.tsx`, rendered as `<IssueCometChat issueId issueTitle slug />`).
 
-Each issue has its own CometChat **group** keyed to `issue.id`.
+Each issue has its own CometChat **group** keyed to a deterministic GUID (`issue_{issueId}`) — but unlike the standalone Chat page's groups, it's created **lazily**: opening the tab only looks up whether a group already exists (from a prior message), it never creates one or adds members just for viewing.
 
-**On open:**
-1. `IssueCometChat` receives `issueId` and `issueTitle`.
-2. The component looks up or creates a CometChat group for that issue.
-3. The current user is added to the group if not already a member (registered via `supabase` user record → CometChat UID).
-4. Recent message history is fetched and displayed.
+**On open:** if a group exists, it's loaded, joined, and its recent history fetched. If not, the tab shows an empty "Start the conversation" state with no group and no members yet.
 
-**Sending a message:**
-1. User types in the input and presses `Enter` or clicks Send.
-2. `CometChat.sendMessage()` is called with the group GUID.
-3. A real-time listener (`CometChat.addMessageListener`) pushes incoming messages to the list.
+**Sending the first message:** the group is created at that point — members are resolved from the *sender's* role (customer/stakeholder pull in their assignments the same way support-chat groups do; a developer/admin sending first resolves the issue's customer from the `slug` prop instead), the group name is de-duplicated against existing group names, and ownership is transferred to a fixed staff account so the opener can leave it later. A "Creating chat and adding users…" loader shows while this happens. Every message after that behaves like a normal group chat (real-time listener, join-on-view, 50-message history).
 
 **Layout:** Messages are shown with user initials avatars, sender name, and timestamp. The list auto-scrolls to the latest message on load and on new messages.
+
+> Full detail on the lazy-creation logic, member resolution, and ownership handoff lives in `app/docs/CHAT_FLOWS.md` → "Issue Chat" — this section stays a summary since the mechanics are shared with the standalone Chat page's group creation.
 
 ---
 
 ## 6. Design Tab — Services & Diagrams
 
 **Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
+
+> Both the **Design** and **Demo** tabs are hidden for Bug issues (`isBugIssue`, computed from `issue.labels.nodes` containing a label named "bug") — neither is relevant to a bug ticket, so the tab bar only shows Description / Chat / Tests / Decisions for those.
 
 A **Service** is a Supabase-only concept — it has no link to Linear at all (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used everywhere else in the portal (`document.project_slug`, the `/{slug}/dashboard/...` URL param). The Design tab reads it from `CustomerSlugContext` (`useCustomerSlug()`) rather than from the issue, which is what makes it work identically regardless of the viewer's role — customer, stakeholder, developer, or an admin previewing a customer.
 
@@ -264,6 +263,57 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 
 ---
 
+## 7. Demo Tab — Video Walkthroughs
+
+**Where:** Demo tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DemoTab`). Hidden for Bug issues (see the note in section 6).
+
+A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_id, version)`) — v1, v2, v3, … A version's content is either an **uploaded video file** or an **embed link** (e.g. Loom), tracked via `source_type: "upload" | "embed"`. Every version also has its own **feedback thread** (`portal.demo_video_comments`) that customers, stakeholders, and developers/admins all read and post to.
+
+### 7a. Adding a brand-new version
+
+Two independent entry points, both create version **N+1** (`getNextVersion` = current max + 1 for that issue):
+
+- **"Upload demo" / "Upload new version"** — opens a file picker (`accept="video/*"`), then `POST /demo-videos` as `multipart/form-data` with `file`, `issue_id`, `email`. Backend validates the file (whitelisted video MIME types, non-empty, ≤500 MB — `validateVideoFile`), stores it at `{issueId}/v{n}/{uuid}{ext}` in the private `demo-videos` Storage bucket, and inserts the row.
+- **"Add embed link"** — reveals a URL input; submitting calls `POST /demo-videos` as JSON with `issue_id`, `email`, `embed_url`. Backend validates the URL is `https` and stores it directly (no file involved).
+
+Either call fails cleanly with "Someone else just added a new version — please try again" if two uploads race for the same version number (`UNIQUE(issue_id, version)` catches the collision, `code 23505`).
+
+### 7b. Replacing the currently-selected version's content
+
+Distinct from 7a — this keeps the **same version number**, it just swaps what that version points to. Both actions target `currentDemo` (whichever version is selected in the dropdown):
+
+- **"Replace v{n} with file"** — `PUT /demo-videos` (`multipart/form-data`) with `demo_id`, `email`, `file`. Uploads the new file to a fresh storage path first, updates the row, then deletes the old storage object (only if the version being replaced was itself an upload).
+- **"Replace v{n} with link"** — `PUT /demo-videos` (JSON) with `demo_id`, `email`, `embed_url`. Updates the row to `source_type: "embed"` and clears `file_name`/`storage_path`; if the version being replaced was an upload, the old storage object is deleted afterward.
+
+Both are only available once a version exists — there's no "replace" affordance before the first version is created.
+
+### 7c. Playback & embeds
+
+- **Uploads:** `GET /demo-videos?issue_id=` signs a fresh 1-hour URL (`createSignedUrl`) for every upload-type row on every fetch — the bucket is private, so nothing is ever served from a permanent public URL.
+- **Embeds:** rendered in an `<iframe>`. Loom links get rewritten from `loom.com/share/{id}` to the embeddable `loom.com/embed/{id}` form (`getEmbedIframeSrc`); other providers are embedded as-is via their share URL. `embed_provider` is derived from the URL's hostname (`detectEmbedProvider`) and shown as e.g. "loom link" in the version's metadata footer.
+
+### 7d. Feedback per version
+
+Switching the **Version** dropdown switches the feedback thread shown below the player — comments are scoped to `demo_video_id`, not to the issue as a whole, so feedback on v1 doesn't show up while viewing v2.
+
+1. Anyone (customer/stakeholder/developer/admin) opens the Demo tab, picks a version, types in the feedback box, clicks **"Post feedback"**.
+2. `POST /demo-videos?type=comments` with `{ demo_video_id, email, body }`.
+3. Comment appears with the author's name, role badge, and timestamp — same list for every role.
+
+### API — `supabase/functions/demo-videos`
+
+| Method | Purpose | Body |
+|---|---|---|
+| `GET /demo-videos?issue_id=` | List every version for an issue, newest first, with signed `file_url` for uploads | — |
+| `GET /demo-videos?type=comments&demo_video_id=` | List a version's feedback thread, oldest first | — |
+| `POST /demo-videos` (multipart) | Add a new version from a file | `file`, `issue_id`, `email` |
+| `POST /demo-videos` (JSON) | Add a new version from an embed link | `issue_id`, `email`, `embed_url` |
+| `POST /demo-videos?type=comments` | Post feedback on a version | `demo_video_id`, `email`, `body` |
+| `PUT /demo-videos` (multipart) | Replace the selected version's content with a file | `demo_id`, `email`, `file` |
+| `PUT /demo-videos` (JSON) | Replace the selected version's content with an embed link | `demo_id`, `email`, `embed_url` |
+
+---
+
 ## File Map
 
 | File | Responsibility |
@@ -273,7 +323,7 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
 | `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating lives here |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating lives here; also owns `isBugIssue` (hides Design/Demo tabs) |
 | `supabase/functions/tests/index.ts` | Test CRUD, approve, and `/uat` (QA Evidence / UAT Result recording, `passed` toggle) |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
@@ -285,3 +335,10 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 | `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "crear nuevo") |
 | `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
 | `context/CustomerSlugContext.tsx` | Source of `project_slug` for the Design tab — same slug used across the portal, role-independent |
+| `components/client/demo-tab.tsx` | Demo tab — version picker, upload/embed forms (new version + replace-in-place), player, per-version feedback thread |
+| `supabase/functions/demo-videos/index.ts` | Router — `GET`/`POST`/`PUT` for demo videos and their comments |
+| `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version (`getNextVersion` = max + 1) from an upload or an embed link |
+| `supabase/functions/demo-videos/updateDemoVideo.ts` | Replaces an existing version's content in place (file or embed), cleaning up the old storage object if one existed |
+| `supabase/functions/demo-videos/listDemoVideos.ts` | Lists all versions for an issue with freshly signed playback URLs |
+| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD |
+| `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `SCHEMA`/`BUCKET` constants |

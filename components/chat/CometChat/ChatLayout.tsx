@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
+import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
@@ -15,12 +19,57 @@ type Group = ReturnType<typeof useCometChat>["groups"][number];
 
 export type DirectChatEntry = { uid: string; title: string };
 
-export default function ChatLayout({ initialTitle }: { readonly initialTitle?: string }) {
+export default function ChatLayout({
+  initialTitle,
+  fallbackProjectSlug,
+}: {
+  readonly initialTitle?: string;
+  // The caller's own `[slug]` route segment, if it has one — used to tag
+  // brand-new chat groups when no customer is being viewed. Routes with no
+  // personal slug (e.g. /admin/chats) simply omit this.
+  readonly fallbackProjectSlug?: string;
+}) {
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
-  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup } =
-    useCometChat();
+  const customerSlug = useCustomerSlug();
+  // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
+  // to the caller's own id when no customer is being viewed) — appropriate
+  // for pinned panels, but wrong here: an unscoped inbox (own /chat, not
+  // viewing a customer's dashboard) must stay unfiltered, not filtered down
+  // to "groups tagged with my own id" (which never matches, since groups
+  // are tagged with the customer's id). Only apply an id when a customer is
+  // actually being viewed.
+  const viewedCustomerId = usePinnedPanelsOwnerId();
+  const customerId = customerSlug ? viewedCustomerId : undefined;
+  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
+    useCometChat(customerId);
+
+  const isAdmin = profile?.role === "admin";
+  // Empty string = no filter (show every customer's chats).
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+
+  // Admin-only: lets the unscoped inbox be filtered down to one customer at
+  // a time (matched against each group's `customerId` metadata) rather than
+  // needing to know an email or dig through every project's chats.
+  const { data: allUsers } = useQuery({
+    queryKey: ["all-users-for-chat-filter"],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
+        headers: API_JSON_HEADERS,
+      });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json() as Promise<{ id: string; userName?: string; role: string }[]>;
+    },
+    enabled: isAdmin,
+  });
+
+  const customerOptions = useMemo(() => {
+    return (allUsers ?? [])
+      .filter((u) => u.role === "customer" && u.userName)
+      .map((u) => ({ id: u.id, userName: u.userName! }))
+      .sort((a, b) => a.userName.localeCompare(b.userName));
+  }, [allUsers]);
 
   const clearNewChatParam = () => router.replace(pathname);
 
@@ -37,12 +86,16 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
     }
   }, [ready]);
 
-  const projectSlug = pathname.split("/")[1] ?? undefined;
+  // When an admin/developer is viewing a specific customer's chat panel,
+  // tag new groups with that customer's slug rather than the caller's own
+  // `[slug]` segment — which for that flow is the viewer's own slug, not
+  // the customer's (see dashboards/[customer]/[panel]/page.tsx).
+  const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
   const handleCreate = async (title: string) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title, projectSlug);
+      const created = await createSupportGroup(title, customerId, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
@@ -63,25 +116,47 @@ export default function ChatLayout({ initialTitle }: { readonly initialTitle?: s
   }
 
   const isCustomer = profile?.role === "customer";
-  const hasNoChats = groups.length === 0 && directChats.length === 0;
+  // Admins shouldn't remove themselves from a group — chats need to stay
+  // readable by admins. Customers/developers/stakeholders can actually
+  // leave, dropping the chat off their own list (the group and its
+  // history are untouched for everyone else, including admins, who list
+  // all public groups regardless of membership).
+  const canLeaveChats = profile?.role !== "admin";
+  const visibleGroups = isAdmin && selectedCustomerId
+    ? groups.filter((g) => {
+        const groupCustomerId = (g.getMetadata() as { customerId?: string } | undefined)?.customerId;
+        return groupCustomerId === selectedCustomerId;
+      })
+    : groups;
+  const hasNoChats = visibleGroups.length === 0 && directChats.length === 0;
 
   const hasActiveChat = selectedGroup !== null || selectedDirect !== null;
+
+  const handleLeaveGroup = async (g: Group) => {
+    const left = await leaveGroup(g.getGuid());
+    if (left && selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null);
+  };
 
   return (
     <div className="flex flex-row w-full h-full">
       {/* Sidebar: full-width on mobile when no chat active, fixed 288px on sm+ */}
       <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
         <ChatSideBar
-          groups={groups}
+          groups={visibleGroups}
           directChats={directChats}
           selectedGroup={selectedGroup}
           selectedDirect={selectedDirect}
           onSelectGroup={(g) => { setSelectedGroup(g); setSelectedDirect(null); clearNewChatParam(); }}
           onSelectDirect={(e) => { setSelectedDirect(e); setSelectedGroup(null); clearNewChatParam(); }}
-          onCloseGroup={(g) => { if (selectedGroup?.getGuid() === g.getGuid()) setSelectedGroup(null); }}
+          onCloseGroup={handleLeaveGroup}
           onCloseDirect={(e) => { setDirectChats((prev) => prev.filter((d) => d.uid !== e.uid || d.title !== e.title)); if (selectedDirect?.uid === e.uid && selectedDirect?.title === e.title) setSelectedDirect(null); }}
           isCustomer={isCustomer}
+          canLeaveChats={canLeaveChats}
           onCreateChat={() => setShowCreateModal(true)}
+          showCustomerFilter={isAdmin}
+          customerOptions={customerOptions}
+          selectedCustomerId={selectedCustomerId}
+          onSelectedCustomerIdChange={setSelectedCustomerId}
         />
       </div>
 

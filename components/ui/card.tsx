@@ -30,15 +30,18 @@ const CardHeader = React.forwardRef<
 CardHeader.displayName = "CardHeader"
 
 const CardTitle = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("font-semibold leading-none tracking-tight", className)}
-    {...props}
-  />
-))
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & { level?: 2 | 3 | 4 | 5 | 6 }
+>(({ className, level = 3, ...props }, ref) => {
+  const Heading = `h${level}` as const;
+  return (
+    <Heading
+      ref={ref}
+      className={cn("font-semibold leading-none tracking-tight", className)}
+      {...props}
+    />
+  );
+})
 CardTitle.displayName = "CardTitle"
 
 const CardDescription = React.forwardRef<

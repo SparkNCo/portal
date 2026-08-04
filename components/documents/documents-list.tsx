@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
+import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_HEADERS } from "@/lib/api-headers";
 
 /* -----------------------------
@@ -22,9 +23,12 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-async function fetchDocuments(id: string) {
+async function fetchDocuments(id: string, projectSlug?: string) {
+  const params = new URLSearchParams({ user_id: id });
+  if (projectSlug) params.set("project_slug", projectSlug);
+
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?user_id=${id}`,
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?${params.toString()}`,
     { headers: API_HEADERS },
   );
 
@@ -35,7 +39,15 @@ async function fetchDocuments(id: string) {
   return res.json();
 }
 
-export function DocumentsList() {
+type CustomerSummary = { clientName: string; linear_slug: string | null };
+
+export function DocumentsList({
+  projectSlug,
+  customers,
+}: {
+  readonly projectSlug?: string;
+  readonly customers?: CustomerSummary[];
+}) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -50,11 +62,18 @@ export function DocumentsList() {
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
   const { user, profile, loading } = useUser();
+  // Whose `document_permissions` rows decide which documents show up —
+  // the customer being viewed (admin/dev browsing their dashboard), or the
+  // logged-in user's own when not viewing anyone. Previously this always
+  // used the logged-in user's own id, so an admin viewing a customer's
+  // Documents panel saw the admin's own (near-empty) permission set instead
+  // of the customer's documents.
+  const documentsOwnerId = usePinnedPanelsOwnerId();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId],
-    queryFn: () => fetchDocuments(profile?.id!),
-    enabled: !!profile?.id,
+    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId],
+    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug),
+    enabled: !!documentsOwnerId,
   });
 
   const documents = useMemo(() => {
@@ -91,6 +110,28 @@ export function DocumentsList() {
     return groups;
   }, [filteredDocs]);
 
+  // `project_slug` is the customer's Linear initiative slug, not a display
+  // name. Developers/stakeholders resolve it via their `assignment_id` list
+  // (one entry per assigned customer); a customer isn't in their own
+  // assignment_id, so fall back to their own profile's clientName/linear_slug.
+  // Neither source has anything for an admin (admins aren't assigned to
+  // customers) — that's why an admin viewing a customer's Documents panel
+  // used to see the raw slug as the group header instead of a name; the
+  // `customers` list (passed down when available) covers that case too.
+  const slugToInitiativeName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of profile?.assignment_id ?? []) {
+      if (a.linear_slug && a.clientName) map.set(a.linear_slug.toLowerCase(), a.clientName);
+    }
+    if (profile?.linear_slug && profile?.clientName) {
+      map.set(profile.linear_slug.toLowerCase(), profile.clientName);
+    }
+    for (const c of customers ?? []) {
+      if (c.linear_slug && c.clientName) map.set(c.linear_slug.toLowerCase(), c.clientName);
+    }
+    return map;
+  }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
+
   return (
     <Card className="bg-background border-border">
       <CardHeader>
@@ -104,13 +145,14 @@ export function DocumentsList() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                aria-label="Search documents"
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-48 bg-secondary border-0 pl-9 text-sm"
               />
             </div>
-            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn">
+            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn" aria-label="Filter documents">
               <Filter className="h-4 w-4" />
             </Button>
           </div>
@@ -165,7 +207,7 @@ export function DocumentsList() {
                 <div className="flex items-center gap-2">
                   <FolderOpen className="h-4 w-4 text-accent shrink-0" />
                   <span className="text-sm font-medium text-foreground capitalize">
-                    {slug}
+                    {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
                   </span>
                   <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
                     {docs.length} {docs.length === 1 ? "file" : "files"}

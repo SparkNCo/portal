@@ -27,6 +27,7 @@ export function PriorityTasks({
   title = "Priority Tasks",
   compact = false,
   headerAction,
+  slug,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -59,9 +60,12 @@ export function PriorityTasks({
       )
     : issuesData;
 
+  // Pages spanning multiple customers (the developer dashboard) don't pass a
+  // fixed `slug` — fall back to the selected issue's own `_project` tag.
   const modal = selectedIssue && (
     <IssueDetailModal
       issue={selectedIssue}
+      slug={slug ?? (selectedIssue as any)._project}
       onClose={() => setSelectedIssue(null)}
     />
   );
@@ -118,6 +122,7 @@ export function PriorityTasks({
         <div className="flex items-center gap-2 flex-wrap">
           <input
             type="text"
+            aria-label="Search by title"
             placeholder="Search by title..."
             value={titleFilter}
             onChange={(e) => setTitleFilter(e.target.value)}

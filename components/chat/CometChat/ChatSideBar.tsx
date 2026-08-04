@@ -1,7 +1,20 @@
 import { useState } from "react";
 import type { Group } from "@cometchat/chat-sdk-javascript";
 import { Plus, MessageSquare, Bot, X, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
+
+// Radix Select reserves the empty string for "no value" internally, so "no
+// customer selected" (show every chat) needs its own sentinel instead.
+const ALL_CUSTOMERS_VALUE = "__all__";
+
+type CustomerOption = { id: string; userName: string };
 
 type Props = Readonly<{
   groups: Group[];
@@ -13,7 +26,14 @@ type Props = Readonly<{
   onCloseGroup: (group: Group) => void;
   onCloseDirect: (entry: DirectChatEntry) => void;
   isCustomer: boolean;
+  canLeaveChats: boolean;
   onCreateChat: () => void;
+  // Admin-only: single-select dropdown to filter the group list down to one
+  // customer at a time (via each group's `customerId` metadata).
+  showCustomerFilter?: boolean;
+  customerOptions?: CustomerOption[];
+  selectedCustomerId?: string;
+  onSelectedCustomerIdChange?: (id: string) => void;
 }>;
 
 type GroupItemProps = Readonly<{
@@ -21,6 +41,7 @@ type GroupItemProps = Readonly<{
   isSelected: boolean;
   onSelect: () => void;
   onClose: () => void;
+  canLeave: boolean;
 }>;
 
 type GroupSectionProps = Readonly<{
@@ -29,6 +50,7 @@ type GroupSectionProps = Readonly<{
   selectedGroup: Group | null;
   onSelectGroup: (group: Group) => void;
   onCloseGroup: (group: Group) => void;
+  canLeaveChats: boolean;
 }>;
 
 function GroupAvatar({ name }: Readonly<{ name: string }>) {
@@ -45,7 +67,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
   );
 }
 
-function GroupItem({ group, isSelected, onSelect, onClose }: GroupItemProps) {
+function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   return (
     <div
       className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
@@ -60,23 +82,22 @@ function GroupItem({ group, isSelected, onSelect, onClose }: GroupItemProps) {
           <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
             {group.getName()}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {group.getMembersCount()} members
-          </div>
         </div>
       </button>
-      <button
-        onClick={onClose}
-        className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
-        title="Leave chat"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      {canLeave && (
+        <button
+          onClick={onClose}
+          className="opacity-0 group-hover/item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+          title="Leave chat"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 }
 
-function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup }: GroupSectionProps) {
+function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup, canLeaveChats }: GroupSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -95,6 +116,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
           isSelected={selectedGroup?.getGuid() === group.getGuid()}
           onSelect={() => onSelectGroup(group)}
           onClose={() => onCloseGroup(group)}
+          canLeave={canLeaveChats}
         />
       ))}
     </div>
@@ -122,7 +144,12 @@ export default function ChatSideBar({
   onCloseGroup,
   onCloseDirect,
   isCustomer,
+  canLeaveChats,
   onCreateChat,
+  showCustomerFilter,
+  customerOptions = [],
+  selectedCustomerId,
+  onSelectedCustomerIdChange,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
   const groupedBySlug = groupBySlug(groups);
@@ -146,12 +173,39 @@ export default function ChatSideBar({
         )}
       </div>
 
+      {showCustomerFilter && (
+        <div className="px-3 py-2 border-b">
+          <Select
+            value={selectedCustomerId?.trim() ? selectedCustomerId : ALL_CUSTOMERS_VALUE}
+            onValueChange={(value) =>
+              onSelectedCustomerIdChange?.(value === ALL_CUSTOMERS_VALUE ? "" : value)
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All customers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CUSTOMERS_VALUE}>All customers</SelectItem>
+              {customerOptions.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.userName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {hasNoChats ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">
-              {isCustomer ? "No chats yet. Create one to get started." : "No chats yet."}
+              {showCustomerFilter && selectedCustomerId
+                ? "No chats found for that customer."
+                : isCustomer
+                  ? "No chats yet. Create one to get started."
+                  : "No chats yet."}
             </p>
           </div>
         ) : (
@@ -165,6 +219,7 @@ export default function ChatSideBar({
                     selectedGroup={selectedGroup}
                     onSelectGroup={onSelectGroup}
                     onCloseGroup={onCloseGroup}
+                    canLeaveChats={canLeaveChats}
                   />
                 ))
               : groups.map((group) => (
@@ -174,6 +229,7 @@ export default function ChatSideBar({
                     isSelected={selectedGroup?.getGuid() === group.getGuid()}
                     onSelect={() => onSelectGroup(group)}
                     onClose={() => onCloseGroup(group)}
+                    canLeave={canLeaveChats}
                   />
                 ))}
 

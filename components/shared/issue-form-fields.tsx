@@ -21,11 +21,15 @@ export function TitleContinueRow({
   return (
     <div className="flex flex-col sm:flex-row sm:items-end gap-3">
       <div className="flex-1 space-y-1.5">
-        <Label>Title</Label>
+        <Label htmlFor="issue-title">Title</Label>
         <Input
+          id="issue-title"
           placeholder="Brief summary..."
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
+          }}
           className="bg-secondary border-0"
         />
       </div>
@@ -53,11 +57,16 @@ export function ProjectField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>
+      <Label htmlFor="issue-project">
         Project{" "}
         <span className="text-muted-foreground font-normal">(optional)</span>
       </Label>
-      <ProjectSelect projects={projects} value={value} onValueChange={onValueChange} />
+      <ProjectSelect
+        id="issue-project"
+        projects={projects}
+        value={value}
+        onValueChange={onValueChange}
+      />
     </div>
   );
 }
@@ -71,8 +80,8 @@ export function PriorityField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>Priority</Label>
-      <PrioritySelect value={value} onValueChange={onValueChange} />
+      <Label htmlFor="issue-priority">Priority</Label>
+      <PrioritySelect id="issue-priority" value={value} onValueChange={onValueChange} />
     </div>
   );
 }

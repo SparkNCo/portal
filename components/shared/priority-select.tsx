@@ -9,13 +9,15 @@ import {
 export function PrioritySelect({
   value,
   onValueChange,
+  id,
 }: {
   value: string;
   onValueChange: (value: string) => void;
+  id?: string;
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="bg-secondary border-0">
+      <SelectTrigger id={id} className="bg-secondary border-0">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

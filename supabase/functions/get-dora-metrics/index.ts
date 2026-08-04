@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
+import { escapeIlike } from "../utils/slug.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
     const { data: customerRow, error: customerError } = await supabase.schema("portal")
       .from("customers")
       .select("linear_slug")
-      .eq("clientName", userName)
+      .ilike("clientName", escapeIlike(userName))
       .maybeSingle();
 
     if (customerError) throw new Error(`Customer lookup error: ${customerError.message}`);

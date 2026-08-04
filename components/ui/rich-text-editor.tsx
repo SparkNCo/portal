@@ -105,12 +105,16 @@ export function RichTextEditor({
   placeholder,
   className,
   minHeight = "90px",
+  id,
+  ariaLabel,
 }: Readonly<{
   value: string;
   onChange: (markdown: string) => void;
   placeholder?: string;
   className?: string;
   minHeight?: string;
+  id?: string;
+  ariaLabel?: string;
 }>) {
   const editor = useEditor({
     extensions: [
@@ -130,8 +134,11 @@ export function RichTextEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
+        ...(id ? { id } : {}),
+        ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
         class:
           "prose prose-sm prose-invert max-w-none focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold",
+        style: `min-height: ${minHeight}`,
       },
     },
     onUpdate: ({ editor }) => {
@@ -162,8 +169,9 @@ export function RichTextEditor({
       <Toolbar editor={editor} />
       <EditorContent
         editor={editor}
-        className="px-3 py-2 text-sm overflow-y-auto"
+        className="px-3 py-2 text-sm overflow-y-auto cursor-text"
         style={{ minHeight }}
+        onClick={() => editor.chain().focus().run()}
       />
     </div>
   );

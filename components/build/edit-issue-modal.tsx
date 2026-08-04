@@ -100,8 +100,9 @@ export function EditIssueModal({
 
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label>Title</Label>
+            <Label htmlFor="edit-issue-title">Title</Label>
             <Input
+              id="edit-issue-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="bg-secondary border-0"

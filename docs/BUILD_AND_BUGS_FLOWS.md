@@ -1,8 +1,8 @@
 # Build & Bugs Pages — Flows & How They Work
 
 > Reference for the two single-purpose issue list pages in the portal.  
-> Build: `app/[slug]/dashboard/(portal)/build/page.tsx` → `BuildPage`  
-> Bugs: `app/[slug]/dashboard/(portal)/bugs/page.tsx` → `BugsPage`
+> Build: `app/[slug]/(portal)/build/page.tsx` → `BuildPage`  
+> Bugs: `app/[slug]/(portal)/bugs/page.tsx` → `BugsPage`
 
 Both pages reuse the same data source (`fetchIssues` from the Client dashboard) and the same list component (`PriorityTasks`), but apply different filtering, sorting, and entry points on top.
 
@@ -10,7 +10,7 @@ Both pages reuse the same data source (`fetchIssues` from the Client dashboard) 
 
 ## Who sees these pages
 
-Both pages live inside the shared portal layout (`app/[slug]/dashboard/(portal)/layout.tsx`), so they're reachable by any authenticated role with a sidebar link to them. They resolve the active customer the same way as the rest of the dashboard:
+Both pages live inside the shared portal layout (`app/[slug]/(portal)/layout.tsx`), so they're reachable by any authenticated role with a sidebar link to them. They resolve the active customer the same way as the rest of the dashboard:
 
 1. `CustomerSlugContext` (admin/developer previewing a customer)
 2. `urlSlug` from the URL params
@@ -28,7 +28,7 @@ Both pages run a single query:
 GET /issues?slug={slug}
 ```
 
-via `fetchIssues` (defined in `app/[slug]/dashboard/(portal)/client/page.tsx` and reused here). The full, unfiltered list is stored as `allIssues`.
+via `fetchIssues` (defined in `app/[slug]/(portal)/dashboard/page.tsx` and reused here). The full, unfiltered list is stored as `allIssues`.
 
 - **Build page** shows all issues (no label filter).
 - **Bugs page** filters `allIssues` down to issues that have a label named `"bug"` (case-insensitive) → `bugIssues`.
@@ -150,9 +150,9 @@ A small **orange dot** appears on an issue card (top-right corner on the grid `I
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/dashboard/(portal)/build/page.tsx` | Build page — all issues, project/status/label/priority filters, updated/estimate sort |
-| `app/[slug]/dashboard/(portal)/bugs/page.tsx` | Bugs page — bug-labeled issues only, project/status/priority/date filters, priority+updated/estimate sort |
-| `app/[slug]/dashboard/(portal)/client/page.tsx` | Defines `fetchIssues`, reused by both pages |
+| `app/[slug]/(portal)/build/page.tsx` | Build page — all issues, project/status/label/priority filters, updated/estimate sort |
+| `app/[slug]/(portal)/bugs/page.tsx` | Bugs page — bug-labeled issues only, project/status/priority/date filters, priority+updated/estimate sort |
+| `app/[slug]/(portal)/dashboard/page.tsx` | Defines `fetchIssues`, reused by both pages |
 | `components/client/priority-tasks.tsx` | Shared filter dropdown + issue list/grid rendering |
 | `components/client/issues.types.ts` | `Issue` and `FilterState` shared types, `STATUS_ORDER` |
 | `components/client/issue-cards.tsx` | `IssueCard` / `IssueListRow` |

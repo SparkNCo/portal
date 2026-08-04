@@ -93,9 +93,6 @@ export default function GroupChat({ user, group }: Props) {
         </div>
         <div>
           <div className="text-sm font-semibold">{group.getName()}</div>
-          <div className="text-xs text-muted-foreground">
-            {group.getMembersCount()} members
-          </div>
         </div>
       </div>
 
@@ -118,6 +115,7 @@ export default function GroupChat({ user, group }: Props) {
       <div className="px-4 py-3 border-t">
         <div className="flex items-center gap-2 bg-secondary/50 border rounded-xl px-3 py-2">
           <input
+            aria-label="Type a message"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -127,6 +125,7 @@ export default function GroupChat({ user, group }: Props) {
           <button
             onClick={sendMessage}
             disabled={!message.trim() || sending}
+            aria-label="Send message"
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-accent text-accent-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
           >
             <Send className="w-4 h-4" />

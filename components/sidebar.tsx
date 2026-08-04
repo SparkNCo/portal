@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { cn, safeDecodeURIComponent } from "@/lib/utils";
 import {
   LayoutDashboard,
   Code2,
@@ -24,8 +24,8 @@ import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
 
 const clientNavItems = [
-  { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "monitor", label: "Monitor", icon: Map },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
@@ -41,14 +41,14 @@ const developerNavItems = [
 ];
 
 const adminNavItems = [
-  { href: "admin", label: "Users", icon: Shield },
+  { href: "users", label: "Users", icon: Shield },
   { href: "dashboards", label: "Dashboards", icon: LayoutGrid },
-  { href: "chat", label: "Chat", icon: MessageCircle },
+  { href: "chats", label: "Chat", icon: MessageCircle },
 ];
 
 const stakeholderNavItems = [
-  { href: "client", label: "Dashboard", icon: LayoutDashboard },
-  { href: "roadmap", label: "Monitor", icon: Map },
+  { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "monitor", label: "Monitor", icon: Map },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
@@ -61,17 +61,33 @@ export function Sidebar() {
   const params = searchParams.toString();
   const router = useRouter();
   const { profile } = useUser();
-
-  const selectedCustomer = searchParams.get("customer");
-  const selectedPanel = searchParams.get("panel") ?? "client";
+  // `useParams()` returns the *whole* current route's dynamic segments, not
+  // just the ones this component's own layout owns — so `customer`/`panel`
+  // show up here whenever the active page is the nested
+  // `dashboards/[customer]/[panel]` route, alongside the outer `[slug]`.
+  const { slug: urlSlug, customer: selectedCustomerParam, panel: selectedPanelParam } =
+    useParams<{ slug: string; customer?: string; panel?: string }>();
+  // Not reliably decoded by useParams() — normalize before it's re-encoded
+  // into nav links below, or repeated navigation stacks encoding on encoding.
+  const selectedCustomer = selectedCustomerParam
+    ? safeDecodeURIComponent(selectedCustomerParam)
+    : selectedCustomerParam;
+  const selectedPanel = selectedPanelParam ?? "dashboard";
+  // Developers viewing an assigned customer via the older nested
+  // `/{devSlug}/dashboards/[customer]/[panel]` flow (dormant — its nav
+  // entry is commented out below, but the route still exists).
   const isViewingCustomer =
-    (profile?.role === "admin" || profile?.role === "developer") &&
-    pathname.endsWith("/dashboards") &&
-    !!selectedCustomer;
+    profile?.role === "developer" && !!selectedCustomer;
+  const dashboardsBasePath = `/${urlSlug}`;
+  // Admins browsing a customer's own dashboard directly (e.g. /lualink/...)
+  // — the exact same route tree the customer itself uses. Their own pages
+  // live under the slug-less /admin, so any `[slug]` segment here means
+  // they're viewing a customer.
+  const isAdminViewingCustomerSlug = profile?.role === "admin" && !!urlSlug;
 
   const customerPanelItems = [
-    { href: "client", label: "Dashboard", icon: LayoutDashboard },
-    { href: "roadmap", label: "Monitor", icon: Map },
+    { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "monitor", label: "Monitor", icon: Map },
     { href: "build", label: "Build", icon: Hammer },
     { href: "bugs", label: "Bugs", icon: Bug },
     //{ href: "developer", label: "Developer", icon: Code2 },
@@ -128,7 +144,7 @@ export function Sidebar() {
         {isViewingCustomer ? (
           <>
             <Link
-              href="dashboards"
+              href={`${dashboardsBasePath}/dashboards`}
               onClick={close}
               className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
@@ -138,7 +154,7 @@ export function Sidebar() {
             {customerPanelItems.map((item) => (
               <Link
                 key={item.href}
-                href={`dashboards?customer=${selectedCustomer}&panel=${item.href}`}
+                href={`${dashboardsBasePath}/dashboards/${encodeURIComponent(selectedCustomer!)}/${item.href}`}
                 onClick={close}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -152,11 +168,45 @@ export function Sidebar() {
               </Link>
             ))}
           </>
+        ) : isAdminViewingCustomerSlug ? (
+          <>
+            <Link
+              href="/admin/dashboards"
+              onClick={close}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
+            >
+              <ChevronLeft className="h-3 w-3" />
+              All customers
+            </Link>
+            {clientNavItems
+              .filter((item) => item.href !== "chat")
+              .map((item) => {
+                const isActive =
+                  pathname.endsWith(`/${item.href}`) ||
+                  pathname.includes(`/${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={close}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-primary font-semibold"
+                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+          </>
         ) : (
           navItems.map((item) => {
             const isActive =
-              pathname.endsWith(`/dashboard/${item.href}`) ||
-              pathname.includes(`/dashboard/${item.href}/`);
+              pathname.endsWith(`/${item.href}`) ||
+              pathname.includes(`/${item.href}/`);
             const hrefWithParams = params
               ? `${item.href}?${params}`
               : item.href;

@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Lightbulb, Paperclip, File as FileIcon, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -15,7 +14,7 @@ import {
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
-import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
@@ -28,6 +27,10 @@ async function uploadFileToLinear(file: File) {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/upload`,
     {
       method: "POST",
+      // No Content-Type here — the browser sets multipart/form-data with
+      // the correct boundary on its own; overriding it (e.g. with the JSON
+      // headers) would break the upload.
+      headers: API_HEADERS,
       body: formData,
     },
   );
@@ -41,7 +44,7 @@ async function attachFileToIssue(issueId: string, url: string, title: string) {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachment`,
     {
       method: "POST",
-      headers: API_HEADERS,
+      headers: API_JSON_HEADERS,
       body: JSON.stringify({ issueId, url, title }),
     },
   );
@@ -64,7 +67,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [description, setDescription] = useState("");
   const [requirements, setRequirements] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [estimate, setEstimate] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +88,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
         slug,
         type: "feature",
         ...(selectedProjectId && { projectId: selectedProjectId }),
-        ...(estimate && { estimate: Number(estimate) }),
       });
 
       const issueId = result.issue?.id;
@@ -114,7 +115,6 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     setDescription("");
     setRequirements("");
     setPriority("medium");
-    setEstimate("");
     setSelectedProjectId("");
     setAttachments([]);
   }
@@ -135,7 +135,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   return (
     <Card className="bg-background">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle level={2} className="flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-chart-2" />
           Request a Feature
         </CardTitle>
@@ -152,8 +152,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <Label>Description</Label>
+                <Label htmlFor="feature-description">Description</Label>
                 <RichTextEditor
+                  id="feature-description"
+                  ariaLabel="Description"
                   placeholder="Describe the feature you'd like in plain language..."
                   value={description}
                   onChange={setDescription}
@@ -163,13 +165,15 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               </div>
 
               <div className="space-y-1.5 md:col-span-2">
-                <Label>
+                <Label htmlFor="feature-requirements">
                   Requirements{" "}
                   <span className="text-muted-foreground font-normal">
                     (optional)
                   </span>
                 </Label>
                 <RichTextEditor
+                  id="feature-requirements"
+                  ariaLabel="Requirements (optional)"
                   placeholder="How will you know this feature is working well?"
                   value={requirements}
                   onChange={setRequirements}
@@ -185,34 +189,17 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               />
 
               <PriorityField value={priority} onValueChange={setPriority} />
-
-              <div className="space-y-1.5">
-                <Label>
-                  Estimate points{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="e.g. 3"
-                  value={estimate}
-                  onChange={(e) => setEstimate(e.target.value)}
-                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                />
-              </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>
+              <Label htmlFor="feature-attachments">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)
                 </span>
               </Label>
               <input
+                id="feature-attachments"
                 ref={fileInputRef}
                 type="file"
                 multiple
@@ -248,6 +235,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                         size="icon"
                         className="h-6 w-6 flex-shrink-0"
                         onClick={() => removeFile(file.name)}
+                        aria-label={`Remove ${file.name}`}
                       >
                         <X className="h-3 w-3" />
                       </Button>

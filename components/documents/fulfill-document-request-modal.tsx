@@ -166,6 +166,7 @@ export function FulfillDocumentRequestModal({
             type="file"
             className="hidden"
             onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
+            aria-label="Upload requested document file"
           />
 
           {file && (
@@ -179,6 +180,7 @@ export function FulfillDocumentRequestModal({
                 size="icon"
                 className="h-6 w-6 flex-shrink-0"
                 onClick={() => setFile(null)}
+                aria-label={`Remove ${file.name}`}
               >
                 <X className="h-3 w-3" />
               </Button>

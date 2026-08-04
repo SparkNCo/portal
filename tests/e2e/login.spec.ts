@@ -61,11 +61,11 @@ test.describe('Login page', () => {
   // Run with: npx dotenv -e .env.test -- npx playwright test
 
   test('customer is redirected to the client dashboard', async ({ page }) => {
-    await testLoginRedirect(page, 'TEST_CUSTOMER_EMAIL', '/dashboard/client');
+    await testLoginRedirect(page, 'TEST_CUSTOMER_EMAIL', '/dashboard');
   });
 
   test('developer is redirected to the developer dashboard', async ({ page }) => {
-    await testLoginRedirect(page, 'TEST_DEVELOPER_EMAIL', '/dashboard/developer');
+    await testLoginRedirect(page, 'TEST_DEVELOPER_EMAIL', '/developer');
   });
 
 

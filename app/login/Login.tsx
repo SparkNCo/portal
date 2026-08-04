@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
-import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Eye, EyeOff } from "lucide-react";
+import { useUser } from "context/UserContext";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -17,7 +16,6 @@ export default function LoginForm({
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -30,28 +28,7 @@ export default function LoginForm({
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  const {
-    data: customer,
-    isLoading: customerLoading,
-    error: customerError,
-  } = useQuery({
-    queryKey: ["customer", sessionEmail],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(
-          sessionEmail!,
-        )}`,
-        { headers: API_JSON_HEADERS },
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch customer");
-
-      const data = await res.json();
-
-      return data;
-    },
-    enabled: !!sessionEmail,
-  });
+  const { profile: customer, loading: customerLoading } = useUser();
 
   useEffect(() => {
     if (customer) {
@@ -61,7 +38,7 @@ export default function LoginForm({
           customer.assignment_id?.[0]?.linear_slug ??
           customer.clientName;
         if (clientName) {
-          router.push(`/${clientName}/dashboard/client`);
+          router.push(`/${clientName.toLowerCase()}/dashboard`);
           onLoginSuccess(customer.email);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");
@@ -70,29 +47,15 @@ export default function LoginForm({
         return;
       }
       if (customer?.role === "admin") {
-        if (customer.userName) {
-          router.push(`/${customer.userName}/dashboard/admin`);
-        } else {
-          setErrorMessage("No username set on this admin account. Contact your administrator.");
-          setLoading(false);
-          return;
-        }
+        router.push("/admin/users");
       } else if (customer?.role === "developer") {
-        const clientName =
-          customer.assignment_id?.[0]?.clientName ??
-          customer.assignment_id?.[0]?.linear_slug;
-        if (clientName) {
-          router.push(`/${clientName}/dashboard/developer`);
-        } else {
-          setErrorMessage("No client assigned to this account. Contact your administrator.");
-          setLoading(false);
-        }
+        router.push("/dev/developer");
       } else {
-        router.push(`/${customer.clientName}/dashboard/client`);
+        router.push(`/${customer.clientName?.toLowerCase()}/dashboard`);
       }
       onLoginSuccess(customer.email);
     }
-  }, [customer, customerError]);
+  }, [customer]);
 
   const login = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -110,18 +73,6 @@ export default function LoginForm({
       return;
     }
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user?.email) {
-      setErrorMessage("User session not found");
-      setLoading(false);
-      return;
-    }
-
-    setSessionEmail(user.email);
     setLoading(false);
   };
 
@@ -281,6 +232,8 @@ export default function LoginForm({
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-background/50 hover:text-background transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

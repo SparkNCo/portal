@@ -25,7 +25,7 @@ export default defineConfig({
   projects: [
     {
       name: 'login',
-      testMatch: ['**/login.spec.ts', '**/example.spec.ts'],
+      testMatch: ['**/login.spec.ts', '**/example.spec.ts', '**/set-password.spec.ts'],
       use: { ...devices['Desktop Chrome'] },
     },
     {

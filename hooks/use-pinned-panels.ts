@@ -1,7 +1,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "context/UserContext";
+import { useCustomerSlug } from "context/CustomerSlugContext";
 import { supabase } from "@/lib/supabase-client";
+import { API_HEADERS } from "@/lib/api-headers";
 import { PINNABLE_PANELS, type PinnablePanelId } from "@/lib/pinnable-panels";
 
 export type PinnedPanel = {
@@ -15,6 +18,44 @@ export type PinnedPanel = {
 };
 
 const pinnedPanelsTable = () => supabase.schema("portal").from("pinned_panels");
+
+// The `customer` param shows up in two different formats depending on how
+// it was reached — CustomerCard links use the raw clientName ("Spark
+// Portal"), while the set-password redirect slugifies it ("Spark-Portal")
+// — so compare both sides case-insensitively with spaces/hyphens folded
+// together instead of requiring an exact match.
+function normalizeSlug(value: string): string {
+  return value.trim().toLowerCase().replaceAll(/[\s-]+/g, "-");
+}
+
+// Resolves whose pinned_panels row to read/write. When an admin/developer
+// is viewing a specific customer's dashboard (via the Dashboards flow),
+// that's the customer's own user record — `customerSlug` is the customer's
+// clientName, not a user id, so it has to be looked up. Otherwise it's just
+// the logged-in user's own dashboard.
+export function usePinnedPanelsOwnerId(): string | undefined {
+  const { profile } = useUser();
+  const customerSlug = useCustomerSlug();
+
+  const { data: customerLookup } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json();
+    },
+    enabled: !!customerSlug,
+  });
+
+  if (!customerSlug) return profile?.id;
+
+  return customerLookup?.find(
+    (c: { clientName: string }) => normalizeSlug(c.clientName) === normalizeSlug(customerSlug),
+  )?.id;
+}
 
 export function usePinnedPanels(userId: string | undefined) {
   return useQuery({

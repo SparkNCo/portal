@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TimelineHeader, TimelineMonthsHeader } from "./TimelineHeader";
+import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
+import type { TimeBucket } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
+import type { CycleSelection } from "./ProjectRow";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LABEL_ICONS } from "@/components/client/issue-cards";
 import type { Issue } from "@/components/client/issues.types";
-import { X, Pencil, Gauge } from "lucide-react";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { X, Pencil, Gauge, Search } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -21,6 +24,7 @@ export type MilestoneStatus =
   | "next";
 
 export type Milestone = {
+  id: string;
   createdAt: string;
   currentProgress: {
     scopeCount: number;
@@ -31,6 +35,7 @@ export type Milestone = {
   description: string | null;
   issues: {
     nodes: any[];
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
   };
   name: string;
   progress: number;
@@ -40,9 +45,23 @@ export type Milestone = {
   targetDate: string;
 };
 
+export type RawCycle = {
+  id: string;
+  number: number | null;
+  name: string | null;
+  startsAt: string;
+  endsAt: string;
+  isActive?: boolean;
+};
+
 type RoadmapTimelineProps = {
   projectMilestones?: Milestone[];
   allProjectNames?: string[];
+  // Maps project name -> Linear project id, so clicking a cycle can filter
+  // the issues panel down to just that project (and milestone, when the
+  // click came from a milestone row) instead of every issue in the cycle.
+  projectIdsByName?: Record<string, string>;
+  cycles?: RawCycle[];
   slug?: string;
 };
 
@@ -54,6 +73,7 @@ function toIssue(issue: any): Issue {
     priorityLabel: issue.priorityLabel ?? "Low",
     state: issue.state,
     description: issue.description ?? null,
+    labels: issue.labels,
   };
 }
 
@@ -88,18 +108,69 @@ const stateColors: Record<string, string> = {
 export function RoadmapTimeline({
   projectMilestones = [],
   allProjectNames = [],
+  projectIdsByName = {},
+  cycles: rawCycles = [],
   slug = "",
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
-  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [selection, setSelection] = useState<CycleSelection | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [issueSearch, setIssueSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [cycleIssues, setCycleIssues] = useState<any[]>([]);
+  const [cycleIssuesLoading, setCycleIssuesLoading] = useState(false);
+  const [cycleIssuesCursor, setCycleIssuesCursor] = useState<string | null>(null);
+  const [hasMoreCycleIssues, setHasMoreCycleIssues] = useState(false);
+  const [loadingMoreCycleIssues, setLoadingMoreCycleIssues] = useState(false);
 
-  const INITIAL_YEAR = new Date().getFullYear();
-  const [year, setYear] = useState(INITIAL_YEAR);
+  // Every project in an initiative typically shares one team, so cycles from
+  // all of them are pooled into a single deduped, chronological list.
+  const allBuckets = useMemo(() => {
+    const byId = new Map<string, TimeBucket>();
+    for (const c of rawCycles) {
+      if (!c?.id || !c.startsAt || !c.endsAt || byId.has(c.id)) continue;
+      byId.set(c.id, {
+        key: c.id,
+        label: c.number != null ? `#${c.number}` : (c.name ?? "Cycle"),
+        start: new Date(c.startsAt),
+        end: new Date(c.endsAt),
+        isActive: !!c.isActive,
+      });
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => a.start.getTime() - b.start.getTime(),
+    );
+  }, [rawCycles]);
+
+  const WINDOW_SIZE = 5; // 2 before + current + 2 after
+
+  // Defaults to centering on the active cycle (2 before, current, 2 after);
+  // the arrows shift this window across the rest of the fetched history.
+  const [windowStart, setWindowStart] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (allBuckets.length === 0) return;
+    const activeIndex = allBuckets.findIndex((b) => b.isActive);
+    const center = activeIndex >= 0 ? activeIndex : allBuckets.length - 1;
+    const start = Math.max(0, Math.min(center - 2, allBuckets.length - WINDOW_SIZE));
+    setWindowStart(start);
+    // Only re-center when the underlying cycle list itself changes — not on
+    // every render, which would fight the arrow buttons.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawCycles]);
+
+  const effectiveWindowStart = windowStart ?? 0;
+  const buckets = useMemo(
+    () => allBuckets.slice(effectiveWindowStart, effectiveWindowStart + WINDOW_SIZE),
+    [allBuckets, effectiveWindowStart],
+  );
+  const canGoBack = effectiveWindowStart > 0;
+  const canGoForward = effectiveWindowStart + WINDOW_SIZE < allBuckets.length;
 
   // Seed every known project (even ones with zero milestones) so they still
   // render a row — projects only ever get into `projectMilestones` via a
@@ -119,79 +190,289 @@ export function RoadmapTimeline({
     }, seeded);
   }, [projectMilestones, allProjectNames]);
 
-  function handleMilestoneSelect(m: Milestone) {
-    setSelectedMilestone((prev) =>
-      prev?.name === m.name && prev?.projectName === m.projectName ? null : m,
-    );
+  const sortedProjectEntries = useMemo(
+    () => Object.entries(groupedMilestones).sort(([a], [b]) => a.localeCompare(b)),
+    [groupedMilestones],
+  );
+
+  const selectedBucket = useMemo(
+    () => (selection ? buckets.find((b) => b.key === selection.cycleKey) ?? null : null),
+    [selection, buckets],
+  );
+
+  // Fetches the real, complete set of issues in the clicked cycle directly
+  // from Linear (team-wide) rather than pooling whatever happened to already
+  // be loaded via project milestones.
+  useEffect(() => {
+    if (!selection) {
+      setCycleIssues([]);
+      setCycleIssuesCursor(null);
+      setHasMoreCycleIssues(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIssueSearch("");
+    setStatusFilter(null);
+    setPriorityFilter(null);
+    setCycleIssuesLoading(true);
+
+    const params = new URLSearchParams({ cycleId: selection.cycleKey });
+    if (selection.projectId) params.set("projectId", selection.projectId);
+    if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+
+    fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
+      { headers: API_JSON_HEADERS },
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch cycle issues");
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setCycleIssues(data.nodes ?? []);
+        setCycleIssuesCursor(data.pageInfo?.endCursor ?? null);
+        setHasMoreCycleIssues(data.pageInfo?.hasNextPage ?? false);
+      })
+      .catch((err) => {
+        console.error("Failed to load cycle issues:", err);
+        if (!cancelled) {
+          setCycleIssues([]);
+          setHasMoreCycleIssues(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCycleIssuesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selection?.cycleKey, selection?.projectId, selection?.milestoneId]);
+
+  async function handleLoadMoreCycleIssues() {
+    if (!selection || loadingMoreCycleIssues) return;
+    setLoadingMoreCycleIssues(true);
+    try {
+      const params = new URLSearchParams({ cycleId: selection.cycleKey });
+      if (cycleIssuesCursor) params.set("after", cycleIssuesCursor);
+      if (selection.projectId) params.set("projectId", selection.projectId);
+      if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more issues");
+      const data = await res.json();
+      setCycleIssues((prev) => [...prev, ...(data.nodes ?? [])]);
+      setHasMoreCycleIssues(data.pageInfo?.hasNextPage ?? false);
+      setCycleIssuesCursor(data.pageInfo?.endCursor ?? null);
+    } catch (err) {
+      console.error("Failed to load more cycle issues:", err);
+    } finally {
+      setLoadingMoreCycleIssues(false);
+    }
   }
 
-  const selectedKey = selectedMilestone
-    ? selectedMilestone.name + selectedMilestone.projectName
-    : undefined;
+  const availableStatuses = useMemo(
+    () => Array.from(new Set(cycleIssues.map((i) => i.state?.name).filter(Boolean))),
+    [cycleIssues],
+  );
+  const availablePriorities = useMemo(
+    () => Array.from(new Set(cycleIssues.map((i) => i.priorityLabel).filter(Boolean))),
+    [cycleIssues],
+  );
+
+  const visibleIssues = cycleIssues.filter((issue) => {
+    if (statusFilter && issue.state?.name !== statusFilter) return false;
+    if (priorityFilter && issue.priorityLabel !== priorityFilter) return false;
+    if (issueSearch.trim()) {
+      const q = issueSearch.toLowerCase();
+      const matchesTitle = issue.title?.toLowerCase().includes(q);
+      const matchesIdentifier = issue.identifier?.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesIdentifier) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden bg-background">
         <TimelineHeader
-          year={year}
-          onPrev={() => setYear((y) => y - 1)}
-          onNext={() => setYear((y) => y + 1)}
+          onPrev={() => setWindowStart((w) => Math.max(0, (w ?? 0) - 1))}
+          onNext={() =>
+            setWindowStart((w) =>
+              Math.max(0, Math.min(allBuckets.length - WINDOW_SIZE, (w ?? 0) + 1)),
+            )
+          }
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
         />
 
         <CardContent className="overflow-x-auto px-2 sm:px-6">
           <div className="min-w-0 sm:min-w-[560px]">
-            
-            <TimelineMonthsHeader year={year} />
-            {Object.entries(groupedMilestones).map(
-              ([projectName, milestones]) => (
-                <ProjectRow
-                  key={projectName}
-                  projectName={projectName}
-                  milestones={milestones}
-                  year={year}
-                  expanded={!!expandedProjects[projectName]}
-                  onToggle={() =>
-                    setExpandedProjects((p) => ({
-                      ...p,
-                      [projectName]: !p[projectName],
-                    }))
-                  }
-                  onMilestoneSelect={handleMilestoneSelect}
-                  selectedMilestoneId={selectedKey}
-                />
-              ),
+            {allBuckets.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No cycles found for this team.
+              </p>
+            ) : (
+              <>
+                <TimelineBucketsHeader buckets={buckets} />
+                {sortedProjectEntries.map(([projectName, milestones]) => (
+                  <ProjectRow
+                    key={projectName}
+                    projectName={projectName}
+                    projectId={projectIdsByName[projectName] ?? null}
+                    milestones={milestones}
+                    buckets={buckets}
+                    expanded={!!expandedProjects[projectName]}
+                    onToggle={() =>
+                      setExpandedProjects((p) => ({
+                        ...p,
+                        [projectName]: !p[projectName],
+                      }))
+                    }
+                    selection={selection}
+                    onCycleSelect={(next) =>
+                      setSelection((prev) =>
+                        prev &&
+                        prev.projectName === next.projectName &&
+                        prev.milestoneName === next.milestoneName &&
+                        prev.cycleKey === next.cycleKey
+                          ? null
+                          : next,
+                      )
+                    }
+                  />
+                ))}
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-success" />
+                    Milestone complete
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-accent/50" />
+                    In progress
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-warning/50" />
+                    Overdue
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-muted/40 border border-border" />
+                    No issues in this cycle
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {selectedMilestone && (
+      {selection && selectedBucket && (
         <Card className="bg-background ">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-semibold">
-                  {selectedMilestone.name}
+                  {selectedBucket.label}
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {selectedBucket.start.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    –{" "}
+                    {selectedBucket.end.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {selectedMilestone.projectName}
+                  All issues in this cycle · opened from {selection.projectName}
+                  {selection.milestoneName ? ` · ${selection.milestoneName}` : ""}
                 </p>
               </div>
               <button
-                onClick={() => setSelectedMilestone(null)}
+                type="button"
+                onClick={() => setSelection(null)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close cycle details"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {selectedMilestone.issues.nodes.length === 0 ? (
+            {cycleIssuesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading issues...</p>
+            ) : cycleIssues.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No issues in this milestone.
+                No issues in this cycle.
               </p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {selectedMilestone.issues.nodes.map((issue: any, i: number) => {
+              <>
+                <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:flex-wrap">
+                  <div className="relative flex-1 sm:max-w-[220px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      aria-label="Search by title or ID"
+                      placeholder="Search by title or ID..."
+                      value={issueSearch}
+                      onChange={(e) => setIssueSearch(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                  {availableStatuses.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availableStatuses.map((status) => (
+                        <button
+                          key={status}
+                          onClick={() =>
+                            setStatusFilter((prev) => (prev === status ? null : status))
+                          }
+                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                            statusFilter === status
+                              ? `${stateColors[status] ?? "bg-muted text-foreground"} border-current`
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {availablePriorities.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availablePriorities.map((priority) => (
+                        <button
+                          key={priority}
+                          onClick={() =>
+                            setPriorityFilter((prev) => (prev === priority ? null : priority))
+                          }
+                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                            priorityFilter === priority
+                              ? `${priorityColors[priority] ?? "bg-muted text-foreground"} border-current`
+                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                          }`}
+                        >
+                          {priority}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {visibleIssues.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No issues match the current filters.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {visibleIssues.map((issue: any, i: number) => {
                   const typeLabel = issue.labels?.nodes?.find(
                     (l: any) => LABEL_ICONS[l.name.toLowerCase()],
                   );
@@ -313,7 +594,22 @@ export function RoadmapTimeline({
                   </div>
                   );
                 })}
-              </div>
+                  </div>
+                )}
+
+                {hasMoreCycleIssues && (
+                  <div className="flex justify-center mt-3">
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreCycleIssues}
+                      disabled={loadingMoreCycleIssues}
+                      className="text-xs px-3 py-1.5 rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted disabled:opacity-50"
+                    >
+                      {loadingMoreCycleIssues ? "Loading..." : "Load more issues"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -321,6 +617,7 @@ export function RoadmapTimeline({
       {selectedIssue && (
         <IssueDetailModal
           issue={selectedIssue}
+          slug={slug}
           onClose={() => setSelectedIssue(null)}
         />
       )}

@@ -23,6 +23,7 @@ import type { Issue } from "./issues.types";
 import type { DesignResource } from "./design-resources.types";
 import { DesignResourcePreview } from "./design-resource-preview";
 import { validateDesignResourceUrl, extractFigmaFileName, getV0DisplayTitle } from "@/lib/design-resource-utils";
+import { safeDecodeURIComponent } from "@/lib/utils";
 
 mermaid.initialize({
   startOnLoad: false,
@@ -99,7 +100,8 @@ function MermaidDiagram({ source }: { source: string }) {
 export function DesignTab({ issue }: { issue: Issue }) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const { slug: urlSlug } = useParams<{ slug: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const projectSlug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);

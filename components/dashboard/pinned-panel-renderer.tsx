@@ -32,7 +32,7 @@ function useRoadmapMilestones(slug: string) {
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${slug}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
@@ -47,7 +47,7 @@ function useRoadmapMilestones(slug: string) {
     enabled: Boolean(slug),
   });
 
-  return useMemo(() => {
+  const derived = useMemo(() => {
     const projects = roadmap?.initiative?.projects?.nodes ?? [];
     const milestones = projects.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
@@ -56,8 +56,14 @@ function useRoadmapMilestones(slug: string) {
       })),
     );
     const projectNames = projects.map((project: any) => project.name);
-    return { milestones, projectNames };
+    const projectIdsByName: Record<string, string> = Object.fromEntries(
+      projects.map((project: any) => [project.name, project.id]),
+    );
+    const cycles = roadmap?.cycles?.nodes ?? [];
+    return { milestones, projectNames, projectIdsByName, cycles };
   }, [roadmap]);
+
+  return derived;
 }
 
 export function PinnedPanelRenderer({
@@ -83,10 +89,11 @@ export function PinnedPanelRenderer({
     selectedProjectIds.has(i.project?.id);
 
   if (panelId === "progress_pie_chart") {
+    const issues = allIssues.filter(matchesSelectedProject);
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <ProgressPieChart issuesData={allIssues} />
+        <ProgressPieChart issuesData={issues} />
       </div>
     );
   }
@@ -131,7 +138,8 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Product Decisions"
+          title="Business Review"
+          slug={slug}
           compact
         />
       </div>
@@ -151,6 +159,7 @@ export function PinnedPanelRenderer({
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
           title="Acceptance Testing"
+          slug={slug}
           compact
         />
       </div>
@@ -181,6 +190,7 @@ export function PinnedPanelRenderer({
           onOpenChat={() => {}}
           onEditIssue={onEditIssue}
           title="Bugs"
+          slug={slug}
           compact
         />
       </div>
@@ -199,13 +209,16 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames } = useRoadmapMilestones(slug);
+  const { milestones, projectNames, projectIdsByName, cycles } =
+    useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
       <RoadmapTimeline
         projectMilestones={milestones}
         allProjectNames={projectNames}
+        projectIdsByName={projectIdsByName}
+        cycles={cycles}
         slug={slug}
       />
     </div>
