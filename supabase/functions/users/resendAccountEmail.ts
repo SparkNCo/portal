@@ -9,7 +9,7 @@ import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 // can never create a duplicate customer record (unlike the old workaround of
 // re-running customer creation with the same email).
 export const resendAccountEmail = async (body: any, schema: string) => {
-  const { id, emailType } = body;
+  const { id, emailType, testRedirectOrigin } = body;
 
   if (!id) throw new Error("User id is required");
 
@@ -34,7 +34,20 @@ export const resendAccountEmail = async (body: any, schema: string) => {
 
   // Never trust a client-supplied origin for the redirect URL (open-redirect /
   // token-leak risk) — always use the server-configured portal origin.
-  const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
+  //
+  // TEMPORARY TEST-ONLY OVERRIDE (remove after local invite-link testing):
+  // allows the admin panel to request a localhost redirect instead of the
+  // prod APP_URL, so a resent invite link can be verified against a local
+  // dev server. Restricted to literal localhost/127.0.0.1 origins so it
+  // can't be abused as an open redirect even while this is in place.
+  const isLocalTestOrigin =
+    typeof testRedirectOrigin === "string" &&
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(testRedirectOrigin);
+
+  const redirectOrigin = isLocalTestOrigin
+    ? testRedirectOrigin
+    : Deno.env.get("APP_URL") ?? "http://localhost:3000";
+  const redirectTo = `${redirectOrigin}/set-password`;
 
   let inviteLink: string;
   try {

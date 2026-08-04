@@ -129,7 +129,7 @@ function SetPasswordForm() {
 
     let redirectPath = `/${slugifiedClientName}/dashboards`;
     if (isCustomer) {
-      redirectPath = `/${slugifiedClientName}/dashboards/${slugifiedClientName}/dashboard`;
+      redirectPath = `/${slugifiedClientName}/dashboard`;
     } else if (role === "admin") {
       redirectPath = "/admin/users";
     } else if (role === "developer") {
