@@ -199,6 +199,15 @@ function SetPasswordForm() {
                 tabIndex={-1}
               />
 
+              <input
+                className={isCustomer ? readOnlyClass : inputClass}
+                placeholder={isCustomer ? "Client name" : "User name"}
+                value={clientName}
+                readOnly={isCustomer}
+                tabIndex={isCustomer ? -1 : undefined}
+                onChange={isCustomer ? undefined : (e) => setClientName(e.target.value)}
+              />
+
               <div className="flex gap-2">
                 <input
                   className={inputClass}
@@ -213,13 +222,6 @@ function SetPasswordForm() {
                   onChange={(e) => setLastName(e.target.value)}
                 />
               </div>
-
-              <input
-                className={inputClass}
-                placeholder={isCustomer ? "Client name" : "User name"}
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
 
               <input
                 className={inputClass}
