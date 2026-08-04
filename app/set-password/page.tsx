@@ -119,7 +119,7 @@ function SetPasswordForm() {
       return;
     }
 
-    const slugifiedClientName = clientName.trim().replaceAll(" ", "-");
+    const slugifiedClientName = clientName.trim().toLowerCase().replaceAll(" ", "-");
     const profileUpdate: Record<string, string> = {
       firstName,
       lastName,
