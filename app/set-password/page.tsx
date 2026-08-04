@@ -21,18 +21,6 @@ function getInviteErrorCode(searchParams: URLSearchParams): string | null {
   return new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_code");
 }
 
-// Supabase redirects an invite link it can no longer honor (expired/already
-// used) back to `redirectTo` with `error_code` in either the query string or
-// the hash fragment — it never gets far enough to fire a SIGNED_IN/SIGNED_OUT
-// auth event, so without this check the page is stuck on "Verifying invite
-// link..." forever.
-function getInviteErrorCode(searchParams: URLSearchParams): string | null {
-  const fromQuery = searchParams.get("error_code");
-  if (fromQuery) return fromQuery;
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_code");
-}
-
 function SetPasswordForm() {
   const router = useRouter();
   const { reloadUser } = useUser();

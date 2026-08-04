@@ -145,7 +145,7 @@ export default function AdminUsersPage() {
 
   // ── Developer assignments (expanded user panel) ── only developer rows
   // can expand, so this only ever fires for that role.
-  const { data: developerAssignments, isLoading: developerAssignmentsLoading } =
+  const { data: userAssignments, isLoading: assignmentsLoading } =
     useQuery({
       queryKey: ["developer-assignments", expandedUser?.id],
       enabled: !!expandedUser?.id && expandedUser.role === "developer",
@@ -510,18 +510,6 @@ export default function AdminUsersPage() {
                                     >
                                       Send password reset
                                     </DropdownMenuItem>
-                                    {/* TEMPORARY TEST-ONLY BUTTON — remove after local invite-link testing */}
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        resendAccountEmail({
-                                          user: u,
-                                          emailType: "invite",
-                                          testRedirectOrigin: "http://localhost:3000",
-                                        })
-                                      }
-                                    >
-                                      [TEST] Resend invite → localhost
-                                    </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                                 {u.role === "developer" && (
@@ -643,8 +631,23 @@ export default function AdminUsersPage() {
                 );
               })}
             </div>
-          </CardContent>
+          )}
+          {addHandlersByRole[role] && (
+            <button
+              type="button"
+              onClick={addHandlersByRole[role]}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+              aria-label={`Add ${role}`}
+            >
+              <Plus className="h-4 w-4" />
+              Add {role}
+            </button>
+          )}
+        </CardContent>
         </Card>
+            );
+          })}
+        </div>
       )}
 
       {/* ── Projects view ── */}
