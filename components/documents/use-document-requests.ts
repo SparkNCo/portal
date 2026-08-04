@@ -31,7 +31,12 @@ export function useDocumentRequests(customerSlug?: string) {
         .order("created_at", { ascending: false });
 
       if (customerSlug) {
-        query = query.eq("customer_slug", customerSlug);
+        // customer_slug is populated from the lowercased URL slug at request
+        // time, but callers here (admin's previewed-customer context, etc.)
+        // sometimes pass the raw-case clientName — see
+        // project_linear_slug_case_insensitive memory. ilike (no wildcards)
+        // is case-insensitive equality in Postgres.
+        query = query.ilike("customer_slug", customerSlug);
       }
 
       const { data, error } = await query;

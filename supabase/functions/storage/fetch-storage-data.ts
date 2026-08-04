@@ -61,7 +61,13 @@ export async function getStorageData(req: Request, schema: string) {
     }
 
     if (project_slug) {
-      docQuery = docQuery.eq("project_slug", project_slug);
+      // customers.linear_slug (the source of documents.project_slug at
+      // upload time) has inconsistent casing for some real customers that
+      // can't be backfilled — exact .eq() here made a developer's Project
+      // Documents panel come up empty whenever their resolved project slug
+      // differed only in case from what's stored. ilike (no wildcards) is
+      // case-insensitive equality in Postgres.
+      docQuery = docQuery.ilike("project_slug", project_slug);
     }
 
     const { data, error } = await docQuery;

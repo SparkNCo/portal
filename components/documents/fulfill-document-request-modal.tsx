@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Upload, File as FileIcon, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -82,13 +82,43 @@ export function FulfillDocumentRequestModal({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // request.customer_slug is the clientName-based routing slug (e.g.
+  // "acme-corp"), not the Linear initiative slug documents are actually
+  // filed under (documents.project_slug) — every other upload path resolves
+  // that real linear_slug before uploading (see app/[slug]/(portal)/documents/page.tsx),
+  // this one didn't, so fulfilled documents never showed up in the
+  // customer's Project Documents list. Resolve it from the authoritative
+  // source (portal.customers.linear_slug, via the same customers list every
+  // role already fetches through this endpoint — see usePinnedPanelsOwnerId)
+  // rather than the developer's own assignment_id cache, which can drift out
+  // of exact-text sync with customer_slug (see
+  // project_linear_slug_case_insensitive memory).
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json() as Promise<
+        { clientName: string; linear_slug: string | null }[]
+      >;
+    },
+  });
+
+  const resolvedProjectSlug =
+    customers?.find(
+      (c) => c.clientName?.toLowerCase() === request.customer_slug?.toLowerCase(),
+    )?.linear_slug ?? request.customer_slug;
+
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("No file selected");
       const { document } = await uploadDocument({
         file,
         email: profile?.email ?? "",
-        projectSlug: request.customer_slug,
+        projectSlug: resolvedProjectSlug,
       });
       await shareDocument({
         document_id: document.id,

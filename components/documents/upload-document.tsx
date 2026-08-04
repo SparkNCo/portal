@@ -6,6 +6,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
@@ -16,6 +23,11 @@ interface UploadedFile {
   name: string;
   size: string;
   status: "uploading" | "complete" | "error";
+}
+
+export interface UploadInitiative {
+  clientName: string;
+  linear_slug: string;
 }
 
 function useUploadFile() {
@@ -65,16 +77,35 @@ function useUploadFile() {
    Component
 --------------------------------*/
 
-export function UploadDocument({ projectSlug }: { readonly projectSlug?: string }) {
+export function UploadDocument({
+  projectSlug,
+  initiatives,
+}: {
+  readonly projectSlug?: string;
+  // When a developer is assigned to more than one initiative, lets them
+  // pick which one the upload should be filed under instead of always
+  // going to whichever initiative the page happens to be scoped to.
+  readonly initiatives?: UploadInitiative[];
+}) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [selectedProjectSlug, setSelectedProjectSlug] = useState(
+    projectSlug ?? "",
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const uploadMutation = useUploadFile();
 
+  const hasMultipleInitiatives = (initiatives?.length ?? 0) > 1;
+  const targetProjectSlug = hasMultipleInitiatives
+    ? selectedProjectSlug
+    : (projectSlug ?? "");
+
+  const canUploadNow = !hasMultipleInitiatives || !!selectedProjectSlug;
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    if (canUploadNow) setIsDragging(true);
   };
 
   const handleDragLeave = () => {
@@ -84,6 +115,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (!canUploadNow) return;
     const files = Array.from(e.dataTransfer.files);
     handleFiles(files);
   };
@@ -110,7 +142,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
           file,
           userId: user!.id,
           email: user!.email!,
-          projectSlug: projectSlug ?? "",
+          projectSlug: targetProjectSlug,
         },
         {
           onSuccess: () => {
@@ -146,23 +178,52 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {hasMultipleInitiatives && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">
+              Upload to initiative
+            </p>
+            <Select
+              value={selectedProjectSlug}
+              onValueChange={setSelectedProjectSlug}
+            >
+              <SelectTrigger className="bg-secondary border-0">
+                <SelectValue placeholder="Select an initiative…" />
+              </SelectTrigger>
+              <SelectContent>
+                {initiatives!.map((i) => (
+                  <SelectItem key={i.linear_slug} value={i.linear_slug}>
+                    {i.clientName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => canUploadNow && fileInputRef.current?.click()}
           className={cn(
-            "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors cursor-pointer",
+            "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
+            !canUploadNow
+              ? "cursor-not-allowed opacity-50 border-border"
+              : "cursor-pointer",
             isDragging
               ? "border-accent bg-accent/10"
-              : "border-border hover:border-accent/50 hover:bg-secondary/30",
+              : canUploadNow &&
+                  "border-border hover:border-accent/50 hover:bg-secondary/30",
           )}
         >
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-3">
             <Upload className="h-6 w-6 text-accent" />
           </div>
           <p className="text-sm font-medium text-background-foreground text-center">
-            Drag and drop files here, or click to browse
+            {canUploadNow
+              ? "Drag and drop files here, or click to browse"
+              : "Select an initiative above to upload"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             PDF, DOCX, XLSX, PNG, JPG up to 50MB
@@ -173,6 +234,7 @@ export function UploadDocument({ projectSlug }: { readonly projectSlug?: string 
           ref={fileInputRef}
           type="file"
           multiple
+          disabled={!canUploadNow}
           className="hidden"
           onChange={handleFileSelect}
           accept="*/*"

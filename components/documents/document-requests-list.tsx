@@ -286,8 +286,15 @@ export function DocumentRequestsList({
 }) {
   const { data: allRequests = [], isLoading } = useDocumentRequests(customerSlug);
 
-  const requests = assignedSlugs
-    ? allRequests.filter((r) => assignedSlugs.includes(r.customer_slug))
+  // customer_slug is stored lowercased (from the URL slug) but
+  // assignedSlugs comes from profile.assignment_id[].clientName, which can
+  // have different casing (see project_linear_slug_case_insensitive memory)
+  // — compare case-insensitively rather than relying on both sides matching.
+  const assignedSlugsLower = assignedSlugs?.map((s) => s.toLowerCase());
+  const requests = assignedSlugsLower
+    ? allRequests.filter((r) =>
+        assignedSlugsLower.includes(r.customer_slug?.toLowerCase()),
+      )
     : allRequests;
 
   const pendingRequests = requests.filter((r) => r.status === "pending");

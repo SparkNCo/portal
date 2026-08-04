@@ -24,6 +24,8 @@ Two different slug-like values get resolved on every load, and they are **not th
 - **Admin:** looked up from a `GET /users?type=customers` list, matching `clientName === slug` — admins are never in anyone's `assignment_id`, so they can't resolve it any other way. Rendering is withheld (`projectSlugPending`) until this resolves, rather than fetching with `projectSlug=undefined` (which would return every document the admin can see, not just this customer's).
 - **Everyone else:** `profile.assignment_id.find(a => a.clientName === slug)?.linear_slug`, falling back to the caller's own `profile.linear_slug` (covers the case where the viewer *is* the customer).
 
+**Multi-initiative developers:** a developer can upload to any of their assigned initiatives (see "Choosing the target initiative" below), not just the one `projectSlug` resolves to for this page — so the Project Documents list can't stay locked to that single value either, or anything filed under a different initiative would be invisible. When a developer has more than one distinct `linear_slug` in `assignment_id`, the page passes `projectSlug=undefined` to `DocumentsList` instead (`listProjectSlug` in the page component) — it fetches every document the developer has permission for, across every initiative, and relies on the existing project-grouping UI (see below) to fold them into one folder per initiative. Single-initiative developers and admins are unaffected — they still get the single resolved `projectSlug`.
+
 ---
 
 ## Role-based panels
@@ -198,6 +200,10 @@ Each file is uploaded immediately and independently — multiple files upload in
 
 Files can be dismissed from the list at any time using the X button next to each row, regardless of upload status.
 
+### Choosing the target initiative
+
+By default the upload goes to the page-resolved `projectSlug` (see "Resolving which customer/project" above). If the caller is a **developer assigned to more than one initiative** (`profile.assignment_id` has more than one distinct `linear_slug`), the page also passes an `initiatives` list down to `UploadDocument`, which renders an **"Upload to initiative"** dropdown above the drop zone. The dropdown defaults to the page's resolved `projectSlug` and, while it's showing, uploads are blocked (drop zone dims, click-to-browse disabled) until an initiative is explicitly selected. Admins and single-assignment developers never see the dropdown — they keep the old implicit single-`projectSlug` behavior.
+
 ### Upload API call
 
 Each file is sent via `POST /storage` as `multipart/form-data` with:
@@ -209,7 +215,7 @@ Each file is sent via `POST /storage` as `multipart/form-data` with:
 | `path` | `"uploads/{timestamp}-{filename}"` |
 | `user_id` | Supabase auth user ID |
 | `email` | User's email |
-| `project_slug` | The page-resolved `projectSlug` prop (see "Resolving which customer/project" above) — **not** the raw route slug directly |
+| `project_slug` | The selected initiative's `linear_slug` if the dropdown above is showing, otherwise the page-resolved `projectSlug` prop — **not** the raw route slug directly |
 
 The `project_slug` is used to group the uploaded document under the correct project folder in the documents list.
 
