@@ -225,12 +225,9 @@ export default function AdminUsersPage() {
     mutationFn: async ({
       user,
       emailType,
-      testRedirectOrigin,
     }: {
       user: User;
       emailType: "invite" | "reset";
-      // TEMPORARY TEST-ONLY FIELD (remove after local invite-link testing)
-      testRedirectOrigin?: string;
     }) => {
       const {
         data: { session },
@@ -244,7 +241,7 @@ export default function AdminUsersPage() {
             ...apiHeaders,
             Authorization: `Bearer ${session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ id: user.id, emailType, testRedirectOrigin }),
+          body: JSON.stringify({ id: user.id, emailType }),
         },
       );
       if (!res.ok) {
@@ -509,18 +506,6 @@ export default function AdminUsersPage() {
                                       }
                                     >
                                       Send password reset
-                                    </DropdownMenuItem>
-                                    {/* TEMPORARY TEST-ONLY BUTTON — remove after local invite-link testing */}
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        resendAccountEmail({
-                                          user: u,
-                                          emailType: "invite",
-                                          testRedirectOrigin: "http://localhost:3000",
-                                        })
-                                      }
-                                    >
-                                      [TEST] Resend invite → localhost
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
