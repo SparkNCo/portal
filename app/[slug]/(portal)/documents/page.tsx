@@ -3,7 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/headerDashboard";
 import { DocumentsList } from "@/components/documents/documents-list";
-import { UploadDocument } from "@/components/documents/upload-document";
+import {
+  UploadDocument,
+  type UploadInitiative,
+} from "@/components/documents/upload-document";
 import { DeveloperDocumentRequests } from "@/components/documents/developer-document-requests";
 import { RequestDocumentDialog } from "@/components/documents/request-document-dialog";
 import { DocumentRequestsList } from "@/components/documents/document-requests-list";
@@ -74,6 +77,38 @@ export default function DocumentsPage() {
   // fetch every document the admin can see.
   const projectSlugPending = isAdmin && !projectSlug;
 
+  // A developer assigned to more than one initiative shouldn't be locked to
+  // whichever one this page happens to be scoped to (`slug`/`projectSlug`
+  // above) — let them pick the target initiative in the upload panel.
+  // Deduped by `linear_slug` since the same initiative can appear more than
+  // once in `assignment_id` (e.g. multiple roles on the same project).
+  const developerInitiatives: UploadInitiative[] =
+    profile?.role === "developer"
+      ? Array.from(
+          new Map(
+            (profile?.assignment_id ?? [])
+              .filter((a): a is typeof a & { linear_slug: string } => !!a.linear_slug)
+              .map((a) => [
+                a.linear_slug,
+                { clientName: a.clientName ?? a.linear_slug, linear_slug: a.linear_slug },
+              ]),
+          ).values(),
+        )
+      : [];
+
+  // A developer's uploads can now land under any of their assigned
+  // initiatives (the picker above, or a fulfilled request's actual
+  // requesting customer) — not just whichever one `projectSlug` happens to
+  // resolve to for this page. Locking Project Documents to that single
+  // value made anything uploaded under a different initiative invisible.
+  // For a multi-initiative developer, fetch unscoped (every document they
+  // have permission for, across every initiative) — DocumentsList already
+  // groups results into a folder per project_slug when more than one is
+  // present.
+  const isMultiInitiativeDeveloper =
+    profile?.role === "developer" && developerInitiatives.length > 1;
+  const listProjectSlug = isMultiInitiativeDeveloper ? undefined : projectSlug;
+
   return (
     <div className="min-h-screen">
       <Header title="Documents" subtitle="Artifacts, reports, and uploads" />
@@ -111,12 +146,15 @@ export default function DocumentsPage() {
             {projectSlugPending ? (
               <p className="text-sm text-muted-foreground">Loading documents…</p>
             ) : (
-              <DocumentsList projectSlug={projectSlug} customers={customers} />
+              <DocumentsList projectSlug={listProjectSlug} customers={customers} />
             )}
           </div>
           {canUpload && (
             <div>
-              <UploadDocument projectSlug={projectSlug} />
+              <UploadDocument
+                projectSlug={projectSlug}
+                initiatives={developerInitiatives}
+              />
             </div>
           )}
         </div>

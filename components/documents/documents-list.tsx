@@ -129,6 +129,9 @@ export function DocumentsList({
     for (const c of customers ?? []) {
       if (c.linear_slug && c.clientName) map.set(c.linear_slug.toLowerCase(), c.clientName);
     }
+    for (const c of customers ?? []) {
+      if (c.linear_slug && c.clientName) map.set(c.linear_slug, c.clientName);
+    }
     return map;
   }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
 
