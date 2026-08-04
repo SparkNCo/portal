@@ -37,6 +37,7 @@ function SetPasswordForm() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -57,7 +58,7 @@ function SetPasswordForm() {
     const { data } = await supabase
       .schema("portal")
       .from("users")
-      .select("role, firstName, lastName, userName, phoneNumber")
+      .select("role, firstName, lastName, userName, phoneNumber, customer_id")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -66,6 +67,7 @@ function SetPasswordForm() {
     if (data?.lastName) setLastName(data.lastName);
     if (data?.userName) setClientName(data.userName);
     if (data?.phoneNumber) setPhoneNumber(data.phoneNumber);
+    if (data?.customer_id) setCustomerId(data.customer_id);
     setReady(true);
   }
 
@@ -148,6 +150,27 @@ function SetPasswordForm() {
       return;
     }
 
+    if (isCustomer && customerId) {
+      const customerPatchRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            customer_id: customerId,
+            clientName: clientName.trim(),
+          }),
+        },
+      );
+
+      if (!customerPatchRes.ok) {
+        const body = await customerPatchRes.json().catch(() => null);
+        setError(body?.error ?? "Password set, but could not save the client name.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setDone(true);
     await reloadUser();
     router.replace(redirectPath);
@@ -197,6 +220,13 @@ function SetPasswordForm() {
                 value={email}
                 readOnly
                 tabIndex={-1}
+              />
+
+              <input
+                className={inputClass}
+                placeholder={isCustomer ? "Client name" : "User name"}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
               />
 
               <div className="flex gap-2">
