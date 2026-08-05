@@ -1,8 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { API_HEADERS } from "@/lib/api-headers";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
+import { useUser } from "context/UserContext";
 import {
   Activity,
   Clock,
@@ -12,6 +15,8 @@ import {
   Bug,
   AlertTriangle,
   TrendingUp,
+  Percent,
+  ShieldCheck,
 } from "lucide-react";
 
 interface DoraAverage {
@@ -36,9 +41,16 @@ interface DeployFreqDetails {
   repo: string;
 }
 
+interface ManualMetricDetail<T> {
+  value: T;
+  updated_at: string;
+  updated_by: string;
+}
+
 interface DoraMetric {
   dorametrics_id: string;
   customer_id: string;
+  linear_slug: string;
   averages: {
     change_failure_rate: DoraAverage;
     lead_time_for_changes: DoraAverage;
@@ -52,6 +64,10 @@ interface DoraMetric {
   lead_time_details: Record<string, unknown> | null;
   mttr_details: Record<string, unknown> | null;
   deploy_freq_details: DeployFreqDetails | null;
+  // Entered by hand by a developer/admin — never computed, never touched by
+  // the dora cron, so these can't be overwritten by a scheduled sync.
+  code_coverage_details: ManualMetricDetail<number> | null;
+  sonar_quality_gate_details: ManualMetricDetail<"pass" | "fail"> | null;
   created_at: string;
 }
 
@@ -178,7 +194,203 @@ function colorValueFor(
   return metric?.value ?? null;
 }
 
+async function saveManualMetric(linearSlug: string, metric: "code_coverage" | "sonar_quality_gate", value: number | "pass" | "fail") {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manual-metrics`, {
+    method: "PATCH",
+    headers: API_JSON_HEADERS,
+    body: JSON.stringify({ linear_slug: linearSlug, metric, value }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `Failed to save ${metric}`);
+  }
+  return res.json();
+}
+
+// Code Coverage — 0-100 entered by hand, higher is better (opposite
+// direction from every computed metric on this panel).
+const CODE_COVERAGE_THRESHOLDS = { good: 100, mid: 60, bad: 0, higherIsBetter: true };
+
+function CodeCoverageCard({
+  linearSlug,
+  detail,
+  canEdit,
+  onSaved,
+}: {
+  linearSlug: string;
+  detail: ManualMetricDetail<number> | null;
+  canEdit: boolean;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (nextValue: number) => saveManualMetric(linearSlug, "code_coverage", nextValue),
+    onSuccess: () => {
+      setEditing(false);
+      setError(null);
+      onSaved();
+    },
+    onError: (err: any) => setError(err?.message ?? "Failed to save"),
+  });
+
+  const pct = detail?.value ?? null;
+  const computedStyle =
+    pct === null
+      ? { color: "hsl(0, 0%, 60%)", bg: "hsla(0, 0%, 60%, 0.08)", border: "hsla(0, 0%, 60%, 0.2)" }
+      : (() => {
+          const hue = hueForValue(pct, CODE_COVERAGE_THRESHOLDS);
+          return {
+            color: `hsl(${hue}, 75%, 45%)`,
+            bg: `hsla(${hue}, 75%, 45%, 0.1)`,
+            border: `hsla(${hue}, 75%, 45%, 0.25)`,
+          };
+        })();
+
+  return (
+    <div className="rounded-lg border p-4" style={{ backgroundColor: computedStyle.bg, borderColor: computedStyle.border }}>
+      <div className="flex items-center gap-2 mb-2" style={{ color: computedStyle.color }}>
+        <Percent className="h-4 w-4" />
+        <span className="text-xs font-medium">Code Coverage</span>
+      </div>
+
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <input
+            autoFocus
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="0-100"
+            className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={mutation.isPending || value.trim() === ""}
+              onClick={() => mutation.mutate(Number(value))}
+            >
+              {mutation.isPending ? "Saving..." : "Save"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+      ) : (
+        <>
+          <p className="text-2xl font-bold text-card-foreground">
+            {pct !== null ? pct.toFixed(1) : "N/A"}
+            <span className="text-sm font-normal text-muted-foreground ml-1">%</span>
+          </p>
+          {canEdit && (
+            <button
+              type="button"
+              className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+              onClick={() => { setValue(pct !== null ? String(pct) : ""); setEditing(true); }}
+            >
+              Edit
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SonarQualityGateCard({
+  linearSlug,
+  detail,
+  canEdit,
+  onSaved,
+}: {
+  linearSlug: string;
+  detail: ManualMetricDetail<"pass" | "fail"> | null;
+  canEdit: boolean;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: (nextValue: "pass" | "fail") => saveManualMetric(linearSlug, "sonar_quality_gate", nextValue),
+    onSuccess: () => {
+      setEditing(false);
+      setError(null);
+      onSaved();
+    },
+    onError: (err: any) => setError(err?.message ?? "Failed to save"),
+  });
+
+  const status = detail?.value ?? null;
+  const style =
+    status === null
+      ? { color: "hsl(0, 0%, 60%)", bg: "hsla(0, 0%, 60%, 0.08)", border: "hsla(0, 0%, 60%, 0.2)" }
+      : status === "pass"
+        ? { color: "hsl(120, 75%, 45%)", bg: "hsla(120, 75%, 45%, 0.1)", border: "hsla(120, 75%, 45%, 0.25)" }
+        : { color: "hsl(0, 75%, 45%)", bg: "hsla(0, 75%, 45%, 0.1)", border: "hsla(0, 75%, 45%, 0.25)" };
+
+  return (
+    <div className="rounded-lg border p-4" style={{ backgroundColor: style.bg, borderColor: style.border }}>
+      <div className="flex items-center gap-2 mb-2" style={{ color: style.color }}>
+        <ShieldCheck className="h-4 w-4" />
+        <span className="text-xs font-medium">Sonar Quality Gate</span>
+      </div>
+
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={status === "pass" ? "default" : "outline"}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate("pass")}
+            >
+              Pass
+            </Button>
+            <Button
+              size="sm"
+              variant={status === "fail" ? "default" : "outline"}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate("fail")}
+            >
+              Fail
+            </Button>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+      ) : (
+        <>
+          <p className="text-2xl font-bold text-card-foreground capitalize">
+            {status ?? "N/A"}
+          </p>
+          {canEdit && (
+            <button
+              type="button"
+              className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
+  const { profile } = useUser();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dora-metrics", linearName],
     queryFn: () => fetchDoraMetrics(linearName),
@@ -186,6 +398,10 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   });
 
   const latest = data?.[0];
+  const canEditManualMetrics = profile?.role === "admin" || profile?.role === "developer";
+  const handleManualMetricSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["dora-metrics", linearName] });
+  };
 
   return (
     <Card className="bg-background border-border">
@@ -271,6 +487,18 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                 </div>
               );
             })}
+            <CodeCoverageCard
+              linearSlug={latest.linear_slug}
+              detail={latest.code_coverage_details}
+              canEdit={canEditManualMetrics}
+              onSaved={handleManualMetricSaved}
+            />
+            <SonarQualityGateCard
+              linearSlug={latest.linear_slug}
+              detail={latest.sonar_quality_gate_details}
+              canEdit={canEditManualMetrics}
+              onSaved={handleManualMetricSaved}
+            />
           </div>
         )}
       </CardContent>
