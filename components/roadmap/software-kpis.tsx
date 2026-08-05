@@ -7,6 +7,9 @@ import {
   Activity,
   Clock,
   GitMerge,
+  GitBranch,
+  Wrench,
+  Bug,
   AlertTriangle,
   TrendingUp,
 } from "lucide-react";
@@ -41,6 +44,9 @@ interface DoraMetric {
     lead_time_for_changes: DoraAverage;
     mean_time_to_restore: DoraAverage;
     deploy_frequency: DoraAverage;
+    feature_cycle_time: DoraAverage;
+    fix_cycle_time: DoraAverage;
+    defect_escape_rate: DoraAverage;
   };
   cfr_details: CfrDetails | null;
   lead_time_details: Record<string, unknown> | null;
@@ -81,6 +87,21 @@ const KPI_CONFIG = [
     label: "Change Failure Rate",
     icon: AlertTriangle,
   },
+  {
+    key: "feature_cycle_time" as const,
+    label: "Feature Cycle Time",
+    icon: GitBranch,
+  },
+  {
+    key: "fix_cycle_time" as const,
+    label: "Fix Cycle Time",
+    icon: Wrench,
+  },
+  {
+    key: "defect_escape_rate" as const,
+    label: "Defect Escape",
+    icon: Bug,
+  },
 ];
 
 // Good/mid/bad reference points per metric, taken from the thresholds product
@@ -98,6 +119,9 @@ const KPI_THRESHOLDS: Record<
   lead_time_for_changes: { good: 0, mid: 14 * 24, bad: 30 * 24, higherIsBetter: false },
   mean_time_to_restore: { good: 0, mid: 8, bad: 24, higherIsBetter: false },
   change_failure_rate: { good: 0, mid: 25, bad: 50, higherIsBetter: false },
+  feature_cycle_time: { good: 0, mid: 7 * 24, bad: 14 * 24, higherIsBetter: false },
+  fix_cycle_time: { good: 0, mid: 3 * 24, bad: 7 * 24, higherIsBetter: false },
+  defect_escape_rate: { good: 0, mid: 25, bad: 100, higherIsBetter: false },
 };
 
 // Maps a value onto a 0 (red) – 60 (yellow) – 120 (green) hue, linearly
