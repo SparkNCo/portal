@@ -156,6 +156,196 @@ function BillingModeToggle({
   );
 }
 
+/* ---------------- Invoice amount & frequency (automatic only) ---------------- */
+// SPA-384: same isolated `stripe-test` endpoint as the billing mode toggle.
+
+const INTERVAL_OPTIONS: { value: "day" | "week" | "month" | "year"; label: string }[] = [
+  { value: "day", label: "day(s)" },
+  { value: "week", label: "week(s)" },
+  { value: "month", label: "month(s)" },
+  { value: "year", label: "year(s)" },
+];
+
+function describeInvoiceSchedule(
+  amount: number | null,
+  interval: "day" | "week" | "month" | "year" | null,
+  intervalCount: number | null,
+) {
+  if (amount == null || !interval) return "Not set yet";
+  const count = intervalCount ?? 1;
+  const unit = count === 1 ? interval : `${interval}s`;
+  const cadence = count === 1 ? `every ${unit}` : `every ${count} ${unit}`;
+  return `$${amount.toFixed(2)} ${cadence}`;
+}
+
+function InvoiceSettingsPanel({
+  customerId,
+  invoiceAmount,
+  invoiceInterval,
+  invoiceIntervalCount,
+  onSaved,
+}: {
+  customerId?: string;
+  invoiceAmount: number | null;
+  invoiceInterval: "day" | "week" | "month" | "year" | null;
+  invoiceIntervalCount: number | null;
+  onSaved?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [interval, setInterval] = useState<"day" | "week" | "month" | "year">("month");
+  const [intervalCount, setIntervalCount] = useState("1");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!customerId)
+        throw new Error("Missing customer record for this account");
+
+      const amountNum = Number(amount);
+      if (!Number.isFinite(amountNum) || amountNum <= 0) {
+        throw new Error("Enter a valid amount");
+      }
+      const countNum = Number(intervalCount);
+      if (!Number.isInteger(countNum) || countNum <= 0) {
+        throw new Error("Enter a valid frequency");
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            customer_id: customerId,
+            invoice_amount: amountNum,
+            invoice_interval: interval,
+            invoice_interval_count: countNum,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to save invoice settings");
+      }
+
+      return res.json() as Promise<{ priceSync?: { applied: boolean } }>;
+    },
+    onSuccess: (data) => {
+      setEditing(false);
+      setError(null);
+      setNotice(
+        data?.priceSync?.applied
+          ? null
+          : "Saved, but this client has no active Stripe subscription yet — nothing is being charged until one exists.",
+      );
+      onSaved?.();
+    },
+    onError: (err: any) => {
+      setError(err?.message ?? "Failed to save invoice settings");
+    },
+  });
+
+  const startEditing = () => {
+    setAmount(invoiceAmount != null ? String(invoiceAmount) : "");
+    setInterval(invoiceInterval ?? "month");
+    setIntervalCount(String(invoiceIntervalCount ?? 1));
+    setError(null);
+    setNotice(null);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setError(null);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Card>
+        <CardContent className="bg-background flex flex-col gap-3 pt-4">
+          <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-foreground/70">$</span>
+              <input
+                autoFocus
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <span className="text-sm text-foreground/70">every</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={intervalCount}
+              onChange={(e) => setIntervalCount(e.target.value)}
+              className="h-9 w-16 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <select
+              value={interval}
+              onChange={(e) => setInterval(e.target.value as "day" | "week" | "month" | "year")}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {INTERVAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={mutation.isPending || !amount.trim()}
+              onClick={() => mutation.mutate()}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {mutation.isPending ? "Saving..." : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={cancelEditing}
+              disabled={mutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="bg-background flex flex-col gap-2 pt-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
+            <p className="text-xs text-foreground/70">
+              {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={startEditing}>
+            Edit
+          </Button>
+        </div>
+        {notice && <p className="text-xs text-amber-500">{notice}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 function StripeIdPanel({
   stripeCustomerId,
   customerId,
@@ -302,18 +492,26 @@ export function BillingSection({
   stripeCustomerId,
   customerId,
   billingMode = "automatic",
+  invoiceAmount = null,
+  invoiceInterval = null,
+  invoiceIntervalCount = null,
   isAdmin = false,
   onStripeIdSaved,
   onBillingModeSaved,
+  onInvoiceSettingsSaved,
 }: {
   billingData: any;
   isLoading: boolean;
   stripeCustomerId?: string | null;
   customerId?: string;
   billingMode?: "automatic" | "manual";
+  invoiceAmount?: number | null;
+  invoiceInterval?: "day" | "week" | "month" | "year" | null;
+  invoiceIntervalCount?: number | null;
   isAdmin?: boolean;
   onStripeIdSaved?: () => void;
   onBillingModeSaved?: () => void;
+  onInvoiceSettingsSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -411,6 +609,16 @@ export function BillingSection({
           customerId={customerId}
           billingMode={billingMode}
           onSaved={onBillingModeSaved}
+        />
+      )}
+
+      {stripeCustomerId && isAdmin && !isManual && (
+        <InvoiceSettingsPanel
+          customerId={customerId}
+          invoiceAmount={invoiceAmount}
+          invoiceInterval={invoiceInterval}
+          invoiceIntervalCount={invoiceIntervalCount}
+          onSaved={onInvoiceSettingsSaved}
         />
       )}
 

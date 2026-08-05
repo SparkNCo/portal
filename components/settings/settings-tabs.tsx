@@ -62,7 +62,12 @@ export function SettingsTabs() {
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch billing mode");
-      return res.json() as Promise<{ billing_mode: "automatic" | "manual" }>;
+      return res.json() as Promise<{
+        billing_mode: "automatic" | "manual";
+        invoice_amount: number | null;
+        invoice_interval: "day" | "week" | "month" | "year" | null;
+        invoice_interval_count: number | null;
+      }>;
     },
     enabled: !!effectiveCustomerId,
   });
@@ -74,7 +79,7 @@ export function SettingsTabs() {
     queryClient.invalidateQueries({ queryKey: ["billing"] });
   };
 
-  const handleBillingModeSaved = () => {
+  const handleBillingSettingsSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["billing-mode", effectiveCustomerId] });
     queryClient.invalidateQueries({ queryKey: ["billing"] });
   };
@@ -130,9 +135,13 @@ export function SettingsTabs() {
             stripeCustomerId={effectiveStripeId}
             customerId={effectiveCustomerId}
             billingMode={effectiveBillingMode}
+            invoiceAmount={billingModeData?.invoice_amount ?? null}
+            invoiceInterval={billingModeData?.invoice_interval ?? null}
+            invoiceIntervalCount={billingModeData?.invoice_interval_count ?? null}
             isAdmin={isAdmin}
             onStripeIdSaved={handleStripeIdSaved}
-            onBillingModeSaved={handleBillingModeSaved}
+            onBillingModeSaved={handleBillingSettingsSaved}
+            onInvoiceSettingsSaved={handleBillingSettingsSaved}
           />
         )}
         {activeTab === "staffing" && (
