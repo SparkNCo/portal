@@ -11,7 +11,14 @@ import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { CreditCard } from "lucide-react";
+import { CreditCard, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export async function fetchBillingData({ user }: { user: any }) {
   const customerId = user?.stripe_customer_id ?? user?.customer_id;
@@ -178,6 +185,67 @@ function describeInvoiceSchedule(
   return `$${amount.toFixed(2)} ${cadence}`;
 }
 
+function NumberStepper({
+  value,
+  onChange,
+  onBump,
+  step,
+  min,
+  autoFocus,
+  placeholder,
+  className,
+  leadingSlot,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onBump: (delta: number) => void;
+  step: number;
+  min: number;
+  autoFocus?: boolean;
+  placeholder?: string;
+  className?: string;
+  leadingSlot?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={
+        "flex h-9 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring" +
+        (className ? ` ${className}` : "")
+      }
+    >
+      {leadingSlot}
+      <input
+        autoFocus={autoFocus}
+        type="number"
+        min={min}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full min-w-0 bg-transparent pl-2 text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <div className="flex flex-col border-l border-input">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => onBump(step)}
+          className="flex flex-1 items-center justify-center px-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+        >
+          <ChevronUp className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => onBump(-step)}
+          className="flex flex-1 items-center justify-center border-t border-input px-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+        >
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function InvoiceSettingsPanel({
   customerId,
   invoiceAmount,
@@ -197,6 +265,16 @@ function InvoiceSettingsPanel({
   const [intervalCount, setIntervalCount] = useState("1");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const bumpIntervalCount = (delta: number) => {
+    const next = Math.max(1, (Number.parseInt(intervalCount, 10) || 1) + delta);
+    setIntervalCount(String(next));
+  };
+
+  const bumpAmount = (delta: number) => {
+    const next = Math.max(0, (Number.parseFloat(amount) || 0) + delta);
+    setAmount(next.toFixed(2));
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -268,39 +346,45 @@ function InvoiceSettingsPanel({
         <CardContent className="bg-background flex flex-col gap-3 pt-4">
           <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <span className="text-sm text-foreground/70">$</span>
-              <input
-                autoFocus
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <span className="text-sm text-foreground/70">every</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={intervalCount}
-              onChange={(e) => setIntervalCount(e.target.value)}
-              className="h-9 w-16 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            <NumberStepper
+              autoFocus
+              min={0}
+              step={0.01}
+              value={amount}
+              onChange={setAmount}
+              onBump={bumpAmount}
+              placeholder="0.00"
+              className="w-28"
+              leadingSlot={
+                <span className="flex items-center pl-2 text-sm text-foreground/70">
+                  $
+                </span>
+              }
             />
-            <select
+            <span className="text-sm text-foreground/70">every</span>
+            <NumberStepper
+              min={1}
+              step={1}
+              value={intervalCount}
+              onChange={setIntervalCount}
+              onBump={bumpIntervalCount}
+              className="w-16"
+            />
+            <Select
               value={interval}
-              onChange={(e) => setInterval(e.target.value as "day" | "week" | "month" | "year")}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              onValueChange={(v) => setInterval(v as "day" | "week" | "month" | "year")}
             >
-              {INTERVAL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2">
             <Button
