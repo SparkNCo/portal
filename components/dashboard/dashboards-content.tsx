@@ -50,16 +50,16 @@ function CustomerCard({
 
   return (
     <Link href={href}>
-      <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
+      <Card className="bg-card/75 hover:bg-card/50 border-border transition-colors">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
-          <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
-            <User className="h-4 w-4 text-accent" />
+          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+            <User className="h-4 w-4 text-primary" />
           </div>
           <CardTitle className="text-sm font-semibold">
             {clientName || "—"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-0.5">
+        <CardContent className="text-sm text-card-foreground/60 space-y-0.5">
           <p>{email}</p>
           <p className="text-xs">Slug: {linear_slug}</p>
         </CardContent>
@@ -73,10 +73,10 @@ function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+      className="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
       aria-label="Add Customer"
     >
-      <Plus className="h-6 w-6" />
+      <Plus className="h-6 w-6 text-primary" />
     </button>
   );
 }

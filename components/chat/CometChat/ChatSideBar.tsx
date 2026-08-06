@@ -61,7 +61,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="w-9 h-9 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
+    <div className="w-9 h-9 rounded-full bg-muted text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
       {initials}
     </div>
   );
@@ -79,7 +79,7 @@ function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItem
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <GroupAvatar name={group.getName()} />
         <div className="min-w-0">
-          <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+          <div className={`text-sm font-medium truncate ${isSelected ? "text-primary" : ""}`}>
             {group.getName()}
           </div>
         </div>
@@ -185,9 +185,11 @@ export default function ChatSideBar({
               <SelectValue placeholder="All customers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CUSTOMERS_VALUE}>All customers</SelectItem>
+              <SelectItem value={ALL_CUSTOMERS_VALUE} className="focus:text-primary">
+                All customers
+              </SelectItem>
               {customerOptions.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
+                <SelectItem key={c.id} value={c.id} className="focus:text-primary">
                   {c.userName}
                 </SelectItem>
               ))}
@@ -249,7 +251,7 @@ export default function ChatSideBar({
                       <Bot className="w-4 h-4 text-accent" />
                     </div>
                     <div className="min-w-0">
-                      <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+                      <div className={`text-sm font-medium truncate ${isSelected ? "text-primary" : ""}`}>
                         {entry.title}
                       </div>
                       <div className="text-xs text-muted-foreground">AI Agent</div>

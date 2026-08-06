@@ -15,10 +15,10 @@ export function ModalShell({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-96 bg-background border-border shadow-lg">
+      <Card className="w-96 bg-background border-border shadow-lg text-foreground">
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-accent" />
+          <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary">
+            <UserPlus className="h-4 w-4 text-primary" />
             {title}
           </CardTitle>
         </CardHeader>

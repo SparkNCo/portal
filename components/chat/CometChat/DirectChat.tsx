@@ -151,10 +151,10 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <div className="flex items-center gap-2 bg-secondary/50 border rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-card/75 border rounded-xl px-3 py-2">
           <input
             aria-label="Message the AI"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm text-card-foreground outline-none placeholder:text-card-foreground/40"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Message the AI..."

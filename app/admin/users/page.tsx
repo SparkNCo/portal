@@ -406,7 +406,7 @@ export default function AdminUsersPage() {
                         return (
                           <div
                             key={u.id}
-                            className="rounded-lg border border-border bg-card/75 hover:bg-card/50 text-card-foreground transition-colors group cursor-pointer"
+                            className="rounded-lg border border-border bg-card/75 hover:bg-card/50 text-card-foreground transition-colors group"
                           >
                             <div className="flex items-center justify-between rounded-lg p-3">
                               <div className="flex items-center gap-3 min-w-0">
@@ -485,6 +485,7 @@ export default function AdminUsersPage() {
                                       <Mail
                                         className={`h-4 w-4 text-card-foreground group-hover/icon:text-primary ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
                                       />
+                                      <span className="sr-only">Resend account email</span>
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
@@ -518,6 +519,8 @@ export default function AdminUsersPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
+                                    title={isExpanded ? "Hide assignments" : "Show assignments"}
+                                    aria-label={isExpanded ? "Hide assignments" : "Show assignments"}
                                     onClick={() =>
                                       setExpandedUser(isExpanded ? null : u)
                                     }
@@ -685,21 +688,21 @@ export default function AdminUsersPage() {
                   return (
                     <div
                       key={customer.id}
-                      className="rounded-lg border border-border bg-secondary/30"
+                      className="rounded-lg border border-border bg-card/75 cursor-pointer"
                     >
                       {/* Initiative header */}
                       <div className="flex items-center gap-3 p-3 border-b border-border">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                           {initiativeName.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p
                             title={initiativeName}
-                            className="text-sm font-semibold text-foreground truncate"
+                            className="text-sm font-semibold text-card-foreground truncate"
                           >
                             {initiativeName}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-card-foreground/60">
                             {developers.length === 0
                               ? "No assignees"
                               : `${developers.length} assignee${developers.length > 1 ? "s" : ""}`}
@@ -747,22 +750,22 @@ export default function AdminUsersPage() {
                                 className="flex items-center justify-between px-4 py-2.5 text-sm"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
+                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-primary">
                                     {m.email?.slice(0, 2).toUpperCase()}
                                   </div>
                                   <div className="min-w-0">
                                     <p
                                       title={m.email}
-                                      className="font-medium text-foreground truncate"
+                                      className="font-medium text-card-foreground truncate"
                                     >
                                       {m.email}
                                     </p>
-                                    <p className="text-xs text-muted-foreground capitalize">
+                                    <p className="text-xs text-card-foreground/60 capitalize">
                                       {m.role}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-4 text-xs text-card-foreground/60">
                                   {m.joined && (
                                     <span>
                                       Joined{" "}
@@ -770,7 +773,7 @@ export default function AdminUsersPage() {
                                     </span>
                                   )}
                                   {m.role === "developer" && m.allocation && (
-                                    <span className="font-medium text-foreground">
+                                    <span className="font-medium text-card-foreground">
                                       {m.allocation}h/week
                                     </span>
                                   )}

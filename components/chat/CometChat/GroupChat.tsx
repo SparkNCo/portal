@@ -88,8 +88,8 @@ export default function GroupChat({ user, group }: Props) {
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b">
-        <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-          <Users className="w-4 h-4 text-accent" />
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+          <Users className="w-4 h-4 text-primary" />
         </div>
         <div>
           <div className="text-sm font-semibold">{group.getName()}</div>
@@ -113,10 +113,10 @@ export default function GroupChat({ user, group }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <div className="flex items-center gap-2 bg-secondary/50 border rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-card/75 border rounded-xl px-3 py-2">
           <input
             aria-label="Type a message"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-sm text-card-foreground outline-none placeholder:text-card-foreground/40"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
