@@ -121,7 +121,7 @@ The `linear_slug` is critical: without it the customer won't see their issues in
 1. Creates the `customers` row with `linear_slug`, `clientName`, and the Stripe ID.
 2. Looks up the Linear initiative identified by `linear_slug`, collects its projects (`linear_projects`), and for each project scans its issues' attachments for a linked GitHub issue/PR to derive the repo's GitHub URL (`project_url`). Both are saved back onto the `customers` row. This step is best-effort — if Linear lookups fail or return nothing, customer creation still succeeds.
 3. Upserts the `users` row for the customer and sends the invite email.
-4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute Linear cycle/issue metrics for the new customer. This **no longer** cascades into DORA — `issueMetrics` and `dora` were decoupled onto separate crons (GitHub's API is slower/more rate-limited than Linear's), so this customer's DORA tiles stay empty until the next scheduled `dora` cron run picks them up, not immediately. See `app/docs/ROADMAP_FLOWS.md` for how `dora`'s own cron and since-window work.
+4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute Linear cycle/issue metrics for the new customer. This **no longer** cascades into SDLC metrics — `issueMetrics` and `dora` were decoupled onto separate crons (GitHub's API is slower/more rate-limited than Linear's), so this customer's SDLC metric tiles stay empty until the next scheduled `dora` cron run picks them up, not immediately. See `app/docs/ROADMAP_FLOWS.md` for how `dora`'s own cron and since-window work.
 
 ---
 
