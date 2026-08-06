@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
 
       {/* ── View toggle ── */}
       <div className="flex items-center">
-        <div className="flex gap-1 p-1 rounded-lg bg-secondary/40 border border-border">
+        <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
           <button
             onClick={() => setView("users")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
@@ -348,7 +348,7 @@ export default function AdminUsersPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Users className="h-3.5 w-3.5" />
+            <Users className="h-3.5 w-3.5 text-primary" />
             Users
           </button>
           <button
@@ -359,7 +359,7 @@ export default function AdminUsersPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <FolderKanban className="h-3.5 w-3.5" />
+            <FolderKanban className="h-3.5 w-3.5 text-primary" />
             Projects
           </button>
         </div>
@@ -370,7 +370,7 @@ export default function AdminUsersPage() {
         <div className="space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
             <input
               type="text"
               aria-label="Search by email or username"
@@ -389,8 +389,8 @@ export default function AdminUsersPage() {
             return (
               <Card key={role} className="bg-background border-border">
                 <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize">
-                    <Users className="h-4 w-4 text-accent" />
+                  <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize text-foreground">
+                    <Users className="h-4 w-4 text-primary" />
                     {role}
                   </CardTitle>
                 </CardHeader>
@@ -406,17 +406,17 @@ export default function AdminUsersPage() {
                         return (
                           <div
                             key={u.id}
-                            className="rounded-lg border border-border bg-secondary/30 transition-colors group"
+                            className="rounded-lg border border-border bg-card/75 hover:bg-card/50 text-card-foreground transition-colors group cursor-pointer"
                           >
-                            <div className="flex items-center justify-between p-3 hover:bg-secondary/50">
+                            <div className="flex items-center justify-between rounded-lg p-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                                   {getInitials(u.email)}
                                 </div>
                                 <div className="min-w-0">
                                   <p
                                     title={u.email}
-                                    className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate"
+                                    className="text-sm font-medium text-card-foreground truncate"
                                   >
                                     {u.email}
                                   </p>
@@ -429,10 +429,10 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingProfileUser(u)}
                                     >
-                                      <Eye className="h-4 w-4" />
+                                      <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       View Profile
                                     </Button>
                                   )}
@@ -440,10 +440,10 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setEditingProfileUser(u)}
                                     >
-                                      <Pencil className="h-4 w-4" />
+                                      <Pencil className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       Edit Profile
                                     </Button>
                                   )}
@@ -452,13 +452,13 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => {
                                         setAssigningUserId(u.id);
                                         setAssigningUserRole(u.role);
                                       }}
                                     >
-                                      <UserCheck className="h-4 w-4" />
+                                      <UserCheck className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       Assign
                                     </Button>
                                   )}
@@ -473,7 +473,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
                                       title="Resend account email"
                                       aria-label="Resend account email"
                                       disabled={
@@ -483,7 +483,7 @@ export default function AdminUsersPage() {
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Mail
-                                        className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                        className={`h-4 w-4 text-card-foreground group-hover/icon:text-primary ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
                                       />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -517,15 +517,15 @@ export default function AdminUsersPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
+                                    className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
                                     onClick={() =>
                                       setExpandedUser(isExpanded ? null : u)
                                     }
                                   >
                                     {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4" />
+                                      <ChevronUp className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                     ) : (
-                                      <ChevronDown className="h-4 w-4" />
+                                      <ChevronDown className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                     )}
                                   </Button>
                                 )}
@@ -589,10 +589,10 @@ export default function AdminUsersPage() {
                               : userAssignments.map((a: any) => (
                                   <div
                                     key={a.id}
-                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                    className="flex items-center justify-between rounded-lg border border-border bg-card/75 cursor-pointer px-3 py-2 text-sm"
                                   >
                                     <div className="flex items-center gap-3 min-w-0">
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-primary">
                                         {a.customer_email
                                           ?.slice(0, 2)
                                           .toUpperCase()}
@@ -604,12 +604,12 @@ export default function AdminUsersPage() {
                                         >
                                           {a.customer_email}
                                         </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
+                                        <p className="text-xs text-card-foreground/60 capitalize">
                                           Customer
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-4 text-xs text-card-foreground/60">
                                       {a.joined && (
                                         <span>
                                           Joined{" "}
@@ -618,7 +618,7 @@ export default function AdminUsersPage() {
                                           ).toLocaleDateString()}
                                         </span>
                                       )}
-                                      <span className="font-medium text-foreground">
+                                      <span className="font-medium text-card-foreground">
                                         {a.allocation}h/week
                                       </span>
                                     </div>
@@ -637,10 +637,10 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={addHandlersByRole[role]}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
               aria-label={`Add ${role}`}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 text-primary" />
               Add {role}
             </button>
           )}
@@ -655,8 +655,8 @@ export default function AdminUsersPage() {
       {view === "projects" && (
         <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <FolderKanban className="h-4 w-4 text-accent" />
+            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <FolderKanban className="h-4 w-4 text-primary" />
               Projects
             </CardTitle>
           </CardHeader>
@@ -669,7 +669,7 @@ export default function AdminUsersPage() {
 
             {!allAssignmentsLoading && customers.length === 0 && (
               <div className="text-center py-8">
-                <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                <FolderKanban className="h-10 w-10 text-primary mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
                   No customers yet
                 </p>
@@ -695,7 +695,7 @@ export default function AdminUsersPage() {
                         <div className="flex-1 min-w-0">
                           <p
                             title={initiativeName}
-                            className="text-sm font-semibold text-card-foreground truncate"
+                            className="text-sm font-semibold text-foreground truncate"
                           >
                             {initiativeName}
                           </p>
@@ -753,7 +753,7 @@ export default function AdminUsersPage() {
                                   <div className="min-w-0">
                                     <p
                                       title={m.email}
-                                      className="font-medium text-card-foreground truncate"
+                                      className="font-medium text-foreground truncate"
                                     >
                                       {m.email}
                                     </p>

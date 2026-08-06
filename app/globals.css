@@ -4,36 +4,55 @@
 
 @layer base {
   :root {
-    /* Canonical palette — mode-independent. Defined once here and never
-       overridden in .dark, instead of being copy-pasted into both blocks. */
-    --card: 30 27% 95%;
-    --primary: 25 92% 59%;
+    /* Brand palette (buildwithspark.co) — single theme, no light/dark split.
+       ThemeProvider in app/layout.tsx forces the "dark" class site-wide, but
+       these values are defined only once on :root (no .dark overrides) so
+       the app renders identically regardless of that class.
+       Hex sources: background #111111, foreground/secondary/card #f7f4f0,
+       primary #f78035, donut #b5b5b5. */
+    --background: 0 0% 7%;
+    --foreground: 34 30% 95%;
+
+    --primary: 23 92% 59%;
+    --primary-foreground: 0 0% 7%;
+
+    --secondary: 34 30% 95%;
+    --secondary-foreground: 0 0% 7%;
+
+    --card: 34 30% 95%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 34 30% 95%;
+    --popover-foreground: 0 0% 7%;
+
+    --donut: 0 0% 71%;
+
+    /* Supporting neutrals — not part of the brand spec, tuned to stay
+       legible against the #111111 background. Deviate here because border/
+       input/muted carry structural meaning (dividers, disabled states),
+       not brand identity. */
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 34 30% 95%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 34 30% 95%;
+
+    --sidebar: 0 0% 7%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-foreground: 34 30% 95%;
+    --sidebar-accent: 0 0% 16%;
+
+    /* Semantic colors — untouched, they carry meaning (error/warn/success)
+       rather than brand identity. */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --warning: 35 93% 58%;
+    --warning-foreground: 240 10% 10%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 98%;
 
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --sidebar: 240 5% 96%;
-    --sidebar-border: 240 5.9% 88%;
-    --sidebar-foreground: 240 10% 3.9%;
-    --sidebar-accent: 240 4.8% 90%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary-foreground: 0 0% 71%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --warning: 45 93% 58%;
-    --warning-foreground: 240 10% 10%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -41,36 +60,19 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
   }
+}
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --sidebar: 240 5% 8%;
-    --sidebar-border: 240 3.7% 18%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-accent: 240 3.7% 15%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 220 70% 50%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --warning: 35 93% 58%;
-    --warning-foreground: 240 10% 10%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+/* Typography — consolidated font-size, font-weight, and line-height
+   combinations. Prefer these over ad hoc utility combos going forward. */
+@layer components {
+  .title {
+    @apply text-heading1 font-bold leading-tight;
+  }
+  .subtitle {
+    @apply text-heading2 font-semibold leading-snug;
+  }
+  .body {
+    @apply text-body font-normal leading-relaxed;
   }
 }
 

@@ -1,5 +1,5 @@
 import "./globals.css";
-import { Geist } from "next/font/google";
+import { Nunito_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,7 +19,8 @@ export const metadata = {
   },
 };
 
-const geistSans = Geist({
+const nunitoSans = Nunito_Sans({
+  variable: "--font-body",
   display: "swap",
   subsets: ["latin"],
 });
@@ -30,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={geistSans.className} suppressHydrationWarning>
+    <html lang="en" className={nunitoSans.variable} suppressHydrationWarning>
       <body className="bg-background text-foreground min-h-screen">
         <script
           type="text/javascript"
