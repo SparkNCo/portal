@@ -71,7 +71,7 @@ function calculateInvoicesBalance(invoices: any[] = []) {
 /* ---------------- Stripe Customer ID ---------------- */
 
 /* ---------------- Billing mode (manual vs automatic) ---------------- */
-// SPA-384: routed through the standalone `stripe-test` endpoint rather than
+// SPA-384: routed through the standalone `stripe-edit` endpoint rather than
 // `users?type=customer`, to keep this in-progress toggle isolated from the
 // already-deployed `users` function.
 
@@ -92,7 +92,7 @@ function BillingModeToggle({
         throw new Error("Missing customer record for this account");
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-edit`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
@@ -123,7 +123,7 @@ function BillingModeToggle({
   const nextModeLabel = nextMode === "automatic" ? "Automatic" : "Manual";
 
   return (
-    <Card>
+    <Card className="bg-transparent text-foreground">
       <CardContent className="bg-background flex flex-col gap-3 pt-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-foreground">Invoicing</p>
@@ -155,7 +155,7 @@ function BillingModeToggle({
 }
 
 /* ---------------- Invoice amount & frequency (automatic only) ---------------- */
-// SPA-384: same isolated `stripe-test` endpoint as the billing mode toggle.
+// SPA-384: same isolated `stripe-edit` endpoint as the billing mode toggle.
 
 const INTERVAL_OPTIONS: { value: "day" | "week" | "month" | "year"; label: string }[] = [
   { value: "day", label: "day(s)" },
@@ -282,7 +282,7 @@ function InvoiceSettingsPanel({
       }
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-edit`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
@@ -333,7 +333,7 @@ function InvoiceSettingsPanel({
 
   if (editing) {
     return (
-      <Card>
+      <Card className="bg-transparent text-foreground">
         <CardContent className="bg-background flex flex-col gap-3 pt-4">
           <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -402,7 +402,7 @@ function InvoiceSettingsPanel({
   }
 
   return (
-    <Card>
+    <Card className="bg-transparent text-foreground">
       <CardContent className="bg-background flex flex-col gap-2 pt-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -483,7 +483,7 @@ function StripeIdPanel({
 
   if (isAdmin && editing) {
     return (
-      <Card>
+      <Card className="bg-transparent text-foreground">
         <CardContent className="bg-background flex flex-col gap-3 pt-4">
           <p className="text-sm text-foreground">Stripe Customer ID</p>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -521,7 +521,7 @@ function StripeIdPanel({
 
   if (!stripeCustomerId) {
     return (
-      <Card className="bg-background">
+      <Card className="bg-transparent text-foreground">
         <CardContent className="bg-background flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4 ">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -634,7 +634,7 @@ export function BillingSection({
   if (stripeCustomerId) {
     if (isManual) {
       billingContent = (
-        <Card className="bg-background">
+        <Card className="bg-transparent text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6 text-foreground" />

@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ error: "Method not allowed" }, 405);
   } catch (error) {
-    console.error("[stripe-test] error", error);
+    console.error("[stripe-edit] error", error);
     return jsonResponse({ error: error.message }, 500);
   }
 });
@@ -270,7 +270,7 @@ async function pauseCollection(stripeCustomerId: string): Promise<string[]> {
 
   const paused: string[] = [];
   for (const sub of toPause) {
-    console.log("[stripe-test] pausing collection on subscription", sub.id);
+    console.log("[stripe-edit] pausing collection on subscription", sub.id);
     await stripe.subscriptions.update(sub.id, {
       pause_collection: { behavior: "void" },
     });
@@ -292,7 +292,7 @@ async function resumeCollection(stripeCustomerId: string): Promise<string[]> {
 
   const resumed: string[] = [];
   for (const sub of toResume) {
-    console.log("[stripe-test] resuming collection on subscription", sub.id);
+    console.log("[stripe-edit] resuming collection on subscription", sub.id);
     await stripe.subscriptions.update(sub.id, { pause_collection: "" });
     resumed.push(sub.id);
   }
@@ -329,7 +329,7 @@ async function syncSubscriptionPrice(
   }
 
   console.log(
-    "[stripe-test] creating new price",
+    "[stripe-edit] creating new price",
     { amountCents, interval, intervalCount },
     "for subscription",
     subscription.id,

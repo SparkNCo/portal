@@ -506,7 +506,7 @@ export function RoadmapTimeline({
                     />
                     <button
                       type="button"
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-background opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingIssue(toIssue(issue));

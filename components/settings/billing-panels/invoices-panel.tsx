@@ -47,17 +47,17 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
   }
 
   return (
-    <Card className="flex flex-col space-y-2 h-full bg-background">
+    <Card className="flex flex-col space-y-2 h-full bg-transparent text-foreground">
       {visible.map((invoice) => (
         <div
           key={invoice.id}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-4 w-full"
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-background hover:bg-muted transition-colors p-4 w-full"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <CreditCard className="h-4 w-4 text-primary" />
             </div>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-foreground">
               {formatDateFromUnix(invoice.created)}
             </p>
           </div>
@@ -84,7 +84,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
               }
 
               return (
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium text-foreground">
                   {formatAmountFromCents(paid, invoice.currency)}
                 </span>
               );
@@ -103,6 +103,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
               <Button
                 variant="ghost"
                 size="icon"
+                className="hover:text-primary"
                 onClick={() => window.open(invoice.invoicePdf, "_blank")}
                 aria-label={`Download invoice from ${formatDateFromUnix(invoice.created)}`}
               >

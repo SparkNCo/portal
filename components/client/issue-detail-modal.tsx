@@ -1019,7 +1019,7 @@ function TestsTab({
                   <button
                     type="button"
                     onClick={() => handleStartEdit(t)}
-                    className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-background"
                     aria-label="Edit test case"
                   >
                     <Pencil className="h-3.5 w-3.5" />

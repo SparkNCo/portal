@@ -51,14 +51,14 @@ export function SettingsTabs() {
   const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
   const isAdmin = profile?.role === "admin";
 
-  // SPA-384: billing_mode lives behind its own `stripe-test` endpoint for now
+  // SPA-384: billing_mode lives behind its own `stripe-edit` endpoint for now
   // (kept out of `users` so that function stays untouched while it's being
   // tested) — fetched separately rather than from the `customers` list above.
   const { data: billingModeData } = useQuery({
     queryKey: ["billing-mode", effectiveCustomerId],
     queryFn: async () => {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-test?customer_id=${effectiveCustomerId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-edit?customer_id=${effectiveCustomerId}`,
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch billing mode");

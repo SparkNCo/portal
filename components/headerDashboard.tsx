@@ -16,7 +16,7 @@ export function Header({ title, subtitle }: HeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={open}
-          className="lg:hidden -ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="lg:hidden -ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />

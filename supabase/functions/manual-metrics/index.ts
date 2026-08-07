@@ -1,7 +1,7 @@
 // @ts-nocheck
 // SDLC metrics phase 4: Code Coverage and Sonar Quality Gate are entered by
 // hand by a developer or admin — nothing computes them. Built as its own
-// endpoint (like `stripe-test` before it) so it never touches `dora`, the
+// endpoint (like `stripe-edit` before it) so it never touches `dora`, the
 // cron function that's already live and computing real metrics for every
 // customer — this only ever writes to two columns (`code_coverage_details`,
 // `sonar_quality_gate_details`) that `dora`'s cron never reads or writes,

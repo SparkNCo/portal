@@ -128,7 +128,7 @@ export function NextPaymentPanel({
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="bg-transparent">
         <LoadingDataPanel />
       </Card>
     );
@@ -153,7 +153,7 @@ export function NextPaymentPanel({
   };
 
   return (
-    <Card className="bg-background">
+    <Card className="bg-transparent text-foreground">
       {subscriptionStatus && (
         <div className="flex items-center justify-between px-6 pt-4">
           <span className="text-xs text-muted-foreground">Subscription status</span>
@@ -224,8 +224,8 @@ export function NextPaymentPanel({
               </p>
             </div>
 
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/20">
-              <Calendar className="h-5 w-5 text-accent" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Calendar className="h-5 w-5 text-primary" />
             </div>
           </div>
 
