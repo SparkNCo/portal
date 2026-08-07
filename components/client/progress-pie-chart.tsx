@@ -24,8 +24,8 @@ function CustomTooltip({ active, payload }: TooltipProps) {
 
   return (
     <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
-      <p className="font-medium text-foreground">{name}</p>
-      <p className="text-muted-foreground">{value} tasks</p>
+      <p className="font-medium text-popover-foreground">{name}</p>
+      <p className="text-popover-foreground/60">{value} tasks</p>
     </div>
   );
 }
@@ -48,9 +48,12 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
         color: CHART_STATUS_COLORS[name] ?? "hsl(var(--muted))",
       }))
       .sort((a, b) => {
+        // Reversed from STATUS_ORDER on purpose — Done at the top, Backlog
+        // at the bottom (swap ai/bi instead of touching the shared order,
+        // which priority-tasks.tsx and issues-metrics.tsx also rely on).
         const ai = STATUS_ORDER.indexOf(a.name);
         const bi = STATUS_ORDER.indexOf(b.name);
-        return (ai === -1 ? STATUS_ORDER.length : ai) - (bi === -1 ? STATUS_ORDER.length : bi);
+        return (bi === -1 ? STATUS_ORDER.length : bi) - (ai === -1 ? STATUS_ORDER.length : ai);
       });
   }, [issuesData]);
 
@@ -67,7 +70,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
     <Card className="bg-background border-border flex flex-col h-full text-foreground">
       <CardHeader>
         <CardTitle className="text-body font-semibold flex items-center gap-2 ">
-          <TrendingUp className="h-4 w-4 text-chart-1" />
+          <TrendingUp className="h-4 w-4 text-primary" />
           Project Stats
         </CardTitle>
       </CardHeader>
@@ -110,7 +113,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
                   {item.name}
                 </span>
               </div>
-              <span className="font-medium text-background-foreground text-xs">
+              <span className="font-medium text-foreground text-xs">
                 {item.value}
               </span>
             </div>
@@ -121,7 +124,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Total Tasks</span>
-            <span className="text-base font-bold text-background-foreground">
+            <span className="text-base font-bold text-foreground">
               {TOTAL_TASKS}
             </span>
           </div>

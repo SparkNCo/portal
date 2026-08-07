@@ -38,7 +38,7 @@ export function MessageBubble({
         <div
           className={`${compact ? "px-2.5 py-1.5 rounded-xl text-xs" : "px-3 py-2 rounded-2xl text-sm"} leading-relaxed ${
             isMe
-              ? "bg-accent text-accent-foreground rounded-tr-sm"
+              ? "bg-primary text-primary-foreground rounded-tr-sm"
               : "bg-secondary text-secondary-foreground rounded-tl-sm"
           }`}
         >

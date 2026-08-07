@@ -53,7 +53,8 @@ export function DocumentRow({
 }) {
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
-  const { user } = useUser();
+  const { user, profile } = useUser();
+  const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -110,16 +111,16 @@ export function DocumentRow({
         return (
           <div
             key={doc.id}
-            className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3 hover:bg-secondary/50 transition-colors group"
+            className="flex items-center justify-between rounded-lg border border-transparent bg-background hover:bg-muted transition-colors group"
           >
             {/* Left */}
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <FormatIcon className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <FormatIcon className="h-5 w-5 text-primary" />
               </div>
 
               <div>
-                <p className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors">
+                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                   {doc.name}
                 </p>
 
@@ -151,7 +152,7 @@ export function DocumentRow({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 hover:text-primary"
                       aria-label={`Change category for ${doc.name}`}
                     >
                       <Settings className="h-4 w-4" />
@@ -187,7 +188,7 @@ export function DocumentRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hover:text-primary"
                 onClick={() => handleOpen(doc)}
                 aria-label={`Open ${doc.name}`}
               >
@@ -199,11 +200,11 @@ export function DocumentRow({
                 />
               </Button>
 
-              {["write", "owner"].includes(doc.permission) && (
+              {(["write", "owner"].includes(doc.permission) || isAdmin) && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 hover:text-primary"
                   onClick={() => {
                     setSelectedDoc(doc);
                     setIsShareOpen(true);
@@ -217,7 +218,7 @@ export function DocumentRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hover:text-primary"
                 onClick={() => handleDownload(doc)}
                 aria-label={`Download ${doc.name}`}
               >

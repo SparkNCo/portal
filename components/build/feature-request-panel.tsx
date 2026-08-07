@@ -133,10 +133,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background">
+    <Card className="bg-background text-foreground">
       <CardHeader>
         <CardTitle level={2} className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-chart-2" />
+          <Lightbulb className="h-4 w-4 text-primary" />
           Request a Feature
         </CardTitle>
       </CardHeader>

@@ -172,7 +172,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background">
+    <Card className="bg-background text-foreground">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bug className="h-4 w-4 text-destructive" />
@@ -205,7 +205,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                         value={step}
                         onChange={(e) => updateStep(i, e.target.value)}
                         onKeyDown={(e) => handleStepKeyDown(e, i)}
-                        className="bg-secondary border-0"
+                        className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
                       />
                       {steps.length > 1 && (
                         <Button
@@ -235,7 +235,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                   placeholder="What should happen"
                   value={expected}
                   onChange={(e) => setExpected(e.target.value)}
-                  className="bg-secondary border-0 min-h-[60px] resize-none"
+                  className="bg-secondary border-0 min-h-[60px] resize-none text-card-foreground placeholder:text-card-foreground/40"
                 />
               </div>
 
@@ -246,7 +246,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                   placeholder="What actually happened"
                   value={actual}
                   onChange={(e) => setActual(e.target.value)}
-                  className="bg-secondary border-0 min-h-[60px] resize-none"
+                  className="bg-secondary border-0 min-h-[60px] resize-none text-card-foreground placeholder:text-card-foreground/40"
                 />
               </div>
 

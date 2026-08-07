@@ -1,33 +1,64 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Milestone } from "@/components/roadmap/roadmap-timeline";
+import { Milestone, type MilestoneStatus } from "@/components/roadmap/roadmap-timeline";
 import type { ChainedMilestone } from "./ProjectRow";
 import { formatDate, type TimeBucket } from "./TimelineHeader";
 
 function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; projectName: string }) {
   return (
-    <div className="mb-1 pb-1 border-b border-border/50">
+    <div className="mb-1 pb-1 border-b border-popover-foreground/10">
       <div className="font-medium">
         {bucket.label}
-        <span className="ml-1.5 font-normal text-muted-foreground">
+        <span className="ml-1.5 font-normal text-popover-foreground/60">
           {formatDate(bucket.start)} – {formatDate(bucket.end)}
         </span>
       </div>
-      <div className="text-xs text-muted-foreground">{projectName}</div>
+      <div className="text-xs text-popover-foreground/60">{projectName}</div>
     </div>
   );
 }
 
-// Color reflects actual completion + due date rather than Linear's own
-// `status` field: all scope done → green; still-open scope past its target
-// date → orange (overdue); still-open scope not yet due → blue.
+// Keyed on Linear's own milestone `status`, not a progress/date heuristic —
+// "unstarted", "next", "planned", and "in-progress" all used to collapse
+// into the same default color since only completion% + due date were
+// checked. Each status now gets its own color, reusing the same hues as
+// the "Issues by Status" chart (CHART_STATUS_COLORS in issues.types.ts) so
+// the same concept reads as the same color across both views: next ~ QA's
+// blue, planned ~ UAT's teal, unstarted ~ Development's purple — kept as
+// real colors rather than a neutral gray, so every status stays readable at
+// a glance on the timeline. overdue moved off warning (too close to
+// in-progress's orange) onto destructive, matching how Canceled/Blocked
+// read in the issues chart.
+const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
+  completed: "bg-success",
+  "in-progress": "bg-primary/50",
+  overdue: "bg-destructive/50",
+  next: "bg-[hsl(210,70%,55%)]/50",
+  planned: "bg-[hsl(180,60%,50%)]/50",
+  unstarted: "bg-[hsl(265,60%,65%)]/50",
+};
+
 function getMilestoneBarColor(m: Milestone): string {
-  if (m.progress >= 1) return "bg-success";
-  if (m.targetDate && new Date(m.targetDate).getTime() < Date.now()) {
-    return "bg-warning/50";
-  }
-  return "bg-accent/50";
+  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-accent/50";
+}
+
+// Most-urgent-first: if any milestone landing in this cycle bucket is
+// overdue, that should win over a merely "next" or "planned" one, etc. Only
+// shows completed's green when every milestone in the bucket is done.
+const MILESTONE_STATUS_PRIORITY: MilestoneStatus[] = [
+  "overdue",
+  "in-progress",
+  "next",
+  "planned",
+  "unstarted",
+  "completed",
+];
+
+function getBucketColor(milestonesInBucket: ChainedMilestone[]): string {
+  const statusesPresent = new Set(milestonesInBucket.map((m) => m.status));
+  const leadStatus = MILESTONE_STATUS_PRIORITY.find((s) => statusesPresent.has(s));
+  return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-accent/50";
 }
 
 type ProjectSummaryBarProps = {
@@ -71,7 +102,8 @@ export function ProjectSummaryBar({
                     {isInRange && (
                       <div
                         className={cn(
-                          "absolute inset-y-2 inset-x-0 rounded-md bg-accent/40",
+                          "absolute inset-y-2 inset-x-0 rounded-md",
+                          getBucketColor(milestonesInBucket),
                           isSelected && "ring-2 ring-accent",
                         )}
                       />
@@ -83,7 +115,7 @@ export function ProjectSummaryBar({
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 max-w-xs rounded-md bg-popover px-3 py-2 text-sm shadow-md"
+                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 text-sm shadow-md"
                   >
                     <CycleTooltipHeader bucket={bucket} projectName={projectName} />
                     {milestonesInBucket.length > 0 && (
@@ -94,7 +126,7 @@ export function ProjectSummaryBar({
                             className="flex flex-col"
                           >
                             <span className="font-medium">{m.name}</span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-popover-foreground/60">
                               {m.status}
                             </span>
                           </div>
@@ -172,13 +204,13 @@ export function MilestoneRow({
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 max-w-xs rounded-md bg-popover px-3 py-2 text-sm shadow-md"
+                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 text-sm shadow-md"
                   >
                     <CycleTooltipHeader bucket={bucket} projectName={data.projectName} />
                     {data.name && (
                       <div className="flex flex-col">
                         <span className="font-medium">{data.name}</span>
-                        <span className="text-xs text-muted-foreground">{data.status}</span>
+                        <span className="text-xs text-popover-foreground/60">{data.status}</span>
                       </div>
                     )}
                     <Tooltip.Arrow className="fill-popover" />

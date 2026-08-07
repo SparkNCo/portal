@@ -19,7 +19,7 @@ export function ProjectSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger id={id} className="bg-secondary border-0">
+      <SelectTrigger id={id} className="bg-secondary border-0 text-card-foreground">
         <SelectValue
           placeholder={projects.length ? "Select a project…" : "Loading projects…"}
         />

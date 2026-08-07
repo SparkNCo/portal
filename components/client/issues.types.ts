@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
   High: "bg-warning/20 text-warning border-warning/30",
-  Medium: "bg-accent/20 text-accent border-accent/30",
+  Medium: "bg-blue-500/20 text-blue-600 border-blue-500/30",
   Low: "bg-muted/50 text-muted-foreground border-muted",
 };
 
@@ -47,15 +47,22 @@ export const CHART_STATUS_COLORS: Record<string, string> = {
   "In Progress": "hsl(var(--warning))",
   "In Review": "hsl(var(--warning))",
   Blocked: "hsl(var(--destructive))",
-  "Not Started": "hsl(var(--muted))",
-  Todo: "hsl(var(--muted))",
-  Canceled: "hsl(var(--muted))",
-  Backlog: "hsl(0, 0%, 30%)",
-  Planning: "hsl(50, 90%, 35%)",
-  "Business Review": "hsl(320, 65%, 40%)",
-  Development: "hsl(265, 60%, 45%)",
-  QA: "hsl(210, 70%, 35%)",
-  UAT: "hsl(180, 60%, 30%)",
+  // Same red as Blocked — matches its own badge color in `statusColors`
+  // above, and reads as "negative outcome" rather than a neutral no-op.
+  Canceled: "hsl(var(--destructive))",
+  // "Hasn't started yet" cluster — the dedicated neutral chart gray, tuned
+  // to actually show up against the #111111 page background (the old
+  // `--muted`/hardcoded values here were near-black and barely visible).
+  "Not Started": "hsl(var(--donut))",
+  Todo: "hsl(var(--donut))",
+  Backlog: "hsl(var(--donut))",
+  // Active-workflow stages — same hues as before, brightened so they're
+  // legible on a dark background instead of the old ~30-45% lightness.
+  Planning: "hsl(43, 74%, 66%)",
+  "Business Review": "hsl(320, 65%, 60%)",
+  Development: "hsl(265, 60%, 65%)",
+  QA: "hsl(210, 70%, 55%)",
+  UAT: "hsl(180, 60%, 50%)",
 };
 
 export type Decision = {

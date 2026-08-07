@@ -82,7 +82,7 @@ export default function BuildPage() {
             onClick={() => setSelectedProject(null)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
               selectedProject === null
-                ? "bg-accent text-accent-foreground border-accent/40"
+                ? "bg-primary text-primary-foreground border-primary/40"
                 : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
             }`}
           >
@@ -94,7 +94,7 @@ export default function BuildPage() {
               onClick={() => setSelectedProject(p.id)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
                 selectedProject === p.id
-                  ? "bg-accent text-accent-foreground border-accent/40"
+                  ? "bg-primary text-primary-foreground border-primary/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >

@@ -9,8 +9,8 @@ export function ChatSpinner({
 }) {
   const spinnerClass =
     size === "sm"
-      ? "w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"
-      : "w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin";
+      ? "w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"
+      : "w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin";
 
   return (
     <div className="flex flex-1 items-center justify-center">

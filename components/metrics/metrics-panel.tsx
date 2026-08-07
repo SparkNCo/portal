@@ -135,7 +135,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           </SelectTrigger>
           <SelectContent>
             {projects.map((p) => (
-              <SelectItem key={p.name} value={p.name}>
+              <SelectItem key={p.name} value={p.name} className="focus:text-primary">
                 {p.name}
               </SelectItem>
             ))}
@@ -158,7 +158,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             </SelectTrigger>
             <SelectContent>
               {[...cycles].reverse().map((c: any) => (
-                <SelectItem key={c.cycle_id} value={c.cycle_id}>
+                <SelectItem key={c.cycle_id} value={c.cycle_id} className="focus:text-primary">
                   Cycle {c.number}
                 </SelectItem>
               ))}

@@ -71,7 +71,7 @@ export function PriorityTasks({
   );
   if (compact) {
     return (
-      <Card className="bg-background border-border flex flex-col w-full h-full ">
+      <Card className="bg-background border-border text-foreground flex flex-col w-full h-full ">
         <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 pr-10">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -113,7 +113,7 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-border flex flex-col w-full">
+    <Card className="bg-background border-border text-foreground flex flex-col w-full">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
@@ -139,7 +139,7 @@ export function PriorityTasks({
                 <SlidersHorizontal className="h-3 w-3" />
                 Filter
                 {activeFilters > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
                     {activeFilters}
                   </span>
                 )}

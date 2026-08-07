@@ -88,8 +88,8 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-accent" />
+        <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+          <RefreshCw className="h-4 w-4 text-primary" />
           Cycle Scope vs Completed
         </CardTitle>
       </CardHeader>

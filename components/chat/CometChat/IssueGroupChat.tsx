@@ -139,7 +139,7 @@ export function IssueGroupChat({
             onClick={sendMessage}
             disabled={!message.trim() || sending}
             aria-label="Send message"
-            className="w-6 h-6 flex items-center justify-center rounded-md bg-accent text-accent-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
           >
             <Send className="w-3 h-3" />
           </button>

@@ -119,6 +119,9 @@ function BillingModeToggle({
     },
   });
 
+  const nextMode = billingMode === "automatic" ? "manual" : "automatic";
+  const nextModeLabel = nextMode === "automatic" ? "Automatic" : "Manual";
+
   return (
     <Card>
       <CardContent className="bg-background flex flex-col gap-3 pt-4">
@@ -129,32 +132,20 @@ function BillingModeToggle({
             Stripe billing dashboard — invoice this client outside the portal.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-foreground">
+            Current mode:{" "}
+            <span className="font-medium text-primary capitalize">
+              {billingMode}
+            </span>
+          </p>
           <Button
             size="sm"
-            variant={billingMode === "automatic" ? "default" : "outline"}
-            disabled={mutation.isPending || billingMode === "automatic"}
-            onClick={() => mutation.mutate("automatic")}
-            className={
-              billingMode === "automatic"
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : ""
-            }
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate(nextMode)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            Automatic
-          </Button>
-          <Button
-            size="sm"
-            variant={billingMode === "manual" ? "default" : "outline"}
-            disabled={mutation.isPending || billingMode === "manual"}
-            onClick={() => mutation.mutate("manual")}
-            className={
-              billingMode === "manual"
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : ""
-            }
-          >
-            Manual
+            {mutation.isPending ? "Saving..." : `Change mode to ${nextModeLabel}`}
           </Button>
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}

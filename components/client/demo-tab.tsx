@@ -372,7 +372,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
               value={selectedVersion ? String(selectedVersion) : ""}
               onValueChange={(value) => setSelectedVersion(Number(value))}
             >
-              <SelectTrigger className="w-40 bg-secondary border-0">
+              <SelectTrigger className="w-40 bg-secondary border-0 text-card-foreground">
                 <SelectValue placeholder="Version" />
               </SelectTrigger>
               <SelectContent>
@@ -642,7 +642,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
                       {displayName(comment.author)}
                     </span>
                     {comment.author?.role && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent capitalize">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary capitalize">
                         {comment.author.role}
                       </span>
                     )}
@@ -650,7 +650,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
                       {new Date(comment.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-sm text-card-foreground mt-1 whitespace-pre-wrap">
+                  <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
                     {comment.body}
                   </p>
                 </div>

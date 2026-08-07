@@ -185,8 +185,8 @@ export function IssueMetricsView({
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <BarChart2 className="h-4 w-4 text-accent" />
+        <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+          <BarChart2 className="h-4 w-4 text-primary" />
           Issues by Status
           {titleSuffix}
         </CardTitle>

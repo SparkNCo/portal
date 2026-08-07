@@ -193,7 +193,7 @@ function TabButton({
       onClick={onClick}
       className={`py-2.5 px-1 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${className ?? ""} ${
         activeTab === tab
-          ? "border-accent text-foreground"
+          ? "border-primary text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground"
       }`}
     >

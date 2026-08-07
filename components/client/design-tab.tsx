@@ -531,7 +531,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
                 setNewServiceName("");
               }}
             >
-              <SelectTrigger className="w-56 bg-secondary border-0">
+              <SelectTrigger className="w-56 bg-secondary border-0 text-card-foreground">
                 <SelectValue placeholder="Choose a service" />
               </SelectTrigger>
               <SelectContent>
@@ -556,7 +556,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
                 value={newServiceName}
                 onChange={(e) => setNewServiceName(e.target.value)}
                 placeholder="e.g. Auth Service"
-                className="w-56 bg-secondary border-0"
+                className="w-56 bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
               />
             </div>
           )}
@@ -570,7 +570,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
                 value={selectedVersion ? String(selectedVersion) : ""}
                 onValueChange={(value) => setSelectedVersion(Number(value))}
               >
-                <SelectTrigger className="w-40 bg-secondary border-0">
+                <SelectTrigger className="w-40 bg-secondary border-0 text-card-foreground">
                   <SelectValue placeholder="Version" />
                 </SelectTrigger>
                 <SelectContent>

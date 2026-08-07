@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, Filter, ChevronDown, FolderOpen } from "lucide-react";
+import { FileText, Search, ChevronDown, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
@@ -136,11 +136,11 @@ export function DocumentsList({
   }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border text-foreground">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <FileText className="h-4 w-4 text-accent" />
+            <FileText className="h-4 w-4 text-primary" />
             Project Documents
           </CardTitle>
 
@@ -152,12 +152,9 @@ export function DocumentsList({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 bg-secondary border-0 pl-9 text-sm"
+                className="w-48 bg-muted border-0 pl-9 text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <Button variant="outline" size="icon" className="bg-transparent" data-testid="document-filter-btn" aria-label="Filter documents">
-              <Filter className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
@@ -172,7 +169,7 @@ export function DocumentsList({
               className={cn(
                 "text-sm",
                 activeCategory === category
-                  ? "bg-secondary text-foreground"
+                  ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground",
               )}
             >
@@ -205,10 +202,10 @@ export function DocumentsList({
             <div key={slug} data-testid={`document-folder-${slug}`} className="mb-4">
               <button
                 onClick={() => toggleGroup(slug)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors mb-2 group"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background hover:bg-muted transition-colors mb-2 group"
               >
                 <div className="flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-accent shrink-0" />
+                  <FolderOpen className="h-4 w-4 text-primary shrink-0" />
                   <span className="text-sm font-medium text-foreground capitalize">
                     {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
                   </span>

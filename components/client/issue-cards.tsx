@@ -82,7 +82,7 @@ export function IssueCard({
   const otherLabels = issue.labels?.nodes?.filter((l) => l.id !== typeLabel?.id);
 
   return (
-    <div className="group relative rounded-lg border border-border bg-secondary/30 hover:bg-secondary/60 hover:shadow-md transition-all duration-150">
+    <div className="group relative rounded-lg border border-border bg-background hover:bg-muted text-foreground hover:shadow-md transition-all duration-150">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -126,7 +126,7 @@ export function IssueCard({
             {issue.priorityLabel}
           </Badge>
         </div>
-        <p className="text-sm font-medium text-background-foreground mb-3 line-clamp-2">
+        <p className="text-sm font-medium text-foreground mb-3 line-clamp-2">
           {issue.title}
         </p>
         <div className="flex items-center gap-1 flex-wrap">
@@ -160,7 +160,7 @@ export function IssueListRow({
   readonly hasUpdate?: boolean;
 }) {
   return (
-    <div className="group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-secondary/60 transition-all border border-transparent hover:border-border">
+    <div className="group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-background hover:bg-muted text-foreground transition-all border border-transparent hover:border-border">
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer "
@@ -192,7 +192,7 @@ export function IssueListRow({
         </Badge>
       )}
       <p
-        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : ""}`}
+        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : "text-foreground"}`}
       >
         {issue.title}
       </p>

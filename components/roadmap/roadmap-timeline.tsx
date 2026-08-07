@@ -80,7 +80,7 @@ function toIssue(issue: any): Issue {
 const priorityColors: Record<string, string> = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
   High: "bg-warning/20 text-warning border-warning/30",
-  Medium: "bg-accent/20 text-accent border-accent/30",
+  Medium: "bg-blue-500/20 text-blue-600 border-blue-500/30",
   Low: "bg-muted/50 text-muted-foreground border-muted",
   "No priority": "bg-muted/50 text-muted-foreground border-muted",
 };
@@ -298,7 +298,7 @@ export function RoadmapTimeline({
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden bg-background">
+      <Card className="overflow-hidden bg-background text-foreground">
         <TimelineHeader
           onPrev={() => setWindowStart((w) => Math.max(0, (w ?? 0) - 1))}
           onNext={() =>
@@ -350,14 +350,26 @@ export function RoadmapTimeline({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-success" />
-                    Milestone complete
+                    Completed
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-accent/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary/50" />
                     In progress
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-warning/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(210,70%,55%)]/50" />
+                    Next
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(180,60%,50%)]/50" />
+                    Planned
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(265,60%,65%)]/50" />
+                    Unstarted
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-destructive/50" />
                     Overdue
                   </span>
                   <span className="flex items-center gap-1.5">
@@ -372,7 +384,7 @@ export function RoadmapTimeline({
       </Card>
 
       {selection && selectedBucket && (
-        <Card className="bg-background ">
+        <Card className="bg-background text-foreground">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>

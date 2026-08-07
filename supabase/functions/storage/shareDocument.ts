@@ -28,28 +28,37 @@ export async function shareDocument(req: Request, schema: string) {
 
     /**
      * ---------------------------------------
-     * ✅ 1. Check permission (must be WRITE)
+     * ✅ 1. Check permission (must be WRITE, or an admin — admins can share
+     * any document regardless of their own document_permissions row)
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .select("permission")
-      .eq("user_id", user_id)
-      .eq("document_id", Number(document_id))
+    const { data: callerUser } = await supabase.schema(schema)
+      .from("users")
+      .select("role")
+      .eq("id", user_id)
       .maybeSingle();
 
-    if (permissionError || !permissionData) {
-      return new Response(JSON.stringify({ error: "No access" }), {
-        status: 403,
-        headers: corsHeaders,
-      });
-    }
+    if (callerUser?.role !== "admin") {
+      const { data: permissionData, error: permissionError } = await supabase.schema(schema)
+        .from("document_permissions")
+        .select("permission")
+        .eq("user_id", user_id)
+        .eq("document_id", Number(document_id))
+        .maybeSingle();
 
-    if (!["write", "owner"].includes(permissionData.permission)) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 403,
-        headers: corsHeaders,
-      });
+      if (permissionError || !permissionData) {
+        return new Response(JSON.stringify({ error: "No access" }), {
+          status: 403,
+          headers: corsHeaders,
+        });
+      }
+
+      if (!["write", "owner"].includes(permissionData.permission)) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 403,
+          headers: corsHeaders,
+        });
+      }
     }
 
     /**

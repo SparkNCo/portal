@@ -30,14 +30,14 @@ export function TitleContinueRow({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
           }}
-          className="bg-secondary border-0"
+          className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
         />
       </div>
       {!detailsRevealed && (
         <Button
           onClick={onContinue}
           disabled={!title.trim()}
-          className="bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
         >
           Continue
         </Button>
@@ -102,7 +102,7 @@ export function SubmitButton({
       <Button
         onClick={onClick}
         disabled={disabled}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90"
       >
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
       </Button>

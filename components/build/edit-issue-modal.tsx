@@ -105,7 +105,7 @@ export function EditIssueModal({
               id="edit-issue-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-0"
+              className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
               autoFocus
             />
           </div>
@@ -123,7 +123,7 @@ export function EditIssueModal({
           <div className="space-y-1.5">
             <Label>Priority</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="bg-secondary border-0">
+              <SelectTrigger className="bg-secondary border-0 text-card-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -150,7 +150,7 @@ export function EditIssueModal({
             <Button
               onClick={handleSave}
               disabled={!title.trim() || mutation.isPending}
-              className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

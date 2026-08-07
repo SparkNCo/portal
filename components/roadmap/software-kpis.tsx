@@ -285,7 +285,7 @@ function CodeCoverageCard({
         </div>
       ) : (
         <>
-          <p className="text-2xl font-bold text-card-foreground">
+          <p className="text-2xl font-bold text-foreground">
             {pct !== null ? pct.toFixed(1) : "N/A"}
             <span className="text-sm font-normal text-muted-foreground ml-1">%</span>
           </p>
@@ -370,7 +370,7 @@ function SonarQualityGateCard({
         </div>
       ) : (
         <>
-          <p className="text-2xl font-bold text-card-foreground capitalize">
+          <p className="text-2xl font-bold text-foreground capitalize">
             {status ?? "N/A"}
           </p>
           {canEdit && (
@@ -406,8 +406,8 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-accent" />
+        <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+          <TrendingUp className="h-4 w-4 text-primary" />
           SDLC Metrics
         </CardTitle>
       </CardHeader>
@@ -441,7 +441,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                     <Icon className="h-4 w-4" />
                     <span className="text-xs font-medium">{label}</span>
                   </div>
-                  <p className="text-2xl font-bold text-card-foreground">
+                  <p className="text-2xl font-bold text-foreground">
                     {value !== null ? value.toFixed(1) : "N/A"}
                     <span className="text-sm font-normal text-muted-foreground ml-1">
                       {metric?.unit ?? ""}
@@ -451,12 +451,12 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
                       <p className="text-xs text-muted-foreground">
                         Failed:{" "}
-                        <span className="text-card-foreground font-medium">
+                        <span className="text-foreground font-medium">
                           {cfr.failed_deployments}
                         </span>
                         {" / "}
                         Total:{" "}
-                        <span className="text-card-foreground font-medium">
+                        <span className="text-foreground font-medium">
                           {cfr.total_non_fix_deployments}
                         </span>
                       </p>
@@ -472,13 +472,13 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
                       <p className="text-xs text-muted-foreground">
                         Last 30d:{" "}
-                        <span className="text-card-foreground font-medium">
+                        <span className="text-foreground font-medium">
                           {deployFreq.last_30_days ?? "N/A"} deployments
                         </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Last 90d:{" "}
-                        <span className="text-card-foreground font-medium">
+                        <span className="text-foreground font-medium">
                           {deployFreq.last_90_days ?? "N/A"} deployments
                         </span>
                       </p>

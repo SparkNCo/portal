@@ -128,7 +128,7 @@ export function Sidebar() {
       )}
     >
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <Building2 className="h-5 w-5 text-accent" />
+        <Building2 className="h-5 w-5 text-primary" />
         <span className="flex-1 font-semibold text-sidebar-foreground truncate">
           {profile.clientName ? `${profile.clientName}'s Portal` : "Portal"}
         </span>
@@ -222,9 +222,7 @@ export function Sidebar() {
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >
-                <item.icon
-                  className={cn("h-4 w-4", item.href === "chats" && "text-primary")}
-                />
+                <item.icon className="h-4 w-4" />
                 {item.label}
               </Link>
             );

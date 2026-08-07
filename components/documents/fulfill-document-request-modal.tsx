@@ -176,12 +176,12 @@ export function FulfillDocumentRequestModal({
             className={cn(
               "flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors cursor-pointer",
               isDragging
-                ? "border-accent bg-accent/10"
-                : "border-border hover:border-accent/50 hover:bg-secondary/30",
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-primary/50 hover:bg-secondary/30",
             )}
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-3">
-              <Upload className="h-6 w-6 text-accent" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3">
+              <Upload className="h-6 w-6 text-primary" />
             </div>
             <p className="text-sm font-medium text-center">
               Drag and drop a file here, or click to browse
@@ -229,7 +229,7 @@ export function FulfillDocumentRequestModal({
             <Button
               onClick={() => mutation.mutate()}
               disabled={!file || mutation.isPending}
-              className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

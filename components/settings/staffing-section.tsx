@@ -86,10 +86,10 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   );
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border text-foreground">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Users className="h-4 w-4 text-accent" />
+          <Users className="h-4 w-4 text-primary" />
           Team Members
         </CardTitle>
 
@@ -105,7 +105,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
           {/* 🔥 cal.com button */}
           <Button
             size="sm"
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => {
               const calLink = new URL(
                 "https://cal.com/kabir-malkani-glnivq/15min",
@@ -138,25 +138,25 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
               key={i}
               type="button"
               onClick={() => setSelectedDeveloper(member)}
-              className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-border bg-secondary/30 p-4 text-left cursor-pointer transition-colors hover:bg-secondary/50"
+              className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-card/75 p-4 text-left cursor-pointer transition-colors hover:bg-card/50"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                   {member.avatar}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p title={member.name} className="text-sm font-medium text-background-foreground truncate max-w-[15ch]">
+                    <p title={member.name} className="text-sm font-medium text-card-foreground truncate max-w-[15ch]">
                       {member.name}
                     </p>
                     <Badge variant="secondary" className={statusColors["active"]}>
                       active
                     </Badge>
                   </div>
-                  <p title={member.email} className="text-xs text-muted-foreground truncate max-w-[20ch]">
+                  <p title={member.email} className="text-xs text-card-foreground/60 truncate max-w-[20ch]">
                     {member.email}
                   </p>
-                  <p className="text-xs text-muted-foreground capitalize">
+                  <p className="text-xs text-card-foreground/60 capitalize">
                     {member.role}
                   </p>
                 </div>
@@ -165,13 +165,13 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
               <div className="flex items-center gap-4 sm:shrink-0">
                 {member.joined && (
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground">Joined</p>
-                    <p className="text-sm text-background-foreground">
+                    <p className="text-xs text-card-foreground/60">Joined</p>
+                    <p className="text-sm text-card-foreground">
                       {new Date(member.joined).toLocaleDateString()}
                     </p>
                   </div>
                 )}
-                <div className="flex items-center gap-1 text-sm text-background-foreground">
+                <div className="flex items-center gap-1 text-sm text-card-foreground">
                   <Clock className="h-3 w-3" />
                   {member.hours}h/week
                 </div>
