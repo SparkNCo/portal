@@ -19,17 +19,17 @@ export function ToolShortcuts() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {tools.map((tool) => (
             <a
               key={tool.name}
               href={tool.href}
-              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-transparent hover:bg-muted/50 transition-colors group"
+              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card/75 p-4 hover:bg-card/50 transition-colors group"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted ring-1 ring-border group-hover:ring-primary/50 transition-all group-hover:scale-105">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted transition-all group-hover:scale-105">
                 <tool.icon className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+              <span className="text-xs font-medium text-card-foreground">
                 {tool.name}
               </span>
             </a>

@@ -71,7 +71,7 @@ export function QuickLinks() {
               <link.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-card-foreground group-hover:text-primary transition-colors">
+              <p className="text-sm font-medium text-card-foreground">
                 {link.title}
               </p>
               <p className="text-xs text-card-foreground truncate">

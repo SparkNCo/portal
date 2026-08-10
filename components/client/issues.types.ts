@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 
+// Low -> High escalates through the orange family (lightest to most
+// intense/red-leaning); Urgent stays destructive red as the tier beyond High.
 export const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
-  High: "bg-warning/20 text-warning border-warning/30",
-  Medium: "bg-blue-500/20 text-blue-600 border-blue-500/30",
-  Low: "bg-muted/50 text-muted-foreground border-muted",
+  High: "bg-chart-1/20 text-chart-1 border-chart-1/30",
+  Medium: "bg-primary/20 text-primary border-primary/30",
+  Low: "bg-chart-5/20 text-chart-5 border-chart-5/30",
 };
 
 export const statusColors = {
