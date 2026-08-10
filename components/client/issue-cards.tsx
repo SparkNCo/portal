@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Gauge, Bug, Lightbulb, type LucideIcon } from "lucide-react";
+import { Pencil, Gauge, Bug, Lightbulb, Mail, type LucideIcon } from "lucide-react";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
@@ -91,9 +91,11 @@ export function IssueCard({
       />
       {hasUpdate && (
         <span
-          className="absolute -top-1.5 -right-1.5 z-10 h-3 w-3 rounded-full bg-orange-500 ring-2 ring-background"
+          className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
           title="Recently updated"
-        />
+        >
+          <Mail className="h-2.5 w-2.5 text-white" />
+        </span>
       )}
       {onEdit && (
         <button
@@ -169,9 +171,11 @@ export function IssueListRow({
       />
       {hasUpdate && (
         <span
-          className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0"
+          className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
           title="Recently updated"
-        />
+        >
+          <Mail className="h-2 w-2 text-white" />
+        </span>
       )}
       <span className="text-xs font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}

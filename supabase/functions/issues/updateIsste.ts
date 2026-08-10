@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
+import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 
@@ -152,13 +152,13 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
 }
 
 export async function handleMarkIssueSeen(req: Request): Promise<Response> {
-  const { issueId } = await req.json();
+  const { issueId, userId } = await req.json();
 
-  if (!issueId) {
-    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  if (!issueId || !userId) {
+    return Response.json({ error: "Missing issueId or userId" }, { status: 400 });
   }
 
-  await markIssueSeen(issueId);
+  await markIssueViewed(issueId, userId);
   return Response.json({ success: true });
 }
 
@@ -194,6 +194,8 @@ export async function handleAddComment(req: Request): Promise<Response> {
   if (!res.ok) {
     return Response.json({ error: "Failed to create decision", details: data }, { status: 500 });
   }
+
+  await markIssueUpdated(issueId, ownerEmail);
 
   return Response.json(data[0] ?? data);
 }
@@ -323,6 +325,8 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   } catch (err) {
     console.error("[handleSetDecision] Linear sync error (non-fatal):", err);
   }
+
+  await markIssueUpdated(row.issue_id, decisionEmail);
 
   return Response.json(row);
 }

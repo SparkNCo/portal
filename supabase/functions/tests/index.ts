@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { markIssueUpdated } from "../utils/issueUpdates.ts";
 
 const supabaseUrl = () => Deno.env.get("PROJECT_URL")!;
 const serviceKey = () => Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -95,6 +96,9 @@ async function handleCreateTest(req: Request): Promise<Response> {
 
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to create test", details: data }, { status: 500 });
+
+  await markIssueUpdated(issue_id, created_by);
+
   return Response.json(data[0] ?? data);
 }
 

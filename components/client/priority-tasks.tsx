@@ -147,7 +147,7 @@ export function PriorityTasks({
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-64 p-4"
+              className="w-64 p-4 bg-background border-border text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
@@ -175,7 +175,7 @@ export function PriorityTasks({
           <div
             ref={scrollRef}
             className={`
-              grid gap-2 grid-flow-row auto-rows-auto
+              grid gap-2 grid-flow-row auto-rows-auto pt-3
               grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
               ${

@@ -8,7 +8,7 @@ import {
   getUserIdByEmail,
   signStorageUrl,
   validateEmbedUrl,
-  validateVideoFile,
+  validateMediaFile,
 } from "./helpers.ts";
 
 const loadDemoVideo = async (demoId: string) => {
@@ -50,7 +50,7 @@ export const updateDemoVideoWithUpload = async (
   email: string,
   file: File,
 ) => {
-  validateVideoFile(file);
+  validateMediaFile(file);
 
   const uploadedBy = await getUserIdByEmail(supabase, email);
   const existing = await loadDemoVideo(demoId);

@@ -11,9 +11,11 @@ import type { CycleSelection } from "./ProjectRow";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LABEL_ICONS } from "@/components/client/issue-cards";
+import { useIssueUpdateBadge } from "@/components/client/use-issue-update-badge";
+import { useUser } from "context/UserContext";
 import type { Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { X, Pencil, Gauge, Search } from "lucide-react";
+import { X, Pencil, Gauge, Search, Mail } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -113,6 +115,8 @@ export function RoadmapTimeline({
   slug = "",
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
+  const { profile } = useUser();
+  const { hasUnseenUpdate } = useIssueUpdateBadge();
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
@@ -504,6 +508,14 @@ export function RoadmapTimeline({
                       onClick={() => setSelectedIssue(toIssue(issue))}
                       aria-label={issue.title ?? "View issue"}
                     />
+                    {hasUnseenUpdate(issue, profile?.email) && (
+                      <span
+                        className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
+                        title="Recently updated"
+                      >
+                        <Mail className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-background opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"

@@ -3,39 +3,64 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase-client";
+import { useUser } from "context/UserContext";
 import type { Issue } from "./issues.types";
 
-// Single per-issue "has unseen update" flag (portal.issue_updates). Not
-// per-user: a developer's edit flips it to unseen for everyone, and the
-// first person to open the issue afterward flips it back to seen — except
-// the person who made the edit, who never sees the badge and never clears
-// it for everyone else by opening the issue.
+// portal.issue_updates holds the latest change per issue (who/when). Each
+// user's own read state lives separately in portal.issue_views (issue_id,
+// user_id, viewed_at), so a badge is "unseen" for a given user when their
+// view row is missing or older than the issue's last update — independent
+// of whether any other member has already opened the issue.
 export function useIssueUpdateBadge() {
-  const { data: rows } = useQuery({
+  const { profile } = useUser();
+
+  const { data: updates } = useQuery({
     queryKey: ["issue-updates"],
     queryFn: async () => {
       const { data, error } = await supabase
         .schema("portal")
         .from("issue_updates")
-        .select("issue_id, seen, updated_by")
-        .eq("seen", false);
+        .select("issue_id, updated_by, updated_at");
       if (error) throw error;
       return data ?? [];
     },
   });
 
+  const { data: views } = useQuery({
+    queryKey: ["issue-views", profile?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .schema("portal")
+        .from("issue_views")
+        .select("issue_id, viewed_at")
+        .eq("user_id", profile!.id);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!profile?.id,
+  });
+
   return useMemo(() => {
-    const unseenByIssueId = new Map(
-      (rows ?? []).map((r) => [r.issue_id, r.updated_by as string | null]),
+    const updateByIssueId = new Map(
+      (updates ?? []).map((r) => [
+        r.issue_id,
+        { updatedBy: r.updated_by as string | null, updatedAt: r.updated_at as string },
+      ]),
     );
+    const viewedAtByIssueId = new Map(
+      (views ?? []).map((r) => [r.issue_id, r.viewed_at as string]),
+    );
+
     function hasUnseenUpdate(issue: Issue, currentUserEmail?: string) {
-      const updatedBy = unseenByIssueId.get(issue.id);
-      return unseenByIssueId.has(issue.id) && updatedBy !== currentUserEmail;
+      const update = updateByIssueId.get(issue.id);
+      if (!update || update.updatedBy === currentUserEmail) return false;
+      const viewedAt = viewedAtByIssueId.get(issue.id);
+      return !viewedAt || viewedAt < update.updatedAt;
     }
     function isOwnUnseenUpdate(issue: Issue, currentUserEmail?: string) {
-      const updatedBy = unseenByIssueId.get(issue.id);
-      return unseenByIssueId.has(issue.id) && updatedBy === currentUserEmail;
+      const update = updateByIssueId.get(issue.id);
+      return !!update && update.updatedBy === currentUserEmail;
     }
     return { hasUnseenUpdate, isOwnUnseenUpdate };
-  }, [rows]);
+  }, [updates, views]);
 }

@@ -1383,20 +1383,30 @@ export function IssueDetailModal({
 
   const queryClient = useQueryClient();
   const { isOwnUnseenUpdate } = useIssueUpdateBadge();
+  const seenMarkedForIssueRef = useRef<string | null>(null);
 
+  // Fires once per issue.id (not on every render): isOwnUnseenUpdate is
+  // intentionally left out of the deps array — it's a fresh function
+  // reference every time portal.issue_views refetches (viewed_at always
+  // changes), and marking seen here itself triggers that refetch, so
+  // depending on it re-fires this effect forever instead of once.
   useEffect(() => {
+    if (!profile?.id || seenMarkedForIssueRef.current === issue.id) return;
     if (isOwnUnseenUpdate(issue, profile?.email)) return;
+
+    seenMarkedForIssueRef.current = issue.id;
 
     fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/seen`, {
       method: "POST",
       headers: API_JSON_HEADERS,
-      body: JSON.stringify({ issueId: issue.id }),
+      body: JSON.stringify({ issueId: issue.id, userId: profile.id }),
     })
       .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
+        queryClient.invalidateQueries({ queryKey: ["issue-views", profile.id] });
       })
       .catch(() => {});
-  }, [issue.id, queryClient, isOwnUnseenUpdate, issue, profile?.email]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue.id, profile?.id]);
 
   const handleClose = useCallback(() => {
     setVisible(false);

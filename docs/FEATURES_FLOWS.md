@@ -263,29 +263,27 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 
 ---
 
-## 7. Demo Tab — Video Walkthroughs
+## 7. Demo Tab — Video & Image Walkthroughs
 
 **Where:** Demo tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DemoTab`). Hidden for Bug issues (see the note in section 6).
 
-A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_id, version)`) — v1, v2, v3, … A version's content is either an **uploaded video file** or an **embed link** (e.g. Loom), tracked via `source_type: "upload" | "embed"`. Every version also has its own **feedback thread** (`portal.demo_video_comments`) that customers, stakeholders, and developers/admins all read and post to.
+A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_id, version)`) — v1, v2, v3, … A version's content is either an **uploaded media file** (video or image) or an **embed link** (e.g. Loom), tracked via `source_type: "upload" | "embed"`. Uploaded images vs. videos aren't a separate DB field — the preview picks `<img>` vs `<video>` client-side by checking `file_name`'s extension (`isImageFile`). Every version also has its own **feedback thread** (`portal.demo_video_comments`) that customers, stakeholders, and developers/admins all read and post to.
 
 ### 7a. Adding a brand-new version
 
-Two independent entry points, both create version **N+1** (`getNextVersion` = current max + 1 for that issue):
+**"Create Version"** reveals two entry points, both create version **N+1** (`getNextVersion` = current max + 1 for that issue):
 
-- **"Upload demo" / "Upload new version"** — opens a file picker (`accept="video/*"`), then `POST /demo-videos` as `multipart/form-data` with `file`, `issue_id`, `email`. Backend validates the file (whitelisted video MIME types, non-empty, ≤500 MB — `validateVideoFile`), stores it at `{issueId}/v{n}/{uuid}{ext}` in the private `demo-videos` Storage bucket, and inserts the row.
-- **"Add embed link"** — reveals a URL input; submitting calls `POST /demo-videos` as JSON with `issue_id`, `email`, `embed_url`. Backend validates the URL is `https` and stores it directly (no file involved).
+- **"Upload Media"** — opens a file picker (`accept="video/*,image/*"`), then `POST /demo-videos` as `multipart/form-data` with `file`, `issue_id`, `email`. Backend validates the file (whitelisted video/image MIME types, non-empty, ≤500 MB — `validateMediaFile`), stores it at `{issueId}/v{n}/{uuid}{ext}` in the private `demo-videos` Storage bucket, and inserts the row.
+- **"Add Link"** — reveals a URL input; submitting calls `POST /demo-videos` as JSON with `issue_id`, `email`, `embed_url`. Backend validates the URL is `https` and stores it directly (no file involved).
 
 Either call fails cleanly with "Someone else just added a new version — please try again" if two uploads race for the same version number (`UNIQUE(issue_id, version)` catches the collision, `code 23505`).
 
 ### 7b. Replacing the currently-selected version's content
 
-Distinct from 7a — this keeps the **same version number**, it just swaps what that version points to. Both actions target `currentDemo` (whichever version is selected in the dropdown):
+**"Update Version"** — only shown once a version exists — reveals the same two entry points, but they keep the **same version number**, just swapping what that version points to. Both target `currentDemo` (whichever version is selected in the dropdown):
 
-- **"Replace v{n} with file"** — `PUT /demo-videos` (`multipart/form-data`) with `demo_id`, `email`, `file`. Uploads the new file to a fresh storage path first, updates the row, then deletes the old storage object (only if the version being replaced was itself an upload).
-- **"Replace v{n} with link"** — `PUT /demo-videos` (JSON) with `demo_id`, `email`, `embed_url`. Updates the row to `source_type: "embed"` and clears `file_name`/`storage_path`; if the version being replaced was an upload, the old storage object is deleted afterward.
-
-Both are only available once a version exists — there's no "replace" affordance before the first version is created.
+- **"Upload Media"** — `PUT /demo-videos` (`multipart/form-data`) with `demo_id`, `email`, `file`. Uploads the new file to a fresh storage path first, updates the row, then deletes the old storage object (only if the version being replaced was itself an upload).
+- **"Add Link"** — `PUT /demo-videos` (JSON) with `demo_id`, `email`, `embed_url`. Updates the row to `source_type: "embed"` and clears `file_name`/`storage_path`; if the version being replaced was an upload, the old storage object is deleted afterward.
 
 ### 7c. Playback & embeds
 

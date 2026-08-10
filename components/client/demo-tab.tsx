@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Upload, Video, Link as LinkIcon, Send } from "lucide-react";
+import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,12 @@ type DemoComment = {
   author?: DemoUser | null;
 };
 
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
+
+function isImageFile(fileName?: string | null) {
+  return !!fileName && IMAGE_EXTENSIONS.test(fileName);
+}
+
 function getEmbedIframeSrc(embedUrl: string, provider?: string | null) {
   if (provider === "loom") {
     const match = embedUrl.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
@@ -70,6 +76,8 @@ export function DemoTab({ issue }: { issue: Issue }) {
   const replaceFileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [showAddEmbedForm, setShowAddEmbedForm] = useState(false);
   const [addEmbedUrl, setAddEmbedUrl] = useState("");
   const [showReplaceEmbedForm, setShowReplaceEmbedForm] = useState(false);
@@ -155,6 +163,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
+      setCreateOpen(false);
       toast.success(`Demo uploaded (v${demo.version})`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -194,6 +203,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
       setSelectedVersion(demo.version);
       setShowAddEmbedForm(false);
       setAddEmbedUrl("");
+      setCreateOpen(false);
       toast.success(`Demo added (v${demo.version})`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -232,6 +242,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
+      setUpdateOpen(false);
       toast.success(`Version v${demo.version} updated`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -274,6 +285,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
       setSelectedVersion(demo.version);
       setShowReplaceEmbedForm(false);
       setReplaceEmbedUrl("");
+      setUpdateOpen(false);
       toast.success(`Version v${demo.version} updated`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -317,13 +329,16 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const isSupportedMediaFile = (file: File) =>
+    file.type.startsWith("video/") || file.type.startsWith("image/");
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    if (!file.type.startsWith("video/")) {
-      toast.error("Please select a video file");
+    if (!isSupportedMediaFile(file)) {
+      toast.error("Please select a video or image file");
       return;
     }
 
@@ -335,8 +350,8 @@ export function DemoTab({ issue }: { issue: Issue }) {
     e.target.value = "";
     if (!file) return;
 
-    if (!file.type.startsWith("video/")) {
-      toast.error("Please select a video file");
+    if (!isSupportedMediaFile(file)) {
+      toast.error("Please select a video or image file");
       return;
     }
 
@@ -357,11 +372,11 @@ export function DemoTab({ issue }: { issue: Issue }) {
       <div className="space-y-1">
         <h3 className="text-sm font-semibold">Demo</h3>
         <p className="text-xs text-muted-foreground">
-          Upload or embed demo videos for this issue and gather feedback
+          Upload or embed demo videos and images for this issue and gather feedback
         </p>
       </div>
 
-      {/* Add a new version */}
+      {/* Add or update a version */}
       <div className="flex flex-wrap items-end gap-3">
         {hasDemos && (
           <div className="flex flex-col gap-1">
@@ -391,70 +406,105 @@ export function DemoTab({ issue }: { issue: Issue }) {
           size="sm"
           variant="outline"
           className="gap-1.5"
-          disabled={uploadMutation.isPending}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            setCreateOpen((v) => !v);
+            setUpdateOpen(false);
+            setShowReplaceEmbedForm(false);
+          }}
         >
-          {uploadMutation.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Upload className="h-3.5 w-3.5" />
-          )}
-          {hasDemos ? "Upload new version" : "Upload demo"}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => setShowAddEmbedForm((v) => !v)}
-        >
-          <LinkIcon className="h-3.5 w-3.5" />
-          Add embed link
+          <Plus className="h-3.5 w-3.5" />
+          Create Version
         </Button>
 
         {currentDemo && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1.5"
-              disabled={replaceWithFileMutation.isPending}
-              onClick={() => replaceFileInputRef.current?.click()}
-            >
-              {replaceWithFileMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Upload className="h-3.5 w-3.5" />
-              )}
-              Replace v{currentDemo.version} with file
-            </Button>
-            <input
-              ref={replaceFileInputRef}
-              type="file"
-              accept="video/*"
-              className="hidden"
-              onChange={handleReplaceFileSelect}
-            />
-
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1.5"
-              onClick={() => setShowReplaceEmbedForm((v) => !v)}
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              Replace v{currentDemo.version} with link
-            </Button>
-          </>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => {
+              setUpdateOpen((v) => !v);
+              setCreateOpen(false);
+              setShowAddEmbedForm(false);
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Update Version
+          </Button>
         )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*,image/*"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        <input
+          ref={replaceFileInputRef}
+          type="file"
+          accept="video/*,image/*"
+          className="hidden"
+          onChange={handleReplaceFileSelect}
+        />
       </div>
+
+      {/* Create Version: choose Add Link or Upload Media */}
+      {createOpen && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => setShowAddEmbedForm((v) => !v)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            disabled={uploadMutation.isPending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploadMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
+            Upload Media
+          </Button>
+        </div>
+      )}
+
+      {/* Update Version: choose Add Link or Upload Media */}
+      {updateOpen && currentDemo && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => setShowReplaceEmbedForm((v) => !v)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            disabled={replaceWithFileMutation.isPending}
+            onClick={() => replaceFileInputRef.current?.click()}
+          >
+            {replaceWithFileMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
+            Upload Media
+          </Button>
+        </div>
+      )}
 
       {/* Add embed link form (new version) */}
       {showAddEmbedForm && (
@@ -573,26 +623,38 @@ export function DemoTab({ issue }: { issue: Issue }) {
               No demo uploaded yet
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Upload a video or paste an embed link to create the first demo
-              version.
+              Upload a video/image or paste an embed link to create the first
+              demo version.
             </p>
           </div>
         )}
 
-        {currentDemo && currentDemo.source_type === "upload" && (
-          <div className="flex flex-col">
-            <video
-              key={currentDemo.id}
-              className="w-full max-h-[560px] bg-black"
-              controls
-              preload="metadata"
-              src={currentDemo.file_url ?? undefined}
-            >
-              Your browser does not support video playback.
-            </video>
-            <DemoMeta demo={currentDemo} latestVersion={latestVersion} />
-          </div>
-        )}
+        {currentDemo &&
+          currentDemo.source_type === "upload" &&
+          (isImageFile(currentDemo.file_name) ? (
+            <div className="flex flex-col">
+              <img
+                key={currentDemo.id}
+                className="w-full max-h-[560px] bg-black object-contain"
+                src={currentDemo.file_url ?? undefined}
+                alt={currentDemo.file_name ?? `Demo v${currentDemo.version}`}
+              />
+              <DemoMeta demo={currentDemo} latestVersion={latestVersion} />
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <video
+                key={currentDemo.id}
+                className="w-full max-h-[560px] bg-black"
+                controls
+                preload="metadata"
+                src={currentDemo.file_url ?? undefined}
+              >
+                Your browser does not support video playback.
+              </video>
+              <DemoMeta demo={currentDemo} latestVersion={latestVersion} />
+            </div>
+          ))}
 
         {currentDemo && currentDemo.source_type === "embed" && (
           <div className="flex flex-col">

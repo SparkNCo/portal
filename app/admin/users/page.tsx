@@ -493,6 +493,7 @@ export default function AdminUsersPage() {
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <DropdownMenuItem
+                                      className="hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,
@@ -503,6 +504,7 @@ export default function AdminUsersPage() {
                                       Resend invite
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
+                                      className="hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,

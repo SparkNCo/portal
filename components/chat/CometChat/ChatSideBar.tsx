@@ -159,7 +159,7 @@ export default function ChatSideBar({
     <div className="w-full h-full border-r flex flex-col bg-background">
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-accent" />
+          <MessageSquare className="w-4 h-4 text-primary" />
           <span className="font-semibold text-sm">Chats</span>
         </div>
         {isCustomer && (
