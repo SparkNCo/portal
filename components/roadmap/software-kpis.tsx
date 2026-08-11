@@ -398,7 +398,13 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   });
 
   const latest = data?.[0];
-  const canEditManualMetrics = profile?.role === "admin" || profile?.role === "developer";
+  const isAdmin = profile?.role === "admin";
+  const canEditManualMetrics = isAdmin || profile?.role === "developer";
+  // Manual metrics start out unset (N/A) until someone fills them in — only
+  // admins need to see that empty placeholder as a reminder to set it.
+  // Everyone else just sees the tile once it actually has a value.
+  const showCodeCoverage = isAdmin || latest?.code_coverage_details?.value != null;
+  const showSonarQualityGate = isAdmin || latest?.sonar_quality_gate_details?.value != null;
   const handleManualMetricSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["dora-metrics", linearName] });
   };
@@ -487,18 +493,22 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                 </div>
               );
             })}
-            <CodeCoverageCard
-              linearSlug={latest.linear_slug}
-              detail={latest.code_coverage_details}
-              canEdit={canEditManualMetrics}
-              onSaved={handleManualMetricSaved}
-            />
-            <SonarQualityGateCard
-              linearSlug={latest.linear_slug}
-              detail={latest.sonar_quality_gate_details}
-              canEdit={canEditManualMetrics}
-              onSaved={handleManualMetricSaved}
-            />
+            {showCodeCoverage && (
+              <CodeCoverageCard
+                linearSlug={latest.linear_slug}
+                detail={latest.code_coverage_details}
+                canEdit={canEditManualMetrics}
+                onSaved={handleManualMetricSaved}
+              />
+            )}
+            {showSonarQualityGate && (
+              <SonarQualityGateCard
+                linearSlug={latest.linear_slug}
+                detail={latest.sonar_quality_gate_details}
+                canEdit={canEditManualMetrics}
+                onSaved={handleManualMetricSaved}
+              />
+            )}
           </div>
         )}
       </CardContent>

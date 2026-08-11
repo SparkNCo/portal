@@ -408,7 +408,7 @@ export default function AdminUsersPage() {
                             key={u.id}
                             className="rounded-lg border border-border bg-card/75 hover:bg-card/50 text-card-foreground transition-colors group"
                           >
-                            <div className="flex items-center justify-between rounded-lg p-3">
+                            <div className="flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                                   {getInitials(u.email)}
@@ -423,28 +423,28 @@ export default function AdminUsersPage() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1">
-                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1">
+                              <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1 flex-wrap">
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingProfileUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
-                                      View Profile
+                                      <span className="hidden sm:inline">View Profile</span>
                                     </Button>
                                   )}
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setEditingProfileUser(u)}
                                     >
                                       <Pencil className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
-                                      Edit Profile
+                                      <span className="hidden sm:inline">Edit Profile</span>
                                     </Button>
                                   )}
                                   {(u.role === "developer" ||
@@ -452,14 +452,14 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => {
                                         setAssigningUserId(u.id);
                                         setAssigningUserRole(u.role);
                                       }}
                                     >
                                       <UserCheck className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
-                                      Assign
+                                      <span className="hidden sm:inline">Assign</span>
                                     </Button>
                                   )}
                                 </div>

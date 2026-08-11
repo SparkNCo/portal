@@ -4,7 +4,7 @@ import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
 
 export const inputClass =
-  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
+  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-secondary-foreground text-sm";
 
 export function ModalShell({
   title,

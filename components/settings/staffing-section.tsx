@@ -16,7 +16,7 @@ import { AddDeveloperModal } from "./add-developer-modal";
 import { EditInternalDeveloperModal } from "./edit-internal-developer-modal";
 
 const statusColors = {
-  active: "border-success/30 bg-success/10 text-success",
+  active: "border-transparent bg-muted text-primary",
   pending: "bg-warning/20 text-warning",
   inactive: "bg-muted text-muted-foreground",
 };

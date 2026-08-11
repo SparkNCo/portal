@@ -111,20 +111,20 @@ export function DocumentRow({
         return (
           <div
             key={doc.id}
-            className="flex items-center justify-between rounded-lg border border-transparent bg-background hover:bg-muted transition-colors group"
+            className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between rounded-lg border border-transparent bg-background hover:bg-muted transition-colors group"
           >
             {/* Left */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <FormatIcon className="h-5 w-5 text-primary" />
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                   {doc.name}
                 </p>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                   <Badge
                     variant="secondary"
                     className={
@@ -142,8 +142,9 @@ export function DocumentRow({
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions — always visible on touch screens (no hover state to
+                reveal them); hover-revealed only at sm: and up. */}
+            <div className="flex items-center gap-1 self-end sm:self-auto opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
               {/* Category settings */}
 
               {["write", "owner"].includes(doc.permission) && (

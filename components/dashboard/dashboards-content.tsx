@@ -50,7 +50,7 @@ function CustomerCard({
 
   return (
     <Link href={href}>
-      <Card className="bg-card/75 hover:bg-card/50 border-border transition-colors">
+      <Card className="bg-card/75 hover:bg-card/50 border-border transition-all duration-150 hover:shadow-md hover:-translate-y-0.5">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
           <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
             <User className="h-4 w-4 text-primary" />

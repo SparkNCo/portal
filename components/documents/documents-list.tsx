@@ -152,13 +152,13 @@ export function DocumentsList({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-48 bg-muted border-0 pl-9 text-sm text-foreground placeholder:text-muted-foreground"
+                className="w-full sm:w-48 bg-muted border-0 pl-9 text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex gap-1 mt-4">
+        <div className="flex flex-wrap gap-1 mt-4">
           {categories.map((category) => (
             <Button
               key={category}
@@ -202,20 +202,20 @@ export function DocumentsList({
             <div key={slug} data-testid={`document-folder-${slug}`} className="mb-4">
               <button
                 onClick={() => toggleGroup(slug)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-background hover:bg-muted transition-colors mb-2 group"
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-background hover:bg-muted transition-colors mb-2 group"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-sm font-medium text-foreground capitalize">
+                  <span className="text-sm font-medium text-foreground capitalize truncate">
                     {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
                   </span>
-                  <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5">
+                  <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5 shrink-0">
                     {docs.length} {docs.length === 1 ? "file" : "files"}
                   </span>
                 </div>
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                    "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
                     isCollapsed && "-rotate-90",
                   )}
                 />

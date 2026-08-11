@@ -1454,7 +1454,7 @@ export function IssueDetailModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-all duration-200 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
         visible
           ? "bg-black/60 backdrop-blur-sm"
           : "bg-transparent backdrop-blur-none"
@@ -1467,7 +1467,7 @@ export function IssueDetailModal({
         aria-label="Close modal"
       />
       <div
-        className={`relative z-10 bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:mx-6 flex flex-col max-h-[90vh] transition-all duration-200 ${
+        className={`relative z-10 bg-background border border-border rounded-2xl shadow-2xl w-[95vw] sm:w-full mx-auto sm:mx-6 flex flex-col max-h-[90vh] transition-all duration-200 ${
           isExpanded
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
             : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]"
@@ -1535,21 +1535,20 @@ export function IssueDetailModal({
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex border-b border-border px-5 flex-shrink-0">
+        {/* Tab bar — wraps to a second row on narrow screens instead of
+            overflowing/scrolling horizontally. */}
+        <div className="flex flex-wrap gap-x-5 gap-y-0.5 border-b border-border px-5 flex-shrink-0">
           <TabButton
             label="Description"
             tab="description"
             activeTab={activeTab}
             onClick={() => setActiveTab("description")}
-            className="mr-5"
           />
           <TabButton
             label="Chat"
             tab="chat"
             activeTab={activeTab}
             onClick={() => setActiveTab("chat")}
-            className="mr-5"
           />
           <TabButton
             label="Tests"
@@ -1557,7 +1556,6 @@ export function IssueDetailModal({
             activeTab={activeTab}
             onClick={() => setActiveTab("tests")}
             badge={tests.length}
-            className="mr-5"
           />
           <TabButton
             label="Decisions"
@@ -1565,7 +1563,6 @@ export function IssueDetailModal({
             activeTab={activeTab}
             onClick={() => setActiveTab("decisions")}
             badge={decisions.length}
-            className="mr-5"
           />
           {!isBugIssue && (
             <TabButton
@@ -1573,7 +1570,6 @@ export function IssueDetailModal({
               tab="design"
               activeTab={activeTab}
               onClick={() => setActiveTab("design")}
-              className="mr-5"
             />
           )}
           {!isBugIssue && (
