@@ -363,15 +363,15 @@ export function RoadmapTimeline({
                     In progress
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(210,70%,55%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(180,60%,50%)]/50" />
                     Next
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(180,60%,50%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(210,70%,55%)]/50" />
                     Planned
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(265,60%,65%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(43,74%,66%)]/50" />
                     Unstarted
                   </span>
                   <span className="flex items-center gap-1.5">

@@ -473,7 +473,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-8 group/icon hover:bg-background hover:text-primary focus-visible:ring-0 focus-visible:ring-offset-0"
                                       title="Resend account email"
                                       aria-label="Resend account email"
                                       disabled={
@@ -493,7 +493,7 @@ export default function AdminUsersPage() {
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <DropdownMenuItem
-                                      className="hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
+                                      className="focus:text-primary"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,
@@ -504,7 +504,7 @@ export default function AdminUsersPage() {
                                       Resend invite
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      className="hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
+                                      className="focus:text-primary"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,

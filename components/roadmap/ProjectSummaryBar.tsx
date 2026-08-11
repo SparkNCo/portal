@@ -24,8 +24,8 @@ function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; proje
 // into the same default color since only completion% + due date were
 // checked. Each status now gets its own color, reusing the same hues as
 // the "Issues by Status" chart (CHART_STATUS_COLORS in issues.types.ts) so
-// the same concept reads as the same color across both views: next ~ QA's
-// blue, planned ~ UAT's teal, unstarted ~ Development's purple — kept as
+// the same concept reads as the same color across both views: next ~ UAT's
+// teal, planned ~ QA's blue, unstarted ~ Planning's yellow — kept as
 // real colors rather than a neutral gray, so every status stays readable at
 // a glance on the timeline. overdue moved off warning (too close to
 // in-progress's orange) onto destructive, matching how Canceled/Blocked
@@ -34,9 +34,9 @@ const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
   completed: "bg-success",
   "in-progress": "bg-primary/50",
   overdue: "bg-destructive/50",
-  next: "bg-[hsl(210,70%,55%)]/50",
-  planned: "bg-[hsl(180,60%,50%)]/50",
-  unstarted: "bg-[hsl(265,60%,65%)]/50",
+  next: "bg-[hsl(180,60%,50%)]/50",
+  planned: "bg-[hsl(210,70%,55%)]/50",
+  unstarted: "bg-[hsl(43,74%,66%)]/50",
 };
 
 function getMilestoneBarColor(m: Milestone): string {
