@@ -97,7 +97,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
           <Bot className="w-4 h-4 text-accent" />
         </div>
         <div>
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="smalltext font-semibold">{title}</div>
           <div className="text-xs text-muted-foreground">AI Agent</div>
         </div>
       </div>
@@ -151,10 +151,10 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <div className="flex items-center gap-2 bg-card/75 border rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-secondary border rounded-xl px-3 py-2">
           <input
             aria-label="Message the AI"
-            className="flex-1 bg-transparent text-sm text-card-foreground outline-none placeholder:text-card-foreground/40"
+            className="flex-1 bg-transparent smalltext text-secondary-foreground outline-none placeholder:text-secondary-foreground/40"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Message the AI..."

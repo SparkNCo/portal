@@ -31,12 +31,12 @@ export function MessageBubble({
       )}
       <div className={`flex flex-col ${compact ? "max-w-[70%]" : "max-w-[65%]"} ${isMe ? "items-end" : "items-start"}`}>
         {!isMe && (
-          <span className={`${compact ? "text-[10px] mb-0.5" : "text-xs mb-1"} text-muted-foreground px-1`}>
+          <span className={`${compact ? "text-[10px] mb-0.5" : "text-sm mb-1"} text-muted-foreground px-1`}>
             {senderName}
           </span>
         )}
         <div
-          className={`${compact ? "px-2.5 py-1.5 rounded-xl text-xs" : "px-3 py-2 rounded-2xl text-sm"} leading-relaxed ${
+          className={`${compact ? "px-2.5 py-1.5 rounded-xl text-xs" : "px-3 py-2 rounded-2xl smalltext"} ${
             isMe
               ? "bg-primary text-primary-foreground rounded-tr-sm"
               : "bg-secondary text-secondary-foreground rounded-tl-sm"
@@ -45,7 +45,7 @@ export function MessageBubble({
           {text}
         </div>
         {!!sentAt && (
-          <span className={`${compact ? "text-[9px] mt-0.5" : "text-[10px] mt-1"} text-muted-foreground px-1`}>
+          <span className={`${compact ? "text-[9px] mt-0.5" : "text-sm mt-1"} text-muted-foreground px-1`}>
             {formatMessageTime(sentAt)}
           </span>
         )}

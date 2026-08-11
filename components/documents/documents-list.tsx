@@ -139,7 +139,7 @@ export function DocumentsList({
     <Card className="bg-background border-border text-foreground">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CardTitle className="body font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
             Project Documents
           </CardTitle>
@@ -152,7 +152,7 @@ export function DocumentsList({
                 placeholder="Search documents..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full sm:w-48 bg-muted border-0 pl-9 text-sm text-foreground placeholder:text-muted-foreground"
+                className="w-full sm:w-48 bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -167,7 +167,7 @@ export function DocumentsList({
               onClick={() => setActiveCategory(category)}
               data-testid={`category-tab-${category.toLowerCase()}`}
               className={cn(
-                "text-sm",
+                "smalltext",
                 activeCategory === category
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground",
@@ -181,17 +181,17 @@ export function DocumentsList({
 
       <CardContent>
         {isLoading && (
-          <p className="text-sm text-muted-foreground">Loading documents…</p>
+          <p className="smalltext text-muted-foreground">Loading documents…</p>
         )}
 
         {isError && (
-          <p className="text-sm text-destructive">Failed to load documents</p>
+          <p className="smalltext text-destructive">Failed to load documents</p>
         )}
 
         {!isLoading && filteredDocs.length === 0 && (
           <div className="text-center py-8">
             <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No documents found</p>
+            <p className="smalltext text-muted-foreground">No documents found</p>
           </div>
         )}
 
@@ -206,10 +206,10 @@ export function DocumentsList({
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-sm font-medium text-foreground capitalize truncate">
+                  <span className="body font-medium text-foreground capitalize truncate">
                     {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
                   </span>
-                  <span className="text-xs text-muted-foreground bg-background/60 rounded-full px-2 py-0.5 shrink-0">
+                  <span className="smalltext text-muted-foreground bg-background/60 rounded-full px-2 py-0.5 shrink-0">
                     {docs.length} {docs.length === 1 ? "file" : "files"}
                   </span>
                 </div>

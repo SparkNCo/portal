@@ -8,7 +8,7 @@ function EstimateBadge({ estimate }: { readonly estimate: number }) {
   return (
     <Badge
       variant="outline"
-      className="gap-1 border-chart-1/30 bg-chart-1/10 text-chart-1"
+      className="gap-1 smalltext border-chart-1/30 bg-chart-1/10 text-chart-1"
     >
       <Gauge className="h-3 w-3" />
       {estimate}
@@ -49,7 +49,7 @@ export function LabelPill({
 
   if (knownClass) {
     return (
-      <Badge variant="secondary" className={`border-transparent ${knownClass}`}>
+      <Badge variant="secondary" className={`smalltext border-transparent ${knownClass}`}>
         {label.name}
       </Badge>
     );
@@ -58,7 +58,7 @@ export function LabelPill({
   return (
     <Badge
       variant="secondary"
-      className="border-transparent text-white"
+      className="smalltext border-transparent text-white"
       style={{ backgroundColor: "#8D1111" }}
     >
       {label.name}
@@ -118,25 +118,25 @@ export function IssueCard({
               aria-label={typeLabel!.name}
             />
           )}
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="smalltext font-mono text-muted-foreground">
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
           <Badge
             variant="outline"
-            className={priorityColors[issue.priorityLabel]}
+            className={`smalltext ${priorityColors[issue.priorityLabel]}`}
           >
             {issue.priorityLabel}
           </Badge>
         </div>
-        <p className="text-sm font-medium text-foreground mb-3 line-clamp-2">
+        <p className="smalltext font-medium text-foreground mb-3 line-clamp-2">
           {issue.title}
         </p>
         <div className="flex items-center gap-1 flex-wrap">
           <Badge
             variant="secondary"
-            className={
+            className={`smalltext ${
               statusColors[issue?.state?.name as keyof typeof statusColors]
-            }
+            }`}
           >
             {issue?.state?.name}
           </Badge>
@@ -177,26 +177,26 @@ export function IssueListRow({
           <Mail className="h-2 w-2 text-white" />
         </span>
       )}
-      <span className="text-xs font-mono text-muted-foreground w-14 flex-shrink-0">
+      <span className="smalltext font-mono text-muted-foreground w-14 flex-shrink-0">
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
       <Badge
         variant="outline"
-        className={`text-xs flex-shrink-0 ${priorityColors[issue.priorityLabel]}`}
+        className={`smalltext flex-shrink-0 ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
       {issue.estimate != null && (
         <Badge
           variant="outline"
-          className="gap-1 text-xs flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
+          className="gap-1 smalltext flex-shrink-0 border-chart-1/30 bg-chart-1/10 text-chart-1"
         >
           <Gauge className="h-3 w-3" />
           {issue.estimate}
         </Badge>
       )}
       <p
-        className={`text-xs font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : "text-foreground"}`}
+        className={`smalltext font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : "text-foreground"}`}
       >
         {issue.title}
       </p>

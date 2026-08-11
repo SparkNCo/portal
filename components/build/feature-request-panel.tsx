@@ -135,7 +135,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   return (
     <Card className="bg-background text-foreground">
       <CardHeader>
-        <CardTitle level={2} className="flex items-center gap-2">
+        <CardTitle level={2} className="body font-semibold flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-primary" />
           Request a Feature
         </CardTitle>
@@ -228,7 +228,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="smalltext truncate">{file.name}</p>
                       </div>
                       <Button
                         variant="ghost"

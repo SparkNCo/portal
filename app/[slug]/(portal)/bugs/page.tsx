@@ -129,7 +129,7 @@ export default function BugsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Bugs" subtitle="Issues discovered in production" />
+      <Header title="Bugs" subtitle="Issues discovered in production" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         <BugReportPanel slug={slug} />
@@ -137,7 +137,7 @@ export default function BugsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSelectedProject(null)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
               selectedProject === null
                 ? "bg-primary text-primary-foreground border-primary/40"
                 : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -149,7 +149,7 @@ export default function BugsPage() {
             <button
               key={p.id}
               onClick={() => setSelectedProject(p.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
                 selectedProject === p.id
                   ? "bg-primary text-primary-foreground border-primary/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"

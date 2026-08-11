@@ -126,14 +126,14 @@ function BillingModeToggle({
     <Card className="bg-transparent text-foreground">
       <CardContent className="bg-background flex flex-col gap-3 pt-4">
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-foreground">Invoicing</p>
-          <p className="text-xs text-foreground/70">
+          <p className="smalltext text-foreground">Invoicing</p>
+          <p className="smalltext text-foreground/70">
             Automatic charges this client through Stripe. Manual hides the
             Stripe billing dashboard — invoice this client outside the portal.
           </p>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-foreground">
+          <p className="smalltext text-foreground">
             Current mode:{" "}
             <span className="font-medium text-primary capitalize">
               {billingMode}
@@ -143,12 +143,12 @@ function BillingModeToggle({
             size="sm"
             disabled={mutation.isPending}
             onClick={() => mutation.mutate(nextMode)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
           >
             {mutation.isPending ? "Saving..." : `Change mode to ${nextModeLabel}`}
           </Button>
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="smalltext text-destructive">{error}</p>}
       </CardContent>
     </Card>
   );
@@ -213,7 +213,7 @@ function NumberStepper({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full min-w-0 bg-transparent pl-2 text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="w-full min-w-0 bg-transparent pl-2 smalltext focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <div className="flex flex-col border-l border-input">
         <button
@@ -335,7 +335,7 @@ function InvoiceSettingsPanel({
     return (
       <Card className="bg-transparent text-foreground">
         <CardContent className="bg-background flex flex-col gap-3 pt-4">
-          <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
+          <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
           <div className="flex flex-wrap items-center gap-2">
             <NumberStepper
               autoFocus
@@ -347,12 +347,12 @@ function InvoiceSettingsPanel({
               placeholder="0.00"
               className="w-28"
               leadingSlot={
-                <span className="flex items-center pl-2 text-sm text-foreground/70">
+                <span className="flex items-center pl-2 smalltext text-foreground/70">
                   $
                 </span>
               }
             />
-            <span className="text-sm text-foreground/70">every</span>
+            <span className="smalltext text-foreground/70">every</span>
             <NumberStepper
               min={1}
               step={1}
@@ -365,12 +365,12 @@ function InvoiceSettingsPanel({
               value={interval}
               onValueChange={(v) => setInterval(v as "day" | "week" | "month" | "year")}
             >
-              <SelectTrigger className="h-9 w-28">
+              <SelectTrigger className="h-9 w-28 smalltext">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {INTERVAL_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
+                  <SelectItem key={opt.value} value={opt.value} className="smalltext">
                     {opt.label}
                   </SelectItem>
                 ))}
@@ -382,7 +382,7 @@ function InvoiceSettingsPanel({
               size="sm"
               disabled={mutation.isPending || !amount.trim()}
               onClick={() => mutation.mutate()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
             >
               {mutation.isPending ? "Saving..." : "Save"}
             </Button>
@@ -391,11 +391,12 @@ function InvoiceSettingsPanel({
               variant="outline"
               onClick={cancelEditing}
               disabled={mutation.isPending}
+              className="smalltext"
             >
               Cancel
             </Button>
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="smalltext text-destructive">{error}</p>}
         </CardContent>
       </Card>
     );
@@ -406,16 +407,16 @@ function InvoiceSettingsPanel({
       <CardContent className="bg-background flex flex-col gap-2 pt-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-foreground">Invoice amount &amp; frequency</p>
-            <p className="text-xs text-foreground/70">
+            <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
+            <p className="smalltext text-foreground/70">
               {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={startEditing}>
+          <Button size="sm" variant="outline" onClick={startEditing} className="smalltext">
             Edit
           </Button>
         </div>
-        {notice && <p className="text-xs text-amber-500">{notice}</p>}
+        {notice && <p className="smalltext text-amber-500">{notice}</p>}
       </CardContent>
     </Card>
   );
@@ -485,21 +486,21 @@ function StripeIdPanel({
     return (
       <Card className="bg-transparent text-foreground">
         <CardContent className="bg-background flex flex-col gap-3 pt-4">
-          <p className="text-sm text-foreground">Stripe Customer ID</p>
+          <p className="smalltext text-foreground">Stripe Customer ID</p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="cus_..."
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 flex-1 rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <div className="flex gap-2">
               <Button
                 size="sm"
                 disabled={mutation.isPending || !value.trim()}
                 onClick={() => mutation.mutate(value)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
               >
                 {mutation.isPending ? "Saving..." : "Save"}
               </Button>
@@ -508,12 +509,13 @@ function StripeIdPanel({
                 variant="outline"
                 onClick={cancelEditing}
                 disabled={mutation.isPending}
+                className="smalltext"
               >
                 Cancel
               </Button>
             </div>
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="smalltext text-destructive">{error}</p>}
         </CardContent>
       </Card>
     );
@@ -528,10 +530,10 @@ function StripeIdPanel({
               <CreditCard className="h-6 w-6 text-foreground" />
             </div>
             <div>
-              <p className="text-base font-medium text-foreground">
+              <p className="smalltext font-medium text-foreground">
                 No Stripe Customer ID on file
               </p>
-              <p className="text-sm text-foreground/70">
+              <p className="smalltext text-foreground/70">
                 {isAdmin
                   ? "Add one below to enable billing for this account."
                   : "Contact your administrator to set up billing information."}
@@ -541,7 +543,7 @@ function StripeIdPanel({
           {isAdmin && (
             <Button
               size="sm"
-              className="self-start bg-primary text-primary-foreground hover:bg-primary/90 sm:self-auto"
+              className="self-start bg-primary text-primary-foreground hover:bg-primary/90 sm:self-auto smalltext"
               onClick={startEditing}
             >
               Add Stripe ID
@@ -555,7 +557,7 @@ function StripeIdPanel({
   if (!isAdmin) return null;
 
   return (
-    <Button size="sm" variant="outline" onClick={startEditing}>
+    <Button size="sm" variant="outline" onClick={startEditing} className="smalltext">
       Edit Stripe Customer ID (only admins)
     </Button>
   );
@@ -643,7 +645,7 @@ export function BillingSection({
               <p className="text-base font-medium text-foreground">
                 This client is invoiced manually
               </p>
-              <p className="text-sm text-foreground/70">
+              <p className="smalltext text-foreground/70">
                 Billing details, invoices, and payment methods are handled
                 outside the portal.
               </p>

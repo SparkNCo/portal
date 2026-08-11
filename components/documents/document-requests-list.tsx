@@ -50,44 +50,44 @@ function RequestDetailModal({
         <div className="space-y-3 pt-2">
           <Badge
             variant="outline"
-            className={
+            className={`smalltext ${
               request.status === "done"
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-warning/30 bg-warning/10 text-warning"
-            }
+            }`}
           >
             {request.status === "done" ? "Done" : "Pending"}
           </Badge>
 
           {request.project_name && (
-            <p className="text-sm font-medium text-foreground">
+            <p className="smalltext font-medium text-foreground">
               {request.project_name}
             </p>
           )}
 
           {relatedRequest && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="smalltext text-muted-foreground">
               Related to: <span className="text-foreground">{relatedRequest.title}</span>
             </p>
           )}
 
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+            <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-1">
               Details
             </p>
-            <p className="text-sm text-foreground whitespace-pre-wrap">
+            <p className="smalltext text-foreground whitespace-pre-wrap">
               {request.description || "No additional details provided."}
             </p>
           </div>
 
-          <p className="text-[11px] text-muted-foreground">
+          <p className="smalltext text-muted-foreground">
             Requested by {request.requested_by} ·{" "}
             {new Date(request.created_at).toLocaleDateString()}
             {request.customer_slug ? ` · ${request.customer_slug}` : ""}
           </p>
 
           {request.status === "done" && request.completed_by && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="smalltext text-muted-foreground">
               Completed by {request.completed_by}
               {request.completed_at
                 ? ` · ${new Date(request.completed_at).toLocaleDateString()}`
@@ -153,25 +153,25 @@ function RequestRow({
           className="flex-1 min-w-0 space-y-1 text-left hover:opacity-80 transition-opacity"
         >
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-medium text-foreground">{request.title}</p>
+            <p className="smalltext font-medium text-foreground">{request.title}</p>
             <Badge
               variant="outline"
-              className={
+              className={`smalltext ${
                 request.status === "done"
                   ? "border-success/30 bg-success/10 text-success"
                   : "border-warning/30 bg-warning/10 text-warning"
-              }
+              }`}
             >
               {request.status === "done" ? "Done" : "Pending"}
             </Badge>
             {request.status === "pending" && claimedBySomeoneElse && (
-              <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+              <Badge variant="outline" className="smalltext border-muted-foreground/30 text-muted-foreground">
                 <Lock className="h-3 w-3 mr-1" />
                 Claimed by {request.claimed_by}
               </Badge>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="smalltext text-muted-foreground">
             Requested by {request.requested_by} ·{" "}
             {new Date(request.created_at).toLocaleDateString()}
             {request.customer_slug ? ` · ${request.customer_slug}` : ""}
@@ -249,7 +249,7 @@ function RequestPanel({
       </CardHeader>
       <CardContent className="space-y-2">
         {requests.length === 0 && (
-          <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
+          <p className="smalltext text-muted-foreground italic">{emptyMessage}</p>
         )}
         {visible.map((request) => (
           <RequestRow
@@ -305,7 +305,7 @@ export function DocumentRequestsList({
     return (
       <Card className="bg-background border-border text-foreground">
         <CardContent className="pt-6">
-          <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+          <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
         </CardContent>
       </Card>
     );

@@ -73,14 +73,14 @@ export function PriorityTasks({
     return (
       <Card className="bg-background border-border text-foreground flex flex-col w-full h-full ">
         <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 pr-10">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CardTitle className="body font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
             {headerAction}
             {issuesData.length > 0 && (
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="smalltext text-muted-foreground tabular-nums">
                 {issuesData.length} issue{issuesData.length === 1 ? "" : "s"}
               </span>
             )}
@@ -88,7 +88,7 @@ export function PriorityTasks({
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
           {visibleIssues.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic px-1">No issues.</p>
+            <p className="smalltext text-muted-foreground italic px-1">No issues.</p>
           ) : (
             <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
               {visibleIssues.map((issue) => (
@@ -115,7 +115,7 @@ export function PriorityTasks({
   return (
     <Card className="bg-background border-border text-foreground flex flex-col w-full">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
+        <CardTitle className="body font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>
@@ -126,14 +126,14 @@ export function PriorityTasks({
             placeholder="Search by title..."
             value={titleFilter}
             onChange={(e) => setTitleFilter(e.target.value)}
-            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs gap-1.5 relative"
+                className="h-7 smalltext gap-1.5 relative"
                 onClick={(e) => e.stopPropagation()}
               >
                 <SlidersHorizontal className="h-3 w-3" />
@@ -168,7 +168,7 @@ export function PriorityTasks({
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
         {visibleIssues.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic p-2">
+          <p className="smalltext text-muted-foreground italic p-2">
             No issues match the current filters.
           </p>
         ) : (

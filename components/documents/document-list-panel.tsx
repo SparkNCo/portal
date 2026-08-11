@@ -120,16 +120,16 @@ export function DocumentRow({
               </div>
 
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                <p className="smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate">
                   {doc.name}
                 </p>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <div className="flex items-center gap-2 smalltext text-muted-foreground flex-wrap">
                   <Badge
                     variant="secondary"
-                    className={
+                    className={`smalltext ${
                       categoryColors[doc.category] ?? "bg-muted text-foreground"
-                    }
+                    }`}
                   >
                     {doc.category}
                   </Badge>
@@ -167,7 +167,7 @@ export function DocumentRow({
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "w-full justify-start text-sm",
+                          "w-full justify-start smalltext",
                           doc.category === category &&
                             "bg-secondary font-medium",
                         )}

@@ -50,7 +50,7 @@ export function DocumentsDirectory() {
   return (
     <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
+        <CardTitle className="body font-semibold flex items-center gap-2">
           <FileText className="h-4 w-4 text-accent" />
           Contract Documents
         </CardTitle>
@@ -67,10 +67,10 @@ export function DocumentsDirectory() {
                   <FileText className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-card-foreground">
+                  <p className="smalltext font-medium text-card-foreground">
                     {doc.name}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 smalltext text-muted-foreground">
                     <span>{doc.type}</span>
                     <span>•</span>
                     <Calendar className="h-3 w-3" />
@@ -83,9 +83,9 @@ export function DocumentsDirectory() {
               <div className="flex items-center gap-2">
                 <Badge
                   variant="secondary"
-                  className={
+                  className={`smalltext ${
                     statusColors[doc.status as keyof typeof statusColors]
-                  }
+                  }`}
                 >
                   {doc.status}
                 </Badge>

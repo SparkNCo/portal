@@ -144,7 +144,7 @@ export default function DeveloperDashboard() {
         notionUrl={notionUrl}
         onApproved={() => setShowPoliciesModal(false)}
       />
-      <Header title="Developer Dashboard" subtitle="Good morning, Developer" />
+      <Header title="Developer Dashboard" subtitle="Good morning, Developer" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         <div className="grid gap-6 md:grid-cols-2">

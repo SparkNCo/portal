@@ -63,16 +63,33 @@
 }
 
 /* Typography — consolidated font-size, font-weight, and line-height
-   combinations. Prefer these over ad hoc utility combos going forward. */
+   combinations. Prefer these over ad hoc utility combos going forward.
+   Named after the fontSize scale in tailwind.config.ts (heading1/largeBody/
+   heading2/body/smalltext) so the class name and the size token match.
+   Tailwind's variants (md:, hover:, etc.) work on these automatically since
+   they're registered via @layer components — e.g. `md:smalltext` is valid.
+   `!` (important) on the size utility so these reliably win over a
+   component's own baked-in text size (e.g. Button's cva `text-sm`) — plain
+   cascade order wasn't reliable there since Button's classes get merged
+   through tailwind-merge/cn rather than sitting in the same plain class
+   string as everything else. */
 @layer components {
-  .title {
-    @apply text-heading1 font-bold leading-tight;
+  .title,
+  .heading1 {
+    @apply !text-heading1 font-bold leading-tight;
   }
-  .subtitle {
-    @apply text-heading2 font-semibold leading-snug;
+  .largeBody {
+    @apply !text-largeBody font-semibold leading-tight;
+  }
+  .subtitle,
+  .heading2 {
+    @apply !text-heading2 font-semibold leading-snug;
   }
   .body {
-    @apply text-body font-normal leading-relaxed;
+    @apply !text-body font-normal leading-relaxed;
+  }
+  .smalltext {
+    @apply !text-smalltext font-normal leading-relaxed;
   }
 }
 

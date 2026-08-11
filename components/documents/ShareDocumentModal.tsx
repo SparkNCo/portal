@@ -78,14 +78,14 @@ export function ShareDocumentModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-background p-4 rounded-lg w-96 space-y-3">
-        <h2 className="text-sm font-semibold">Share Document</h2>
+        <h2 className="body font-semibold">Share Document</h2>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="smalltext text-muted-foreground">
           Enter emails separated by commas
         </p>
 
         <input
-          className="w-full border rounded px-2 py-1 text-sm"
+          className="w-full border rounded px-2 py-1 smalltext"
           placeholder="example@mail.com, another@mail.com"
           value={emails}
           onChange={(e) => setEmails(e.target.value)}

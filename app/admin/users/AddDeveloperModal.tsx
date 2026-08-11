@@ -12,6 +12,13 @@ import {
   ModalError,
   ModalFooter,
 } from "@/components/shared/add-user-modal-fields";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Props = {
   onClose: () => void;
@@ -76,7 +83,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
   };
 
   return (
-    <ModalShell title="Add Developer">
+    <ModalShell title="Add Developer" widthClassName="w-[28rem]">
       <NameFields
         firstName={firstName}
         onFirstNameChange={setFirstName}
@@ -103,7 +110,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
       />
 
       <div className="space-y-1.5">
-        <p className="text-xs font-medium text-muted-foreground">Developer Type</p>
+        <p className="smalltext font-medium text-muted-foreground">Developer Type</p>
         <div className="flex gap-1 p-1 rounded-lg bg-secondary/40 border border-border">
           {(
             [
@@ -115,7 +122,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
               key={option.value}
               type="button"
               onClick={() => setDeveloperType(option.value)}
-              className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`flex-1 px-3 py-1.5 rounded-md smalltext font-medium transition-all ${
                 developerType === option.value
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -125,7 +132,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="smalltext text-muted-foreground">
           Spark & Co FDE developers are billed through the customer's subscription. Internal developers are not billed to customers — set their rate below.
         </p>
       </div>
@@ -148,19 +155,23 @@ export default function AddDeveloperModal({ onClose }: Props) {
               );
             }}
           />
-          <select
-            className={`${inputClass} flex-[3]`}
+          <Select
             value={rateType}
-            onChange={(e) => setRateType(e.target.value as "hourly" | "monthly" | "annual")}
+            onValueChange={(value) => setRateType(value as "hourly" | "monthly" | "annual")}
           >
-            <option value="hourly">Hourly</option>
-            <option value="monthly">Monthly</option>
-            <option value="annual">Annual</option>
-          </select>
+            <SelectTrigger className="flex-1 h-9 smalltext">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hourly" className="focus:text-primary">Hourly</SelectItem>
+              <SelectItem value="monthly" className="focus:text-primary">Monthly</SelectItem>
+              <SelectItem value="annual" className="focus:text-primary">Annual</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
       {isInternal && submitted && !isRateValid && (
-        <p className="text-sm text-destructive">Enter a rate amount greater than 0.</p>
+        <p className="smalltext text-destructive">Enter a rate amount greater than 0.</p>
       )}
 
       <ModalError error={error} />

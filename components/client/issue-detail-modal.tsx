@@ -191,7 +191,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`py-2.5 px-1 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${className ?? ""} ${
+      className={`py-2.5 px-1 smalltext font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${className ?? ""} ${
         activeTab === tab
           ? "border-primary text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground"
@@ -199,7 +199,7 @@ function TabButton({
     >
       {label}
       {badge != null && badge > 0 && (
-        <span className="rounded-full bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 font-medium">
+        <span className="rounded-full bg-muted text-muted-foreground smalltext px-1.5 py-0.5 font-medium">
           {badge}
         </span>
       )}
@@ -226,10 +226,10 @@ function DescriptionTab({
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
         <div
-          className="text-sm text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
+          className="smalltext text-foreground rounded-lg bg-muted/40 px-4 py-3 prose prose-sm prose-invert max-w-none leading-relaxed
           [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
-          [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
-          [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
+          [&_h2]:smalltext [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
+          [&_h3]:smalltext [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3:first-child]:mt-0
           [&_strong]:font-semibold
           [&_p]:mb-5 [&_p:last-child]:mb-0
           [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
@@ -248,7 +248,7 @@ function DescriptionTab({
           </ReactMarkdown>
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground italic">
+        <p className="smalltext text-muted-foreground italic">
           No description yet.
         </p>
       )}
@@ -385,11 +385,11 @@ function DecisionsTab({
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingDecisions && (
-        <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+        <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
       )}
 
       {!loadingDecisions && decisions.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">
+        <p className="smalltext text-muted-foreground italic">
           {canAnswer
             ? "No questions from your team yet."
             : "No questions asked yet."}
@@ -399,21 +399,21 @@ function DecisionsTab({
       {decisions.map((d) => (
         <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+            <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
               Question
             </p>
-            <p className="text-sm text-foreground">{d.question}</p>
+            <p className="smalltext text-foreground">{d.question}</p>
           </div>
 
           {d.decision && (
             <div className="rounded bg-success/10 p-2.5 space-y-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-success/70 mb-0.5">
+              <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
                 Decision
               </p>
-              <p className="text-xs text-success whitespace-pre-wrap">
+              <p className="smalltext text-success whitespace-pre-wrap">
                 {d.decision}
               </p>
-              <p className="text-[10px] text-success/60">
+              <p className="smalltext text-success/60">
                 {d.decision_by} ·{" "}
                 {d.decided_at
                   ? new Date(d.decided_at).toLocaleDateString()
@@ -427,7 +427,7 @@ function DecisionsTab({
             (activeAnswerForm === d.id ? (
               <div className="flex flex-col gap-1.5">
                 <textarea
-                  className="w-full rounded border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                  className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
                   rows={3}
                   placeholder="Your decision…"
                   value={answerText}
@@ -473,7 +473,7 @@ function DecisionsTab({
             ))}
 
           {canAsk && !d.decision && (
-            <p className="text-[10px] text-muted-foreground italic">
+            <p className="smalltext text-muted-foreground italic">
               Awaiting client decision…
             </p>
           )}
@@ -485,7 +485,7 @@ function DecisionsTab({
           {showNewQuestionForm ? (
             <div className="flex flex-col gap-2">
               <textarea
-                className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                 rows={3}
                 placeholder="Ask the client a question…"
                 value={questionText}
@@ -578,11 +578,11 @@ function SortableStepRow({
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <span className="w-4 shrink-0 text-[10px] text-muted-foreground">
+      <span className="w-4 shrink-0 smalltext text-muted-foreground">
         {index + 1}.
       </span>
       <input
-        className="flex-1 rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex-1 rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder={`Step ${index + 1}…`}
         value={step.text}
         onChange={(e) => onChange(e.target.value)}
@@ -621,7 +621,7 @@ function StepsEditor({
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
         Steps
       </p>
       <DndContext
@@ -695,7 +695,7 @@ function TestUatSection({
 
   if (alreadyRecordedUat) {
     return (
-      <p className="text-[10px] text-muted-foreground italic">
+      <p className="smalltext text-muted-foreground italic">
         UAT result already recorded.
       </p>
     );
@@ -729,7 +729,7 @@ function TestUatSection({
   return (
     <div className="flex flex-col gap-1.5">
       <textarea
-        className="w-full rounded-lg border border-border bg-secondary/30 text-sm p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+        className="w-full rounded-lg border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
         rows={2}
         placeholder="Describe what actually happened…"
         value={uatForm.actual}
@@ -760,7 +760,7 @@ function TestUatSection({
               key={`${file.name}-${i}`}
               className="flex items-center justify-between rounded border border-border bg-secondary/30 px-2 py-1"
             >
-              <span className="truncate text-[11px] text-foreground">
+              <span className="truncate smalltext text-foreground">
                 {file.name}
               </span>
               <button
@@ -999,11 +999,11 @@ function TestsTab({
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingTests && (
-        <p className="text-xs text-muted-foreground animate-pulse">Loading…</p>
+        <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
       )}
 
       {!loadingTests && tests.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">
+        <p className="smalltext text-muted-foreground italic">
           No test cases yet.
         </p>
       )}
@@ -1011,7 +1011,7 @@ function TestsTab({
       {tests.map((t) => (
         <div key={t.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-foreground">{t.title}</p>
+            <p className="smalltext font-medium text-foreground">{t.title}</p>
             <div className="flex items-center gap-1.5 shrink-0">
               {canManageTests &&
                 t.status === "draft" &&
@@ -1026,7 +1026,7 @@ function TestsTab({
                   </button>
                 )}
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                className={`smalltext px-1.5 py-0.5 rounded font-semibold ${
                   t.status === "passed"
                     ? "bg-success/20 text-success"
                     : t.status === "failed"
@@ -1044,11 +1044,11 @@ function TestsTab({
           {editForm?.testId === t.id ? (
             <div className="flex flex-col gap-2">
               <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                   Title
                 </p>
                 <input
-                  className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={editForm.title}
                   onChange={(e) =>
@@ -1062,11 +1062,11 @@ function TestsTab({
                 onChange={(steps) => setEditForm({ ...editForm, steps })}
               />
               <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                   Expected result
                 </p>
                 <textarea
-                  className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={2}
                   placeholder="Expected result…"
                   value={editForm.expected}
@@ -1096,16 +1096,16 @@ function TestsTab({
             <>
               {t.steps.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                     Steps
                   </p>
                   <div className="space-y-1.5">
                     {t.steps.map((s) => (
                       <div key={s.order} className="flex items-center gap-1.5">
-                        <span className="w-4 shrink-0 text-[10px] text-muted-foreground">
+                        <span className="w-4 shrink-0 smalltext text-muted-foreground">
                           {s.order}.
                         </span>
-                        <p className="flex-1 rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5 text-xs text-foreground">
+                        <p className="flex-1 rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5 smalltext text-foreground">
                           {s.description}
                         </p>
                       </div>
@@ -1116,10 +1116,10 @@ function TestsTab({
 
               {t.expected && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                     Expected
                   </p>
-                  <p className="text-xs text-foreground">{t.expected}</p>
+                  <p className="smalltext text-foreground">{t.expected}</p>
                 </div>
               )}
             </>
@@ -1132,14 +1132,14 @@ function TestsTab({
                   key={`${entry.recorded_at}-${i}`}
                   className="border-l-2 border-border pl-2"
                 >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                     {entry.kind === "qa"
                       ? "QA Evidence"
                       : entry.kind === "uat"
                         ? "UAT Result"
                         : "Actual"}
                   </p>
-                  <p className="text-xs text-foreground">{entry.text}</p>
+                  <p className="smalltext text-foreground">{entry.text}</p>
                   {entry.attachments && entry.attachments.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.attachments.map((att, ai) =>
@@ -1157,7 +1157,7 @@ function TestsTab({
                             href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 rounded border border-border bg-secondary/30 px-2 py-1 text-[10px] text-foreground hover:bg-secondary"
+                            className="flex items-center gap-1 rounded border border-border bg-secondary/30 px-2 py-1 smalltext text-foreground hover:bg-secondary"
                           >
                             <Paperclip className="h-3 w-3" />
                             {att.name}
@@ -1167,7 +1167,7 @@ function TestsTab({
                     </div>
                   )}
                   {(entry.recorded_by || entry.recorded_at) && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="smalltext text-muted-foreground mt-0.5">
                       {entry.recorded_by}
                       {entry.recorded_by && entry.recorded_at ? " · " : ""}
                       {entry.recorded_at
@@ -1231,11 +1231,11 @@ function TestsTab({
           {showNewTestForm ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 space-y-2">
               <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                   Title
                 </p>
                 <input
-                  className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={testForm.title}
                   onChange={(e) =>
@@ -1249,11 +1249,11 @@ function TestsTab({
                 onChange={(steps) => setTestForm((f) => ({ ...f, steps }))}
               />
               <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                   Expected result
                 </p>
                 <textarea
-                  className="w-full rounded-lg border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={2}
                   placeholder="Expected result…"
                   value={testForm.expected}
@@ -1481,24 +1481,24 @@ export function IssueDetailModal({
         <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="text-xs font-mono text-muted-foreground">
+              <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
               </span>
               <Badge
                 variant="outline"
-                className={
+                className={`smalltext ${
                   priorityColors[
                     issue.priorityLabel as keyof typeof priorityColors
                   ]
-                }
+                }`}
               >
                 {issue.priorityLabel}
               </Badge>
               <Badge
                 variant="secondary"
-                className={
+                className={`smalltext ${
                   statusColors[currentStateName as keyof typeof statusColors]
-                }
+                }`}
               >
                 {currentStateName}
               </Badge>

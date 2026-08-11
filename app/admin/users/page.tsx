@@ -296,7 +296,7 @@ export default function AdminUsersPage() {
   }
   return (
     <div className="min-h-screen">
-      <Header title="Admin Panel" subtitle="Manage users and settings" />
+      <Header title="Admin Panel" subtitle="Manage users and settings" subtitleClassName="smalltext" />
       <div className="sm:px-6 py-6 space-y-4 ">
       {showAddDevModal && (
         <AddDeveloperModal onClose={() => setShowAddDevModal(false)} />
@@ -342,7 +342,7 @@ export default function AdminUsersPage() {
         <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
           <button
             onClick={() => setView("users")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all ${
               view === "users"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -353,7 +353,7 @@ export default function AdminUsersPage() {
           </button>
           <button
             onClick={() => setView("projects")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all ${
               view === "projects"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -396,7 +396,7 @@ export default function AdminUsersPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {roleUsers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">
+                    <p className="text-sm md:smalltext text-muted-foreground text-center py-6">
                       No {role}s found
                     </p>
                   ) : (
@@ -406,7 +406,7 @@ export default function AdminUsersPage() {
                         return (
                           <div
                             key={u.id}
-                            className="rounded-lg border border-border bg-card/75 hover:bg-card/50 text-card-foreground transition-colors group"
+                            className="rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-colors group"
                           >
                             <div className="flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3 min-w-0">
@@ -416,7 +416,7 @@ export default function AdminUsersPage() {
                                 <div className="min-w-0">
                                   <p
                                     title={u.email}
-                                    className="text-sm font-medium text-card-foreground truncate"
+                                    className="text-sm md:smalltext font-medium text-card-foreground truncate"
                                   >
                                     {u.email}
                                   </p>
@@ -540,13 +540,13 @@ export default function AdminUsersPage() {
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-3 border-t border-border">
                         {assignmentsLoading && (
-                          <p className="text-sm text-muted-foreground animate-pulse">
+                          <p className="text-sm md:smalltext text-muted-foreground animate-pulse">
                             Loading...
                           </p>
                         )}
                         {!assignmentsLoading &&
                           userAssignments?.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm md:smalltext text-muted-foreground">
                               No assignments found
                             </p>
                           )}
@@ -565,16 +565,16 @@ export default function AdminUsersPage() {
                                       <div className="min-w-0">
                                         <p
                                           title={a.email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                          className="font-medium text-card-foreground truncate max-w-[15ch] md:smalltext"
                                         >
                                           {a.email}
                                         </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
+                                        <p className="text-xs md:smalltext text-muted-foreground capitalize">
                                           {a.role}
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-4 text-xs md:smalltext text-muted-foreground">
                                       {a.joined && (
                                         <span>
                                           Joined{" "}
@@ -594,7 +594,7 @@ export default function AdminUsersPage() {
                               : userAssignments.map((a: any) => (
                                   <div
                                     key={a.id}
-                                    className="flex items-center justify-between rounded-lg border border-border bg-card/75 cursor-pointer px-3 py-2 text-sm"
+                                    className="flex items-center justify-between rounded-lg border border-border bg-card/90 hover:bg-card transition-colors cursor-pointer px-3 py-2 text-sm"
                                   >
                                     <div className="flex items-center gap-3 min-w-0">
                                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-primary">
@@ -605,16 +605,16 @@ export default function AdminUsersPage() {
                                       <div className="min-w-0">
                                         <p
                                           title={a.customer_email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                          className="font-medium text-card-foreground truncate max-w-[15ch] md:smalltext"
                                         >
                                           {a.customer_email}
                                         </p>
-                                        <p className="text-xs text-card-foreground/60 capitalize">
+                                        <p className="text-xs md:smalltext text-card-foreground/60 capitalize">
                                           Customer
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-card-foreground/60">
+                                    <div className="flex items-center gap-4 text-xs md:smalltext text-card-foreground/60">
                                       {a.joined && (
                                         <span>
                                           Joined{" "}
@@ -642,7 +642,7 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={addHandlersByRole[role]}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm md:smalltext text-muted-foreground hover:border-primary hover:text-primary transition-colors"
               aria-label={`Add ${role}`}
             >
               <Plus className="h-4 w-4 text-primary" />
@@ -667,7 +667,7 @@ export default function AdminUsersPage() {
           </CardHeader>
           <CardContent>
             {allAssignmentsLoading && (
-              <p className="text-sm text-muted-foreground animate-pulse">
+              <p className="text-sm md:smalltext text-muted-foreground animate-pulse">
                 Loading projects...
               </p>
             )}
@@ -675,7 +675,7 @@ export default function AdminUsersPage() {
             {!allAssignmentsLoading && customers.length === 0 && (
               <div className="text-center py-8">
                 <FolderKanban className="h-10 w-10 text-primary mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm md:smalltext text-muted-foreground">
                   No customers yet
                 </p>
               </div>
@@ -690,7 +690,7 @@ export default function AdminUsersPage() {
                   return (
                     <div
                       key={customer.id}
-                      className="rounded-lg border border-border bg-card/75 cursor-pointer"
+                      className="rounded-lg border border-border bg-card/90 hover:bg-card transition-colors cursor-pointer"
                     >
                       {/* Initiative header */}
                       <div className="flex items-center gap-3 p-3 border-b border-border">
@@ -700,11 +700,11 @@ export default function AdminUsersPage() {
                         <div className="flex-1 min-w-0">
                           <p
                             title={initiativeName}
-                            className="text-sm font-semibold text-card-foreground truncate"
+                            className="text-sm md:body font-semibold text-card-foreground truncate"
                           >
                             {initiativeName}
                           </p>
-                          <p className="text-xs text-card-foreground/60">
+                          <p className="text-xs md:smalltext text-card-foreground/60">
                             {developers.length === 0
                               ? "No assignees"
                               : `${developers.length} assignee${developers.length > 1 ? "s" : ""}`}
@@ -758,16 +758,16 @@ export default function AdminUsersPage() {
                                   <div className="min-w-0">
                                     <p
                                       title={m.email}
-                                      className="font-medium text-card-foreground truncate"
+                                      className="font-medium text-card-foreground truncate md:smalltext"
                                     >
                                       {m.email}
                                     </p>
-                                    <p className="text-xs text-card-foreground/60 capitalize">
+                                    <p className="text-xs md:smalltext text-card-foreground/60 capitalize">
                                       {m.role}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-card-foreground/60">
+                                <div className="flex items-center gap-4 text-xs md:smalltext text-card-foreground/60">
                                   {m.joined && (
                                     <span>
                                       Joined{" "}

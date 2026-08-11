@@ -156,10 +156,10 @@ export function NextPaymentPanel({
     <Card className="bg-transparent text-foreground">
       {subscriptionStatus && (
         <div className="flex items-center justify-between px-6 pt-4">
-          <span className="text-xs text-muted-foreground">Subscription status</span>
+          <span className="smalltext text-muted-foreground">Subscription status</span>
           <Badge
             variant="outline"
-            className={SUBSCRIPTION_STATUS_COLORS[subscriptionStatus] ?? "bg-muted text-muted-foreground"}
+            className={`smalltext ${SUBSCRIPTION_STATUS_COLORS[subscriptionStatus] ?? "bg-muted text-muted-foreground"}`}
           >
             {statusLabel}
           </Badge>
@@ -171,7 +171,7 @@ export function NextPaymentPanel({
           <Button
             variant="ghost"
             size="sm"
-            className="bg-primary text-black hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
             onClick={() => setShowCancelConfirm(true)}
             disabled={!billingData?.subscription?.id}
           >
@@ -185,7 +185,7 @@ export function NextPaymentPanel({
       =============================== */}
       {needsRenewal && (
         <CardContent className="pt-4 space-y-4">
-          <p className="text-sm font-medium text-red-600">
+          <p className="smalltext font-medium text-red-600">
             {subscriptionStatus
               ? `Your subscription is currently ${statusLabel.toLowerCase()}.`
               : "You don't have an active subscription."}
@@ -204,7 +204,7 @@ export function NextPaymentPanel({
             )}
           </Button>
           {renewSubscriptionMutation.isError && (
-            <p className="text-xs text-red-600">
+            <p className="smalltext text-red-600">
               {renewSubscriptionMutation.error?.message}
             </p>
           )}
@@ -218,7 +218,7 @@ export function NextPaymentPanel({
         <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Next Invoice Date</p>
+              <p className="smalltext text-muted-foreground">Next Invoice Date</p>
               <p className="text-2xl font-bold">
                 {formatDateFromUnix(upcomingInvoice.nextPaymentAttempt)}
               </p>
@@ -229,7 +229,7 @@ export function NextPaymentPanel({
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="smalltext text-muted-foreground mt-2">
             {formatAmountFromCents(
               upcomingInvoice.amountDue,
               upcomingInvoice.currency,
@@ -244,7 +244,7 @@ export function NextPaymentPanel({
       =============================== */}
       {!needsRenewal && !upcomingInvoice && (
         <CardContent className="pt-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="smalltext text-muted-foreground">
             No upcoming invoice scheduled.
           </p>
         </CardContent>
@@ -261,14 +261,14 @@ export function NextPaymentPanel({
           </DialogHeader>
 
           {cancelSubscriptionMutation.isError && (
-            <p className="text-sm text-red-600">
+            <p className="smalltext text-red-600">
               {cancelSubscriptionMutation.error?.message}
             </p>
           )}
 
           <DialogFooter>
             <Button
-              className="bg-primary text-black hover:bg-primary hover:text-black"
+              className="bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground smalltext"
               onClick={() => setShowCancelConfirm(false)}
               disabled={cancelSubscriptionMutation.isPending}
             >
@@ -276,7 +276,7 @@ export function NextPaymentPanel({
             </Button>
             <Button
               variant="outline"
-              className="hover:bg-background hover:text-foreground"
+              className="hover:bg-background hover:text-foreground smalltext"
               onClick={handleConfirmCancel}
               disabled={cancelSubscriptionMutation.isPending}
             >

@@ -29,7 +29,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
   if (!invoices.length) {
     return (
       <CardContent>
-        <p className="text-sm text-muted-foreground">No invoices yet</p>
+        <p className="smalltext text-muted-foreground">No invoices yet</p>
       </CardContent>
     );
   }
@@ -57,7 +57,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
               <CreditCard className="h-4 w-4 text-primary" />
             </div>
-            <p className="text-sm font-medium text-foreground">
+            <p className="smalltext font-medium text-foreground">
               {formatDateFromUnix(invoice.created)}
             </p>
           </div>
@@ -69,7 +69,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
 
               if (isFullyPaid) {
                 return (
-                  <span className="text-sm font-medium text-green-600">
+                  <span className="smalltext font-medium text-green-600">
                     Paid · {formatAmountFromCents(paid, invoice.currency)}
                   </span>
                 );
@@ -77,24 +77,24 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
 
               if (remaining > 0) {
                 return (
-                  <span className="text-sm font-medium text-yellow-600">
+                  <span className="smalltext font-medium text-yellow-600">
                     Due · {formatAmountFromCents(remaining, invoice.currency)}
                   </span>
                 );
               }
 
               return (
-                <span className="text-sm font-medium text-foreground">
+                <span className="smalltext font-medium text-foreground">
                   {formatAmountFromCents(paid, invoice.currency)}
                 </span>
               );
             })()}
 
             <Badge
-              className={
+              className={`smalltext ${
                 statusColors[invoice.status as keyof typeof statusColors] ??
                 "bg-muted text-muted-foreground"
-              }
+              }`}
             >
               {invoice.status}
             </Badge>
@@ -115,7 +115,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
       ))}
       {invoices.length > 5 && (
         <div className="flex justify-center pt-1 pb-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
+          <Button variant="ghost" size="sm" className="smalltext" onClick={() => setShowAll((v) => !v)}>
             {showAll ? "Show less" : `Show all ${invoices.length} invoices`}
           </Button>
         </div>

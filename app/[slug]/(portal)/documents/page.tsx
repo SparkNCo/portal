@@ -111,7 +111,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Documents" subtitle="Artifacts, reports, and uploads" />
+      <Header title="Documents" subtitle="Artifacts, reports, and uploads" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         {canRequest && (
@@ -119,10 +119,10 @@ export default function DocumentsPage() {
             <div className="rounded-lg border border-border bg-secondary/30 p-5 flex items-start gap-3">
               <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="smalltext font-medium text-foreground">
                   Wiki — coming soon
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="smalltext text-muted-foreground mt-1">
                   This section will automatically summarize recent Linear and GitHub
                   activity into living documentation, and surface relevant articles
                   when creating Build/Bug tickets. For now, request a report or
@@ -144,7 +144,7 @@ export default function DocumentsPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
             {projectSlugPending ? (
-              <p className="text-sm text-muted-foreground">Loading documents…</p>
+              <p className="smalltext text-muted-foreground">Loading documents…</p>
             ) : (
               <DocumentsList projectSlug={listProjectSlug} customers={customers} />
             )}

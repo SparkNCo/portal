@@ -146,7 +146,7 @@ export function Sidebar() {
             <Link
               href={`${dashboardsBasePath}/dashboards`}
               onClick={close}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
+              className="flex items-center gap-2 rounded-md px-3 py-2 smalltext text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
               <ChevronLeft className="h-3 w-3" />
               All customers
@@ -157,7 +157,7 @@ export function Sidebar() {
                 href={`${dashboardsBasePath}/dashboards/${encodeURIComponent(selectedCustomer!)}/${item.href}`}
                 onClick={close}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
                   selectedPanel === item.href
                     ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -173,7 +173,7 @@ export function Sidebar() {
             <Link
               href="/admin/dashboards"
               onClick={close}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
+              className="flex items-center gap-2 rounded-md px-3 py-2 smalltext text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
             >
               <ChevronLeft className="h-3 w-3" />
               All customers
@@ -190,7 +190,7 @@ export function Sidebar() {
                     href={item.href}
                     onClick={close}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
                       isActive
                         ? "bg-sidebar-accent text-primary font-semibold"
                         : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -216,7 +216,7 @@ export function Sidebar() {
                 href={hrefWithParams}
                 onClick={close}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-primary font-semibold"
                     : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -238,10 +238,10 @@ export function Sidebar() {
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
+            <p className="smalltext font-medium text-sidebar-foreground truncate">
               {profile.email}
             </p>
-            <p className="text-xs text-muted-foreground capitalize">
+            <p className="smalltext text-muted-foreground capitalize">
               {profile.role}
             </p>
           </div>
@@ -249,7 +249,7 @@ export function Sidebar() {
 
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 smalltext text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
         >
           <LogOut className="h-4 w-4" />
           Logout

@@ -37,7 +37,7 @@ export function PendingBalancePanel({ balance }: { balance?: Balance }) {
       <CardContent className="pt-6">
         <div className="flex items-center justify-between ">
           <div>
-            <p className="text-sm text-muted-foreground">Outstanding Balance</p>
+            <p className="smalltext text-muted-foreground">Outstanding Balance</p>
 
             <p
               className={clsx(
@@ -56,7 +56,7 @@ export function PendingBalancePanel({ balance }: { balance?: Balance }) {
 
         <p
           className={clsx(
-            "mt-2 text-xs",
+            "mt-2 smalltext",
             hasDebt ? "text-warning" : "text-muted-foreground",
           )}
         >

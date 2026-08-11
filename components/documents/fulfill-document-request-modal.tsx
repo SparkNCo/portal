@@ -148,7 +148,7 @@ export function FulfillDocumentRequestModal({
         </DialogHeader>
 
         <div className="space-y-3 pt-2">
-          <p className="text-sm text-muted-foreground">
+          <p className="smalltext text-muted-foreground">
             Fulfilling <span className="font-medium text-foreground">{request.title}</span> —
             requested by {request.requested_by}
           </p>
@@ -183,10 +183,10 @@ export function FulfillDocumentRequestModal({
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3">
               <Upload className="h-6 w-6 text-primary" />
             </div>
-            <p className="text-sm font-medium text-center">
+            <p className="smalltext font-medium text-center">
               Drag and drop a file here, or click to browse
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="smalltext text-muted-foreground mt-1">
               PDF, DOCX, XLSX, PNG, JPG up to 50MB
             </p>
           </div>
@@ -203,7 +203,7 @@ export function FulfillDocumentRequestModal({
             <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-2">
               <div className="flex items-center gap-2 min-w-0">
                 <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <p className="text-sm truncate">{file.name}</p>
+                <p className="smalltext truncate">{file.name}</p>
               </div>
               <Button
                 variant="ghost"

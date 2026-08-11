@@ -108,19 +108,19 @@ export function SettingsTabs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all",
               activeTab === tab.id
-                ? "border-accent text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className="h-3.5 w-3.5 text-primary" />
             {tab.label}
           </button>
         ))}

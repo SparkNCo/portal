@@ -156,6 +156,7 @@ export default function ClientDashboard() {
       <Header
         title="Dashboard"
         subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "User")}`}
+        subtitleClassName="smalltext"
       />
       <div className="p-4 md:p-6 space-y-6 ">
         {issuesError && (
