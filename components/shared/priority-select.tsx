@@ -17,14 +17,14 @@ export function PrioritySelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger id={id} className="bg-secondary border-0 text-card-foreground">
+      <SelectTrigger id={id} className="h-8 text-xs md:smalltext">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="low">Low</SelectItem>
-        <SelectItem value="medium">Medium</SelectItem>
-        <SelectItem value="high">High</SelectItem>
-        <SelectItem value="urgent">Urgent</SelectItem>
+        <SelectItem value="low" className="focus:text-primary text-xs md:smalltext">Low</SelectItem>
+        <SelectItem value="medium" className="focus:text-primary text-xs md:smalltext">Medium</SelectItem>
+        <SelectItem value="high" className="focus:text-primary text-xs md:smalltext">High</SelectItem>
+        <SelectItem value="urgent" className="focus:text-primary text-xs md:smalltext">Urgent</SelectItem>
       </SelectContent>
     </Select>
   );

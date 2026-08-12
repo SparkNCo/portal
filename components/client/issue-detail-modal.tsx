@@ -39,91 +39,20 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   type Decision,
-  type TestCase,
+  type Test,
+  type TestExecution,
   type Issue,
   priorityColors,
   statusColors,
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { TestPicker } from "@/components/shared/test-picker";
+import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
-
-// Linear-hosted attachments (issue description images, UAT/QA evidence)
-// require Linear's own API key to view — portal users don't have a Linear
-// account, so their browser can't load these URLs directly. Route them
-// through our backend proxy, which fetches with our key instead.
-const LINEAR_UPLOAD_HOST = "uploads.linear.app";
-
-// A plain <img src> can't send the Authorization header Supabase's gateway
-// requires (query-param apikey alone is no longer accepted — it 401s before
-// the request even reaches the function), so this fetches the image with the
-// proper headers and hands back a blob URL instead.
-//
-// Cached by source URL (module-level, outside the hook) so the same image
-// is only ever fetched once — without this, every remount (React Strict
-// Mode's double effect invocation in dev, or the same attachment rendered by
-// more than one ProxiedImage instance) re-fetched and revoked-then-recreated
-// the blob URL right as the <img> was displaying it, producing a visible
-// flash. Never revoked: these are small thumbnails and the cache lives for
-// the page's lifetime, same trade-off as the browser's own image cache.
-const proxiedImageCache = new Map<string, string>();
-
-function useProxiedImageUrl(url: string | undefined | null) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(() =>
-    url ? proxiedImageCache.get(url) : undefined,
-  );
-
-  useEffect(() => {
-    if (!url) {
-      setResolvedUrl(undefined);
-      return;
-    }
-
-    const cached = proxiedImageCache.get(url);
-    if (cached) {
-      setResolvedUrl(cached);
-      return;
-    }
-
-    let isLinearUpload: boolean;
-    try {
-      isLinearUpload = new URL(url).hostname === LINEAR_UPLOAD_HOST;
-    } catch {
-      isLinearUpload = false;
-    }
-
-    if (!isLinearUpload) {
-      setResolvedUrl(url);
-      return;
-    }
-
-    let cancelled = false;
-
-    fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}`,
-      { headers: API_HEADERS },
-    )
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error("Failed to load image"))))
-      .then((blob) => {
-        if (cancelled) return;
-        const objectUrl = URL.createObjectURL(blob);
-        proxiedImageCache.set(url, objectUrl);
-        setResolvedUrl(objectUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setResolvedUrl(undefined);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [url]);
-
-  return resolvedUrl;
-}
 
 function ProxiedImage({
   src,
@@ -256,7 +185,7 @@ function DescriptionTab({
       {currentStateName === "Business Review" && reviewComplete && (
         <Button
           size="sm"
-          className="w-full bg-green-600 hover:bg-green-700 text-white"
+          className="w-full smalltext bg-green-600 hover:bg-green-700 text-white"
           disabled={advancing}
           onClick={() => onAdvanceState("Development")}
         >
@@ -269,7 +198,7 @@ function DescriptionTab({
         <div className="flex gap-2">
           <Button
             size="sm"
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            className="flex-1 smalltext bg-green-600 hover:bg-green-700 text-white"
             disabled={advancing}
             onClick={() => onAdvanceState("Done")}
           >
@@ -279,7 +208,7 @@ function DescriptionTab({
           <Button
             size="sm"
             variant="outline"
-            className="flex-1"
+            className="flex-1 smalltext"
             disabled={advancing}
             onClick={() => onAdvanceState("QA")}
           >
@@ -293,7 +222,7 @@ function DescriptionTab({
         <Button
           size="sm"
           variant="outline"
-          className="w-full"
+          className="w-full smalltext"
           disabled={advancing}
           onClick={() => onAdvanceState("Development")}
         >
@@ -539,7 +468,7 @@ function DecisionsTab({
 // ── Steps editor (array of draggable step inputs) ──────────────────────────
 
 type StepDraft = { id: string; text: string };
-type UatFormState = { testId: string; actual: string; files: File[] } | null;
+type UatFormState = { executionId: string; result: string; files: File[] } | null;
 
 function SortableStepRow({
   step,
@@ -665,7 +594,7 @@ function StepsEditor({
 }
 
 function TestUatSection({
-  test,
+  execution,
   isQaStage,
   isUatStage,
   canRecordResult,
@@ -675,7 +604,7 @@ function TestUatSection({
   submitting,
   onSubmitUat,
 }: {
-  test: TestCase;
+  execution: TestExecution;
   isQaStage: boolean;
   isUatStage: boolean;
   canRecordResult: boolean;
@@ -685,11 +614,11 @@ function TestUatSection({
   submitting: boolean;
   onSubmitUat: () => void;
 }) {
-  const hasUatRecord = test.actual?.some((entry) => entry.kind === "uat");
+  const hasUatRecord = execution.results?.some((entry) => entry.kind === "uat");
   const alreadyRecordedUat = isUatStage && hasUatRecord;
   const statusAllowsRecording =
-    test.status === "approved" ||
-    (isQaStage && (test.status === "draft" || test.status === "passed"));
+    execution.status === "approved" ||
+    (isQaStage && (execution.status === "draft" || execution.status === "passed"));
 
   if (!canRecordResult || !statusAllowsRecording) return null;
 
@@ -701,13 +630,13 @@ function TestUatSection({
     );
   }
 
-  if (uatForm?.testId !== test.id) {
+  if (uatForm?.executionId !== execution.id) {
     return (
       <Button
         size="sm"
         variant="outline"
         className="w-full"
-        onClick={() => setUatForm({ testId: test.id, actual: "", files: [] })}
+        onClick={() => setUatForm({ executionId: execution.id, result: "", files: [] })}
       >
         {isQaStage ? "Record QA" : "Record UAT"}
       </Button>
@@ -732,8 +661,8 @@ function TestUatSection({
         className="w-full rounded-lg border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
         rows={2}
         placeholder="Describe what actually happened…"
-        value={uatForm.actual}
-        onChange={(e) => setUatForm({ ...uatForm, actual: e.target.value })}
+        value={uatForm.result}
+        onChange={(e) => setUatForm({ ...uatForm, result: e.target.value })}
         autoFocus
       />
       <input
@@ -781,7 +710,7 @@ function TestUatSection({
         </Button>
         <Button
           size="sm"
-          disabled={!uatForm.actual.trim() || submitting}
+          disabled={!uatForm.result.trim() || submitting}
           onClick={onSubmitUat}
         >
           {submitting ? "Saving…" : isQaStage ? "Save QA" : "Save UAT"}
@@ -793,28 +722,34 @@ function TestUatSection({
 
 function TestsTab({
   issue,
+  projectSlug,
   userEmail,
   canAnswer,
   canRecordQaEvidence,
   canRecordUatResult,
   role,
   currentStateName,
-  tests,
-  setTests,
-  loadingTests,
+  executions,
+  setExecutions,
+  loadingExecutions,
 }: {
   issue: Issue;
+  // Which customer/initiative this ticket belongs to — scopes the "pick an existing
+  // test" search so one customer's tests never show up on another's tickets.
+  projectSlug: string | undefined;
   userEmail: string | undefined;
   canAnswer: boolean;
   canRecordQaEvidence: boolean;
   canRecordUatResult: boolean;
   role: string | undefined;
   currentStateName: string | undefined;
-  tests: TestCase[];
-  setTests: React.Dispatch<React.SetStateAction<TestCase[]>>;
-  loadingTests: boolean;
+  executions: TestExecution[];
+  setExecutions: React.Dispatch<React.SetStateAction<TestExecution[]>>;
+  loadingExecutions: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  // Adding a test is a 3-way branch: closed, filling out a brand-new test's
+  // title/steps/expected, or setting the expected behaviour for a picked existing test.
   const [showNewTestForm, setShowNewTestForm] = useState(false);
   const [testForm, setTestForm] = useState<{
     title: string;
@@ -825,9 +760,11 @@ function TestsTab({
     steps: [],
     expected: "",
   });
+  const [pendingExisting, setPendingExisting] = useState<{ test: Test; expected: string } | null>(null);
   const [uatForm, setUatForm] = useState<UatFormState>(null);
   const uatFileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState<{
+    executionId: string;
     testId: string;
     title: string;
     steps: StepDraft[];
@@ -850,30 +787,35 @@ function TestsTab({
   const canRecordResult =
     (isQaStage && canRecordQaEvidence) || (isUatStage && canRecordUatResult);
 
+  // "Create new" flow: POST /tests to create the reusable test, then POST
+  // /test-executions to attach it to this ticket.
   async function handleCreateTest() {
-    if (!testForm.title.trim() || submitting) return;
+    if (!testForm.title.trim() || !projectSlug || submitting) return;
     setSubmitting(true);
     try {
       const steps = testForm.steps
         .map((s) => s.text.trim())
         .filter(Boolean)
         .map((d, i) => ({ order: i + 1, description: d }));
-      const res = await fetch(
+      const testRes = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests`,
         {
           method: "POST",
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
-            issue_id: issue.id,
+            project_slug: projectSlug,
             title: testForm.title.trim(),
             steps,
-            expected: testForm.expected.trim(),
             created_by: userEmail,
           }),
         },
       );
-      const created = await res.json();
-      if (created.id) setTests((prev) => [...prev, created]);
+      const test = await testRes.json();
+      if (!test.id) return;
+
+      const created = await attachTest(test, testForm.expected.trim());
+      if (created) setExecutions((prev) => [...prev, created]);
+
       setTestForm({ title: "", steps: [], expected: "" });
       setShowNewTestForm(false);
     } finally {
@@ -881,18 +823,54 @@ function TestsTab({
     }
   }
 
-  function handleStartEdit(test: TestCase) {
+  // "Pick existing" flow: just attach it — the test itself already exists.
+  async function attachTest(test: Test, expected: string): Promise<TestExecution | null> {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions`,
+      {
+        method: "POST",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          test_id: test.id,
+          issue_id: issue.id,
+          expected,
+          created_by: userEmail,
+        }),
+      },
+    );
+    const created = await res.json();
+    if (!created.id) return null;
+    return { ...created, test: { title: test.title, steps: test.steps } };
+  }
+
+  async function handleAttachExisting() {
+    if (!pendingExisting || submitting) return;
+    setSubmitting(true);
+    try {
+      const created = await attachTest(pendingExisting.test, pendingExisting.expected.trim());
+      if (created) setExecutions((prev) => [...prev, created]);
+      setPendingExisting(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleStartEdit(execution: TestExecution) {
+    if (!execution.test) return;
     setEditForm({
-      testId: test.id,
-      title: test.title,
-      steps: test.steps.map((s) => ({
+      executionId: execution.id,
+      testId: execution.test_id,
+      title: execution.test.title,
+      steps: execution.test.steps.map((s) => ({
         id: crypto.randomUUID(),
         text: s.description,
       })),
-      expected: test.expected,
+      expected: execution.expected,
     });
   }
 
+  // Edits route to two different tables: title/steps belong to the reusable Test,
+  // expected behaviour belongs to this ticket's execution.
   async function handleSaveEdit() {
     if (!editForm || !editForm.title.trim() || submitting) return;
     setSubmitting(true);
@@ -901,42 +879,63 @@ function TestsTab({
         .map((s) => s.text.trim())
         .filter(Boolean)
         .map((d, i) => ({ order: i + 1, description: d }));
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`,
-        {
+
+      const [testRes, executionRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`, {
           method: "PATCH",
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             test_id: editForm.testId,
             title: editForm.title.trim(),
             steps,
+          }),
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions/update`, {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            execution_id: editForm.executionId,
             expected: editForm.expected.trim(),
           }),
-        },
-      );
-      const updated = await res.json();
-      if (updated.id)
-        setTests((prev) =>
-          prev.map((t) => (t.id === updated.id ? updated : t)),
+        }),
+      ]);
+      const updatedTest = await testRes.json();
+      const updatedExecution = await executionRes.json();
+
+      if (updatedExecution.id) {
+        setExecutions((prev) =>
+          prev.map((e) =>
+            e.id === updatedExecution.id
+              ? {
+                  ...updatedExecution,
+                  test: updatedTest.id
+                    ? { title: updatedTest.title, steps: updatedTest.steps }
+                    : e.test,
+                }
+              : e,
+          ),
         );
+      }
       setEditForm(null);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleApproveTest(testId: string) {
+  async function handleApproveTest(executionId: string) {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/approve`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions/approve`,
       {
         method: "PATCH",
         headers: API_JSON_HEADERS,
-        body: JSON.stringify({ test_id: testId, approved_by: userEmail }),
+        body: JSON.stringify({ execution_id: executionId, approved_by: userEmail }),
       },
     );
     const updated = await res.json();
     if (updated.id)
-      setTests((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      setExecutions((prev) =>
+        prev.map((e) => (e.id === updated.id ? { ...e, ...updated, test: e.test } : e)),
+      );
   }
 
   async function handleSubmitUat() {
@@ -947,13 +946,13 @@ function TestsTab({
         uatForm.files.map(uploadTestAttachment),
       );
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions/result`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
-            test_id: uatForm.testId,
-            actual: uatForm.actual,
+            execution_id: uatForm.executionId,
+            result: uatForm.result,
             recorded_by: userEmail,
             kind: isQaStage ? "qa" : "uat",
             attachments,
@@ -962,8 +961,8 @@ function TestsTab({
       );
       const updated = await res.json();
       if (updated.id)
-        setTests((prev) =>
-          prev.map((t) => (t.id === updated.id ? updated : t)),
+        setExecutions((prev) =>
+          prev.map((e) => (e.id === updated.id ? { ...e, ...updated, test: e.test } : e)),
         );
       setUatForm(null);
     } finally {
@@ -971,25 +970,25 @@ function TestsTab({
     }
   }
 
-  async function handleTogglePassed(test: TestCase) {
+  async function handleTogglePassed(execution: TestExecution) {
     if (submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/uat`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions/result`,
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
-            test_id: test.id,
-            passed: test.status !== "passed",
+            execution_id: execution.id,
+            passed: execution.status !== "passed",
           }),
         },
       );
       const updated = await res.json();
       if (updated.id)
-        setTests((prev) =>
-          prev.map((t) => (t.id === updated.id ? updated : t)),
+        setExecutions((prev) =>
+          prev.map((e) => (e.id === updated.id ? { ...e, ...updated, test: e.test } : e)),
         );
     } finally {
       setSubmitting(false);
@@ -998,27 +997,27 @@ function TestsTab({
 
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
-      {loadingTests && (
+      {loadingExecutions && (
         <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
       )}
 
-      {!loadingTests && tests.length === 0 && (
+      {!loadingExecutions && executions.length === 0 && (
         <p className="smalltext text-muted-foreground italic">
           No test cases yet.
         </p>
       )}
 
-      {tests.map((t) => (
-        <div key={t.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+      {executions.map((e) => (
+        <div key={e.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="smalltext font-medium text-foreground">{t.title}</p>
+            <p className="smalltext font-medium text-foreground">{e.test?.title}</p>
             <div className="flex items-center gap-1.5 shrink-0">
               {canManageTests &&
-                t.status === "draft" &&
-                editForm?.testId !== t.id && (
+                e.status === "draft" &&
+                editForm?.executionId !== e.id && (
                   <button
                     type="button"
-                    onClick={() => handleStartEdit(t)}
+                    onClick={() => handleStartEdit(e)}
                     className="rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-background"
                     aria-label="Edit test case"
                   >
@@ -1027,21 +1026,21 @@ function TestsTab({
                 )}
               <span
                 className={`smalltext px-1.5 py-0.5 rounded font-semibold ${
-                  t.status === "passed"
+                  e.status === "passed"
                     ? "bg-success/20 text-success"
-                    : t.status === "failed"
+                    : e.status === "failed"
                       ? "bg-destructive/20 text-destructive"
-                      : t.status === "approved"
+                      : e.status === "approved"
                         ? "bg-chart-1/20 text-chart-1"
                         : "bg-muted text-muted-foreground"
                 }`}
               >
-                {t.status}
+                {e.status}
               </span>
             </div>
           </div>
 
-          {editForm?.testId === t.id ? (
+          {editForm?.executionId === e.id ? (
             <div className="flex flex-col gap-2">
               <div className="space-y-1.5">
                 <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1051,8 +1050,8 @@ function TestsTab({
                   className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={editForm.title}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, title: e.target.value })
+                  onChange={(ev) =>
+                    setEditForm({ ...editForm, title: ev.target.value })
                   }
                   autoFocus
                 />
@@ -1070,8 +1069,8 @@ function TestsTab({
                   rows={2}
                   placeholder="Expected result…"
                   value={editForm.expected}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, expected: e.target.value })
+                  onChange={(ev) =>
+                    setEditForm({ ...editForm, expected: ev.target.value })
                   }
                 />
               </div>
@@ -1094,13 +1093,13 @@ function TestsTab({
             </div>
           ) : (
             <>
-              {t.steps.length > 0 && (
+              {e.test && e.test.steps.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
                     Steps
                   </p>
                   <div className="space-y-1.5">
-                    {t.steps.map((s) => (
+                    {e.test.steps.map((s) => (
                       <div key={s.order} className="flex items-center gap-1.5">
                         <span className="w-4 shrink-0 smalltext text-muted-foreground">
                           {s.order}.
@@ -1114,20 +1113,20 @@ function TestsTab({
                 </div>
               )}
 
-              {t.expected && (
+              {e.expected && (
                 <div>
                   <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                     Expected
                   </p>
-                  <p className="smalltext text-foreground">{t.expected}</p>
+                  <p className="smalltext text-foreground">{e.expected}</p>
                 </div>
               )}
             </>
           )}
 
-          {t.actual && t.actual.length > 0 && (
+          {e.results && e.results.length > 0 && (
             <div className="space-y-2">
-              {t.actual.map((entry, i) => (
+              {e.results.map((entry, i) => (
                 <div
                   key={`${entry.recorded_at}-${i}`}
                   className="border-l-2 border-border pl-2"
@@ -1180,18 +1179,18 @@ function TestsTab({
             </div>
           )}
 
-          {canAnswer && t.status === "draft" && editForm?.testId !== t.id && (
+          {canAnswer && e.status === "draft" && editForm?.executionId !== e.id && (
             <Button
               size="sm"
               className="w-full"
-              onClick={() => handleApproveTest(t.id)}
+              onClick={() => handleApproveTest(e.id)}
             >
               Approve test case
             </Button>
           )}
 
           <TestUatSection
-            test={t}
+            execution={e}
             isQaStage={isQaStage}
             isUatStage={isUatStage}
             canRecordResult={canRecordResult}
@@ -1203,22 +1202,22 @@ function TestsTab({
           />
 
           {(role === "stakeholder" || role === "customer") &&
-            (t.status === "approved" || t.status === "passed") &&
+            (e.status === "approved" || e.status === "passed") &&
             currentStateName === "UAT" &&
-            (t.status === "passed" ||
-              t.actual?.some((entry) => entry.kind === "uat")) && (
+            (e.status === "passed" ||
+              e.results?.some((entry) => entry.kind === "uat")) && (
               <Button
                 size="sm"
-                variant={t.status === "passed" ? "outline" : "default"}
+                variant={e.status === "passed" ? "outline" : "default"}
                 disabled={submitting}
                 className={
-                  t.status === "passed"
+                  e.status === "passed"
                     ? "w-full"
                     : "w-full bg-green-600 hover:bg-green-700 text-white"
                 }
-                onClick={() => handleTogglePassed(t)}
+                onClick={() => handleTogglePassed(e)}
               >
-                {t.status === "passed"
+                {e.status === "passed"
                   ? "Revert to Approved"
                   : "Mark as Passed"}
               </Button>
@@ -1226,7 +1225,7 @@ function TestsTab({
         </div>
       ))}
 
-      {canManageTests && (
+      {canManageTests && projectSlug && (
         <div className="pt-1">
           {showNewTestForm ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 space-y-2">
@@ -1238,8 +1237,8 @@ function TestsTab({
                   className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={testForm.title}
-                  onChange={(e) =>
-                    setTestForm((f) => ({ ...f, title: e.target.value }))
+                  onChange={(ev) =>
+                    setTestForm((f) => ({ ...f, title: ev.target.value }))
                   }
                   autoFocus
                 />
@@ -1257,8 +1256,8 @@ function TestsTab({
                   rows={2}
                   placeholder="Expected result…"
                   value={testForm.expected}
-                  onChange={(e) =>
-                    setTestForm((f) => ({ ...f, expected: e.target.value }))
+                  onChange={(ev) =>
+                    setTestForm((f) => ({ ...f, expected: ev.target.value }))
                   }
                 />
               </div>
@@ -1282,15 +1281,58 @@ function TestsTab({
                 </Button>
               </div>
             </div>
+          ) : pendingExisting ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 space-y-2">
+              <p className="smalltext font-medium text-foreground">
+                {pendingExisting.test.title}
+              </p>
+              {pendingExisting.test.steps.length > 0 && (
+                <div className="space-y-1.5">
+                  {pendingExisting.test.steps.map((s) => (
+                    <div key={s.order} className="flex items-center gap-1.5">
+                      <span className="w-4 shrink-0 smalltext text-muted-foreground">
+                        {s.order}.
+                      </span>
+                      <p className="flex-1 rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5 smalltext text-foreground">
+                        {s.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                  Expected result on this ticket
+                </p>
+                <textarea
+                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  rows={2}
+                  placeholder="Expected result…"
+                  value={pendingExisting.expected}
+                  onChange={(ev) =>
+                    setPendingExisting((p) => (p ? { ...p, expected: ev.target.value } : p))
+                  }
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setPendingExisting(null)}>
+                  Cancel
+                </Button>
+                <Button size="sm" disabled={submitting} onClick={handleAttachExisting}>
+                  {submitting ? "Saving…" : "Attach test case"}
+                </Button>
+              </div>
+            </div>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowNewTestForm(true)}
-            >
-              + Add test case
-            </Button>
+            <TestPicker
+              projectSlug={projectSlug}
+              onSelectExisting={(test) => setPendingExisting({ test, expected: "" })}
+              onCreateNew={(title) => {
+                setTestForm({ title, steps: [], expected: "" });
+                setShowNewTestForm(true);
+              }}
+            />
           )}
         </div>
       )}
@@ -1325,8 +1367,8 @@ export function IssueDetailModal({
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
-  const [tests, setTests] = useState<TestCase[]>([]);
-  const [loadingTests, setLoadingTests] = useState(true);
+  const [executions, setExecutions] = useState<TestExecution[]>([]);
+  const [loadingExecutions, setLoadingExecutions] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "description" | "chat" | "decisions" | "tests" | "design" | "demo"
   >("description");
@@ -1355,7 +1397,7 @@ export function IssueDetailModal({
 
   useEffect(() => {
     setLoadingDecisions(true);
-    setLoadingTests(true);
+    setLoadingExecutions(true);
 
     supabase
       .schema("portal")
@@ -1369,16 +1411,16 @@ export function IssueDetailModal({
       });
 
     fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?issue_id=${issue.id}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions?issue_id=${issue.id}`,
       {
         headers: API_HEADERS,
       },
     )
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setTests(data);
+        if (Array.isArray(data)) setExecutions(data);
       })
-      .finally(() => setLoadingTests(false));
+      .finally(() => setLoadingExecutions(false));
   }, [issue.id]);
 
   const queryClient = useQueryClient();
@@ -1555,7 +1597,7 @@ export function IssueDetailModal({
             tab="tests"
             activeTab={activeTab}
             onClick={() => setActiveTab("tests")}
-            badge={tests.length}
+            badge={executions.length}
           />
           <TabButton
             label="Decisions"
@@ -1613,15 +1655,16 @@ export function IssueDetailModal({
         {activeTab === "tests" && (
           <TestsTab
             issue={issue}
+            projectSlug={slug}
             userEmail={profile?.email}
             canAnswer={canAnswer}
             canRecordQaEvidence={canRecordQaEvidence}
             canRecordUatResult={canRecordUatResult}
             role={role}
             currentStateName={currentStateName}
-            tests={tests}
-            setTests={setTests}
-            loadingTests={loadingTests}
+            executions={executions}
+            setExecutions={setExecutions}
+            loadingExecutions={loadingExecutions}
           />
         )}
 

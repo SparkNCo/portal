@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,7 @@ async function patchIssue(payload: {
   description: string;
   priority: string;
   actorEmail?: string;
+  slug?: string;
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/edit`, {
     method: "PATCH",
@@ -59,6 +60,7 @@ export function EditIssueModal({
 }) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
+  const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
   const [priority, setPriority] = useState(
@@ -84,6 +86,7 @@ export function EditIssueModal({
       title: title.trim(),
       description,
       priority,
+      slug,
       ...(profile?.email ? { actorEmail: profile.email } : {}),
     });
   }
@@ -91,27 +94,46 @@ export function EditIssueModal({
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="w-[95vw] sm:w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[85vh] overflow-y-auto"
+        className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto transition-all duration-200 ${
+          isExpanded
+            ? "sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
+            : "sm:max-w-lg md:max-w-xl lg:max-w-2xl"
+        }`}
         aria-describedby={undefined}
       >
         <DialogHeader>
-          <DialogTitle>Edit Ticket</DialogTitle>
+          <div className="flex items-center justify-between gap-3 pr-6">
+            <DialogTitle className="text-primary">Edit Ticket</DialogTitle>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((e) => !e)}
+              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+              title={isExpanded ? "Shrink" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
-            <Label htmlFor="edit-issue-title">Title</Label>
+            <Label htmlFor="edit-issue-title" className="smalltext">Title</Label>
             <Input
               id="edit-issue-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
+              className="bg-secondary border-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
               autoFocus
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label className="smalltext">Description</Label>
             <RichTextEditor
               value={description}
               onChange={setDescription}
@@ -121,14 +143,14 @@ export function EditIssueModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Priority</Label>
+            <Label className="smalltext">Priority</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="bg-secondary border-0 text-card-foreground">
+              <SelectTrigger className="h-8 text-xs md:smalltext">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p}>
+                  <SelectItem key={p} value={p} className="focus:text-primary text-xs md:smalltext">
                     {p === "none"
                       ? "No priority"
                       : p.charAt(0).toUpperCase() + p.slice(1)}
@@ -143,14 +165,14 @@ export function EditIssueModal({
               variant="outline"
               onClick={onClose}
               disabled={mutation.isPending}
-              className="flex-1"
+              className="flex-1 smalltext"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={!title.trim() || mutation.isPending}
-              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
             >
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

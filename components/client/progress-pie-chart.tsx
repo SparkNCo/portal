@@ -67,7 +67,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
     TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;
 
   return (
-    <Card className="bg-background border-border flex flex-col h-full text-foreground">
+    <Card className="bg-background border-border flex flex-col text-foreground">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2 ">
           <TrendingUp className="h-4 w-4 text-primary" />

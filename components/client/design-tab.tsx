@@ -535,11 +535,11 @@ export function DesignTab({ issue }: { issue: Issue }) {
                 <SelectValue placeholder="Choose a service" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NEW_SERVICE}>
+                <SelectItem value={NEW_SERVICE} className="focus:text-primary">
                   + Create new service
                 </SelectItem>
                 {servicesQuery.data?.map((service) => (
-                  <SelectItem key={service.id} value={service.id}>
+                  <SelectItem key={service.id} value={service.id} className="focus:text-primary">
                     {service.name}
                   </SelectItem>
                 ))}

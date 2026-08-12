@@ -182,6 +182,11 @@ function SetPasswordForm() {
   const readOnlyClass =
     "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-not-allowed select-none";
 
+  // Client name is shown but not editable — same read-only look as the email field,
+  // just without the "not-allowed" cursor icon on hover.
+  const readOnlyClientNameClass =
+    "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-default select-none";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-96 bg-background border-border shadow-lg">
@@ -223,10 +228,12 @@ function SetPasswordForm() {
               />
 
               <input
-                className={inputClass}
+                className={isCustomer ? readOnlyClientNameClass : inputClass}
                 placeholder={isCustomer ? "Client name" : "User name"}
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
+                readOnly={isCustomer}
+                tabIndex={isCustomer ? -1 : undefined}
               />
 
               <div className="flex gap-2">

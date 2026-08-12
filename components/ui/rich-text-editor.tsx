@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import {
+  useEditor,
+  EditorContent,
+  ReactNodeViewRenderer,
+  NodeViewWrapper,
+  type Editor,
+  type NodeViewProps,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 import { Markdown, type MarkdownStorage } from "tiptap-markdown";
 import {
   Bold,
@@ -15,6 +23,39 @@ import {
   ListOrdered,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
+
+// Linear-hosted image URLs (uploads.linear.app) require Linear's own API key to
+// load — a plain <img src> just 401s, which browsers render as the alt text (often
+// literally the filename, e.g. "image.png") in place of the picture. This node view
+// swaps in the same authenticated-proxy fetch the read-only markdown renderer uses
+// (issue-detail-modal.tsx's ProxiedImage) so images actually display in the editor.
+function ProxiedImageNodeView({ node }: Readonly<NodeViewProps>) {
+  const resolvedSrc = useProxiedImageUrl(node.attrs.src);
+
+  return (
+    <NodeViewWrapper as="span" className="inline-block max-w-full">
+      {resolvedSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={resolvedSrc}
+          alt={node.attrs.alt ?? ""}
+          className="max-w-full h-auto rounded-md my-2"
+        />
+      ) : (
+        <span className="inline-flex items-center rounded border border-border bg-muted/40 px-2 py-1 smalltext text-muted-foreground">
+          Loading image…
+        </span>
+      )}
+    </NodeViewWrapper>
+  );
+}
+
+const ProxiedImage = Image.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(ProxiedImageNodeView);
+  },
+});
 
 function getMarkdown(editor: Editor): string {
   return (editor.storage as unknown as { markdown: MarkdownStorage }).markdown.getMarkdown();
@@ -122,6 +163,7 @@ export function RichTextEditor({
         heading: { levels: [2, 3] },
       }),
       Underline,
+      ProxiedImage.configure({ inline: false }),
       Placeholder.configure({ placeholder }),
       Markdown.configure({
         html: false,
@@ -137,7 +179,7 @@ export function RichTextEditor({
         ...(id ? { id } : {}),
         ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
         class:
-          "prose prose-sm prose-invert max-w-none focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold",
+          "prose prose-sm max-w-none text-card-foreground focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2",
         style: `min-height: ${minHeight}`,
       },
     },
@@ -169,7 +211,7 @@ export function RichTextEditor({
       <Toolbar editor={editor} />
       <EditorContent
         editor={editor}
-        className="px-3 py-2 text-sm overflow-y-auto cursor-text"
+        className="px-3 py-2 smalltext overflow-y-auto cursor-text"
         style={{ minHeight }}
         onClick={() => editor.chain().focus().run()}
       />

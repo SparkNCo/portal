@@ -16,7 +16,7 @@ function canEditIssue(issue: Issue) {
   return issue.state?.name !== "Done";
 }
 
-export type { Decision, TestCase, Issue, FilterState, PriorityTasksProps } from "./issues.types";
+export type { Decision, Test, TestExecution, Issue, FilterState, PriorityTasksProps } from "./issues.types";
 export { STATUS_ORDER } from "./issues.types";
 export { IssueDetailModal } from "./issue-detail-modal";
 

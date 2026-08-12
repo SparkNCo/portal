@@ -79,21 +79,41 @@ export type Decision = {
   created_at: string;
 };
 
-export type TestCase = {
+export type TestStep = { order: number; description: string };
+
+// A reusable test definition — no longer tied to one ticket. Attaching it to a ticket
+// creates a TestExecution (see below).
+export type Test = {
   id: string;
+  project_slug: string | null;
   title: string;
-  steps: { order: number; description: string }[];
+  steps: TestStep[];
+  last_passed_execution_id: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+export type TestExecutionResult = {
+  text: string;
+  recorded_by?: string | null;
+  recorded_at?: string;
+  kind?: "qa" | "uat";
+  attachments?: { name: string; url: string }[];
+};
+
+// One attachment of a Test to one ticket: the expected behaviour for that ticket, its
+// status, and the accumulated QA/UAT results recorded against it.
+export type TestExecution = {
+  id: string;
+  test_id: string;
+  issue_id: string;
   expected: string;
-  actual?: {
-    text: string;
-    recorded_by?: string | null;
-    recorded_at?: string;
-    kind?: "qa" | "uat";
-    attachments?: { name: string; url: string }[];
-  }[];
   status: "draft" | "approved" | "passed" | "failed";
+  results: TestExecutionResult[];
   created_by: string;
   approved_by?: string;
+  // Merged in by GET /test-executions — the reusable test's own title/steps.
+  test: Pick<Test, "title" | "steps"> | null;
 };
 
 export type Issue = {

@@ -4,44 +4,53 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProjectSelect } from "@/components/shared/project-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
+import { SimilarIssuesHint } from "@/components/shared/similar-issues-hint";
 
 // Title is always visible; the Continue button sits next to it (same row on
 // desktop, stacked on mobile) until details are revealed, then disappears.
+// When `slug` is provided, a "similar issue" hint is shown below the title as the
+// user types, backed by the Upstash issues vector search — shared by both the
+// Feature Request and Bug Report panels since they both render this component.
 export function TitleContinueRow({
   title,
   onTitleChange,
   detailsRevealed,
   onContinue,
+  slug,
 }: {
   title: string;
   onTitleChange: (value: string) => void;
   detailsRevealed: boolean;
   onContinue: () => void;
+  slug?: string;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-      <div className="flex-1 space-y-1.5">
-        <Label htmlFor="issue-title">Title</Label>
-        <Input
-          id="issue-title"
-          placeholder="Brief summary..."
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
-          }}
-          className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
-        />
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="issue-title">Title</Label>
+          <Input
+            id="issue-title"
+            placeholder="Brief summary..."
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
+            }}
+            className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
+          />
+        </div>
+        {!detailsRevealed && (
+          <Button
+            onClick={onContinue}
+            disabled={!title.trim()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
+          >
+            Continue
+          </Button>
+        )}
       </div>
-      {!detailsRevealed && (
-        <Button
-          onClick={onContinue}
-          disabled={!title.trim()}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
-        >
-          Continue
-        </Button>
-      )}
+      {slug && <SimilarIssuesHint slug={slug} query={title} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
+import { upsertIssueVector } from "../lib/vector.ts";
 
 const GET_FIRST_TEAM_QUERY = `
   query GetFirstTeam {
@@ -304,6 +305,18 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   if (resolvedLabelIds.length) input.labelIds = resolvedLabelIds;
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
+  const createdIssue = data.issueCreate?.issue;
+
+  // Best-effort — keeps a brand-new ticket searchable for the similar-issues hint
+  // right away, instead of waiting for someone to edit it (or the hourly cron) before
+  // it becomes findable.
+  if (slug && createdIssue) {
+    await upsertIssueVector(slug, {
+      id: createdIssue.id,
+      title: input.title,
+      description: input.description,
+    });
+  }
 
   return Response.json(data.issueCreate);
 }

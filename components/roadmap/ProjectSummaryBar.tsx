@@ -47,7 +47,7 @@ const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
 };
 
 function getMilestoneBarColor(m: Milestone): string {
-  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-card";
+  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-card/50";
 }
 
 // Most-urgent-first: if any milestone landing in this cycle bucket is
@@ -65,7 +65,7 @@ const MILESTONE_STATUS_PRIORITY: MilestoneStatus[] = [
 function getBucketColor(milestonesInBucket: ChainedMilestone[]): string {
   const statusesPresent = new Set(milestonesInBucket.map((m) => m.status));
   const leadStatus = MILESTONE_STATUS_PRIORITY.find((s) => statusesPresent.has(s));
-  return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-card";
+  return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-card/50";
 }
 
 type ProjectSummaryBarProps = {
@@ -174,7 +174,7 @@ export function MilestoneRow({
           <Badge
             variant="outline"
             title={data.name}
-            className="max-w-full min-w-0 rounded-sm border-transparent bg-card px-3 py-1 smalltext font-semibold text-card-foreground"
+            className="max-w-full min-w-0 rounded-sm border-transparent bg-card/90 px-3 py-1 smalltext font-semibold text-card-foreground"
           >
             <span className="block min-w-0 truncate">{capitalizeFirst(data.name)}</span>
           </Badge>
@@ -202,7 +202,7 @@ export function MilestoneRow({
                     <div
                       className={cn(
                         "absolute inset-y-1 inset-x-0 rounded-md",
-                        isInRange ? getMilestoneBarColor(data) : "bg-card",
+                        isInRange ? getMilestoneBarColor(data) : "bg-card/90",
                         isSelected && "ring-2 ring-accent",
                       )}
                     />
