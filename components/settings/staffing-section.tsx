@@ -140,20 +140,20 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
               onClick={() => setSelectedDeveloper(member)}
               className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-card/90 p-4 text-left cursor-pointer transition-colors hover:bg-card"
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex flex-1 items-center gap-3 min-w-0">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                   {member.avatar}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p title={member.name} className="smalltext font-medium text-card-foreground truncate max-w-[15ch]">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p title={member.name} className="smalltext font-medium text-card-foreground truncate">
                       {member.name}
                     </p>
-                    <Badge variant="secondary" className={statusColors["active"]}>
+                    <Badge variant="secondary" className={`shrink-0 ${statusColors["active"]}`}>
                       active
                     </Badge>
                   </div>
-                  <p title={member.email} className="smalltext text-card-foreground/60 truncate max-w-[20ch]">
+                  <p title={member.email} className="smalltext text-card-foreground/60 truncate">
                     {member.email}
                   </p>
                   <p className="smalltext text-card-foreground/60 capitalize">

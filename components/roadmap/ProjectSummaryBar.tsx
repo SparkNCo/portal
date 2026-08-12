@@ -5,6 +5,13 @@ import { Milestone, type MilestoneStatus } from "@/components/roadmap/roadmap-ti
 import type { ChainedMilestone } from "./ProjectRow";
 import { formatDate, type TimeBucket } from "./TimelineHeader";
 
+// Only the very first character gets capitalized — the rest of the name is
+// left exactly as stored (e.g. acronyms), unlike CSS `capitalize` which
+// would title-case every word.
+function capitalizeFirst(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; projectName: string }) {
   return (
     <div className="mb-1 pb-1 border-b border-popover-foreground/10">
@@ -14,7 +21,7 @@ function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; proje
           {formatDate(bucket.start)} – {formatDate(bucket.end)}
         </span>
       </div>
-      <div className="text-xs text-popover-foreground/60">{projectName}</div>
+      <div className="smalltext text-popover-foreground/60">{projectName}</div>
     </div>
   );
 }
@@ -40,7 +47,7 @@ const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
 };
 
 function getMilestoneBarColor(m: Milestone): string {
-  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-accent/50";
+  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-card";
 }
 
 // Most-urgent-first: if any milestone landing in this cycle bucket is
@@ -58,7 +65,7 @@ const MILESTONE_STATUS_PRIORITY: MilestoneStatus[] = [
 function getBucketColor(milestonesInBucket: ChainedMilestone[]): string {
   const statusesPresent = new Set(milestonesInBucket.map((m) => m.status));
   const leadStatus = MILESTONE_STATUS_PRIORITY.find((s) => statusesPresent.has(s));
-  return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-accent/50";
+  return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-card";
 }
 
 type ProjectSummaryBarProps = {
@@ -115,7 +122,7 @@ export function ProjectSummaryBar({
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 text-sm shadow-md"
+                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 smalltext shadow-md"
                   >
                     <CycleTooltipHeader bucket={bucket} projectName={projectName} />
                     {milestonesInBucket.length > 0 && (
@@ -126,7 +133,7 @@ export function ProjectSummaryBar({
                             className="flex flex-col"
                           >
                             <span className="font-medium">{m.name}</span>
-                            <span className="text-xs text-popover-foreground/60">
+                            <span className="smalltext text-popover-foreground/60">
                               {m.status}
                             </span>
                           </div>
@@ -166,9 +173,10 @@ export function MilestoneRow({
         {data.name && (
           <Badge
             variant="outline"
-            className="max-w-full truncate rounded-sm border-white/25 bg-transparent px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white"
+            title={data.name}
+            className="max-w-full min-w-0 rounded-sm border-transparent bg-card px-3 py-1 smalltext font-semibold text-card-foreground"
           >
-            {data.name}
+            <span className="block min-w-0 truncate">{capitalizeFirst(data.name)}</span>
           </Badge>
         )}
       </div>
@@ -194,7 +202,7 @@ export function MilestoneRow({
                     <div
                       className={cn(
                         "absolute inset-y-1 inset-x-0 rounded-md",
-                        isInRange ? getMilestoneBarColor(data) : "bg-muted/20",
+                        isInRange ? getMilestoneBarColor(data) : "bg-card",
                         isSelected && "ring-2 ring-accent",
                       )}
                     />
@@ -204,13 +212,13 @@ export function MilestoneRow({
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 text-sm shadow-md"
+                    className="z-50 max-w-xs rounded-md bg-popover text-popover-foreground px-3 py-2 smalltext shadow-md"
                   >
                     <CycleTooltipHeader bucket={bucket} projectName={data.projectName} />
                     {data.name && (
                       <div className="flex flex-col">
                         <span className="font-medium">{data.name}</span>
-                        <span className="text-xs text-popover-foreground/60">{data.status}</span>
+                        <span className="smalltext text-popover-foreground/60">{data.status}</span>
                       </div>
                     )}
                     <Tooltip.Arrow className="fill-popover" />

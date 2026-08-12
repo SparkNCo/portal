@@ -53,14 +53,14 @@ export function DeveloperDetailsModal({
                   <div className="min-w-0 flex-1 space-y-1">
                     <DialogTitle className="truncate">{developer.name}</DialogTitle>
                     {developer.email && (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="smalltext text-muted-foreground truncate">
                         {developer.email}
                       </p>
                     )}
                     {developer.role && (
                       <Badge
                         variant="outline"
-                        className="border-primary/30 bg-primary/5 text-primary capitalize"
+                        className="smalltext border-primary/30 bg-primary/5 text-primary capitalize"
                       >
                         {developer.role}
                       </Badge>
@@ -71,7 +71,7 @@ export function DeveloperDetailsModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1 self-start sm:shrink-0"
+                    className="gap-1 self-start sm:shrink-0 smalltext"
                     onClick={onEdit}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -83,7 +83,7 @@ export function DeveloperDetailsModal({
 
             <div className="space-y-5 pt-4 mt-1 border-t border-border">
               {developer.joined && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 smalltext text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5" />
                   <span>
                     Added {new Date(developer.joined).toLocaleDateString()}
@@ -92,19 +92,19 @@ export function DeveloperDetailsModal({
               )}
 
               <div>
-                <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5">
+                <p className="flex items-center gap-1.5 smalltext font-medium text-muted-foreground mb-1.5">
                   <Briefcase className="h-3.5 w-3.5" />
                   Bio
                 </p>
                 <div className="rounded-lg bg-muted/40 p-3">
-                  <p className="text-sm text-foreground whitespace-pre-wrap">
+                  <p className="smalltext text-foreground whitespace-pre-wrap">
                     {developer.bio || "No bio provided yet."}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                <p className="smalltext font-medium text-muted-foreground mb-1.5">
                   Tech Stack
                 </p>
                 {developer.techStack.length > 0 ? (
@@ -113,14 +113,14 @@ export function DeveloperDetailsModal({
                       <Badge
                         key={tech}
                         variant="outline"
-                        className="border-border bg-muted/40 text-foreground"
+                        className="smalltext border-border bg-muted/40 text-foreground"
                       >
                         {tech}
                       </Badge>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="smalltext text-muted-foreground">
                     No tech stack listed yet.
                   </p>
                 )}

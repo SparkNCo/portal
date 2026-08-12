@@ -176,8 +176,8 @@ function ProjectHeader({
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
           <Box className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="truncate text-sm font-semibold">{projectName}</h3>
-        <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+        <h3 className="truncate smalltext font-semibold">{projectName}</h3>
+        <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 smalltext text-muted-foreground">
           {milestoneCount} milestone{milestoneCount === 1 ? "" : "s"}
         </span>
       </div>

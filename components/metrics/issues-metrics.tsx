@@ -185,7 +185,7 @@ export function IssueMetricsView({
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+        <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <BarChart2 className="h-4 w-4 text-primary" />
           Issues by Status
           {titleSuffix}
@@ -193,7 +193,7 @@ export function IssueMetricsView({
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
+          <p className="smalltext text-muted-foreground py-6 text-center">
             No data
           </p>
         ) : (
@@ -233,7 +233,7 @@ export function IssueMetricsView({
             <div className="mt-3 lg:hidden">
               <button
                 onClick={() => setLegendOpen((o) => !o)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1 smalltext text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ChevronDown
                   className={`h-3 w-3 transition-transform duration-200 ${legendOpen ? "rotate-180" : ""}`}
@@ -245,7 +245,7 @@ export function IssueMetricsView({
                   {uniqueStatuses.map((status) => {
                     const color = CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))";
                     return (
-                      <div key={status} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <div key={status} className="flex items-center gap-1.5 smalltext text-muted-foreground">
                         <span style={{ display: "inline-block", width: 12, height: 12, borderRadius: 2, background: color, opacity: 0.8 }} />
                         {status}
                       </div>

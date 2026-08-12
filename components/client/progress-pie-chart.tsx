@@ -23,7 +23,7 @@ function CustomTooltip({ active, payload }: TooltipProps) {
   const { name, value } = payload[0].payload;
 
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 smalltext shadow-md">
       <p className="font-medium text-popover-foreground">{name}</p>
       <p className="text-popover-foreground/60">{value} tasks</p>
     </div>
@@ -69,13 +69,13 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
   return (
     <Card className="bg-background border-border flex flex-col h-full text-foreground">
       <CardHeader>
-        <CardTitle className="text-body font-semibold flex items-center gap-2 ">
+        <CardTitle className="body font-semibold flex items-center gap-2 ">
           <TrendingUp className="h-4 w-4 text-primary" />
           Project Stats
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex flex-col justify-center">
+      <CardContent className="flex-1 flex flex-col justify-center">
         <ResponsiveContainer width="100%" height={160}>
           <PieChart>
             <Pie
@@ -102,18 +102,18 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
           {chartData.map((item) => (
             <div
               key={item.name}
-              className="flex items-center justify-between text-sm"
+              className="flex items-center justify-between smalltext"
             >
               <div className="flex items-center gap-2">
                 <div
                   className="h-2.5 w-2.5 rounded-full"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground smalltext">
                   {item.name}
                 </span>
               </div>
-              <span className="font-medium text-foreground text-xs">
+              <span className="font-medium text-foreground smalltext">
                 {item.value}
               </span>
             </div>
@@ -123,13 +123,13 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Total Tasks</span>
+            <span className="smalltext text-muted-foreground">Total Tasks</span>
             <span className="text-base font-bold text-foreground">
               {TOTAL_TASKS}
             </span>
           </div>
           <div className="flex items-center justify-between mt-0.5">
-            <span className="text-xs text-muted-foreground">Completion</span>
+            <span className="smalltext text-muted-foreground">Completion</span>
             <span className="text-base font-bold text-success">
               {completionPercent}%
             </span>

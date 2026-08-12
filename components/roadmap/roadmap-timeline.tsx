@@ -86,20 +86,20 @@ const priorityColors: Record<string, string> = {
   High: "bg-chart-1/20 text-chart-1 border-chart-1/30",
   Medium: "bg-primary/20 text-primary border-primary/30",
   Low: "bg-chart-5/20 text-chart-5 border-chart-5/30",
-  "No priority": "bg-muted/50 text-muted-foreground border-muted",
+  "No priority": "bg-card text-card-foreground border-muted",
 };
 
 const stateColors: Record<string, string> = {
   "needs-input": "bg-chart-1/20 text-chart-1",
-  Backlog: "bg-muted/50 text-muted-foreground",
+  Backlog: "bg-card text-card-foreground",
   Todo: "bg-slate-500/20 text-slate-600",
   "In Progress": "bg-warning/20 text-warning",
   "In Review": "bg-blue-500/20 text-blue-600",
   Blocked: "bg-destructive/20 text-destructive",
-  "Not Started": "bg-muted/50 text-muted-foreground",
+  "Not Started": "bg-card text-card-foreground",
   Canceled: "bg-destructive/20 text-destructive",
   Cancelled: "bg-destructive/20 text-destructive",
-  waiting: "bg-muted text-muted-foreground",
+  waiting: "bg-card text-card-foreground",
   Done: "bg-success/20 text-success",
   Completed: "bg-success/20 text-success",
   QA: "bg-blue-700/20 text-blue-700",
@@ -319,7 +319,7 @@ export function RoadmapTimeline({
         <CardContent className="overflow-x-auto px-2 sm:px-6">
           <div className="min-w-0 sm:min-w-[560px]">
             {allBuckets.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
+              <p className="py-6 text-center smalltext text-muted-foreground">
                 No cycles found for this team.
               </p>
             ) : (
@@ -353,7 +353,7 @@ export function RoadmapTimeline({
                   />
                 ))}
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border smalltext text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-success" />
                     Completed
@@ -379,7 +379,7 @@ export function RoadmapTimeline({
                     Overdue
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-muted/40 border border-border" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-card border border-border" />
                     No issues in this cycle
                   </span>
                 </div>
@@ -394,9 +394,9 @@ export function RoadmapTimeline({
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-semibold">
+                <h3 className="body font-semibold">
                   {selectedBucket.label}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  <span className="ml-2 smalltext font-normal text-muted-foreground">
                     {selectedBucket.start.toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
@@ -409,7 +409,7 @@ export function RoadmapTimeline({
                     })}
                   </span>
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="smalltext text-muted-foreground">
                   All issues in this cycle · opened from {selection.projectName}
                   {selection.milestoneName ? ` · ${selection.milestoneName}` : ""}
                 </p>
@@ -425,9 +425,9 @@ export function RoadmapTimeline({
             </div>
 
             {cycleIssuesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading issues...</p>
+              <p className="smalltext text-muted-foreground">Loading issues...</p>
             ) : cycleIssues.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="smalltext text-muted-foreground">
                 No issues in this cycle.
               </p>
             ) : (
@@ -441,7 +441,7 @@ export function RoadmapTimeline({
                       placeholder="Search by title or ID..."
                       value={issueSearch}
                       onChange={(e) => setIssueSearch(e.target.value)}
-                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 smalltext text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
                   {availableStatuses.length > 0 && (
@@ -452,7 +452,7 @@ export function RoadmapTimeline({
                           onClick={() =>
                             setStatusFilter((prev) => (prev === status ? null : status))
                           }
-                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                          className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                             statusFilter === status
                               ? `${stateColors[status] ?? "bg-muted text-foreground"} border-current`
                               : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
@@ -471,7 +471,7 @@ export function RoadmapTimeline({
                           onClick={() =>
                             setPriorityFilter((prev) => (prev === priority ? null : priority))
                           }
-                          className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                          className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                             priorityFilter === priority
                               ? `${priorityColors[priority] ?? "bg-muted text-foreground"} border-current`
                               : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
@@ -485,7 +485,7 @@ export function RoadmapTimeline({
                 </div>
 
                 {visibleIssues.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="smalltext text-muted-foreground">
                     No issues match the current filters.
                   </p>
                 ) : (
@@ -533,7 +533,7 @@ export function RoadmapTimeline({
                       <div className="space-y-0.5">
                         {issue.identifier && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                            <p className="flex items-center gap-1 smalltext text-muted-foreground font-mono">
                               {typeIcon && (
                                 <typeIcon.Icon
                                   className={`h-3 w-3 shrink-0 ${typeIcon.className}`}
@@ -546,7 +546,7 @@ export function RoadmapTimeline({
                               issue.priorityLabel !== "No priority" && (
                                 <Badge
                                   variant="outline"
-                                  className={`text-[10px] ${priorityColors[issue.priorityLabel] ?? ""}`}
+                                  className={`smalltext ${priorityColors[issue.priorityLabel] ?? ""}`}
                                 >
                                   {issue.priorityLabel}
                                 </Badge>
@@ -554,7 +554,7 @@ export function RoadmapTimeline({
                           </div>
                         )}
                         {issue.title && (
-                          <p className="text-xs font-medium leading-snug">{issue.title}</p>
+                          <p className="smalltext font-medium leading-snug">{issue.title}</p>
                         )}
                       </div>
                     )}
@@ -562,7 +562,7 @@ export function RoadmapTimeline({
                       {issue.estimate != null && (
                         <Badge
                           variant="outline"
-                          className="gap-1 text-[10px] border-chart-1/30 bg-chart-1/10 text-chart-1"
+                          className="gap-1 smalltext border-chart-1/30 bg-chart-1/10 text-chart-1"
                         >
                           <Gauge className="h-3 w-3" />
                           {issue.estimate}
@@ -571,7 +571,7 @@ export function RoadmapTimeline({
                       {issue.state?.name && (
                         <Badge
                           variant="outline"
-                          className={`text-[10px] ${stateColors[issue.state.name] ?? "bg-muted border-border text-muted-foreground"}`}
+                          className={`smalltext ${stateColors[issue.state.name] ?? "bg-muted border-border text-muted-foreground"}`}
                         >
                           {issue.state.name}
                         </Badge>
@@ -583,7 +583,7 @@ export function RoadmapTimeline({
                         {otherLabels.map((l: any) => (
                           <span
                             key={l.name}
-                            className="text-[10px] bg-muted rounded px-1.5 py-0.5 text-muted-foreground"
+                            className="smalltext bg-muted rounded px-1.5 py-0.5 text-muted-foreground"
                           >
                             {l.name}
                           </span>
@@ -593,7 +593,7 @@ export function RoadmapTimeline({
 
                     <div className="space-y-0.5">
                       {issue.assignee?.displayName && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="smalltext text-muted-foreground">
                           Assignee:{" "}
                           <span className="text-foreground">
                             {issue.assignee.displayName}
@@ -601,7 +601,7 @@ export function RoadmapTimeline({
                         </p>
                       )}
                       {issue.dueDate && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="smalltext text-muted-foreground">
                           Due:{" "}
                           <span className="text-foreground">
                             {new Date(issue.dueDate).toLocaleDateString()}
@@ -609,7 +609,7 @@ export function RoadmapTimeline({
                         </p>
                       )}
                       {issue.completedAt && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="smalltext text-muted-foreground">
                           Completed:{" "}
                           <span className="text-success">
                             {new Date(issue.completedAt).toLocaleDateString()}
@@ -629,7 +629,7 @@ export function RoadmapTimeline({
                       type="button"
                       onClick={handleLoadMoreCycleIssues}
                       disabled={loadingMoreCycleIssues}
-                      className="text-xs px-3 py-1.5 rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted disabled:opacity-50"
+                      className="smalltext px-3 py-1.5 rounded-md border border-border bg-muted/40 text-muted-foreground hover:bg-muted disabled:opacity-50"
                     >
                       {loadingMoreCycleIssues ? "Loading..." : "Load more issues"}
                     </button>

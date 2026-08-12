@@ -253,7 +253,7 @@ function CodeCoverageCard({
     <div className="rounded-lg border p-4" style={{ backgroundColor: computedStyle.bg, borderColor: computedStyle.border }}>
       <div className="flex items-center gap-2 mb-2" style={{ color: computedStyle.color }}>
         <Percent className="h-4 w-4" />
-        <span className="text-xs font-medium">Code Coverage</span>
+        <span className="smalltext font-medium">Code Coverage</span>
       </div>
 
       {editing ? (
@@ -267,7 +267,7 @@ function CodeCoverageCard({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="0-100"
-            className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-8 w-24 rounded-md border border-input bg-background px-2 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="flex gap-2">
             <Button
@@ -281,18 +281,18 @@ function CodeCoverageCard({
               Cancel
             </Button>
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="smalltext text-destructive">{error}</p>}
         </div>
       ) : (
         <>
           <p className="text-2xl font-bold text-foreground">
             {pct !== null ? pct.toFixed(1) : "N/A"}
-            <span className="text-sm font-normal text-muted-foreground ml-1">%</span>
+            <span className="smalltext font-normal text-muted-foreground ml-1">%</span>
           </p>
           {canEdit && (
             <button
               type="button"
-              className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+              className="mt-2 smalltext text-muted-foreground underline hover:text-foreground"
               onClick={() => { setValue(pct !== null ? String(pct) : ""); setEditing(true); }}
             >
               Edit
@@ -340,7 +340,7 @@ function SonarQualityGateCard({
     <div className="rounded-lg border p-4" style={{ backgroundColor: style.bg, borderColor: style.border }}>
       <div className="flex items-center gap-2 mb-2" style={{ color: style.color }}>
         <ShieldCheck className="h-4 w-4" />
-        <span className="text-xs font-medium">Sonar Quality Gate</span>
+        <span className="smalltext font-medium">Sonar Quality Gate</span>
       </div>
 
       {editing ? (
@@ -366,7 +366,7 @@ function SonarQualityGateCard({
           <Button size="sm" variant="outline" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
             Cancel
           </Button>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="smalltext text-destructive">{error}</p>}
         </div>
       ) : (
         <>
@@ -376,7 +376,7 @@ function SonarQualityGateCard({
           {canEdit && (
             <button
               type="button"
-              className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+              className="mt-2 smalltext text-muted-foreground underline hover:text-foreground"
               onClick={() => setEditing(true)}
             >
               Edit
@@ -410,22 +410,22 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   };
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border flex flex-col h-full">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
           <TrendingUp className="h-4 w-4 text-primary" />
           SDLC Metrics
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto min-h-0">
         {isLoading && (
-          <p className="text-sm text-muted-foreground">Loading metrics...</p>
+          <p className="smalltext text-muted-foreground">Loading metrics...</p>
         )}
         {isError && (
-          <p className="text-sm text-destructive">Failed to load metrics.</p>
+          <p className="smalltext text-destructive">Failed to load metrics.</p>
         )}
         {!isLoading && !isError && latest == null && (
-          <p className="text-sm text-muted-foreground">No metrics available.</p>
+          <p className="smalltext text-muted-foreground">No metrics available.</p>
         )}
         {latest && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -445,17 +445,17 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                 >
                   <div className="flex items-center gap-2 mb-2" style={{ color: style.color }}>
                     <Icon className="h-4 w-4" />
-                    <span className="text-xs font-medium">{label}</span>
+                    <span className="smalltext font-medium">{label}</span>
                   </div>
                   <p className="text-2xl font-bold text-foreground">
                     {value !== null ? value.toFixed(1) : "N/A"}
-                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                    <span className="smalltext font-normal text-muted-foreground ml-1">
                       {metric?.unit ?? ""}
                     </span>
                   </p>
                   {cfr && (
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="smalltext text-muted-foreground">
                         Failed:{" "}
                         <span className="text-foreground font-medium">
                           {cfr.failed_deployments}
@@ -467,7 +467,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                         </span>
                       </p>
                       <p
-                        className="text-xs text-muted-foreground truncate"
+                        className="smalltext text-muted-foreground truncate"
                         title={cfr.repo}
                       >
                         {cfr.repo}
@@ -476,13 +476,13 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                   )}
                   {deployFreq && (
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
-                      <p className="text-xs text-muted-foreground">
+                      <p className="smalltext text-muted-foreground">
                         Last 30d:{" "}
                         <span className="text-foreground font-medium">
                           {deployFreq.last_30_days ?? "N/A"} deployments
                         </span>
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="smalltext text-muted-foreground">
                         Last 90d:{" "}
                         <span className="text-foreground font-medium">
                           {deployFreq.last_90_days ?? "N/A"} deployments

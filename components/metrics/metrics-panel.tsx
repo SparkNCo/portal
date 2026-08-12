@@ -63,13 +63,13 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
   if (isLoading) {
     return (
-      <p className="text-sm text-muted-foreground py-4">Loading metrics…</p>
+      <p className="smalltext text-muted-foreground py-4">Loading metrics…</p>
     );
   }
 
   if (error) {
     return (
-      <p className="text-sm text-destructive py-4">Failed to load metrics</p>
+      <p className="smalltext text-destructive py-4">Failed to load metrics</p>
     );
   }
 
@@ -130,12 +130,12 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 "
       >
         <Select value={activeProjectName} onValueChange={setSelectedProjectName}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-52 smalltext">
             <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
             {projects.map((p) => (
-              <SelectItem key={p.name} value={p.name} className="focus:text-primary">
+              <SelectItem key={p.name} value={p.name} className="smalltext focus:text-primary">
                 {p.name}
               </SelectItem>
             ))}
@@ -153,12 +153,12 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               if (cycle?.ends_at) setDateTo(String(cycle.ends_at).split("T")[0] ?? "");
             }}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-36 smalltext">
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
             <SelectContent>
               {[...cycles].reverse().map((c: any) => (
-                <SelectItem key={c.cycle_id} value={c.cycle_id} className="focus:text-primary">
+                <SelectItem key={c.cycle_id} value={c.cycle_id} className="smalltext focus:text-primary">
                   Cycle {c.number}
                 </SelectItem>
               ))}
@@ -170,7 +170,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           <div className="flex items-center gap-2">
             <label
               htmlFor="metrics-date-from"
-              className="text-sm text-muted-foreground w-8"
+              className="smalltext text-muted-foreground w-8"
             >
               From
             </label>
@@ -182,13 +182,13 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
                 setLastFilterTouched("date");
                 setDateFrom(e.target.value);
               }}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 rounded-md border border-input bg-background px-3 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
           <div className="flex items-center gap-2">
             <label
               htmlFor="metrics-date-to"
-              className="text-sm text-muted-foreground w-8"
+              className="smalltext text-muted-foreground w-8"
             >
               To
             </label>
@@ -200,7 +200,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
                 setLastFilterTouched("date");
                 setDateTo(e.target.value);
               }}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-9 rounded-md border border-input bg-background px-3 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
         </div>
@@ -211,7 +211,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               setDateTo("");
               setLastFilterTouched(null);
             }}
-            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            className="smalltext text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
             Clear
           </button>

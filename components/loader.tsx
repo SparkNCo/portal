@@ -15,7 +15,7 @@ export const LoadingDataPanel = () => {
           <p className="text-xl font-semibold text-primary">
             Loading Data
           </p>
-          <p className="text-sm text-foreground">Please wait a moment</p>
+          <p className="smalltext text-foreground">Please wait a moment</p>
         </div>
       </div>
     </div>
