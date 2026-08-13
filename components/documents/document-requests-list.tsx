@@ -263,7 +263,7 @@ function RequestPanel({
           <Button
             variant="ghost"
             size="sm"
-            className="w-full"
+            className="w-full smalltext"
             onClick={() => setLimit((l) => l + PAGE_SIZE)}
           >
             Show More

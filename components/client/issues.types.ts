@@ -146,6 +146,7 @@ export type Issue = {
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
   createdAt?: string;
+  project?: { id: string; name: string; slugId?: string };
 };
 
 export type FilterState = {

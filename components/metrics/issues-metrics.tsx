@@ -86,17 +86,48 @@ function StatusTooltip({
   );
 }
 
+// Merges daily snapshots from any number of cycles into one series — same
+// dates across cycles are summed rather than shown as separate points. Used
+// both for "span every cycle in range" and for "this cycle number across
+// every project" (All Projects has one cycle_metrics row per project per
+// number, so a single dropdown selection can span several of these).
+function mergeSnapshots(
+  cyclesToMerge: CycleMetric[],
+  dateFrom: string,
+  dateTo: string,
+): Record<string, number | string>[] {
+  const byDate = new Map<string, Record<string, number | string>>();
+  for (const cycle of cyclesToMerge) {
+    for (const snapshot of cycle.issues_averages ?? []) {
+      const date = String(snapshot.date ?? "");
+      if (!date) continue;
+      if (dateFrom && date < dateFrom) continue;
+      if (dateTo && date > dateTo) continue;
+
+      const entry = byDate.get(date) ?? { date };
+      for (const [key, value] of Object.entries(snapshot)) {
+        if (key === "date") continue;
+        entry[key] = ((entry[key] as number) ?? 0) + ((value as number) ?? 0);
+      }
+      byDate.set(date, entry);
+    }
+  }
+  return Array.from(byDate.values()).sort((a, b) =>
+    String(a.date).localeCompare(String(b.date)),
+  );
+}
+
 export function IssueMetricsView({
   data,
   cycleMetrics = [],
-  activeCycleId,
+  activeCycleNumber,
   dateFrom = "",
   dateTo = "",
   spanAllCycles = false,
 }: {
   readonly data: IssueMetric[];
   readonly cycleMetrics?: CycleMetric[];
-  readonly activeCycleId: string;
+  readonly activeCycleNumber: string;
   readonly dateFrom?: string;
   readonly dateTo?: string;
   readonly spanAllCycles?: boolean;
@@ -106,35 +137,25 @@ export function IssueMetricsView({
     [cycleMetrics],
   );
 
-  const activeCycle = cycles.find((c) => c.cycle_id === activeCycleId);
+  const cyclesForActiveNumber = useMemo(
+    () => cycles.filter((c) => String(c.number) === activeCycleNumber),
+    [cycles, activeCycleNumber],
+  );
   const [legendOpen, setLegendOpen] = useState(false);
 
   // When the date range (not the cycle picker) is what the user last edited,
-  // merge every cycle's daily snapshots that fall in range into one series —
-  // same dates across cycles are summed rather than shown as separate points.
+  // span every cycle in range instead of staying pinned to one number.
   const mergedAcrossCycles = useMemo(() => {
     if (!spanAllCycles) return null;
-
-    const byDate = new Map<string, Record<string, number | string>>();
-    for (const cycle of cycles) {
-      for (const snapshot of cycle.issues_averages ?? []) {
-        const date = String(snapshot.date ?? "");
-        if (!date) continue;
-        if (dateFrom && date < dateFrom) continue;
-        if (dateTo && date > dateTo) continue;
-
-        const entry = byDate.get(date) ?? { date };
-        for (const [key, value] of Object.entries(snapshot)) {
-          if (key === "date") continue;
-          entry[key] = ((entry[key] as number) ?? 0) + ((value as number) ?? 0);
-        }
-        byDate.set(date, entry);
-      }
-    }
-    return Array.from(byDate.values()).sort((a, b) =>
-      String(a.date).localeCompare(String(b.date)),
-    );
+    return mergeSnapshots(cycles, dateFrom, dateTo);
   }, [spanAllCycles, cycles, dateFrom, dateTo]);
+
+  // The picked cycle number, merged across every project that has one —
+  // for a single selected project this is just that one cycle, unchanged.
+  const mergedForActiveNumber = useMemo(() => {
+    if (spanAllCycles) return null;
+    return mergeSnapshots(cyclesForActiveNumber, dateFrom, dateTo);
+  }, [spanAllCycles, cyclesForActiveNumber, dateFrom, dateTo]);
 
   // Fixed set and order (not derived from whatever happens to be in the
   // current data) so a status is always in the same stacking position and
@@ -146,40 +167,21 @@ export function IssueMetricsView({
   const uniqueStatuses = STATUS_ORDER.filter((status) => status !== "Backlog");
 
   const chartData = useMemo(() => {
-    if (spanAllCycles) {
-      return (mergedAcrossCycles ?? []).map((d) => {
-        const point: Record<string, number | string> = { date: d.date ?? "" };
-        for (const status of uniqueStatuses) {
-          point[status] = (d[status] as number) ?? 0;
-        }
-        return point;
-      });
-    }
-
-    const raw = [...(activeCycle?.issues_averages ?? [])].sort((a, b) =>
-      String(a.date).localeCompare(String(b.date)),
-    );
-    return raw
-      .filter((d) => {
-        const date = String(d.date ?? "");
-        if (dateFrom && date < dateFrom) return false;
-        if (dateTo && date > dateTo) return false;
-        return true;
-      })
-      .map((d) => {
-        const point: Record<string, number | string> = { date: d.date ?? "" };
-        for (const status of uniqueStatuses) {
-          point[status] = (d[status] as number) ?? 0;
-        }
-        return point;
-      });
-  }, [spanAllCycles, mergedAcrossCycles, activeCycle, uniqueStatuses, dateFrom, dateTo]);
+    const source = spanAllCycles ? mergedAcrossCycles : mergedForActiveNumber;
+    return (source ?? []).map((d) => {
+      const point: Record<string, number | string> = { date: d.date ?? "" };
+      for (const status of uniqueStatuses) {
+        point[status] = (d[status] as number) ?? 0;
+      }
+      return point;
+    });
+  }, [spanAllCycles, mergedAcrossCycles, mergedForActiveNumber, uniqueStatuses]);
 
   let titleSuffix = "";
   if (spanAllCycles) {
     titleSuffix = " — All cycles in range";
-  } else if (activeCycle) {
-    titleSuffix = ` — Cycle #${activeCycle.number}`;
+  } else if (activeCycleNumber) {
+    titleSuffix = ` — Cycle #${activeCycleNumber}`;
   }
 
   return (

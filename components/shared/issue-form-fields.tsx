@@ -28,7 +28,7 @@ export function TitleContinueRow({
     <div className="space-y-2">
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div className="flex-1 space-y-1.5">
-          <Label htmlFor="issue-title">Title</Label>
+          <Label htmlFor="issue-title" className="smalltext">Title</Label>
           <Input
             id="issue-title"
             placeholder="Brief summary..."
@@ -66,7 +66,7 @@ export function ProjectField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="issue-project">
+      <Label htmlFor="issue-project" className="smalltext">
         Project{" "}
         <span className="text-muted-foreground font-normal">(optional)</span>
       </Label>
@@ -89,7 +89,7 @@ export function PriorityField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="issue-priority">Priority</Label>
+      <Label htmlFor="issue-priority" className="smalltext">Priority</Label>
       <PrioritySelect id="issue-priority" value={value} onValueChange={onValueChange} />
     </div>
   );

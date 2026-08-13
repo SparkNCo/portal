@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
+  Cell,
   LineChart,
   Line,
   XAxis,
@@ -29,6 +30,7 @@ interface CycleMetric {
   cycle_id: string;
   name: string | null;
   number: number;
+  project_name?: string;
   description: string | null;
   completed_at: string | null;
   starts_at: string | null;
@@ -74,23 +76,71 @@ const PRIORITY_COLOR: Record<number, string> = {
   4: "text-muted-foreground",
 };
 
-export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
-  const chartData = useMemo(
-    () =>
-      data.map((c) => ({
-        label: c.name ?? `Cycle ${c.number}`,
-        Scope: c.scope_history.at(-1) ?? 0,
-        Completed: c.completed_scope_history.at(-1) ?? 0,
-      })),
-    [data],
-  );
+export function CycleBarChart({
+  data,
+  activeCycleNumber,
+  onCycleClick,
+  onShowAllCycles,
+}: {
+  readonly data: CycleMetric[];
+  readonly activeCycleNumber?: string;
+  readonly onCycleClick?: (cycleNumber: string) => void;
+  readonly onShowAllCycles?: () => void;
+}) {
+  // With "All Projects" selected, every project has its own row for "Cycle
+  // 13" — merge same-numbered cycles into a single bar (Scope/Completed
+  // summed across projects) instead of showing one per project. With a
+  // single project selected this is a no-op: one row per number already.
+  const chartData = useMemo(() => {
+    const byNumber = new Map<
+      number,
+      { label: string; cycleNumber: number; Scope: number; Completed: number }
+    >();
+    for (const c of data) {
+      const scope = c.scope_history.at(-1) ?? 0;
+      const completed = c.completed_scope_history.at(-1) ?? 0;
+      const existing = byNumber.get(c.number);
+      if (existing) {
+        existing.Scope += scope;
+        existing.Completed += completed;
+      } else {
+        byNumber.set(c.number, {
+          label: c.name ?? `Cycle ${c.number}`,
+          cycleNumber: c.number,
+          Scope: scope,
+          Completed: completed,
+        });
+      }
+    }
+    return Array.from(byNumber.values()).sort((a, b) => a.cycleNumber - b.cycleNumber);
+  }, [data]);
+
+  // Clicking a bar applies that cycle's number as the filter everywhere else
+  // on the panel (same effect as picking it from the "Cycle" dropdown) —
+  // Recharts hands the clicked segment's merged row data back, which carries
+  // the cycleNumber we added above.
+  const handleBarClick = (point: any) => {
+    const cycleNumber = point?.cycleNumber ?? point?.payload?.cycleNumber;
+    if (cycleNumber != null) onCycleClick?.(String(cycleNumber));
+  };
 
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
-          <RefreshCw className="h-4 w-4 text-primary" />
-          Cycle Scope vs Completed
+        <CardTitle className="body font-semibold flex items-center justify-between gap-2 text-foreground">
+          <span className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 text-primary" />
+            Cycle Scope vs Completed
+          </span>
+          {onShowAllCycles && (
+            <button
+              type="button"
+              onClick={onShowAllCycles}
+              className="hidden sm:inline-flex h-8 items-center rounded-md border border-input bg-background px-3 smalltext font-normal text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+              Show all cycles
+            </button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -99,7 +149,7 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
             No cycles in selected range
           </p>
         ) : (
-          <div className="h-56">
+          <div className="h-56 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
             <ResponsiveContainer width="100%" height={224}>
               <BarChart data={chartData} barGap={4}>
                 <XAxis
@@ -129,12 +179,30 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
                   dataKey="Scope"
                   fill="oklch(0.65 0.2 250)"
                   radius={[3, 3, 0, 0]}
-                />
+                  onClick={handleBarClick}
+                  cursor={onCycleClick ? "pointer" : undefined}
+                >
+                  {chartData.map((entry) => (
+                    <Cell
+                      key={entry.cycleNumber}
+                      fillOpacity={!activeCycleNumber || String(entry.cycleNumber) === activeCycleNumber ? 1 : 0.4}
+                    />
+                  ))}
+                </Bar>
                 <Bar
                   dataKey="Completed"
                   fill="oklch(0.7 0.18 140)"
                   radius={[3, 3, 0, 0]}
-                />
+                  onClick={handleBarClick}
+                  cursor={onCycleClick ? "pointer" : undefined}
+                >
+                  {chartData.map((entry) => (
+                    <Cell
+                      key={entry.cycleNumber}
+                      fillOpacity={!activeCycleNumber || String(entry.cycleNumber) === activeCycleNumber ? 1 : 0.4}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

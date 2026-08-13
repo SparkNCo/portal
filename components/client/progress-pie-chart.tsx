@@ -2,6 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   PieChart,
   Pie,
   Cell,
@@ -9,8 +16,12 @@ import {
   Tooltip as RechartsTooltip,
 } from "recharts";
 import { TrendingUp } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CHART_STATUS_COLORS, STATUS_ORDER, type Issue } from "./issues.types";
+
+// Radix Select reserves value="" for its own placeholder state, so "every
+// project" needs a non-empty sentinel.
+const ALL_PROJECTS_VALUE = "__all_projects__";
 
 type TooltipProps = {
   active?: boolean;
@@ -31,10 +42,27 @@ function CustomTooltip({ active, payload }: TooltipProps) {
 }
 
 export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
+  // Self-contained project filter — no cycle/date filter here, just scopes
+  // which project's issues feed the chart below.
+  const [selectedProject, setSelectedProject] = useState(ALL_PROJECTS_VALUE);
+
+  const projectNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const issue of issuesData) {
+      if (issue.project?.name) names.add(issue.project.name);
+    }
+    return Array.from(names).sort();
+  }, [issuesData]);
+
+  const scopedIssues = useMemo(() => {
+    if (selectedProject === ALL_PROJECTS_VALUE) return issuesData;
+    return issuesData.filter((issue) => issue.project?.name === selectedProject);
+  }, [issuesData, selectedProject]);
+
   const chartData = useMemo(() => {
     const counts: Record<string, number> = {};
 
-    for (const issue of issuesData) {
+    for (const issue of scopedIssues) {
       const stateName = issue?.state?.name;
       if (!stateName) continue;
 
@@ -55,7 +83,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
         const bi = STATUS_ORDER.indexOf(b.name);
         return (bi === -1 ? STATUS_ORDER.length : bi) - (ai === -1 ? STATUS_ORDER.length : ai);
       });
-  }, [issuesData]);
+  }, [scopedIssues]);
 
   const TOTAL_TASKS = chartData.reduce((sum, item) => sum + item.value, 0);
 
@@ -69,9 +97,28 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
   return (
     <Card className="bg-background border-border flex flex-col text-foreground">
       <CardHeader>
-        <CardTitle className="body font-semibold flex items-center gap-2 ">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          Project Stats
+        <CardTitle className="body font-semibold flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Project Stats
+          </span>
+          {projectNames.length > 1 && (
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="w-36 h-8 smalltext font-normal">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext focus:text-primary">
+                  All Projects
+                </SelectItem>
+                {projectNames.map((name) => (
+                  <SelectItem key={name} value={name} className="smalltext focus:text-primary">
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </CardTitle>
       </CardHeader>
 

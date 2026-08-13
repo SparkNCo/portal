@@ -28,6 +28,8 @@ interface Project {
   name: string;
 }
 
+const ALL_PROJECTS_VALUE = "__all_projects__";
+
 export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
@@ -37,7 +39,10 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     slugProp ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
   const [selectedProjectName, setSelectedProjectName] = useState("");
-  const [selectedCycleId, setSelectedCycleId] = useState("");
+  // Keyed by cycle *number*, not cycle_id — with "All Projects" selected,
+  // every project has its own row for "Cycle 13", so number is the only key
+  // that lets one dropdown entry represent all of them at once.
+  const [selectedCycleNumber, setSelectedCycleNumber] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [lineFilter, setLineFilter] = useState<LineFilter>("all");
@@ -82,7 +87,13 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   );
   const projects: Project[] = projectNames.map((name) => ({ name }));
 
-  const activeProjectName = selectedProjectName || projects[0]?.name || "";
+  // The Select needs a non-empty sentinel to represent "All Projects" (Radix
+  // Select reserves value="" for its own placeholder state) — the actual
+  // filtering below already treats an empty activeProjectName as "no
+  // filter", so the sentinel just gets mapped back to "" before it's used.
+  const selectedProjectValue = selectedProjectName || projects[0]?.name || "";
+  const activeProjectName =
+    selectedProjectValue === ALL_PROJECTS_VALUE ? "" : selectedProjectValue;
 
   // issue_metrics rows only carry project_id (no project_name), so derive
   // which project_ids belong to the selected project's name via cycle_metrics.
@@ -105,7 +116,21 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const cycles = [...allCycleMetrics].sort(
     (a: { number: number }, b: { number: number }) => a.number - b.number,
   );
-  const activeCycleId = selectedCycleId || cycles.at(-1)?.cycle_id || "";
+
+  // De-duplicated for the dropdown — "All Projects" mode has one cycle_metrics
+  // row per project per number, but should only offer "Cycle 13" once.
+  const cycleNumbers = Array.from(new Set(cycles.map((c: any) => c.number))).sort(
+    (a, b) => (a as number) - (b as number),
+  ) as number[];
+
+  // A previously-picked cycle number can stop existing after switching
+  // projects (or "All Projects") — fall back to the latest cycle in the new
+  // scope instead of pinning to a number that no longer has any data.
+  const selectedCycleStillExists =
+    selectedCycleNumber !== "" && cycleNumbers.includes(Number(selectedCycleNumber));
+  const activeCycleNumber = selectedCycleStillExists
+    ? selectedCycleNumber
+    : String(cycles.at(-1)?.number ?? "");
 
   const filteredCycleMetrics = allCycleMetrics.filter((c: any) => {
     const start = c.starts_at ? new Date(c.starts_at) : null;
@@ -122,6 +147,44 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   // it covers, rather than staying pinned to a single selected cycle.
   const spanAllCycles =
     lastFilterTouched === "date" && !!(dateFrom || dateTo);
+
+  // Shared by the "Cycle" dropdown and clicking a bar directly on "Cycle
+  // Scope vs Completed" — both apply the same cycle number as the filter,
+  // which "Issues by Status" reads via activeCycleNumber. When multiple
+  // projects are in scope (All Projects), the date range spans every
+  // project's cycle with this number, and the merge in IssueMetricsView
+  // combines their issue data together.
+  function selectCycle(numberStr: string) {
+    setLastFilterTouched("cycle");
+    setSelectedCycleNumber(numberStr);
+    const matches = cycles.filter((c: any) => String(c.number) === numberStr);
+    const starts = matches.map((c: any) => c.starts_at).filter(Boolean).map((d: string) => new Date(d).getTime());
+    const ends = matches.map((c: any) => c.ends_at).filter(Boolean).map((d: string) => new Date(d).getTime());
+    if (starts.length) setDateFrom(new Date(Math.min(...starts)).toISOString().split("T")[0] ?? "");
+    if (ends.length) setDateTo(new Date(Math.max(...ends)).toISOString().split("T")[0] ?? "");
+  }
+
+  // Spans the date range across every cycle the selected project has, rather
+  // than one at a time — sets From/To to the earliest cycle's start and the
+  // latest cycle's end, and clears any single-cycle selection so nothing
+  // stays pinned.
+  function showAllCycles() {
+    const starts = cycles
+      .map((c: any) => c.starts_at)
+      .filter(Boolean)
+      .map((d: string) => new Date(d).getTime());
+    const ends = cycles
+      .map((c: any) => c.ends_at)
+      .filter(Boolean)
+      .map((d: string) => new Date(d).getTime());
+    if (!starts.length || !ends.length) return;
+
+    setSelectedCycleNumber("");
+    setDateFrom(new Date(Math.min(...starts)).toISOString().split("T")[0] ?? "");
+    setDateTo(new Date(Math.max(...ends)).toISOString().split("T")[0] ?? "");
+    setLastFilterTouched("date");
+  }
+
   return (
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
@@ -129,11 +192,14 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         className="flex flex-wrap items-center gap-3 
 "
       >
-        <Select value={activeProjectName} onValueChange={setSelectedProjectName}>
+        <Select value={selectedProjectValue} onValueChange={setSelectedProjectName}>
           <SelectTrigger className="w-52 smalltext">
             <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext focus:text-primary">
+              All Projects
+            </SelectItem>
             {projects.map((p) => (
               <SelectItem key={p.name} value={p.name} className="smalltext focus:text-primary">
                 {p.name}
@@ -142,24 +208,15 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           </SelectContent>
         </Select>
 
-        {cycles.length > 0 && (
-          <Select
-            value={activeCycleId}
-            onValueChange={(id) => {
-              setLastFilterTouched("cycle");
-              setSelectedCycleId(id);
-              const cycle = cycles.find((c: any) => c.cycle_id === id);
-              if (cycle?.starts_at) setDateFrom(String(cycle.starts_at).split("T")[0] ?? "");
-              if (cycle?.ends_at) setDateTo(String(cycle.ends_at).split("T")[0] ?? "");
-            }}
-          >
+        {cycleNumbers.length > 0 && (
+          <Select value={activeCycleNumber} onValueChange={selectCycle}>
             <SelectTrigger className="w-36 smalltext">
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
             <SelectContent>
-              {[...cycles].reverse().map((c: any) => (
-                <SelectItem key={c.cycle_id} value={c.cycle_id} className="smalltext focus:text-primary">
-                  Cycle {c.number}
+              {[...cycleNumbers].reverse().map((number) => (
+                <SelectItem key={number} value={String(number)} className="smalltext focus:text-primary">
+                  Cycle {number}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -220,11 +277,16 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CycleBarChart data={filteredCycleMetrics} />
+        <CycleBarChart
+          data={filteredCycleMetrics}
+          activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
+          onCycleClick={selectCycle}
+          onShowAllCycles={cycles.length > 0 ? showAllCycles : undefined}
+        />
         <IssueMetricsView
           data={issueMetrics}
           cycleMetrics={filteredCycleMetrics}
-          activeCycleId={activeCycleId}
+          activeCycleNumber={activeCycleNumber}
           dateFrom={dateFrom}
           dateTo={dateTo}
           spanAllCycles={spanAllCycles}

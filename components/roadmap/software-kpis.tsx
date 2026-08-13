@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { supabase } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
@@ -17,6 +18,7 @@ import {
   TrendingUp,
   Percent,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 
 interface DoraAverage {
@@ -195,9 +197,19 @@ function colorValueFor(
 }
 
 async function saveManualMetric(linearSlug: string, metric: "code_coverage" | "sonar_quality_gate", value: number | "pass" | "fail") {
+  // manual-metrics resolves the caller's role (admin/developer) from their
+  // own session token, not a client-supplied identity — the static anon key
+  // API_JSON_HEADERS normally sends isn't a real user, so it always 403s.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manual-metrics`, {
     method: "PATCH",
-    headers: API_JSON_HEADERS,
+    headers: {
+      ...API_JSON_HEADERS,
+      Authorization: `Bearer ${session?.access_token ?? ""}`,
+    },
     body: JSON.stringify({ linear_slug: linearSlug, metric, value }),
   });
   if (!res.ok) {
@@ -252,8 +264,8 @@ function CodeCoverageCard({
   return (
     <div className="rounded-lg border p-4" style={{ backgroundColor: computedStyle.bg, borderColor: computedStyle.border }}>
       <div className="flex items-center gap-2 mb-2" style={{ color: computedStyle.color }}>
-        <Percent className="h-4 w-4" />
-        <span className="smalltext font-medium">Code Coverage</span>
+        <Percent className="h-4 w-4 shrink-0" />
+        <span className="smalltext font-medium truncate">Code Coverage</span>
       </div>
 
       {editing ? (
@@ -267,7 +279,7 @@ function CodeCoverageCard({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="0-100"
-            className="h-8 w-24 rounded-md border border-input bg-background px-2 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-8 w-24 rounded-md border border-input bg-background px-2 smalltext text-white focus:outline-none focus:ring-1 focus:ring-ring [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <div className="flex gap-2">
             <Button
@@ -277,14 +289,14 @@ function CodeCoverageCard({
             >
               {mutation.isPending ? "Saving..." : "Save"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
+            <Button size="sm" variant="outline" className="text-foreground" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
               Cancel
             </Button>
           </div>
           {error && <p className="smalltext text-destructive">{error}</p>}
         </div>
       ) : (
-        <>
+        <div className="flex items-center justify-between gap-2">
           <p className="text-2xl font-bold text-foreground">
             {pct !== null ? pct.toFixed(1) : "N/A"}
             <span className="smalltext font-normal text-muted-foreground ml-1">%</span>
@@ -292,13 +304,13 @@ function CodeCoverageCard({
           {canEdit && (
             <button
               type="button"
-              className="mt-2 smalltext text-muted-foreground underline hover:text-foreground"
+              className="smalltext text-muted-foreground underline hover:text-foreground"
               onClick={() => { setValue(pct !== null ? String(pct) : ""); setEditing(true); }}
             >
               Edit
             </button>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -339,8 +351,8 @@ function SonarQualityGateCard({
   return (
     <div className="rounded-lg border p-4" style={{ backgroundColor: style.bg, borderColor: style.border }}>
       <div className="flex items-center gap-2 mb-2" style={{ color: style.color }}>
-        <ShieldCheck className="h-4 w-4" />
-        <span className="smalltext font-medium">Sonar Quality Gate</span>
+        <ShieldCheck className="h-4 w-4 shrink-0" />
+        <span className="smalltext font-medium truncate">Sonar Quality Gate</span>
       </div>
 
       {editing ? (
@@ -349,6 +361,7 @@ function SonarQualityGateCard({
             <Button
               size="sm"
               variant={status === "pass" ? "default" : "outline"}
+              className={status === "pass" ? undefined : "text-foreground"}
               disabled={mutation.isPending}
               onClick={() => mutation.mutate("pass")}
             >
@@ -357,32 +370,33 @@ function SonarQualityGateCard({
             <Button
               size="sm"
               variant={status === "fail" ? "default" : "outline"}
+              className={status === "fail" ? undefined : "text-foreground"}
               disabled={mutation.isPending}
               onClick={() => mutation.mutate("fail")}
             >
               Fail
             </Button>
           </div>
-          <Button size="sm" variant="outline" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
+          <Button size="sm" variant="outline" className="text-foreground" onClick={() => { setEditing(false); setError(null); }} disabled={mutation.isPending}>
             Cancel
           </Button>
           {error && <p className="smalltext text-destructive">{error}</p>}
         </div>
       ) : (
-        <>
+        <div className="flex items-center justify-between gap-2">
           <p className="text-2xl font-bold text-foreground capitalize">
             {status ?? "N/A"}
           </p>
           {canEdit && (
             <button
               type="button"
-              className="mt-2 smalltext text-muted-foreground underline hover:text-foreground"
+              className="smalltext text-muted-foreground underline hover:text-foreground"
               onClick={() => setEditing(true)}
             >
               Edit
             </button>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -396,6 +410,20 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
     queryFn: () => fetchDoraMetrics(linearName),
     enabled: Boolean(linearName),
   });
+
+  // Only Change Failure Rate and Deploy Frequency carry extra detail rows —
+  // collapsed by default so every tile in a row starts at the same compact
+  // height, and expandable per-tile (not all-or-nothing) so a tile with
+  // more data doesn't force its shorter row-mates to stretch and look empty.
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const toggleExpanded = (key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const latest = data?.[0];
   const isAdmin = profile?.role === "admin";
@@ -428,7 +456,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
           <p className="smalltext text-muted-foreground">No metrics available.</p>
         )}
         {latest && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
             {KPI_CONFIG.map(({ key, label, icon: Icon }) => {
               const metric = latest.averages[key];
               const value = metric?.value ?? null;
@@ -437,15 +465,32 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                 key === "change_failure_rate" ? latest.cfr_details : null;
               const deployFreq =
                 key === "deploy_frequency" ? metric : null;
+              const hasExtra = !!(cfr || deployFreq);
+              const isExpanded = expandedKeys.has(key);
               return (
                 <div
                   key={key}
                   className="rounded-lg border p-4"
                   style={{ backgroundColor: style.bg, borderColor: style.border }}
                 >
-                  <div className="flex items-center gap-2 mb-2" style={{ color: style.color }}>
-                    <Icon className="h-4 w-4" />
-                    <span className="smalltext font-medium">{label}</span>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0" style={{ color: style.color }}>
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="smalltext font-medium truncate" title={label}>{label}</span>
+                    </div>
+                    {hasExtra && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(key)}
+                        aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
+                        aria-expanded={isExpanded}
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                    )}
                   </div>
                   <p className="text-2xl font-bold text-foreground">
                     {value !== null ? value.toFixed(1) : "N/A"}
@@ -453,7 +498,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                       {metric?.unit ?? ""}
                     </span>
                   </p>
-                  {cfr && (
+                  {isExpanded && cfr && (
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
                       <p className="smalltext text-muted-foreground">
                         Failed:{" "}
@@ -474,7 +519,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
                       </p>
                     </div>
                   )}
-                  {deployFreq && (
+                  {isExpanded && deployFreq && (
                     <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
                       <p className="smalltext text-muted-foreground">
                         Last 30d:{" "}
