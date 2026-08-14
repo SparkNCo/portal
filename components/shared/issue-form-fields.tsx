@@ -17,12 +17,16 @@ export function TitleContinueRow({
   detailsRevealed,
   onContinue,
   slug,
+  kind,
 }: {
   title: string;
   onTitleChange: (value: string) => void;
   detailsRevealed: boolean;
   onContinue: () => void;
   slug?: string;
+  // Which panel this is — scopes the similar-issues hint to just bugs or just
+  // features. See SimilarIssuesHint's own `kind` prop.
+  kind: "bug" | "feature";
 }) {
   return (
     <div className="space-y-2">
@@ -51,7 +55,7 @@ export function TitleContinueRow({
           </Button>
         )}
       </div>
-      {slug && <SimilarIssuesHint slug={slug} query={title} />}
+      {slug && <SimilarIssuesHint slug={slug} query={title} kind={kind} />}
     </div>
   );
 }

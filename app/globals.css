@@ -106,38 +106,41 @@
      surface under an actual `prefers-color-scheme: light` media query — i.e.
      a visitor whose OS/browser is set to light mode. Everyone else sees the
      same row they always did. */
+  /* `!` (important) on every declaration here, in both this default block and the
+     light-preference override below — these classes are routinely combined with
+     other components (e.g. a status Badge's own `variant="outline"`, which injects
+     its own plain `text-foreground` utility) that set the same property. Utilities
+     always outrank a plain components-layer rule regardless of source order, so
+     without `!important` these silently lose that fight and never take effect —
+     which is exactly what happened to the Backlog status badge: `.light-card-text`
+     was being completely overridden by Badge's own `text-foreground`. */
   .light-card {
-    @apply bg-background text-foreground hover:bg-muted transition-colors;
+    @apply !bg-background !text-foreground hover:!bg-muted transition-colors;
   }
   .light-card-text {
-    @apply text-foreground;
+    @apply !text-foreground;
   }
   .light-card-muted {
-    @apply text-muted-foreground;
+    @apply !text-muted-foreground;
   }
   .light-card-chip {
-    @apply text-muted-foreground hover:text-primary hover:bg-background;
+    @apply !text-muted-foreground hover:!text-primary hover:!bg-background;
   }
 
   @media (prefers-color-scheme: light) {
-    /* Border/shadow use the `!` (important) modifier so they win regardless
-       of whatever border-color utility each row/card already has inline
-       (e.g. IssueListRow's `border-transparent hover:border-border`) —
-       without that, Tailwind's utilities layer would outrank this
-       components-layer rule and the light-mode-only polish would never
-       show. A flat cream card on the app's near-black page reads better
-       with a soft lift than perfectly flush. */
+    /* A flat cream card on the app's near-black page also reads better with a
+       soft lift than perfectly flush, hence the shadow/border here too. */
     .light-card {
-      @apply bg-card/90 text-card-foreground hover:bg-card shadow-sm hover:shadow-md !border-card-foreground/10 hover:!border-card-foreground/25;
+      @apply !bg-card/90 !text-card-foreground hover:!bg-card shadow-sm hover:shadow-md !border-card-foreground/10 hover:!border-card-foreground/25;
     }
     .light-card-text {
-      @apply text-card-foreground;
+      @apply !text-card-foreground;
     }
     .light-card-muted {
-      @apply text-card-foreground/70;
+      @apply !text-card-foreground/70;
     }
     .light-card-chip {
-      @apply text-card-foreground/60 hover:bg-card-foreground/10;
+      @apply !text-card-foreground/60 hover:!bg-card-foreground/10;
     }
   }
 }

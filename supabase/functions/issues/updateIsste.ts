@@ -2,7 +2,7 @@
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
-import { upsertIssueVector, queryTopIssueMatches } from "../lib/vector.ts";
+import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -111,7 +111,7 @@ const UPDATE_ISSUE_MUTATION = `
   mutation IssueUpdate($issueId: String!, $input: IssueUpdateInput!) {
     issueUpdate(id: $issueId, input: $input) {
       success
-      issue { id title description priorityLabel }
+      issue { id title description priorityLabel labels { nodes { name } } }
     }
   }
 `;
@@ -157,6 +157,7 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
       id: updatedIssue.id,
       title: updatedIssue.title,
       description: updatedIssue.description,
+      kind: deriveIssueKind(updatedIssue.labels?.nodes),
     });
   }
 
@@ -172,10 +173,12 @@ export async function handleGetSimilarIssues(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const slug = url.searchParams.get("slug");
   const q = url.searchParams.get("q");
+  const kindParam = url.searchParams.get("kind");
+  const kind = kindParam === "bug" || kindParam === "feature" ? kindParam : undefined;
 
   if (!slug || !q?.trim()) return Response.json([]);
 
-  const matches = await queryTopIssueMatches(slug, q.trim(), 3);
+  const matches = await queryTopIssueMatches(slug, q.trim(), 3, kind);
   return Response.json(matches);
 }
 

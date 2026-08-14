@@ -13,7 +13,9 @@ import {
   GripVertical,
   Pencil,
   Paperclip,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -783,6 +785,10 @@ function TestsTab({
       (currentStateName === "Business Review" ||
         currentStateName === "Development" ||
         currentStateName === "QA"));
+  // Deleting is more destructive than the edit/create flows above (it also tries to
+  // remove the underlying reusable Test, not just this ticket's attachment of it) —
+  // restricted to admins only, regardless of ticket stage.
+  const isAdmin = role === "admin";
   const isQaStage = currentStateName === "QA";
   const isUatStage = currentStateName === "UAT";
 
@@ -1020,6 +1026,35 @@ function TestsTab({
     }
   }
 
+  // Admin-only. Detaches the test from this ticket, then best-effort deletes the
+  // underlying reusable Test too — the backend refuses that second step (silently,
+  // here) when the test is still attached to other tickets, which is expected and
+  // fine: this ticket's attachment is gone either way.
+  async function handleDeleteExecution(execution: TestExecution) {
+    if (!isAdmin || submitting) return;
+    if (!window.confirm(`Delete "${execution.test?.title ?? "this test"}" from this ticket? This can't be undone.`)) {
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions?execution_id=${execution.id}`,
+        { method: "DELETE", headers: API_HEADERS },
+      );
+      if (!res.ok) {
+        toast.error("Failed to delete test case. Please try again.");
+        return;
+      }
+      setExecutions((prev) => prev.filter((e) => e.id !== execution.id));
+      await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests?test_id=${execution.test_id}`,
+        { method: "DELETE", headers: API_HEADERS },
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleTogglePassed(execution: TestExecution) {
     if (submitting) return;
     setSubmitting(true);
@@ -1074,6 +1109,17 @@ function TestsTab({
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
+              {isAdmin && editForm?.executionId !== e.id && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteExecution(e)}
+                  disabled={submitting}
+                  className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-background disabled:opacity-50"
+                  aria-label="Delete test case"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
               <span
                 className={`smalltext px-1.5 py-0.5 rounded font-semibold ${
                   e.status === "passed"

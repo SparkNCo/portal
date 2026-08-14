@@ -186,6 +186,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
           detailsRevealed={detailsRevealed}
           onContinue={() => setDetailsRevealed(true)}
           slug={slug}
+          kind="bug"
         />
 
         {detailsRevealed && (

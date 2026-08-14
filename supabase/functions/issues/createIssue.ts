@@ -315,6 +315,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
       id: createdIssue.id,
       title: input.title,
       description: input.description,
+      kind: type === "bug" || type === "feature" ? type : null,
     });
   }
 

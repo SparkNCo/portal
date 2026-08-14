@@ -147,6 +147,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           detailsRevealed={detailsRevealed}
           onContinue={() => setDetailsRevealed(true)}
           slug={slug}
+          kind="feature"
         />
 
         {detailsRevealed && (

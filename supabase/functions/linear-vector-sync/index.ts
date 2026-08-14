@@ -10,7 +10,7 @@ import { getAllCustomers } from "../issueMetrics/db.ts";
 import { linearRequest } from "../issues/linearClient.ts";
 import { runWithConcurrency } from "../utils/concurrency.ts";
 import { escapeIlike } from "../utils/slug.ts";
-import { upsertIssueVector } from "../lib/vector.ts";
+import { upsertIssueVector, deriveIssueKind } from "../lib/vector.ts";
 
 // Same self-healing-minimum-lookback idea as dora/index.ts's getSinceForCustomer, just
 // with a shallower floor — issue text drifting out of the search index for a few days
@@ -21,7 +21,7 @@ const SCHEMA = "portal";
 const ISSUES_UPDATED_SINCE_QUERY = `
   query IssuesUpdatedSince($filter: IssueFilter, $after: String) {
     issues(first: 250, filter: $filter, after: $after) {
-      nodes { id title description updatedAt }
+      nodes { id title description updatedAt labels { nodes { name } } }
       pageInfo { hasNextPage endCursor }
     }
   }
@@ -76,6 +76,7 @@ async function syncCustomer(customer: { linear_slug: string; linear_projects: st
       id: issue.id,
       title: issue.title,
       description: issue.description,
+      kind: deriveIssueKind(issue.labels?.nodes),
     });
   }
 

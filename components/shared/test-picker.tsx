@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronsUpDown, Loader2, Plus, Sparkles } from "lucide-react";
+import { ChevronsUpDown, Diamond, Loader2, Plus, Sparkles } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -128,9 +128,13 @@ export function TestPicker({
       setSearchingSimilar(false);
       return;
     }
+    // Mark as searching (and drop any stale matches from a previous query) as soon as
+    // the debounce is scheduled, not just once it fires — otherwise the old results
+    // stay on screen for the full 3s wait, looking like an instant, un-debounced search.
+    setSimilarResults([]);
+    setSearchingSimilar(true);
     if (similarDebounceRef.current) clearTimeout(similarDebounceRef.current);
     similarDebounceRef.current = setTimeout(async () => {
-      setSearchingSimilar(true);
       const matches = await fetchSimilarTests(projectSlug, query.trim());
       setSimilarResults(matches.filter((m) => m.score >= SIMILARITY_THRESHOLD));
       setSearchingSimilar(false);
@@ -234,7 +238,7 @@ export function TestPicker({
                     }}
                     className="smalltext text-black data-[selected=true]:text-primary"
                   >
-                    <Check className="h-3.5 w-3.5 opacity-0" />
+                    <Diamond className="h-3.5 w-3.5" />
                     <span className="truncate">{test.title}</span>
                   </CommandItem>
                 ))}

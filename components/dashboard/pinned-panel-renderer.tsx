@@ -194,6 +194,7 @@ export function PinnedPanelRenderer({
           title="Bugs"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );

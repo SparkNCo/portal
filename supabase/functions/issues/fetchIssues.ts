@@ -116,6 +116,7 @@ const GET_ISSUE_BY_ID_QUERY = `
       description
       priorityLabel
       state { name }
+      labels { nodes { id name color } }
     }
   }
 `;
