@@ -91,6 +91,55 @@
   .smalltext {
     @apply !text-smalltext font-normal leading-relaxed;
   }
+
+  /* "Light card" — the light cream card surface (bg-card/text-card-foreground)
+     used for cards meant to stand out from the app's otherwise all-dark
+     background, e.g. the issue cards in Roadmap's cycle view. --card and
+     --card-foreground are inverted relative to --background/--foreground in
+     this theme, so anything sitting on a light-card surface needs these
+     card-based tokens instead of the usual text-foreground/text-muted-foreground
+     utilities to stay legible.
+
+     This app has no in-app theme toggle (ThemeProvider forces "dark" site-wide
+     — see app/layout.tsx), so there's no .dark class to key off. These classes
+     default to the app's normal dark row look, and only switch to the cream
+     surface under an actual `prefers-color-scheme: light` media query — i.e.
+     a visitor whose OS/browser is set to light mode. Everyone else sees the
+     same row they always did. */
+  .light-card {
+    @apply bg-background text-foreground hover:bg-muted transition-colors;
+  }
+  .light-card-text {
+    @apply text-foreground;
+  }
+  .light-card-muted {
+    @apply text-muted-foreground;
+  }
+  .light-card-chip {
+    @apply text-muted-foreground hover:text-primary hover:bg-background;
+  }
+
+  @media (prefers-color-scheme: light) {
+    /* Border/shadow use the `!` (important) modifier so they win regardless
+       of whatever border-color utility each row/card already has inline
+       (e.g. IssueListRow's `border-transparent hover:border-border`) —
+       without that, Tailwind's utilities layer would outrank this
+       components-layer rule and the light-mode-only polish would never
+       show. A flat cream card on the app's near-black page reads better
+       with a soft lift than perfectly flush. */
+    .light-card {
+      @apply bg-card/90 text-card-foreground hover:bg-card shadow-sm hover:shadow-md !border-card-foreground/10 hover:!border-card-foreground/25;
+    }
+    .light-card-text {
+      @apply text-card-foreground;
+    }
+    .light-card-muted {
+      @apply text-card-foreground/70;
+    }
+    .light-card-chip {
+      @apply text-card-foreground/60 hover:bg-card-foreground/10;
+    }
+  }
 }
 
 @layer base {
@@ -115,13 +164,18 @@
 
 /* Browser autofill (Chrome/Edge/Safari) ignores background-color and forces
    its own light grey fill, which breaks contrast on dark inputs. Force it
-   back to match the input's own bg-foreground/text-background colors. */
+   back to match the input's own bg-foreground/text-background colors.
+   `!important` is required here — Chromium's own autofill UA styles (in
+   particular -webkit-text-fill-color) otherwise win over a plain author
+   override, which is what let autofilled text render white-on-white (e.g.
+   picking a browser-remembered value in the "Request a Feature" title
+   field). */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px hsl(var(--foreground)) inset;
-  -webkit-text-fill-color: hsl(var(--background));
-  caret-color: hsl(var(--background));
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--foreground)) inset !important;
+  -webkit-text-fill-color: hsl(var(--background)) !important;
+  caret-color: hsl(var(--background)) !important;
   transition: background-color 9999s ease-in-out 0s;
 }

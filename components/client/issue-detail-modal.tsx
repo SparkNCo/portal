@@ -414,7 +414,7 @@ function DecisionsTab({
           {showNewQuestionForm ? (
             <div className="flex flex-col gap-2">
               <textarea
-                className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                 rows={3}
                 placeholder="Ask the client a question…"
                 value={questionText}
@@ -511,7 +511,7 @@ function SortableStepRow({
         {index + 1}.
       </span>
       <input
-        className="flex-1 rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+        className="flex-1 rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder={`Step ${index + 1}…`}
         value={step.text}
         onChange={(e) => onChange(e.target.value)}
@@ -550,7 +550,7 @@ function StepsEditor({
 
   return (
     <div className="space-y-1.5">
-      <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="smalltext font-semibold text-muted-foreground">
         Steps
       </p>
       <DndContext
@@ -760,7 +760,11 @@ function TestsTab({
     steps: [],
     expected: "",
   });
-  const [pendingExisting, setPendingExisting] = useState<{ test: Test; expected: string } | null>(null);
+  const [pendingExisting, setPendingExisting] = useState<{
+    test: Test;
+    expected: string;
+    steps: StepDraft[];
+  } | null>(null);
   const [uatForm, setUatForm] = useState<UatFormState>(null);
   const uatFileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState<{
@@ -823,6 +827,26 @@ function TestsTab({
     }
   }
 
+  // Picking an existing test starts the "expected" field blank (it's per-ticket, not
+  // stored on the reusable Test) — so pull the most recent value used for this test on
+  // any other ticket as a starting point, editable before attaching.
+  async function handleSelectExisting(test: Test) {
+    setPendingExisting({
+      test,
+      expected: "",
+      steps: test.steps.map((s) => ({ id: crypto.randomUUID(), text: s.description })),
+    });
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions?test_id=${test.id}`,
+      { headers: API_HEADERS },
+    );
+    if (!res.ok) return;
+    const latest = await res.json();
+    if (latest?.expected) {
+      setPendingExisting((p) => (p && p.test.id === test.id ? { ...p, expected: latest.expected } : p));
+    }
+  }
+
   // "Pick existing" flow: just attach it — the test itself already exists.
   async function attachTest(test: Test, expected: string): Promise<TestExecution | null> {
     const res = await fetch(
@@ -847,7 +871,33 @@ function TestsTab({
     if (!pendingExisting || submitting) return;
     setSubmitting(true);
     try {
-      const created = await attachTest(pendingExisting.test, pendingExisting.expected.trim());
+      let test = pendingExisting.test;
+      // Steps are only editable here while the test has never passed on another
+      // ticket (same rule PATCH /tests/update enforces) — only PATCH when they
+      // actually changed, to avoid a no-op write on every attach.
+      const editedSteps = pendingExisting.steps
+        .map((s) => s.text.trim())
+        .filter(Boolean)
+        .map((d, i) => ({ order: i + 1, description: d }));
+      const stepsChanged =
+        !test.last_passed_execution_id &&
+        JSON.stringify(editedSteps) !==
+          JSON.stringify(test.steps.map((s) => ({ order: s.order, description: s.description })));
+
+      if (stepsChanged) {
+        const testRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tests/update`,
+          {
+            method: "PATCH",
+            headers: API_JSON_HEADERS,
+            body: JSON.stringify({ test_id: test.id, title: test.title, steps: editedSteps }),
+          },
+        );
+        const updatedTest = await testRes.json();
+        if (updatedTest.id) test = updatedTest;
+      }
+
+      const created = await attachTest(test, pendingExisting.expected.trim());
       if (created) setExecutions((prev) => [...prev, created]);
       setPendingExisting(null);
     } finally {
@@ -1043,11 +1093,11 @@ function TestsTab({
           {editForm?.executionId === e.id ? (
             <div className="flex flex-col gap-2">
               <div className="space-y-1.5">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold text-muted-foreground">
                   Title
                 </p>
                 <input
-                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={editForm.title}
                   onChange={(ev) =>
@@ -1061,7 +1111,7 @@ function TestsTab({
                 onChange={(steps) => setEditForm({ ...editForm, steps })}
               />
               <div className="space-y-1.5">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold text-muted-foreground">
                   Expected result
                 </p>
                 <textarea
@@ -1095,7 +1145,7 @@ function TestsTab({
             <>
               {e.test && e.test.steps.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="smalltext font-semibold text-muted-foreground">
                     Steps
                   </p>
                   <div className="space-y-1.5">
@@ -1104,7 +1154,7 @@ function TestsTab({
                         <span className="w-4 shrink-0 smalltext text-muted-foreground">
                           {s.order}.
                         </span>
-                        <p className="flex-1 rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5 smalltext text-foreground">
+                        <p className="flex-1 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 smalltext text-black">
                           {s.description}
                         </p>
                       </div>
@@ -1115,7 +1165,7 @@ function TestsTab({
 
               {e.expected && (
                 <div>
-                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  <p className="smalltext font-semibold text-muted-foreground mb-0.5">
                     Expected
                   </p>
                   <p className="smalltext text-foreground">{e.expected}</p>
@@ -1131,7 +1181,7 @@ function TestsTab({
                   key={`${entry.recorded_at}-${i}`}
                   className="border-l-2 border-border pl-2"
                 >
-                  <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  <p className="smalltext font-semibold text-muted-foreground mb-0.5">
                     {entry.kind === "qa"
                       ? "QA Evidence"
                       : entry.kind === "uat"
@@ -1230,11 +1280,11 @@ function TestsTab({
           {showNewTestForm ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 space-y-2">
               <div className="space-y-1.5">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold text-muted-foreground">
                   Title
                 </p>
                 <input
-                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Test case title…"
                   value={testForm.title}
                   onChange={(ev) =>
@@ -1248,11 +1298,11 @@ function TestsTab({
                 onChange={(steps) => setTestForm((f) => ({ ...f, steps }))}
               />
               <div className="space-y-1.5">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold text-muted-foreground">
                   Expected result
                 </p>
                 <textarea
-                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={2}
                   placeholder="Expected result…"
                   value={testForm.expected}
@@ -1286,26 +1336,33 @@ function TestsTab({
               <p className="smalltext font-medium text-foreground">
                 {pendingExisting.test.title}
               </p>
-              {pendingExisting.test.steps.length > 0 && (
-                <div className="space-y-1.5">
-                  {pendingExisting.test.steps.map((s) => (
-                    <div key={s.order} className="flex items-center gap-1.5">
-                      <span className="w-4 shrink-0 smalltext text-muted-foreground">
-                        {s.order}.
-                      </span>
-                      <p className="flex-1 rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5 smalltext text-foreground">
-                        {s.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+              {pendingExisting.test.last_passed_execution_id ? (
+                pendingExisting.test.steps.length > 0 && (
+                  <div className="space-y-1.5">
+                    {pendingExisting.test.steps.map((s) => (
+                      <div key={s.order} className="flex items-center gap-1.5">
+                        <span className="w-4 shrink-0 smalltext text-muted-foreground">
+                          {s.order}.
+                        </span>
+                        <p className="flex-1 rounded-lg border-0 bg-card/90 px-2.5 py-1.5 smalltext text-black">
+                          {s.description}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <StepsEditor
+                  steps={pendingExisting.steps}
+                  onChange={(steps) => setPendingExisting((p) => (p ? { ...p, steps } : p))}
+                />
               )}
               <div className="space-y-1.5">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="smalltext font-semibold text-muted-foreground">
                   Expected result on this ticket
                 </p>
                 <textarea
-                  className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={2}
                   placeholder="Expected result…"
                   value={pendingExisting.expected}
@@ -1327,7 +1384,7 @@ function TestsTab({
           ) : (
             <TestPicker
               projectSlug={projectSlug}
-              onSelectExisting={(test) => setPendingExisting({ test, expected: "" })}
+              onSelectExisting={handleSelectExisting}
               onCreateNew={(title) => {
                 setTestForm({ title, steps: [], expected: "" });
                 setShowNewTestForm(true);

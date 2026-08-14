@@ -502,7 +502,7 @@ export function RoadmapTimeline({
                   return (
                   <div
                     key={issue.id ?? i}
-                    className="group relative rounded-md border bg-background p-3 space-y-2 hover:bg-secondary/40 transition-colors"
+                    className="group relative rounded-md border light-card p-3 space-y-2"
                   >
                     <button
                       type="button"
@@ -520,7 +520,7 @@ export function RoadmapTimeline({
                     )}
                     <button
                       type="button"
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-background opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md light-card-chip opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingIssue(toIssue(issue));
@@ -533,7 +533,7 @@ export function RoadmapTimeline({
                       <div className="space-y-0.5">
                         {issue.identifier && (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="flex items-center gap-1 smalltext text-muted-foreground font-mono">
+                            <p className="flex items-center gap-1 smalltext light-card-muted font-mono">
                               {typeIcon && (
                                 <typeIcon.Icon
                                   className={`h-3 w-3 shrink-0 ${typeIcon.className}`}
@@ -554,7 +554,7 @@ export function RoadmapTimeline({
                           </div>
                         )}
                         {issue.title && (
-                          <p className="smalltext font-medium leading-snug">{issue.title}</p>
+                          <p className="smalltext font-medium leading-snug light-card-text">{issue.title}</p>
                         )}
                       </div>
                     )}
@@ -593,23 +593,23 @@ export function RoadmapTimeline({
 
                     <div className="space-y-0.5">
                       {issue.assignee?.displayName && (
-                        <p className="smalltext text-muted-foreground">
+                        <p className="smalltext light-card-muted">
                           Assignee:{" "}
-                          <span className="text-foreground">
+                          <span className="light-card-text">
                             {issue.assignee.displayName}
                           </span>
                         </p>
                       )}
                       {issue.dueDate && (
-                        <p className="smalltext text-muted-foreground">
+                        <p className="smalltext light-card-muted">
                           Due:{" "}
-                          <span className="text-foreground">
+                          <span className="light-card-text">
                             {new Date(issue.dueDate).toLocaleDateString()}
                           </span>
                         </p>
                       )}
                       {issue.completedAt && (
-                        <p className="smalltext text-muted-foreground">
+                        <p className="smalltext light-card-muted">
                           Completed:{" "}
                           <span className="text-success">
                             {new Date(issue.completedAt).toLocaleDateString()}

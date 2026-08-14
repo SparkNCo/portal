@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { API_HEADERS } from "@/lib/api-headers";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
+import { LabelPill } from "@/components/client/issue-cards";
 import type { Issue } from "@/components/client/issues.types";
 
 type SimilarIssueMatch = {
@@ -16,7 +17,9 @@ type SimilarIssueMatch = {
 // Don't bother querying on very short/partial titles — too little text for the
 // embedding to be meaningful, and it'd just be noise while the user is still typing.
 const MIN_QUERY_LENGTH = 12;
-const DEBOUNCE_MS = 400;
+// Long on purpose — every firing is an Upstash query, so this waits for the user to
+// actually pause typing rather than re-querying on every short break in typing.
+const DEBOUNCE_MS = 3000;
 
 // Cosine similarity threshold for surfacing a match. Calibrated empirically against
 // the live index: an exact-duplicate title only scored ~0.858 (the stored vector is
@@ -57,7 +60,9 @@ export function SimilarIssuesHint({
   readonly query: string;
 }) {
   const [matches, setMatches] = useState<SimilarIssueMatch[]>([]);
+  const [matchIssues, setMatchIssues] = useState<Record<string, Issue>>({});
   const [dismissed, setDismissed] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [loadingMatchId, setLoadingMatchId] = useState<string | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,19 +72,39 @@ export function SimilarIssuesHint({
 
     if (query.trim().length < MIN_QUERY_LENGTH) {
       setMatches([]);
+      setSearching(false);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      setSearching(true);
       const results = await fetchSimilarIssues(slug, query.trim());
       setMatches(results.filter((m) => m.score >= SIMILARITY_THRESHOLD));
+      setSearching(false);
     }, DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [slug, query]);
+
+  // The vector match only carries { id, title } — fetch the full issue for each
+  // match (ticket code, labels) so the row can look like the rest of the app's
+  // issue rows instead of a bare title.
+  useEffect(() => {
+    const missing = matches.slice(0, 3).filter((m) => !matchIssues[m.id]);
+    if (missing.length === 0) return;
+    missing.forEach(async (m) => {
+      try {
+        const issue = await fetchIssueById(m.id);
+        setMatchIssues((prev) => ({ ...prev, [m.id]: issue }));
+      } catch {
+        // Best-effort enrichment — the row still shows fine with just the title.
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
 
   async function handleEditInstead(match: SimilarIssueMatch) {
     setLoadingMatchId(match.id);
@@ -95,40 +120,63 @@ export function SimilarIssuesHint({
 
   return (
     <>
-      {!dismissed && matches.length > 0 && (
-        <div className="flex items-start justify-between gap-2 rounded-md border border-border bg-secondary px-3 py-2 smalltext">
-          <div className="space-y-1.5 min-w-0 flex-1">
-            <p className="text-muted-foreground">Similar to an existing ticket:</p>
-            <ul className="space-y-1">
-              {matches.slice(0, 3).map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-2 min-w-0">
-                  <span className="truncate text-card-foreground">
-                    {m.metadata?.title ?? m.id}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleEditInstead(m)}
-                    disabled={loadingMatchId === m.id}
-                    className="shrink-0 text-primary hover:underline disabled:opacity-50"
-                  >
-                    {loadingMatchId === m.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      "Edit this instead"
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
+      {!dismissed && (searching || matches.length > 0) && (
+        <div className="space-y-1.5 smalltext">
+          <div className="flex items-center justify-between gap-2">
+            <p className="body font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              {searching ? "Looking for similar tickets…" : "Similar existing tickets"}
+            </p>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => setDismissed(true)}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Dismiss"
-            onClick={() => setDismissed(true)}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+
+          {searching ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Searching…
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {matches.slice(0, 3).map((m) => {
+                const issue = matchIssues[m.id];
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg light-card border border-transparent"
+                  >
+                    <span className="font-mono light-card-muted w-14 flex-shrink-0">
+                      {issue ? issue.branchName.slice(0, 7).toUpperCase() : "···"}
+                    </span>
+                    <p className="font-medium flex-1 truncate light-card-text">
+                      {m.metadata?.title ?? m.id}
+                    </p>
+                    {issue?.labels?.nodes?.map((l) => (
+                      <LabelPill key={l.id} label={l} iconOnly />
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => handleEditInstead(m)}
+                      disabled={loadingMatchId === m.id}
+                      className="shrink-0 text-primary hover:underline disabled:opacity-50"
+                    >
+                      {loadingMatchId === m.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "Edit this instead"
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

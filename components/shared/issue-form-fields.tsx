@@ -38,6 +38,7 @@ export function TitleContinueRow({
               if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
             }}
             className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
+            autoComplete="off"
           />
         </div>
         {!detailsRevealed && (

@@ -3,7 +3,7 @@
 // Linear ticket live in the separate `test-executions` function/table — see
 // supabase/functions/test-executions/index.ts.
 import { corsHeaders } from "../utils/headers.ts";
-import { upsertTestVector } from "../lib/vector.ts";
+import { upsertTestVector, queryTopTestMatches } from "../lib/vector.ts";
 
 const supabaseUrl = () => Deno.env.get("PROJECT_URL")!;
 const serviceKey = () => Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -32,7 +32,9 @@ Deno.serve(async (req) => {
     const pathname = new URL(req.url).pathname;
     let res: Response;
 
-    if (req.method === "GET") {
+    if (req.method === "GET" && pathname.endsWith("/similar")) {
+      res = await handleSimilarTests(req);
+    } else if (req.method === "GET") {
       res = await handleSearchTests(req);
     } else if (req.method === "POST") {
       res = await handleCreateTest(req);
@@ -60,24 +62,43 @@ Deno.serve(async (req) => {
 // GET /tests?project_slug=xxx&q=search — autocomplete for "pick an existing test",
 // scoped to the current customer/initiative so one customer's test names never leak
 // into another's suggestions. `q` is optional (empty search just lists recent tests).
+// `id` looks up one specific test directly — used to resolve a semantic match from
+// /tests/similar (which only carries {test_id, name} metadata) into the full row.
 async function handleSearchTests(req: Request): Promise<Response> {
   const schema = "portal";
   const url = new URL(req.url);
   const project_slug = url.searchParams.get("project_slug");
+  const id = url.searchParams.get("id");
   const q = url.searchParams.get("q")?.trim();
   if (!project_slug) return Response.json({ error: "Missing project_slug" }, { status: 400 });
 
   const params = new URLSearchParams({
     project_slug: `eq.${project_slug}`,
-    select: "id,title,steps",
+    select: "id,title,steps,last_passed_execution_id",
     order: "title.asc",
     limit: "10",
   });
-  if (q) params.set("title", `ilike.*${q}*`);
+  if (id) params.set("id", `eq.${id}`);
+  else if (q) params.set("title", `ilike.*${q}*`);
 
   const res = await fetch(`${db("tests")}?${params.toString()}`, { headers: headers(schema) });
   const data = await res.json();
   return Response.json(data);
+}
+
+// GET /tests/similar?project_slug=xxx&q=... — semantic "similar tests" suggestion,
+// backed by the Upstash test-cases vector index. Only meaningful once the user has
+// typed enough real text to embed; the frontend enforces that minimum, not this
+// endpoint (mirrors GET /issues/similar).
+async function handleSimilarTests(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const project_slug = url.searchParams.get("project_slug");
+  const q = url.searchParams.get("q");
+
+  if (!project_slug || !q?.trim()) return Response.json([]);
+
+  const matches = await queryTopTestMatches(project_slug, q.trim(), 3);
+  return Response.json(matches);
 }
 
 // POST /tests — create a new reusable test case (no issue_id/expected/status anymore —

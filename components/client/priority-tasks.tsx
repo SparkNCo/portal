@@ -26,6 +26,7 @@ export function PriorityTasks({
   onEditIssue,
   title = "Priority Tasks",
   compact = false,
+  lightCard = false,
   headerAction,
   slug,
 }: PriorityTasksProps) {
@@ -102,6 +103,7 @@ export function PriorityTasks({
                       : undefined
                   }
                   hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                  lightCard={lightCard}
                 />
               ))}
             </div>
@@ -196,6 +198,7 @@ export function PriorityTasks({
                     : undefined
                 }
                 hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                lightCard={lightCard}
               />
             ))}
           </div>

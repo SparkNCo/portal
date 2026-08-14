@@ -114,6 +114,7 @@ export default function BuildPage() {
               title="Business Reviews"
               slug={slug}
               compact
+              lightCard
             />
           </div>
           <div className="relative">
@@ -126,6 +127,7 @@ export default function BuildPage() {
               title="Acceptance Testing"
               slug={slug}
               compact
+              lightCard
             />
           </div>
         </div>

@@ -176,6 +176,10 @@ export type PriorityTasksProps = {
   onEditIssue?: (issue: Issue) => void;
   title?: string;
   compact?: boolean;
+  // Renders the compact row list on the light-card surface (see .light-card in
+  // globals.css) instead of the default dark bg-background rows — opt-in per
+  // panel rather than a global IssueListRow change.
+  lightCard?: boolean;
   headerAction?: ReactNode;
   // Which customer these issues belong to — passed through to the issue
   // detail modal's Chat tab so a brand-new chat group gets tagged with the

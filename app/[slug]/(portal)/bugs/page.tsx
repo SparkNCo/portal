@@ -173,6 +173,7 @@ export default function BugsPage() {
                 onEditIssue={(issue) => setEditingIssue(issue)}
                 title="Bugs"
                 slug={slug}
+                lightCard
               />
             </>
           )}

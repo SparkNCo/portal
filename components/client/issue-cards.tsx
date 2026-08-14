@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Gauge, Bug, Lightbulb, Mail, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
@@ -71,18 +72,25 @@ export function IssueCard({
   onOpen,
   onEdit,
   hasUpdate,
+  lightCard = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
+  readonly lightCard?: boolean;
 }) {
   const typeLabel = issue.labels?.nodes?.find((l) => LABEL_ICONS[l.name.toLowerCase()]);
   const typeIcon = typeLabel ? LABEL_ICONS[typeLabel.name.toLowerCase()] : undefined;
   const otherLabels = issue.labels?.nodes?.filter((l) => l.id !== typeLabel?.id);
 
   return (
-    <div className="group relative rounded-lg border border-border bg-background hover:bg-muted text-foreground hover:shadow-md transition-all duration-150">
+    <div
+      className={cn(
+        "group relative rounded-lg border border-border hover:shadow-md transition-all duration-150",
+        lightCard ? "light-card" : "bg-background hover:bg-muted text-foreground",
+      )}
+    >
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -100,7 +108,12 @@ export function IssueCard({
       {onEdit && (
         <button
           type="button"
-          className="absolute top-2 right-2 z-10 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-background opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className={cn(
+            "absolute top-2 right-2 z-10 p-1.5 rounded-md flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
+            lightCard
+              ? "light-card-chip"
+              : "text-muted-foreground hover:text-primary hover:bg-background",
+          )}
           onClick={(e) => {
             e.stopPropagation();
             onEdit();
@@ -109,7 +122,7 @@ export function IssueCard({
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
-      )} 
+      )}
       <div className="p-4 ">
         <div className="flex items-center gap-2 mb-2">
           {typeIcon && (
@@ -118,7 +131,12 @@ export function IssueCard({
               aria-label={typeLabel!.name}
             />
           )}
-          <span className="smalltext font-mono text-muted-foreground">
+          <span
+            className={cn(
+              "smalltext font-mono",
+              lightCard ? "light-card-muted" : "text-muted-foreground",
+            )}
+          >
             {issue.branchName.slice(0, 7).toUpperCase()}
           </span>
           <Badge
@@ -128,7 +146,12 @@ export function IssueCard({
             {issue.priorityLabel}
           </Badge>
         </div>
-        <p className="smalltext font-medium text-foreground mb-3 line-clamp-2">
+        <p
+          className={cn(
+            "smalltext font-medium mb-3 line-clamp-2",
+            lightCard ? "light-card-text" : "text-foreground",
+          )}
+        >
           {issue.title}
         </p>
         <div className="flex items-center gap-1 flex-wrap">
@@ -155,14 +178,21 @@ export function IssueListRow({
   onOpen,
   onEdit,
   hasUpdate,
+  lightCard = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
+  readonly lightCard?: boolean;
 }) {
   return (
-    <div className="group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-background hover:bg-muted text-foreground transition-all border border-transparent hover:border-border">
+    <div
+      className={cn(
+        "group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border",
+        lightCard ? "light-card" : "bg-background hover:bg-muted text-foreground",
+      )}
+    >
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer "
@@ -177,7 +207,12 @@ export function IssueListRow({
           <Mail className="h-2 w-2 text-white" />
         </span>
       )}
-      <span className="smalltext font-mono text-muted-foreground w-14 flex-shrink-0">
+      <span
+        className={cn(
+          "smalltext font-mono w-20 flex-shrink-0",
+          lightCard ? "light-card-muted" : "text-muted-foreground",
+        )}
+      >
         {issue.branchName.slice(0, 7).toUpperCase()}
       </span>
       <Badge
@@ -196,7 +231,14 @@ export function IssueListRow({
         </Badge>
       )}
       <p
-        className={`smalltext font-medium flex-1 truncate ${issue.state?.name === "Development" ? "text-yellow-400" : "text-foreground"}`}
+        className={cn(
+          "smalltext font-medium flex-1 truncate",
+          issue.state?.name === "Development"
+            ? "text-yellow-400"
+            : lightCard
+              ? "light-card-text"
+              : "text-foreground",
+        )}
       >
         {issue.title}
       </p>
@@ -206,7 +248,12 @@ export function IssueListRow({
       {onEdit && (
         <button
           type="button"
-          className="relative z-10 p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-background flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className={cn(
+            "relative z-10 p-1 rounded-md flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
+            lightCard
+              ? "light-card-chip"
+              : "text-muted-foreground hover:text-primary hover:bg-background",
+          )}
           onClick={(e) => {
             e.stopPropagation();
             onEdit();

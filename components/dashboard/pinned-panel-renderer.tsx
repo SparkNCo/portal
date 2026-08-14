@@ -141,6 +141,7 @@ export function PinnedPanelRenderer({
           title="Business Review"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );
@@ -161,6 +162,7 @@ export function PinnedPanelRenderer({
           title="Acceptance Testing"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );

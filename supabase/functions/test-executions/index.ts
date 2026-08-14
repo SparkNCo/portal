@@ -64,10 +64,28 @@ Deno.serve(async (req) => {
 // GET /test-executions?issue_id=xxx — every test attached to this ticket, with each
 // execution's test (title/steps) merged in. Two plain fetches + JS merge, matching this
 // codebase's existing style rather than a PostgREST embedded-resource select.
+//
+// GET /test-executions?test_id=xxx — the most recent execution of that test on *any*
+// ticket, so the frontend can prefill "expected" when the same test gets picked again.
 async function handleGetExecutions(req: Request): Promise<Response> {
   const schema = "portal";
-  const issue_id = new URL(req.url).searchParams.get("issue_id");
-  if (!issue_id) return Response.json({ error: "Missing issue_id" }, { status: 400 });
+  const url = new URL(req.url);
+  const issue_id = url.searchParams.get("issue_id");
+  const test_id = url.searchParams.get("test_id");
+
+  if (test_id) {
+    const res = await fetch(
+      `${db("test_executions")}?test_id=eq.${test_id}&select=expected&order=created_at.desc&limit=1`,
+      { headers: headers(schema) },
+    );
+    const rows = await res.json();
+    if (!res.ok) {
+      return Response.json({ error: "Failed to fetch latest execution", details: rows }, { status: 500 });
+    }
+    return Response.json(Array.isArray(rows) && rows[0] ? rows[0] : null);
+  }
+
+  if (!issue_id) return Response.json({ error: "Missing issue_id or test_id" }, { status: 400 });
 
   const execRes = await fetch(
     `${db("test_executions")}?issue_id=eq.${issue_id}&order=created_at.asc`,
