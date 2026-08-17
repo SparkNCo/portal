@@ -182,3 +182,18 @@ input:-webkit-autofill:active {
   caret-color: hsl(var(--background)) !important;
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* Some inputs (/set-password's "User Data" form, the login panel's Username/
+   Password) are deliberately bg-white regardless of the app's cream/near-black
+   brand tokens above — a class selector beats the plain `input:-webkit-autofill`
+   tag selector above it (both !important, so specificity is the tiebreaker), so
+   this reliably wins for just these inputs without touching the site-wide rule. */
+.white-input:-webkit-autofill,
+.white-input:-webkit-autofill:hover,
+.white-input:-webkit-autofill:focus,
+.white-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
+  transition: background-color 9999s ease-in-out 0s;
+}

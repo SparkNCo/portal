@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
-import { KeyRound, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { KeyRound, Eye, EyeOff, AlertTriangle, Mail, Building2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 
 // Supabase redirects an invite link it can no longer honor (expired/already
@@ -177,22 +177,14 @@ function SetPasswordForm() {
   }
 
   const inputClass =
-    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
-
-  const readOnlyClass =
-    "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-not-allowed select-none";
-
-  // Client name is shown but not editable — same read-only look as the email field,
-  // just without the "not-allowed" cursor icon on hover.
-  const readOnlyClientNameClass =
-    "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-default select-none";
+    "white-input w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-white text-black text-sm";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-96 bg-background border-border shadow-lg">
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-accent" />
+          <CardTitle className="body font-semibold flex items-center gap-2 text-primary">
+            <KeyRound className="h-4 w-4 text-primary" />
             User Data
           </CardTitle>
         </CardHeader>
@@ -218,23 +210,26 @@ function SetPasswordForm() {
 
           {ready && !done && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email — read only */}
-              <input
-                className={readOnlyClass}
-                type="email"
-                value={email}
-                readOnly
-                tabIndex={-1}
-              />
+              {/* Email is never editable here — shown as a label, not an input. */}
+              <div className="flex items-center gap-2 text-primary smalltext font-medium">
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="truncate">{email}</span>
+              </div>
 
-              <input
-                className={isCustomer ? readOnlyClientNameClass : inputClass}
-                placeholder={isCustomer ? "Client name" : "User name"}
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                readOnly={isCustomer}
-                tabIndex={isCustomer ? -1 : undefined}
-              />
+              {isCustomer ? (
+                // Customers can't rename their own client — shown as a label too.
+                <div className="flex items-center gap-2 text-primary smalltext font-medium">
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{clientName}</span>
+                </div>
+              ) : (
+                <input
+                  className={inputClass}
+                  placeholder="User name"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              )}
 
               <div className="flex gap-2">
                 <input

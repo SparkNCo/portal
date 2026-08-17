@@ -123,26 +123,30 @@ export default function LoginForm({
           <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-xl space-y-4">
             {resetSent ? (
               <>
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="body font-semibold text-primary">
                   Check your inbox
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="smalltext text-muted-foreground">
                   A password reset link has been sent to{" "}
-                  <span className="font-medium text-foreground">
+                  <span className="font-medium text-primary">
                     {resetEmail}
                   </span>
                   .
                 </p>
-                <SparkButton className="w-full" onClick={closeForgotModal}>
+                <SparkButton
+                  variant="primary"
+                  className="w-full"
+                  onClick={closeForgotModal}
+                >
                   Close
                 </SparkButton>
               </>
             ) : (
               <>
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="body font-semibold text-primary">
                   Reset your password
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="smalltext text-muted-foreground">
                   Enter your email and we'll send you a reset link.
                 </p>
                 <form onSubmit={handleForgotPassword} className="space-y-3">
@@ -152,16 +156,16 @@ export default function LoginForm({
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full rounded border border-border bg-background px-3 py-2 smalltext text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   {resetError && (
-                    <p className="text-xs text-red-500">{resetError}</p>
+                    <p className="smalltext text-red-500">{resetError}</p>
                   )}
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={closeForgotModal}
-                      className="flex-1 rounded border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                      className="flex-1 rounded border border-border px-3 py-2 smalltext text-muted-foreground hover:text-foreground transition-colors"
                     >
                       Cancel
                     </button>
@@ -183,7 +187,7 @@ export default function LoginForm({
 
       <form
         onSubmit={login}
-        className="flex flex-col items-center w-full max-w-[500px] min-h-[600px] h-auto p-6 md:p-8 bg-card shadow-lg space-y-6 relative"
+        className="flex flex-col items-center w-full max-w-[500px] min-h-[600px] h-auto p-6 md:p-8 bg-card border border-card-foreground/10 shadow-lg space-y-6 relative"
       >
         {/* Public image at the top */}
         <img
@@ -201,13 +205,13 @@ export default function LoginForm({
         <div className="w-[85%] flex flex-col  ">
           <label
             htmlFor="email"
-            className="text-sm font-medium mb-1 text-background"
+            className="smalltext font-medium mb-1 text-background"
           >
             Username
           </label>
           <input
             id="email"
-            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 bg-foreground text-background selection:bg-primary selection:text-background"
+            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 white-input bg-white text-background selection:bg-primary selection:text-background"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -217,7 +221,7 @@ export default function LoginForm({
         <div className="w-[85%] flex flex-col">
           <label
             htmlFor="password"
-            className="text-sm font-medium mb-1 text-background"
+            className="smalltext font-medium mb-1 text-background"
           >
             Password
           </label>
@@ -225,7 +229,7 @@ export default function LoginForm({
             <input
               id="password"
               type={showPassword ? "text" : "password"}
-              className="w-full rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 pr-10 bg-foreground text-background selection:bg-primary selection:text-background"
+              className="w-full rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 pr-10 white-input bg-white text-background selection:bg-primary selection:text-background"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
