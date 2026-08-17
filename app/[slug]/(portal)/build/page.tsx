@@ -40,7 +40,12 @@ export default function BuildPage() {
     (i: any) => i.state?.name === "Business Review",
   );
 
-  const uatIssues = allIssues.filter((i: any) => i.state?.name === "UAT");
+  const uatIssues = allIssues
+    .filter((i: any) => i.state?.name === "UAT")
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+    );
 
   const noopFilterState = {
     selectedStatuses: [],

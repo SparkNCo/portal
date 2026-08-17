@@ -148,9 +148,12 @@ export function PinnedPanelRenderer({
   }
 
   if (panelId === "build_acceptance_testing") {
-    const issues = allIssues.filter(
-      (i) => i.state?.name === "UAT" && matchesSelectedProject(i),
-    );
+    const issues = allIssues
+      .filter((i) => i.state?.name === "UAT" && matchesSelectedProject(i))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+      );
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}

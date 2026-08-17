@@ -100,7 +100,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
     <div>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         {slug || "Other"}

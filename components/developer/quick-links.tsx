@@ -65,7 +65,7 @@ export function QuickLinks() {
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-border bg-card/75 p-3 hover:bg-card/50 transition-colors group"
+            className="flex items-center gap-3 rounded-lg border border-border bg-card/90 p-3 transition-colors group"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
               <link.icon className="h-4 w-4 text-primary" />

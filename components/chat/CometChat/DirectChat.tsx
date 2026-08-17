@@ -98,7 +98,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
         </div>
         <div>
           <div className="smalltext font-semibold">{title}</div>
-          <div className="text-xs text-muted-foreground">AI Agent</div>
+          <div className="text-xs md:smalltext text-muted-foreground">AI Agent</div>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Bot className="w-8 h-8 opacity-30" />
-            <p className="text-sm">No messages yet. Ask the AI something!</p>
+            <p className="text-sm md:smalltext">No messages yet. Ask the AI something!</p>
           </div>
         )}
 
@@ -129,7 +129,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
               )}
               <div className={`flex flex-col max-w-[65%] ${isMe ? "items-end" : "items-start"}`}>
                 <div
-                  className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                  className={`px-3 py-2 rounded-2xl text-sm md:smalltext leading-relaxed ${
                     isMe
                       ? "bg-primary text-primary-foreground rounded-tr-sm"
                       : "bg-secondary text-secondary-foreground rounded-tl-sm"
@@ -138,7 +138,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
                   {text}
                 </div>
                 {!!sentAt && (
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                  <span className="text-xs md:smalltext text-muted-foreground mt-1 px-1">
                     {formatMessageTime(sentAt)}
                   </span>
                 )}

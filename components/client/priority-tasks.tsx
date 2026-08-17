@@ -168,7 +168,7 @@ export function PriorityTasks({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
+      <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
         {visibleIssues.length === 0 ? (
           <p className="smalltext text-muted-foreground italic p-2">
             No issues match the current filters.
@@ -180,9 +180,10 @@ export function PriorityTasks({
               grid gap-2 grid-flow-row auto-rows-auto pt-3
               grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
+              overflow-x-hidden
               ${
                 expanded
-                  ? "overflow-visible h-auto"
+                  ? "overflow-y-visible h-auto"
                   : "max-h-[600px] overflow-y-auto"
               }
             `}

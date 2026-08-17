@@ -24,12 +24,12 @@ export function ToolShortcuts() {
             <a
               key={tool.name}
               href={tool.href}
-              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card/75 p-4 hover:bg-card/50 transition-colors group"
+              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card/90 p-4 transition-colors group"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted transition-all group-hover:scale-105">
                 <tool.icon className="h-5 w-5 text-primary" />
               </div>
-              <span className="text-xs font-medium text-card-foreground">
+              <span className="smalltext font-medium text-card-foreground">
                 {tool.name}
               </span>
             </a>

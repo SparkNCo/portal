@@ -237,14 +237,6 @@ export function IssueListRow({
         onClick={onOpen}
         aria-label={issue.title}
       />
-      {hasUpdate && (
-        <span
-          className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
-          title="Recently updated"
-        >
-          <Mail className="h-2 w-2 text-white" />
-        </span>
-      )}
       <span
         className={cn(
           "smalltext font-mono w-20 flex-shrink-0",
@@ -272,6 +264,14 @@ export function IssueListRow({
       >
         {issue.title}
       </p>
+      {hasUpdate && (
+        <span
+          className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
+          title="Recently updated"
+        >
+          <Mail className="h-2 w-2 text-white" />
+        </span>
+      )}
       {issue.labels?.nodes?.map((l) => (
         <LabelPill key={l.id} label={l} iconOnly />
       ))}

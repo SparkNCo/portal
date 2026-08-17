@@ -19,7 +19,7 @@ export function ChatSpinner({
           className={`flex ${size === "sm" ? "items-center" : "flex-col items-center"} gap-2 text-muted-foreground`}
         >
           <div className={spinnerClass} />
-          <span className={size === "sm" ? "text-xs" : "text-sm"}>{label}</span>
+          <span className={size === "sm" ? "text-xs md:smalltext" : "text-sm md:smalltext"}>{label}</span>
         </div>
       ) : (
         <div className={spinnerClass} />

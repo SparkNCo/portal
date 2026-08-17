@@ -88,6 +88,12 @@ export default function BugsPage() {
 
   const visibleIssues = useMemo(() => {
     return [...dateFiltered].sort((a: any, b: any) => {
+      // Not-Done issues first, Done issues last — each half is then ordered by
+      // priority (desc) and createdAt (asc) same as before.
+      const doneA = a?.state?.name === "Done" ? 1 : 0;
+      const doneB = b?.state?.name === "Done" ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
       const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
       const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
       if (rankA !== rankB) return rankB - rankA;

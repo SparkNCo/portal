@@ -241,9 +241,6 @@ export function Sidebar() {
             <p className="smalltext font-medium text-sidebar-foreground truncate">
               {profile.email}
             </p>
-            <p className="smalltext text-muted-foreground capitalize">
-              {profile.role}
-            </p>
           </div>
         </div>
 

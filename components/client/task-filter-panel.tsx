@@ -33,7 +33,7 @@ export function TaskFilterPanel({
     <div className="space-y-4">
       {hasCycles && (
         <div>
-          <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Cycle
           </p>
           <button
@@ -51,7 +51,7 @@ export function TaskFilterPanel({
 
       {availableStatuses.length > 0 && (
         <div>
-          <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Status
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -77,7 +77,7 @@ export function TaskFilterPanel({
 
       {availablePriorities.length > 0 && onTogglePriority && (
         <div>
-          <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Priority
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -103,7 +103,7 @@ export function TaskFilterPanel({
 
       {(onDateFromChange || onDateToChange) && (
         <div>
-          <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Date
           </p>
           <div className="space-y-2">
@@ -135,7 +135,7 @@ export function TaskFilterPanel({
 
       {availableLabels.length > 0 && onToggleLabel && (
         <div>
-          <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Labels
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -161,7 +161,7 @@ export function TaskFilterPanel({
 
       {activeFilters > 0 && (
         <button
-          className="smalltext text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          className="smalltext text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
           onClick={onClearFilters}
         >
           <span className="text-base leading-none">×</span> Clear all filters

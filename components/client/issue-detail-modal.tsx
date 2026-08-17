@@ -477,11 +477,15 @@ function SortableStepRow({
   index,
   onChange,
   onRemove,
+  onEnter,
+  inputRef,
 }: {
   step: StepDraft;
   index: number;
   onChange: (text: string) => void;
   onRemove: () => void;
+  onEnter: () => void;
+  inputRef: (el: HTMLInputElement | null) => void;
 }) {
   const {
     attributes,
@@ -513,10 +517,17 @@ function SortableStepRow({
         {index + 1}.
       </span>
       <input
+        ref={inputRef}
         className="flex-1 rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
         placeholder={`Step ${index + 1}…`}
         value={step.text}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
       />
       <button
         type="button"
@@ -540,6 +551,16 @@ function StepsEditor({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
+  const inputRefs = useRef(new Map<string, HTMLInputElement>());
+  const [focusStepId, setFocusStepId] = useState<string | null>(null);
+
+  // Runs after the newly-inserted step's row has mounted (same commit as the
+  // onChange above), so the ref is already registered by the time this fires.
+  useEffect(() => {
+    if (!focusStepId) return;
+    inputRefs.current.get(focusStepId)?.focus();
+    setFocusStepId(null);
+  }, [focusStepId]);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -548,6 +569,16 @@ function StepsEditor({
     const newIndex = steps.findIndex((s) => s.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     onChange(arrayMove(steps, oldIndex, newIndex));
+  }
+
+  // Enter on a step inserts a fresh one right after it and focuses it, so
+  // users can keep listing steps without reaching for "+ Add step" each time.
+  function insertStepAfter(index: number) {
+    const newStep: StepDraft = { id: crypto.randomUUID(), text: "" };
+    const next = [...steps];
+    next.splice(index + 1, 0, newStep);
+    onChange(next);
+    setFocusStepId(newStep.id);
   }
 
   return (
@@ -576,6 +607,11 @@ function StepsEditor({
                   )
                 }
                 onRemove={() => onChange(steps.filter((s) => s.id !== step.id))}
+                onEnter={() => insertStepAfter(i)}
+                inputRef={(el) => {
+                  if (el) inputRefs.current.set(step.id, el);
+                  else inputRefs.current.delete(step.id);
+                }}
               />
             ))}
           </div>
@@ -585,9 +621,7 @@ function StepsEditor({
         type="button"
         size="sm"
         variant="outline"
-        onClick={() =>
-          onChange([...steps, { id: crypto.randomUUID(), text: "" }])
-        }
+        onClick={() => insertStepAfter(steps.length - 1)}
       >
         + Add step
       </Button>

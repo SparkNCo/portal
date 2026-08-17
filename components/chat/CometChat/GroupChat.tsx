@@ -101,7 +101,7 @@ export default function GroupChat({ user, group }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30" />
-            <p className="text-sm">No messages yet. Say hello!</p>
+            <p className="text-sm md:smalltext">No messages yet. Say hello!</p>
           </div>
         )}
 
