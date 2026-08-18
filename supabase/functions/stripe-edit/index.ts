@@ -316,9 +316,11 @@ async function syncSubscriptionPrice(
     status: "all",
   });
 
-  const subscription =
-    subscriptions.data.find((sub) => sub.status !== "canceled") ??
-    subscriptions.data[0];
+  // Stripe won't let a canceled subscription's items be updated (it throws),
+  // so only ever pick a non-canceled one — falling back to data[0] regardless
+  // of status would surface that as an unhandled 500 instead of the graceful
+  // "no subscription yet" path below.
+  const subscription = subscriptions.data.find((sub) => sub.status !== "canceled");
 
   const itemId = subscription?.items?.data?.[0]?.id;
   if (!subscription || !itemId) {

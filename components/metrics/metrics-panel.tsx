@@ -29,6 +29,7 @@ interface Project {
 }
 
 const ALL_PROJECTS_VALUE = "__all_projects__";
+const ALL_CYCLES_VALUE = "__all_cycles__";
 
 export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   const { profile } = useUser();
@@ -185,6 +186,16 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     setLastFilterTouched("date");
   }
 
+  // Shared by the "Cycle" dropdown's "All Cycles" entry and the "Show all
+  // cycles" button on the bar chart — both just call showAllCycles().
+  function handleCycleSelect(value: string) {
+    if (value === ALL_CYCLES_VALUE) {
+      showAllCycles();
+    } else {
+      selectCycle(value);
+    }
+  }
+
   return (
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
@@ -209,11 +220,17 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
         </Select>
 
         {cycleNumbers.length > 0 && (
-          <Select value={activeCycleNumber} onValueChange={selectCycle}>
+          <Select
+            value={spanAllCycles ? ALL_CYCLES_VALUE : activeCycleNumber}
+            onValueChange={handleCycleSelect}
+          >
             <SelectTrigger className="w-36 smalltext">
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={ALL_CYCLES_VALUE} className="smalltext focus:text-primary">
+                All Cycles
+              </SelectItem>
               {[...cycleNumbers].reverse().map((number) => (
                 <SelectItem key={number} value={String(number)} className="smalltext focus:text-primary">
                   Cycle {number}

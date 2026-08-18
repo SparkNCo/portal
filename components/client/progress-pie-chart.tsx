@@ -51,7 +51,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
     for (const issue of issuesData) {
       if (issue.project?.name) names.add(issue.project.name);
     }
-    return Array.from(names).sort();
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [issuesData]);
 
   const scopedIssues = useMemo(() => {

@@ -2,6 +2,34 @@
 import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 
+// Trims and validates a candidate clientName, enforcing the same
+// case-insensitive uniqueness rule as createCustomerFlow — clientName
+// doubles as a display/URL key elsewhere, so two customers differing only
+// by case would collide.
+async function resolveClientName(
+  schema: string,
+  customerId: string,
+  clientName: unknown,
+): Promise<string> {
+  const trimmedClientName =
+    typeof clientName === "string" ? clientName.trim() : "";
+  if (!trimmedClientName) throw new Error("clientName cannot be empty");
+
+  const { data: existingClient, error: existingClientError } = await supabase
+    .schema(schema)
+    .from("customers")
+    .select("customer_id")
+    .ilike("clientName", escapeIlike(trimmedClientName))
+    .neq("customer_id", customerId)
+    .maybeSingle();
+
+  if (existingClientError) throw new Error(existingClientError.message);
+  if (existingClient)
+    throw new Error(`A customer named "${trimmedClientName}" already exists`);
+
+  return trimmedClientName;
+}
+
 // Updates fields on the `customers` record itself (as opposed to `updateUser`,
 // which only touches the `users` table) — Stripe Customer ID (Settings/Billing)
 // and clientName (set-password, so a customer's display name can be fixed up
@@ -24,26 +52,7 @@ export const updateCustomer = async (body: any, schema: string) => {
   }
 
   if (clientName !== undefined) {
-    const trimmedClientName =
-      typeof clientName === "string" ? clientName.trim() : "";
-    if (!trimmedClientName) throw new Error("clientName cannot be empty");
-
-    // Same case-insensitive uniqueness rule as createCustomerFlow — clientName
-    // doubles as a display/URL key elsewhere, so two customers differing only
-    // by case would collide.
-    const { data: existingClient, error: existingClientError } = await supabase
-      .schema(schema)
-      .from("customers")
-      .select("customer_id")
-      .ilike("clientName", escapeIlike(trimmedClientName))
-      .neq("customer_id", customer_id)
-      .maybeSingle();
-
-    if (existingClientError) throw new Error(existingClientError.message);
-    if (existingClient)
-      throw new Error(`A customer named "${trimmedClientName}" already exists`);
-
-    updateFields.clientName = trimmedClientName;
+    updateFields.clientName = await resolveClientName(schema, customer_id, clientName);
   }
 
   if (Object.keys(updateFields).length === 0) {

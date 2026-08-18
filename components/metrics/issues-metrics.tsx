@@ -86,6 +86,23 @@ function StatusTooltip({
   );
 }
 
+function isDateInRange(date: string, dateFrom: string, dateTo: string): boolean {
+  if (dateFrom && date < dateFrom) return false;
+  if (dateTo && date > dateTo) return false;
+  return true;
+}
+
+// Adds one snapshot's per-status counts into the running total for its date.
+function addSnapshotCounts(
+  entry: Record<string, number | string>,
+  snapshot: Record<string, number | string>,
+) {
+  for (const [key, value] of Object.entries(snapshot)) {
+    if (key === "date") continue;
+    entry[key] = ((entry[key] as number) ?? 0) + ((value as number) ?? 0);
+  }
+}
+
 // Merges daily snapshots from any number of cycles into one series — same
 // dates across cycles are summed rather than shown as separate points. Used
 // both for "span every cycle in range" and for "this cycle number across
@@ -100,15 +117,10 @@ function mergeSnapshots(
   for (const cycle of cyclesToMerge) {
     for (const snapshot of cycle.issues_averages ?? []) {
       const date = String(snapshot.date ?? "");
-      if (!date) continue;
-      if (dateFrom && date < dateFrom) continue;
-      if (dateTo && date > dateTo) continue;
+      if (!date || !isDateInRange(date, dateFrom, dateTo)) continue;
 
       const entry = byDate.get(date) ?? { date };
-      for (const [key, value] of Object.entries(snapshot)) {
-        if (key === "date") continue;
-        entry[key] = ((entry[key] as number) ?? 0) + ((value as number) ?? 0);
-      }
+      addSnapshotCounts(entry, snapshot);
       byDate.set(date, entry);
     }
   }

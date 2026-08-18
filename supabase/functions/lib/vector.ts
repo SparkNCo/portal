@@ -50,8 +50,8 @@ async function upstashRequest(
 
 function vectorIndex() {
   return {
-    url: Deno.env.get("UPSTASH_ISSUES_VECTOR_REST_URL")!,
-    token: Deno.env.get("UPSTASH_ISSUES_VECTOR_REST_TOKEN")!,
+    url: Deno.env.get("UPSTASH_VECTOR_REST_URL")!,
+    token: Deno.env.get("UPSTASH_VECTOR_REST_TOKEN")!,
   };
 }
 

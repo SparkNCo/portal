@@ -19,6 +19,7 @@ import {
   Percent,
   ShieldCheck,
   ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 
 interface DoraAverage {
@@ -402,6 +403,94 @@ function SonarQualityGateCard({
   );
 }
 
+// One KPI tile — extracted so its own expand/collapse detail panels (CFR vs.
+// deploy-frequency, both optional) don't add to SoftwareKPIs's nesting; this
+// component owns exactly one card's worth of branching.
+function KpiCard({
+  label,
+  Icon,
+  value,
+  unit,
+  style,
+  cfr,
+  deployFreq,
+  isExpanded,
+  onToggleExpanded,
+}: {
+  label: string;
+  Icon: LucideIcon;
+  value: number | null;
+  unit: string;
+  style: { color: string; bg: string; border: string };
+  cfr: CfrDetails | null;
+  deployFreq: DoraAverage | null;
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  const hasExtra = !!(cfr || deployFreq);
+
+  return (
+    <div
+      className="rounded-lg border p-4"
+      style={{ backgroundColor: style.bg, borderColor: style.border }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0" style={{ color: style.color }}>
+          <Icon className="h-4 w-4 shrink-0" />
+          <span className="smalltext font-medium truncate" title={label}>{label}</span>
+        </div>
+        {hasExtra && (
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
+            aria-expanded={isExpanded}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        )}
+      </div>
+      <p className="text-2xl font-bold text-foreground">
+        {value !== null ? value.toFixed(1) : "N/A"}
+        <span className="smalltext font-normal text-muted-foreground ml-1">{unit}</span>
+      </p>
+      {isExpanded && cfr && (
+        <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
+          <p className="smalltext text-muted-foreground">
+            Failed:{" "}
+            <span className="text-foreground font-medium">{cfr.failed_deployments}</span>
+            {" / "}
+            Total:{" "}
+            <span className="text-foreground font-medium">{cfr.total_non_fix_deployments}</span>
+          </p>
+          <p className="smalltext text-muted-foreground truncate" title={cfr.repo}>
+            {cfr.repo}
+          </p>
+        </div>
+      )}
+      {isExpanded && deployFreq && (
+        <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
+          <p className="smalltext text-muted-foreground">
+            Last 30d:{" "}
+            <span className="text-foreground font-medium">
+              {deployFreq.last_30_days ?? "N/A"} deployments
+            </span>
+          </p>
+          <p className="smalltext text-muted-foreground">
+            Last 90d:{" "}
+            <span className="text-foreground font-medium">
+              {deployFreq.last_90_days ?? "N/A"} deployments
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
@@ -459,83 +548,20 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
             {KPI_CONFIG.map(({ key, label, icon: Icon }) => {
               const metric = latest.averages[key];
-              const value = metric?.value ?? null;
               const style = thresholdStyle(key, colorValueFor(key, metric));
-              const cfr =
-                key === "change_failure_rate" ? latest.cfr_details : null;
-              const deployFreq =
-                key === "deploy_frequency" ? metric : null;
-              const hasExtra = !!(cfr || deployFreq);
-              const isExpanded = expandedKeys.has(key);
               return (
-                <div
+                <KpiCard
                   key={key}
-                  className="rounded-lg border p-4"
-                  style={{ backgroundColor: style.bg, borderColor: style.border }}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 min-w-0" style={{ color: style.color }}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="smalltext font-medium truncate" title={label}>{label}</span>
-                    </div>
-                    {hasExtra && (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(key)}
-                        aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
-                        aria-expanded={isExpanded}
-                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {value !== null ? value.toFixed(1) : "N/A"}
-                    <span className="smalltext font-normal text-muted-foreground ml-1">
-                      {metric?.unit ?? ""}
-                    </span>
-                  </p>
-                  {isExpanded && cfr && (
-                    <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
-                      <p className="smalltext text-muted-foreground">
-                        Failed:{" "}
-                        <span className="text-foreground font-medium">
-                          {cfr.failed_deployments}
-                        </span>
-                        {" / "}
-                        Total:{" "}
-                        <span className="text-foreground font-medium">
-                          {cfr.total_non_fix_deployments}
-                        </span>
-                      </p>
-                      <p
-                        className="smalltext text-muted-foreground truncate"
-                        title={cfr.repo}
-                      >
-                        {cfr.repo}
-                      </p>
-                    </div>
-                  )}
-                  {isExpanded && deployFreq && (
-                    <div className="mt-2 space-y-0.5 border-t border-current/10 pt-2">
-                      <p className="smalltext text-muted-foreground">
-                        Last 30d:{" "}
-                        <span className="text-foreground font-medium">
-                          {deployFreq.last_30_days ?? "N/A"} deployments
-                        </span>
-                      </p>
-                      <p className="smalltext text-muted-foreground">
-                        Last 90d:{" "}
-                        <span className="text-foreground font-medium">
-                          {deployFreq.last_90_days ?? "N/A"} deployments
-                        </span>
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  label={label}
+                  Icon={Icon}
+                  value={metric?.value ?? null}
+                  unit={metric?.unit ?? ""}
+                  style={style}
+                  cfr={key === "change_failure_rate" ? latest.cfr_details : null}
+                  deployFreq={key === "deploy_frequency" ? metric ?? null : null}
+                  isExpanded={expandedKeys.has(key)}
+                  onToggleExpanded={() => toggleExpanded(key)}
+                />
               );
             })}
             {showCodeCoverage && (

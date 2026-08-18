@@ -171,7 +171,7 @@ export function NextPaymentPanel({
           <Button
             variant="ghost"
             size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground smalltext"
             onClick={() => setShowCancelConfirm(true)}
             disabled={!billingData?.subscription?.id}
           >

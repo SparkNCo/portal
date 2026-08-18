@@ -11,23 +11,25 @@ create extension if not exists pg_net with schema extensions;
 --   select vault.create_secret('<your-service-role-key>', 'service_role_key');
 
 do $$
+declare
+  job_name text := 'linear-vector-sync-hourly';
 begin
-  if exists (select 1 from cron.job where jobname = 'linear-vector-sync-hourly') then
-    perform cron.unschedule('linear-vector-sync-hourly');
+  if exists (select 1 from cron.job where jobname = job_name) then
+    perform cron.unschedule(job_name);
   end if;
-end $$;
 
-select cron.schedule(
-  'linear-vector-sync-hourly',
-  '0 * * * *', -- every hour, on the hour — adjust to taste (was every 15 min, dialed back for free-tier usage)
-  $$
-  select net.http_post(
-    url := 'https://ozybsusoollnomaaxkcy.supabase.co/functions/v1/linear-vector-sync',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key')
-    ),
-    body := '{}'::jsonb
-  ) as request_id;
-  $$
-);
+  perform cron.schedule(
+    job_name,
+    '0 * * * *', -- every hour, on the hour — adjust to taste (was every 15 min, dialed back for free-tier usage)
+    $cron$
+    select net.http_post(
+      url := 'https://ozybsusoollnomaaxkcy.supabase.co/functions/v1/linear-vector-sync',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key')
+      ),
+      body := '{}'::jsonb
+    ) as request_id;
+    $cron$
+  );
+end $$;
