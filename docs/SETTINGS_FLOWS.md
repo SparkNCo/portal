@@ -15,9 +15,15 @@ Developers and stakeholders do **not** have Settings in their sidebar nav.
 
 ## Admin viewing a customer's settings
 
-When an admin navigates to a customer's settings (via Dashboards → select customer → Settings), `CustomerSlugContext` provides the customer's slug. The `SettingsTabs` component detects this (`isAdminViewingCustomer = profile.role === "admin" && !!customerSlug`) and fetches the customer list to resolve the correct `userId` and `customer_id` (Stripe ID) for that customer.
+When an admin navigates to a customer's settings (via Dashboards → select customer → Settings), `CustomerSlugContext` provides the customer's slug. The `SettingsTabs` component detects this (`isAdminViewingCustomer = profile.role === "admin" && !!customerSlug`) and fetches the customer list to resolve three separate IDs for that customer, falling back to the admin's own profile when not viewing one:
 
-This means the admin sees the same billing and staffing data the customer would see — useful for support and account management.
+- `effectiveUserId` — used for Staffing (`assignments.customer_id`)
+- `effectiveStripeId` — the Stripe customer id, used for `/stripe/client`
+- `effectiveCustomerId` — the internal `portal.customers` primary key, used for `/stripe-edit` and the Stripe Customer ID panel
+
+`customer_id` and the Stripe customer id are **not** the same value — `effectiveCustomerId` identifies the row in the `customers` table, while `effectiveStripeId` is that row's `stripe_customer_id` column (which can be empty — see Stripe Customer ID panel below).
+
+This means the admin sees the same billing and staffing data the customer would see — useful for support and account management. Admins additionally get billing-management controls (Stripe Customer ID, invoicing mode, invoice amount/frequency) that customers never see — see below.
 
 ---
 
@@ -118,11 +124,18 @@ A **"Request Change"** button opens a **Cal.com booking link** in a new tab. It 
 
 ## Tab 2 — Billing
 
-**Source:** `components/settings/billing-section.tsx`
+**Source:** `components/settings/billing-section.tsx` (layout + `StripeIdPanel`, `BillingModeToggle`, `InvoiceSettingsPanel`, all defined inline in this file), `components/settings/settings-tabs.tsx` (data loading/ID resolution)
+
+> As of the `SPA-384/make-auto-billing-optional` work, a customer's Stripe Customer ID is optional and billing can be switched between automatic (live Stripe subscription) and manual (invoiced outside the portal). The four original sub-panels only render once a Stripe Customer ID is on file **and** billing is in automatic mode.
 
 ### Data loading
 
-Calls `GET /stripe/client?customer_id={stripeCustomerId}` to fetch the full Stripe billing snapshot. The response contains:
+`SettingsTabs` runs two independent queries once `effectiveCustomerId`/`effectiveStripeId` are resolved (see "Admin viewing a customer's settings" above):
+
+1. `GET /stripe-edit?customer_id={effectiveCustomerId}` — the customer's `billing_mode`, `invoice_amount`, `invoice_interval`, `invoice_interval_count`. Enabled whenever `effectiveCustomerId` exists, regardless of billing mode.
+2. `GET /stripe/client?customer_id={effectiveStripeId}` — the Stripe billing snapshot. Only enabled when `effectiveStripeId` exists **and** the billing mode from query 1 is `"automatic"` (`enabled: !!effectiveStripeId && effectiveBillingMode === "automatic"`). In manual mode, or with no Stripe Customer ID, this call never fires.
+
+The snapshot response contains:
 
 | Field | Content |
 |---|---|
@@ -131,9 +144,34 @@ Calls `GET /stripe/client?customer_id={stripeCustomerId}` to fetch the full Stri
 | `invoices[]` | Historical invoice list |
 | `paymentMethod` | Card brand, last 4 digits, expiry |
 
-If the subscription doesn't have an `id` yet (still loading or not set up), a loading panel is shown instead of the billing UI.
-
 ### Billing sub-panels
+
+`BillingSection` renders panels top to bottom based on `stripeCustomerId`, `isAdmin`, and `billingMode`:
+
+#### Stripe Customer ID — `StripeIdPanel`
+
+Always rendered first, for every role.
+
+- **No Stripe Customer ID on file:** shows a "No Stripe Customer ID on file" card. Admins see an **Add Stripe ID** button; customers see "Contact your administrator to set up billing information." with no button. None of the other billing panels render at all in this state.
+- **ID on file, viewer is admin:** shows an **"Edit Stripe Customer ID (only admins)"** button.
+- **ID on file, viewer is a customer:** nothing rendered here (customers can't see or edit the raw ID).
+
+Saving (add or edit) calls `PATCH /users?type=customer` with `{ customer_id, stripe_customer_id }`, then invalidates the `["customers"]` and `["billing"]` queries.
+
+#### Invoicing mode — `BillingModeToggle`
+
+Admin-only, shown once a Stripe Customer ID exists. Displays the current mode (`Automatic`/`Manual`) and a button to flip it, calling `PATCH /stripe-edit` with `{ customer_id, billing_mode }`.
+
+- **Automatic → Manual:** pauses collection (`pause_collection: { behavior: "void" }`) on every active/trialing/past_due Stripe subscription for that customer. Nothing is written off — Stripe just stops attempting to charge it.
+- **Manual → Automatic:** resumes collection on any subscription that was paused.
+
+While in manual mode, the four original panels are replaced by a single static card: **"This client is invoiced manually — billing details, invoices, and payment methods are handled outside the portal."**
+
+#### Invoice amount & frequency — `InvoiceSettingsPanel`
+
+Admin-only, shown once a Stripe Customer ID exists **and** billing mode is automatic. Shows the current schedule (e.g. "$500.00 every month") or "Not set yet", with an **Edit** button that opens an amount + interval-count + interval-unit (day/week/month/year) form.
+
+Saving calls `PATCH /stripe-edit` with `{ customer_id, invoice_amount, invoice_interval, invoice_interval_count }`. Server-side, this creates a brand-new Stripe `Price` (prices are immutable — "editing" always means creating a new one) and re-points the customer's active subscription item at it with `proration_behavior: "none"`, so nothing is charged early for the switch itself. If the customer has no active subscription yet, the values are still saved to the `customers` row and simply have no subscription to apply to yet — the UI shows a notice: *"Saved, but this client has no active Stripe subscription yet — nothing is being charged until one exists."*
 
 #### Outstanding Balance — `PendingBalancePanel`
 
@@ -141,13 +179,15 @@ Calculates the total unpaid amount across all invoices (`amountDue - amountPaid`
 - **Green** if balance is zero ("No outstanding balance")
 - **Warning yellow** if balance is positive ("Payment required to avoid service interruption")
 
-#### Next Invoice — `NextPaymentPanel`
+#### Next Invoice / Subscription status — `NextPaymentPanel`
 
-Shows the next invoice date and estimated amount from `upcomingInvoice`.
+Shows a subscription-status badge (active, trialing, past_due, incomplete, paused, canceled, unpaid, incomplete_expired — each with its own color) whenever a subscription exists.
 
-**If the subscription is canceled:** Shows a "Your subscription is currently canceled" message and a **Renew Subscription** button, which opens the Stripe Customer Portal.
+**Needs renewal** — no subscription at all, or status is `canceled`, `unpaid`, or `incomplete_expired` (a subscription killed by repeated failed payments lands on `unpaid`/`incomplete_expired`, not just `canceled`, so both get the same treatment): shows "Your subscription is currently {status}." (or "You don't have an active subscription.") and a **Renew Subscription** button. This calls `POST /stripe/renew-subscription` with `{ customer_id }` directly — it no longer opens the Stripe Customer Portal.
 
-**If no upcoming invoice is scheduled** (active subscription but nothing due yet): Shows "No upcoming invoice scheduled."
+**Otherwise (subscription active-ish):** shows a **Cancel Subscription** button, which opens a confirmation dialog warning that cancellation is immediate (not at period end) and can't be undone from here. Confirming calls `POST /stripe/cancel-subscription` with `{ subscription_id }`, which cancels the Stripe subscription right away.
+
+Below that, either the next invoice date/estimated amount from `upcomingInvoice`, or "No upcoming invoice scheduled." if the subscription is active but nothing is due yet.
 
 #### Invoice History — `InvoicesPanel`
 
@@ -181,9 +221,13 @@ User lands on /{slug}/settings
           ├── if admin viewing customer
           │     → GET /users?type=customers
           │     → find customer matching customerSlug
-          │     → resolve effectiveUserId + effectiveCustomerId
+          │     → resolve effectiveUserId + effectiveStripeId + effectiveCustomerId
           │
-          ├── GET /stripe/client?customer_id={effectiveCustomerId}
+          ├── GET /stripe-edit?customer_id={effectiveCustomerId}
+          │     → billing_mode, invoice_amount, invoice_interval, invoice_interval_count loaded
+          │
+          ├── GET /stripe/client?customer_id={effectiveStripeId}
+          │     → only fires if effectiveStripeId exists AND billing_mode === "automatic"
           │     → subscription, upcomingInvoice, invoices, paymentMethod loaded
           │
           ├── Tab: Staffing (default)
@@ -191,8 +235,10 @@ User lands on /{slug}/settings
           │     → team members rendered
           │
           └── Tab: Billing
-                → BillingSection renders sub-panels from billing data
-                → PendingBalance + NextPayment + Invoices + PaymentMethod
+                → StripeIdPanel always renders (or blocks everything else if no ID on file)
+                → BillingModeToggle + InvoiceSettingsPanel render for admins (automatic mode only for the latter)
+                → if manual: static "invoiced manually" card
+                → if automatic: PendingBalance + NextPayment + Invoices + PaymentMethod, from the Stripe snapshot
 ```
 
 ---
@@ -209,7 +255,11 @@ User lands on /{slug}/settings
 | Update an assignment's weekly hours | PATCH | `/assignments` |
 | Request a Spark & Co FDE developer (emails all admins, no record created) | POST | `/developer-requests` |
 | Get Stripe billing snapshot | GET | `/stripe/client?customer_id={stripeCustomerId}` |
-| Open Stripe Customer Portal (add/update card, renew) | POST | `/stripe/create-customer-portal` |
+| Open Stripe Customer Portal (add/update card) | POST | `/stripe/create-customer-portal` |
+| Renew a canceled/unpaid/incomplete_expired subscription | POST | `/stripe/renew-subscription` |
+| Cancel a subscription immediately | POST | `/stripe/cancel-subscription` |
+| Get/set a customer's `stripe_customer_id` (admin-only edit) | PATCH | `/users?type=customer` |
+| Get/set billing mode + invoice amount/frequency (admin-only edit; pauses/resumes Stripe collection and syncs the subscription price) | GET / PATCH | `/stripe-edit?customer_id={customerId}` |
 
 ---
 
@@ -218,15 +268,16 @@ User lands on /{slug}/settings
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/settings/page.tsx` | Page shell |
-| `components/settings/settings-tabs.tsx` | Tab switcher — resolves effective IDs for admin, fetches billing data |
+| `components/settings/settings-tabs.tsx` | Tab switcher — resolves effective IDs for admin, fetches billing-mode data and the Stripe snapshot |
 | `components/settings/staffing-section.tsx` | Team members list + Request Change (Cal.com) button |
 | `components/settings/developer-details-modal.tsx` | Popup shown when a team member card is clicked (name, role, date added, bio, tech stack) |
 | `components/settings/add-developer-modal.tsx` | Customer-facing Add Developer modal (Internal creation + Spark & Co FDE request) |
 | `components/settings/edit-internal-developer-modal.tsx` | Customer-facing edit modal for their own Internal developers (name, phone, bio, tech stack, weekly hours) |
 | `components/shared/tech-stack-picker.tsx` | Shared drag-to-reorder tech stack chip editor (used here and by the admin Edit Developer Profile modal) |
-| `components/settings/billing-section.tsx` | Billing layout — assembles all four billing panels |
+| `components/settings/billing-section.tsx` | Billing layout, plus `StripeIdPanel`, `BillingModeToggle`, and `InvoiceSettingsPanel` (all defined inline in this file) |
 | `components/settings/billing-panels/pending-balance.tsx` | Outstanding balance panel |
-| `components/settings/billing-panels/next-payment-panel.tsx` | Next invoice date + canceled subscription state |
+| `components/settings/billing-panels/next-payment-panel.tsx` | Subscription status badge, renew/cancel actions, next invoice date |
 | `components/settings/billing-panels/invoices-panel.tsx` | Invoice history list with PDF download |
 | `components/settings/billing-panels/payment-method-expand.tsx` | Payment card display + Stripe portal redirect |
+| `supabase/functions/stripe-edit/index.ts` | Billing mode + invoice amount/frequency backend — pauses/resumes Stripe collection, syncs subscription price |
 | `context/CustomerSlugContext.tsx` | Provides the customer slug when admin is previewing |

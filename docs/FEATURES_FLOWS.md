@@ -91,44 +91,50 @@ All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 
 **Where:** Tests tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `TestsTab`).
 
-**Full flow:**
+Tests are **reusable**: a single test definition (`portal.tests` — title + steps) can be attached to more than one ticket. Each attachment gets its own row in `portal.test_executions` (expected result, status, and the accumulated QA/UAT `results[]` for that ticket specifically) — picking "the same test" on two different tickets doesn't duplicate the steps, it creates two independent executions of one shared definition.
+
+**Full flow (per execution):**
 
 ```
 draft → Stakeholder approves → Developer records QA Evidence (QA stage)
       → Stakeholder records UAT Result (UAT stage) → Stakeholder marks Passed
 ```
 
-### 3a. Creating / editing a test (`canManageTests`)
+### 3a. Attaching a test to this ticket (`canManageTests`)
 
 Allowed for:
 - **Admin** — always.
 - **Developer** — only while the issue's current state is **Development** or **QA**.
 
-1. Opens an issue → **Tests** tab → **+ Add test case**.
-2. Fills in:
-   - **Title** — what is being tested
-   - **Steps** — one per line; saved as `{ order, description }[]`
-   - **Expected result** — what should happen
-3. Submits → `POST /tests` with `{ issue_id, title, steps, expected, created_by }`.
-4. Test is created with status **`draft`**.
+1. Opens an issue → **Tests** tab → **+ Add test case**, which opens `TestPicker`.
+2. Typing 10+ characters searches two lists in parallel:
+   - **Existing tests** — a plain title search (`ILIKE`), scoped to the ticket's `project_slug`.
+   - **Similar tests** — semantic search over an Upstash Vector index, debounced 3s after typing stops, only surfacing matches scoring ≥ 0.7.
+3. **Picking an existing test** pre-fills "Expected" from the most recent execution of that same test on any other ticket (`GET /test-executions?test_id=`), and lets the steps be edited inline **only if the test has never passed on another ticket** (`last_passed_execution_id` is null — once a test has passed somewhere, its steps become read-only everywhere, protecting a certified "recipe"). Attaching calls `POST /test-executions` with `{ test_id, issue_id, expected, created_by }`, plus `PATCH /tests/update` first if the steps were actually edited.
+4. **Typing a name with no matching test** and choosing "Create new test" instead opens a title/steps/expected form. Submitting calls `POST /tests` with `{ project_slug, title, steps, created_by }` to create the reusable definition, then `POST /test-executions` to attach it — same as step 3.
+5. Either way, the execution is created with status **`draft`**.
 
-Draft tests can also be edited (title/steps/expected) by the same role gate, via **"Edit test case"** → `PATCH /tests/update`.
+**Steps editor:** one input per step, drag-to-reorder (`@dnd-kit`). Pressing **Enter** in any step inserts a new empty step right after it and focuses it, so a list can be typed out without reaching for "+ Add step" each time.
+
+**Editing an attached execution** (same role gate, only while status is `draft`): "Edit test case" opens the same title/steps/expected form pre-filled from the execution. Save runs `PATCH /tests/update` (title/steps) and `PATCH /test-executions/update` (expected) in parallel.
+
+**Deleting** (**admin only**, any status): a trash icon next to each execution. Confirming calls `DELETE /test-executions?execution_id=` to detach the test from this ticket, then best-effort `DELETE /tests?test_id=` to remove the reusable test entirely — the backend silently refuses that second step if the test is still attached to any other ticket, so it's safe to always attempt.
 
 ### 3b. Approving a test (Customer / Stakeholder)
 
 1. Customer/stakeholder opens the issue → **Tests** tab.
-2. Sees test cases with status `draft` and an **"Approve test case"** button.
-3. Clicks it → `PATCH /tests/approve` with `{ test_id, approved_by }`.
+2. Sees executions with status `draft` and an **"Approve test case"** button.
+3. Clicks it → `PATCH /test-executions/approve` with `{ execution_id, approved_by }`.
 4. Status moves to **`approved`**.
 
 ### 3c. Recording QA Evidence (Developer, only while issue is in QA state)
 
 1. Issue must be in **QA** state.
 2. Developer opens the issue → **Tests** tab.
-3. Tests with status `draft`, `approved`, or `passed` show a **"Record QA"** button (drafts are included so a developer can attach evidence before the stakeholder has approved the test case).
-4. Developer clicks it, types what actually happened, clicks **"Save QA"**.
-5. `PATCH /tests/uat` is called with `{ test_id, actual, recorded_by, kind: "qa" }`.
-6. The entry is appended to `test.actual[]` and rendered under a **"QA Evidence"** label. Status is unchanged by this action.
+3. Executions with status `draft`, `approved`, or `passed` show a **"Record QA"** button (drafts are included so a developer can attach evidence before the stakeholder has approved the test).
+4. Developer clicks it, types what actually happened, optionally attaches files/images, clicks **"Save QA"**.
+5. Any files are uploaded first (`POST /issues/upload` — reuses the same asset storage as issue attachments, no local DB row of its own), then `PATCH /test-executions/result` is called with `{ execution_id, result, recorded_by, kind: "qa", attachments }`.
+6. The entry is appended to `execution.results[]` and rendered under a **"QA Evidence"** label, with any attached images/files shown inline. Status is unchanged by this action.
 
 > Developers cannot record UAT results, and customers/stakeholders cannot record QA evidence — each recording action is gated to both the right role **and** the right issue stage (`canRecordResult` in `TestsTab`).
 
@@ -136,19 +142,19 @@ Draft tests can also be edited (title/steps/expected) by the same role gate, via
 
 1. Issue must be in **UAT** state.
 2. Customer/stakeholder opens the issue → **Tests** tab.
-3. Approved tests show a **"Record UAT"** button. It disappears once the test is `passed` (no need to re-record after sign-off).
-4. Customer/stakeholder clicks it, types what actually happened, clicks **"Save UAT"**.
-5. `PATCH /tests/uat` is called with `{ test_id, actual, recorded_by, kind: "uat" }`.
-6. The entry is appended to `test.actual[]` and rendered under a **"UAT Result"** label (older entries recorded before `kind` existed fall back to a generic "Actual" label).
+3. Approved executions show a **"Record UAT"** button. Once a UAT result has been recorded, it's replaced with "UAT result already recorded." (no need to re-record after sign-off).
+4. Customer/stakeholder clicks it, types what actually happened, optionally attaches files/images, clicks **"Save UAT"**.
+5. `PATCH /test-executions/result` is called with `{ execution_id, result, recorded_by, kind: "uat", attachments }`.
+6. The entry is appended to `execution.results[]` and rendered under a **"UAT Result"** label (older entries recorded before `kind` existed fall back to a generic "Actual" label).
 
 ### 3e. Marking a test Passed (Stakeholder only, final approval)
 
-1. Issue must be in **UAT** state and the test must already be `approved` or `passed`.
-2. The test must have **at least one recorded UAT Result** (`test.actual` contains an entry with `kind: "uat"`) — a stakeholder cannot mark a test passed without first recording a UAT result.
-3. Stakeholder clicks **"Mark as Passed"** → `PATCH /tests/uat` with `{ test_id, passed: true }`. Status moves to **`passed`**.
-4. Can be reverted via **"Revert to Approved"** → `{ test_id, passed: false }` (this button isn't gated by the UAT-record check).
+1. Issue must be in **UAT** state and the execution must already be `approved` or `passed`.
+2. The execution must have **at least one recorded UAT Result** (`results` contains an entry with `kind: "uat"`) — a stakeholder cannot mark a test passed without first recording a UAT result.
+3. Stakeholder clicks **"Mark as Passed"** → `PATCH /test-executions/result` with `{ execution_id, passed: true }`. Status moves to **`passed`**, and the underlying test's `last_passed_execution_id` is set — locking its steps everywhere (see 3a).
+4. Can be reverted via **"Revert to Approved"** → `{ execution_id, passed: false }` (this button isn't gated by the UAT-record check).
 
-**Test status flow:**
+**Execution status flow:**
 
 ```
 draft → approved → passed
@@ -198,33 +204,45 @@ Each issue has its own CometChat **group** keyed to a deterministic GUID (`issue
 
 ---
 
-## 6. Design Tab — Services & Diagrams
+## 6. Design Tab — Design Resources, Services & Diagrams
 
 **Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
 
 > Both the **Design** and **Demo** tabs are hidden for Bug issues (`isBugIssue`, computed from `issue.labels.nodes` containing a label named "bug") — neither is relevant to a bug ticket, so the tab bar only shows Description / Chat / Tests / Decisions for those.
 
+The tab has two independent sections, stacked top to bottom: **Design Resources** (external Figma/v0 links, per issue) and **Mermaid diagrams** (versioned per service, see 6b onward). Neither depends on the other.
+
+### 6a. Design Resources (Figma / v0 links)
+
+A lightweight way to attach external design links to an issue — no file upload, no versioning, just a URL + optional title per link (`portal.design_resources`, scoped by `issue_id`).
+
+1. Opening the tab loads `GET /design-resources?issue_id={issue.id}` — every link attached to this issue.
+2. **"Add Link"** reveals a URL field and an optional title field.
+3. The URL is validated client-side (`validateDesignResourceUrl`) against two patterns only: **Figma** (`figma.com/file|design|proto|board/...`) and **v0** (`v0.dev/...`) — anything else is rejected with "URL must be a valid Figma or v0 link." If no title is given, one is auto-generated: the file/board name parsed out of the Figma URL, or a "v0 Chat: …" / "v0 Template: …" / "v0 Design: …" label derived from the v0 URL's path.
+4. **"Add Resource"** calls `POST /design-resources` with `{ issue_id, project_slug, resource_type, url, title, email }` (`resource_type` is `"figma"` or `"v0"`, from step 3).
+5. Figma links render as an inline embedded preview (`figma.com/embed?...` in an iframe); v0 links render as a plain link card. Either can be removed via a delete button, which calls `DELETE /design-resources` with `{ id }`.
+
+### 6b. Picking or creating a service (Mermaid diagrams)
+
 A **Service** is a Supabase-only concept — it has no link to Linear at all (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used everywhere else in the portal (`document.project_slug`, the `/{slug}/dashboard/...` URL param). The Design tab reads it from `CustomerSlugContext` (`useCustomerSlug()`) rather than from the issue, which is what makes it work identically regardless of the viewer's role — customer, stakeholder, developer, or an admin previewing a customer.
 
 Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each one uploaded from a specific issue.
 
-### 6a. Picking or creating a service
+1. Opening the Design tab loads `GET /diagrams?type=services&project_slug={slug}` into the **Service** dropdown — every service belonging to the current customer.
+2. Selecting **"+ Create new service"** swaps the second control to a plain text input for the new service's name. No Linear lookup involved.
+3. Selecting an existing service instead turns the second control into a **version picker**, populated from `GET /diagrams?service_id={id}` (newest first, latest marked "(latest)").
 
-1. Opening the Design tab loads `GET /diagrams?type=services&project_slug={slug}` into the **Servicio** dropdown — every service belonging to the current customer.
-2. Selecting **"+ Crear servicio nuevo"** swaps the second control to a plain text input for the new service's name. No Linear lookup involved.
-3. Selecting an existing service instead turns the second control into a **version picker**, populated from `GET /diagrams?service_id={id}` (newest first, latest marked "última").
+**Defaulting to the last service used on this issue:** on open, the tab also calls `GET /diagrams?issue_id={issue.id}` (any service) and, if the dropdown hasn't been touched yet (`selectedServiceId` still empty), auto-selects the `service_id` of the most recent row. This only fires once per mount — picking a different service or "create new" afterward is never overridden, since `selectedServiceId` is no longer empty at that point.
 
-**Defaulting to the last service used on this issue:** on open, the tab also calls `GET /diagrams?issue_id={issue.id}` (any service) and, if the dropdown hasn't been touched yet (`selectedServiceId` still empty), auto-selects the `service_id` of the most recent row. This only fires once per mount — picking a different service or "crear nuevo" afterward is never overridden, since `selectedServiceId` is no longer empty at that point.
+For this to point at the actual most-recent upload, `GET /diagrams?issue_id=` sorts by `created_at` rather than `version` — an issue can upload to more than one service over time, and `version` is only meaningful within a single service, so `created_at` is the only field that reliably answers "what did this issue touch last." `GET /diagrams?service_id=` still sorts by `version` (that ordering is what feeds the version picker in 6b.3 above).
 
-For this to point at the actual most-recent upload, `GET /diagrams?issue_id=` sorts by `created_at` rather than `version` — an issue can upload to more than one service over time, and `version` is only meaningful within a single service, so `created_at` is the only field that reliably answers "what did this issue touch last." `GET /diagrams?service_id=` still sorts by `version` (that ordering is what feeds the version picker in 6a.3 above).
+### 6c. Uploading a new version
 
-### 6b. Uploading a diagram
-
-1. **"Subir nueva versión"** opens the file picker (`accept=".mmd,.mermaid,text/plain"`).
+1. **"Upload new version"** opens the file picker (`accept=".mmd,.mermaid,text/plain"`).
 2. On file select, `POST /diagrams` is called as `multipart/form-data` with `file`, `project_slug`, `issue_id`, `email`, and either `service_id` (existing service) or `service_name` (new service).
 3. Backend (`supabase/functions/diagrams/createDiagram.ts`):
    - If `service_id` was sent, fetches that row and validates it belongs to `project_slug` (`getService.ts`) — this stops one customer from uploading against another customer's service by guessing an id.
-   - If `service_name` was sent instead, creates a brand-new `services` row directly (`createService.ts`) — no existence check needed, since the frontend only sends `service_name` when the user explicitly picked "crear nuevo" and typed a name, and `(project_slug, name)` is `UNIQUE` at the DB level as a backstop.
+   - If `service_name` was sent instead, creates a brand-new `services` row directly (`createService.ts`) — no existence check needed, since the frontend only sends `service_name` when the user explicitly picked "create new" and typed a name, and `(project_slug, name)` is `UNIQUE` at the DB level as a backstop.
    - Computes the next `version` for that service (`max(version) + 1`).
    - Uploads the file to the **`diagrams_bucket`** Storage bucket (private, no public/RLS policies — only ever touched by this edge function via the service-role key, same access pattern as `downloadDocument.ts`'s signed URLs for `documents_bucket`).
    - Inserts a `diagrams` row with `service_id`, `issue_id`, `version`, `storage_path`, and a cached `mermaid_source` text column (so rendering never has to read back from Storage).
@@ -232,9 +250,21 @@ For this to point at the actual most-recent upload, `GET /diagrams?issue_id=` so
 
 This is how a diagram ends up linked to **both** the issue (`issue_id`) and the service (`service_id`) from a single upload, as opposed to being two separate steps. A service only ever comes into existence together with its first diagram — there's no way to create an empty service.
 
+### 6d. Replacing the selected version's file
+
+**"Update v{n}"** — shown once a version is selected — opens the same file picker, but instead of creating version N+1, it replaces the **currently-selected** version's content in place. Calls `PUT /diagrams` as `multipart/form-data` with `file`, `diagram_id`, `email`; the backend re-uploads to the same version's storage path and refreshes `mermaid_source`. Use this to fix a version that was uploaded wrong, rather than creating a new version for a correction.
+
 ### Rendering
 
 The selected version's `mermaid_source` is rendered client-side with `mermaid.render()` (the `mermaid` npm package) into inline SVG. This was chosen over converting Mermaid syntax into ReactFlow nodes/edges — Mermaid already does its own parsing and layout, so there was no need to reimplement that on top of ReactFlow just to reuse the same diagram widget as the rest of the app.
+
+### API — `supabase/functions/design-resources`
+
+| Action | Method | Body / Query |
+|---|---|---|
+| List an issue's design links | GET | `?issue_id=` |
+| Add a design link | POST | `{ issue_id, project_slug, resource_type, url, title, email }` |
+| Remove a design link | DELETE | `{ id }` |
 
 ### API — `supabase/functions/diagrams`
 
@@ -244,9 +274,9 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 |---|---|
 | `type=services&project_slug=` | All services for that customer (every row is guaranteed to have ≥1 diagram) |
 | `service_id` | Version history for that service, ordered by `version` desc (newest first) |
-| `issue_id` | All diagrams uploaded from that issue, across any service, ordered by `created_at` desc (most recently uploaded first — used to default the Servicio dropdown) |
+| `issue_id` | All diagrams uploaded from that issue, across any service, ordered by `created_at` desc (most recently uploaded first — used to default the Service dropdown) |
 
-**`POST /diagrams`** (`multipart/form-data`)
+**`POST /diagrams`** (`multipart/form-data`) — new version
 
 | Field | Required | Notes |
 |---|---|---|
@@ -256,6 +286,14 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 | `service_name` | One of these two | Create a brand-new service, named by the user |
 | `issue_id` | ✅ Yes | Issue the upload was triggered from |
 | `email` | ✅ Yes | Uploader — resolved to `users.id` server-side for `uploaded_by` |
+
+**`PUT /diagrams`** (`multipart/form-data`) — replace an existing version's file
+
+| Field | Required | Notes |
+|---|---|---|
+| `file` | ✅ Yes | The replacement `.mmd` file |
+| `diagram_id` | ✅ Yes | Which version's content to overwrite |
+| `email` | ✅ Yes | Editor — resolved server-side |
 
 ### Known gaps
 
@@ -321,16 +359,22 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
 | `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating lives here; also owns `isBugIssue` (hides Design/Demo tabs) |
-| `supabase/functions/tests/index.ts` | Test CRUD, approve, and `/uat` (QA Evidence / UAT Result recording, `passed` toggle) |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating, and the Steps editor (Enter-to-add-and-focus) live here; also owns `isBugIssue` (hides Design/Demo tabs) |
+| `components/shared/test-picker.tsx` | Search-or-create combobox for attaching a test — existing-tests search, semantic "Similar tests" (Upstash), and the create-new fallback |
+| `supabase/functions/tests/index.ts` | Reusable test CRUD — search/similar/by-id (`GET`), create (`POST`), update title+steps (`PATCH /update`, blocked once the test has passed anywhere), delete (`DELETE`, blocked while attached to any ticket) |
+| `supabase/functions/test-executions/index.ts` | Per-ticket attachment CRUD — list by issue or latest-by-test (`GET`), attach (`POST`), approve (`PATCH /approve`), edit expected (`PATCH /update`), record QA/UAT + passed toggle (`PATCH /result`), detach (`DELETE`) |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
-| `components/client/design-tab.tsx` | Design tab — service/version dropdowns, Mermaid upload, and `MermaidDiagram` SVG renderer |
-| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST` for diagrams, hardcoded to the `portal` schema like `users/index.ts` |
+| `components/client/design-tab.tsx` | Design tab — Design Resources (Figma/v0 links) section, service/version dropdowns, Mermaid upload/replace, and `MermaidDiagram` SVG renderer |
+| `components/client/design-resource-preview.tsx` | Renders a Figma (embedded iframe) or v0 (link card) design resource, with a delete button |
+| `lib/design-resource-utils.ts` | Figma/v0 URL validation, type detection, and auto-title generation |
+| `supabase/functions/design-resources/index.ts` | Router — `GET`/`POST`/`DELETE` for design resource links |
+| `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST`/`PUT` for diagrams, hardcoded to the `portal` schema like `users/index.ts` |
 | `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
-| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row |
-| `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "crear nuevo") |
+| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row (new version) |
+| `supabase/functions/diagrams/updateDiagram.ts` | Replaces an existing version's file in place (`PUT`) |
+| `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "create new") |
 | `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
 | `context/CustomerSlugContext.tsx` | Source of `project_slug` for the Design tab — same slug used across the portal, role-independent |
 | `components/client/demo-tab.tsx` | Demo tab — version picker, upload/embed forms (new version + replace-in-place), player, per-version feedback thread |
