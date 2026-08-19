@@ -99,12 +99,14 @@ const handlePatch = async (req: Request) => {
     return jsonResponse({ error: "No fields to update" }, 400);
   }
 
-  const { pausedSubscriptions, resumedSubscriptions } = await applyBillingModeChange(
-    customer,
-    billing_mode,
-  );
-  const priceSync = await applyInvoiceSettingsChange(customer, updateFields);
-
+  // Persist first, mutate Stripe second. Previously this was the other way
+  // around — if the DB write below failed after Stripe already changed,
+  // `customers` would silently disagree with reality forever (e.g. Stripe
+  // collection paused while billing_mode still read "automatic", so the UI
+  // kept showing the Stripe panels and nobody could tell the client had
+  // stopped being charged). Now, if the Stripe calls fail instead, the row
+  // is reverted back to its pre-update values so it never drifts silently —
+  // see the catch block below.
   const { data, error } = await supabase.schema(schema)
     .from("customers")
     .update(updateFields)
@@ -114,6 +116,41 @@ const handlePatch = async (req: Request) => {
 
   if (error) throw new Error(error.message);
 
+  let pausedSubscriptions: string[] = [];
+  let resumedSubscriptions: string[] = [];
+  let priceSync: { applied: boolean; subscriptionId?: string; priceId?: string } = {
+    applied: false,
+  };
+
+  try {
+    ({ pausedSubscriptions, resumedSubscriptions } = await applyBillingModeChange(
+      customer,
+      billing_mode,
+    ));
+    priceSync = await applyInvoiceSettingsChange(customer, updateFields);
+  } catch (stripeError) {
+    // Best-effort revert so the DB doesn't end up claiming a change that
+    // never actually took effect in Stripe. If the revert itself fails too,
+    // the row is genuinely stuck out of sync — that needs a human, so it's
+    // surfaced as a distinct, loud error rather than a generic 500.
+    const { error: revertError } = await supabase.schema(schema)
+      .from("customers")
+      .update(revertValues(customer, updateFields))
+      .eq("customer_id", customer_id);
+
+    if (revertError) {
+      console.error(
+        "[stripe-edit] Stripe update failed AND revert failed — customer row is out of sync with Stripe",
+        { customer_id, stripeError: stripeError.message, revertError: revertError.message },
+      );
+      throw new Error(
+        `Stripe update failed and the database could not be reverted — customer ${customer_id} needs manual reconciliation. Original error: ${stripeError.message}`,
+      );
+    }
+
+    throw new Error(stripeError.message);
+  }
+
   return jsonResponse({
     ...formatCustomer(data),
     pausedSubscriptions,
@@ -121,6 +158,17 @@ const handlePatch = async (req: Request) => {
     priceSync,
   });
 };
+
+// Builds the revert payload for a failed Stripe call — same keys as
+// `updateFields`, but with each value taken from the pre-update `customer`
+// row instead, so the DB update above can be undone field-for-field.
+function revertValues(customer: any, updateFields: Record<string, unknown>) {
+  const original: Record<string, unknown> = {};
+  for (const key of Object.keys(updateFields)) {
+    original[key] = customer[key] ?? null;
+  }
+  return original;
+}
 
 // Pure validation — figures out which columns this request actually wants to
 // change and rejects anything malformed, without touching Stripe or the DB.
