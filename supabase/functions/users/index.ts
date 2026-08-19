@@ -97,7 +97,14 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   }
 
   if (url.searchParams.get("type") === "customer") {
-    const updatedCustomer = await updateCustomer(body, schema);
+    // Never trust body.customer_id for authorization — a customer editing
+    // their own record (e.g. set-password) and an admin editing any
+    // customer's billing info hit this same endpoint, so the caller's real
+    // identity has to come from their own session, not a client-supplied id.
+    const caller = await resolveCaller(req, schema);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+
+    const updatedCustomer = await updateCustomer(body, schema, caller);
     return jsonResponse(updatedCustomer);
   }
 
@@ -123,29 +130,9 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
     // Never trust a client-supplied identity (e.g. body.requestedBy) for an
     // authorization check — resolve the caller from their bearer token so a
     // spoofed email can't be used to trigger resends for arbitrary users.
-    const token = (req.headers.get("Authorization") ?? "")
-      .replace(/^Bearer\s+/i, "")
-      .trim();
-
-    const { data: authData, error: authError } = token
-      ? await supabase.auth.getUser(token)
-      : { data: null, error: new Error("Missing bearer token") };
-
-    const callerEmail = authData?.user?.email;
-
-    if (authError || !callerEmail) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
-
-    const { data: requester } = await supabase.schema(schema)
-      .from("users")
-      .select("role")
-      .eq("email", callerEmail)
-      .maybeSingle();
-
-    if (requester?.role !== "admin") {
-      return jsonResponse({ error: "Unauthorized" }, 403);
-    }
+    const caller = await resolveCaller(req, schema);
+    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+    if (caller.role !== "admin") return jsonResponse({ error: "Unauthorized" }, 403);
 
     const result = await resendAccountEmail(body, schema);
     return jsonResponse(result);
@@ -170,6 +157,39 @@ const jsonResponse = (data: any, status = 200) => {
       "Content-Type": "application/json",
     },
   });
+};
+
+// Resolves the calling user's own identity from their bearer token. On most
+// requests `Authorization` is just the public anon key (not a real session
+// token), so a missing/invalid token or no matching `users` row both resolve
+// to `null` — callers must treat that as unauthenticated, never as "no
+// restrictions".
+const resolveCaller = async (
+  req: Request,
+  schema: string,
+): Promise<{ email: string; role: string | null; customerId: string | null } | null> => {
+  const token = (req.headers.get("Authorization") ?? "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+
+  const { data: authData, error: authError } = token
+    ? await supabase.auth.getUser(token)
+    : { data: null, error: new Error("Missing bearer token") };
+
+  const callerEmail = authData?.user?.email;
+  if (authError || !callerEmail) return null;
+
+  const { data: requester } = await supabase.schema(schema)
+    .from("users")
+    .select("role, customer_id")
+    .eq("email", callerEmail)
+    .maybeSingle();
+
+  return {
+    email: callerEmail,
+    role: requester?.role ?? null,
+    customerId: requester?.customer_id ?? null,
+  };
 };
 
 // =========================

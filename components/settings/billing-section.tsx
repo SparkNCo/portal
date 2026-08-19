@@ -10,6 +10,7 @@ import { PendingBalancePanel } from "./billing-panels/pending-balance";
 import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
+import { supabase } from "@/lib/supabase-client";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { CreditCard, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import {
@@ -488,11 +489,22 @@ function StripeIdField({
         throw new Error("Enter a valid Stripe Customer ID (starts with cus_)");
       }
 
+      // The edge function derives the caller's own customer_id from this
+      // token and only trusts a different customer_id in the body when the
+      // caller is an admin — the anon key in API_JSON_HEADERS isn't a real
+      // session, so the admin's actual session token has to go here instead.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
         {
           method: "PATCH",
-          headers: API_JSON_HEADERS,
+          headers: {
+            ...API_JSON_HEADERS,
+            Authorization: `Bearer ${session?.access_token ?? ""}`,
+          },
           body: JSON.stringify({
             customer_id: customerId,
             stripe_customer_id: trimmed,

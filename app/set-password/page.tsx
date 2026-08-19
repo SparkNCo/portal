@@ -152,11 +152,22 @@ function SetPasswordForm() {
 
     if (isCustomer && customerId) {
       try {
+        // The edge function derives the caller's own customer_id from this
+        // token rather than trusting customer_id in the body — the anon key
+        // in API_JSON_HEADERS isn't a real session, so it has to be swapped
+        // out here for the one this page already established above.
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         const customerPatchRes = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
           {
             method: "PATCH",
-            headers: API_JSON_HEADERS,
+            headers: {
+              ...API_JSON_HEADERS,
+              Authorization: `Bearer ${session?.access_token ?? ""}`,
+            },
             body: JSON.stringify({
               customer_id: customerId,
               clientName: clientName.trim(),
@@ -273,7 +284,7 @@ function SetPasswordForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -295,7 +306,7 @@ function SetPasswordForm() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
                   tabIndex={-1}
                 >
                   {showConfirm ? (
