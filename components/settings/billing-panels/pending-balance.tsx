@@ -37,7 +37,7 @@ export function PendingBalancePanel({ balance }: { balance?: Balance }) {
       <CardContent className="pt-6">
         <div className="flex items-center justify-between ">
           <div>
-            <p className="smalltext text-muted-foreground">Outstanding Balance</p>
+            <p className="smalltext text-card">Outstanding Balance</p>
 
             <p
               className={clsx(

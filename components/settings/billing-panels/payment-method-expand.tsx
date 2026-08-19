@@ -27,7 +27,7 @@ export function PaymentMethodPanel({
       <Card className="bg-transparent">
         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
           <div>
-            <p className="smalltext text-muted-foreground">Payment Method</p>
+            <p className="smalltext text-card">Payment Method</p>
             <p className="smalltext font-medium text-muted-foreground">
               No payment method added
             </p>
@@ -58,7 +58,7 @@ export function PaymentMethodPanel({
             <CreditCard className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="smalltext text-muted-foreground">Payment Method</p>
+            <p className="smalltext text-card">Payment Method</p>
             <p className="text-lg font-semibold text-primary">
               {paymentMethod.brand.toUpperCase()} ****{paymentMethod.last4}
             </p>

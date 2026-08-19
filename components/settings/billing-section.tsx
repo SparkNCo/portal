@@ -125,7 +125,7 @@ function BillingModeFields({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className="smalltext text-foreground">Invoicing</p>
+        <p className="smalltext text-card">Invoicing</p>
         <p className="smalltext text-foreground/70">
           Automatic charges this client through Stripe. Manual hides the
           Stripe billing dashboard — invoice this client outside the portal.
@@ -400,22 +400,22 @@ function InvoiceSettingsFields({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
-          <p className="smalltext text-foreground/70">
-            {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
-          </p>
-        </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={startEditing}
-          className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground"
-          aria-label="Edit invoice amount & frequency"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
+      <div>
+        <p className="smalltext text-card flex items-center gap-1.5">
+          Invoice amount &amp; frequency
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={startEditing}
+            className="h-6 w-6 flex-shrink-0 text-card/70 hover:text-card"
+            aria-label="Edit invoice amount & frequency"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </p>
+        <p className="smalltext text-foreground/70">
+          {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
+        </p>
       </div>
       {notice && <p className="smalltext text-amber-500">{notice}</p>}
     </div>
@@ -531,34 +531,39 @@ function StripeIdField({
   if (editing) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="smalltext text-foreground">Stripe Customer ID</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="cus_..."
-            className="h-9 flex-1 rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={mutation.isPending || !STRIPE_CUSTOMER_ID_RE.test(value.trim())}
-              onClick={() => mutation.mutate(value)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-            >
-              {mutation.isPending ? "Saving..." : "Save"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={cancelEditing}
-              disabled={mutation.isPending}
-              className="smalltext"
-            >
-              Cancel
-            </Button>
-          </div>
+        <div>
+          <p className="smalltext text-foreground">Stripe Customer ID</p>
+          {!stripeCustomerId && (
+            <p className="smalltext text-foreground/70">
+              This customer doesn&apos;t have a customer id yet.
+            </p>
+          )}
+        </div>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="cus_..."
+          className="h-9 w-full max-w-[28rem] rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={mutation.isPending || !STRIPE_CUSTOMER_ID_RE.test(value.trim())}
+            onClick={() => mutation.mutate(value)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+          >
+            {mutation.isPending ? "Saving..." : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={cancelEditing}
+            disabled={mutation.isPending}
+            className="smalltext"
+          >
+            Cancel
+          </Button>
         </div>
         {value.trim() && !STRIPE_CUSTOMER_ID_RE.test(value.trim()) && (
           <p className="smalltext text-destructive">
@@ -570,38 +575,26 @@ function StripeIdField({
     );
   }
 
-  if (!stripeCustomerId) {
-    return (
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="smalltext text-foreground">Stripe Customer ID</p>
-          <p className="smalltext text-foreground/70">
-            This customer doesn&apos;t have a customer id yet.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={startEditing}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-        >
-          Add one
-        </Button>
-      </div>
-    );
-  }
-
+  // Same shape as InvoiceSettingsFields' summary row below — pencil icon
+  // next to the title, current value (or lack thereof) underneath — so the
+  // two admin fields read as one consistent format.
   return (
-    <div className="flex items-center justify-between gap-2">
-      <p className="smalltext text-foreground">Stripe Customer ID</p>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={startEditing}
-        className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground"
-        aria-label="Edit Stripe Customer ID"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </Button>
+    <div>
+      <p className="smalltext text-card flex items-center gap-1.5">
+        Stripe Customer ID
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={startEditing}
+          className="h-6 w-6 flex-shrink-0 text-card/70 hover:text-card"
+          aria-label={stripeCustomerId ? "Edit Stripe Customer ID" : "Add Stripe Customer ID"}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </p>
+      <p className="smalltext text-foreground/70">
+        {stripeCustomerId ?? "This customer doesn't have a customer id yet."}
+      </p>
     </div>
   );
 }
@@ -619,7 +612,7 @@ function AdminBillingControls({
 }: {
   customerId?: string;
   stripeCustomerId?: string | null;
-  billingMode: "automatic" | "manual";
+  billingMode?: "automatic" | "manual";
   invoiceAmount: number | null;
   invoiceInterval: "day" | "week" | "month" | "year" | null;
   invoiceIntervalCount: number | null;
@@ -632,6 +625,10 @@ function AdminBillingControls({
   // Stripe Customer ID actually exists — the ID field itself always shows,
   // handling both the missing- and existing-ID states on its own.
   const hasStripeId = !!stripeCustomerId;
+  // billingMode is undefined while its own query is still loading/erroring
+  // (see BillingSection) — BillingModeFields needs a real current mode to
+  // compute what "switch to X" even means, so hold it back until known
+  // rather than showing a toggle that might be wrong.
 
   return (
     <Card className="bg-transparent text-foreground">
@@ -645,7 +642,7 @@ function AdminBillingControls({
             onSaved={onStripeIdSaved}
           />
         </div>
-        {hasStripeId && (
+        {hasStripeId && billingMode && (
           <>
             <div className="py-4">
               <BillingModeFields
@@ -677,7 +674,9 @@ export function BillingSection({
   isLoading,
   stripeCustomerId,
   customerId,
-  billingMode = "automatic",
+  billingMode,
+  isBillingModeLoading = false,
+  isBillingModeError = false,
   invoiceAmount = null,
   invoiceInterval = null,
   invoiceIntervalCount = null,
@@ -690,7 +689,11 @@ export function BillingSection({
   isLoading: boolean;
   stripeCustomerId?: string | null;
   customerId?: string;
+  // Undefined (rather than defaulting to "automatic") means the billing-mode
+  // query hasn't resolved yet — see isBillingModeLoading/isBillingModeError.
   billingMode?: "automatic" | "manual";
+  isBillingModeLoading?: boolean;
+  isBillingModeError?: boolean;
   invoiceAmount?: number | null;
   invoiceInterval?: "day" | "week" | "month" | "year" | null;
   invoiceIntervalCount?: number | null;
@@ -743,7 +746,31 @@ export function BillingSection({
 
   let billingContent: React.ReactNode = null;
   if (stripeCustomerId) {
-    if (isManual) {
+    if (isBillingModeLoading || isBillingModeError) {
+      // Don't guess: showing the Stripe panels (or the "manual" message)
+      // before we actually know the mode risks firing Stripe requests for a
+      // manually-invoiced client, or briefly claiming a client is manual
+      // when they're not.
+      billingContent = (
+        <Card className="bg-transparent text-foreground">
+          <CardContent className="bg-background flex items-center gap-4 pt-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <CreditCard className="h-6 w-6 text-foreground" />
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground">
+                {isBillingModeError ? "Couldn't check billing mode" : "Checking billing mode…"}
+              </p>
+              <p className="smalltext text-foreground/70">
+                {isBillingModeError
+                  ? "Try refreshing the page — billing details will show once we know how this client is invoiced."
+                  : "Billing details will show once we confirm how this client is invoiced."}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    } else if (isManual) {
       billingContent = (
         <Card className="bg-transparent text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">

@@ -54,7 +54,11 @@ export function SettingsTabs() {
   // SPA-384: billing_mode lives behind its own `stripe-edit` endpoint for now
   // (kept out of `users` so that function stays untouched while it's being
   // tested) — fetched separately rather than from the `customers` list above.
-  const { data: billingModeData } = useQuery({
+  const {
+    data: billingModeData,
+    isLoading: isBillingModeLoading,
+    isError: isBillingModeError,
+  } = useQuery({
     queryKey: ["billing-mode", effectiveCustomerId],
     queryFn: async () => {
       const res = await fetch(
@@ -72,7 +76,10 @@ export function SettingsTabs() {
     enabled: !!effectiveCustomerId,
   });
 
-  const effectiveBillingMode = billingModeData?.billing_mode ?? "automatic";
+  // Undefined (rather than defaulting to "automatic") while the query above
+  // is still loading or has failed — BillingSection treats that as "unknown"
+  // rather than assuming automatic billing.
+  const effectiveBillingMode = billingModeData?.billing_mode;
 
   const handleStripeIdSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["customers"] });
@@ -135,6 +142,8 @@ export function SettingsTabs() {
             stripeCustomerId={effectiveStripeId}
             customerId={effectiveCustomerId}
             billingMode={effectiveBillingMode}
+            isBillingModeLoading={isBillingModeLoading}
+            isBillingModeError={isBillingModeError}
             invoiceAmount={billingModeData?.invoice_amount ?? null}
             invoiceInterval={billingModeData?.invoice_interval ?? null}
             invoiceIntervalCount={billingModeData?.invoice_interval_count ?? null}

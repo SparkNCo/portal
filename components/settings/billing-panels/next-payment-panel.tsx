@@ -155,8 +155,8 @@ export function NextPaymentPanel({
   return (
     <Card className="bg-transparent text-foreground">
       {subscriptionStatus && (
-        <div className="flex items-center justify-between px-6 pt-4">
-          <span className="smalltext text-muted-foreground">Subscription status</span>
+        <div className="flex items-center gap-2 px-6 pt-4">
+          <span className="smalltext text-card">Subscription status</span>
           <Badge
             variant="outline"
             className={`smalltext ${SUBSCRIPTION_STATUS_COLORS[subscriptionStatus] ?? "bg-muted text-muted-foreground"}`}
@@ -169,9 +169,9 @@ export function NextPaymentPanel({
       {!needsRenewal && subscriptionStatus && (
         <div className="px-6 pt-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground smalltext"
+            className="smalltext text-muted-foreground hover:text-primary hover:border-primary/40"
             onClick={() => setShowCancelConfirm(true)}
             disabled={!billingData?.subscription?.id}
           >
@@ -218,7 +218,7 @@ export function NextPaymentPanel({
         <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="smalltext text-muted-foreground">Next Invoice Date</p>
+              <p className="smalltext text-card">Next Invoice Date</p>
               <p className="text-2xl font-bold">
                 {formatDateFromUnix(upcomingInvoice.nextPaymentAttempt)}
               </p>
