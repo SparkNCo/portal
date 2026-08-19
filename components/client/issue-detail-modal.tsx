@@ -694,7 +694,7 @@ function TestUatSection({
   return (
     <div className="flex flex-col gap-1.5">
       <textarea
-        className="w-full rounded-lg border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+        className="w-full rounded-lg border border-border bg-card smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-black placeholder:text-black/40"
         rows={2}
         placeholder="Describe what actually happened…"
         value={uatForm.result}

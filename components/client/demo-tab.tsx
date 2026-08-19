@@ -405,7 +405,11 @@ export function DemoTab({ issue }: { issue: Issue }) {
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5"
+          className={`gap-1.5 ${
+            createOpen
+              ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+              : ""
+          }`}
           onClick={() => {
             setCreateOpen((v) => !v);
             setUpdateOpen(false);
@@ -420,7 +424,11 @@ export function DemoTab({ issue }: { issue: Issue }) {
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className={`gap-1.5 ${
+              updateOpen
+                ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                : ""
+            }`}
             onClick={() => {
               setUpdateOpen((v) => !v);
               setCreateOpen(false);

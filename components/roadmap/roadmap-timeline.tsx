@@ -109,6 +109,22 @@ const stateColors: Record<string, string> = {
   Planning: "bg-yellow-500/20 text-yellow-600",
 };
 
+// The status/priority filter buttons in "All issues in this cycle" used to
+// order themselves by whatever order the API happened to return issues in —
+// reusing these color maps' own key order (severity for priority, rough
+// workflow order for status) instead gives a stable, predictable order that
+// also matches the sequence already implied by their colors elsewhere.
+const priorityOrder = Object.keys(priorityColors);
+const stateOrder = Object.keys(stateColors);
+
+function sortByFixedOrder<T extends string>(items: T[], order: string[]): T[] {
+  return [...items].sort((a, b) => {
+    const ai = order.indexOf(a);
+    const bi = order.indexOf(b);
+    return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
+  });
+}
+
 export function RoadmapTimeline({
   projectMilestones = [],
   allProjectNames = [],
@@ -282,11 +298,19 @@ export function RoadmapTimeline({
   }
 
   const availableStatuses = useMemo(
-    () => Array.from(new Set(cycleIssues.map((i) => i.state?.name).filter(Boolean))),
+    () =>
+      sortByFixedOrder(
+        Array.from(new Set(cycleIssues.map((i) => i.state?.name).filter(Boolean))),
+        stateOrder,
+      ),
     [cycleIssues],
   );
   const availablePriorities = useMemo(
-    () => Array.from(new Set(cycleIssues.map((i) => i.priorityLabel).filter(Boolean))),
+    () =>
+      sortByFixedOrder(
+        Array.from(new Set(cycleIssues.map((i) => i.priorityLabel).filter(Boolean))),
+        priorityOrder,
+      ),
     [cycleIssues],
   );
 
