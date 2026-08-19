@@ -666,6 +666,7 @@ export function BillingSection({
           <PaymentMethodPanel
             paymentMethod={billingData?.paymentMethod}
             onUpdatePaymentMethod={handleUpdatePaymentMethod}
+            canUpdate={!isAdmin}
           />
         </div>
       );
