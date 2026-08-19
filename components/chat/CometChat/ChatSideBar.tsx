@@ -177,11 +177,11 @@ export default function ChatSideBar({
               <SelectValue placeholder="All customers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CUSTOMERS_VALUE} className="focus:text-primary">
+              <SelectItem value={ALL_CUSTOMERS_VALUE}>
                 All customers
               </SelectItem>
               {customerOptions.map((c) => (
-                <SelectItem key={c.id} value={c.id} className="focus:text-primary">
+                <SelectItem key={c.id} value={c.id}>
                   {c.userName}
                 </SelectItem>
               ))}

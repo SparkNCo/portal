@@ -77,7 +77,7 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
     <div className="flex border-b pb-2 mb-4">
       <div className="hidden w-56 shrink-0 sm:block" />
       <div
-        className="grid flex-1 gap-0.5 sm:gap-1"
+        className="grid flex-1 gap-px sm:gap-0.5"
         style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
       >
         {buckets.map((bucket) => {

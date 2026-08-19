@@ -12,9 +12,15 @@ type PaymentMethod = {
 export function PaymentMethodPanel({
   paymentMethod,
   onUpdatePaymentMethod,
+  // Payment details are only ever editable by the account holder themselves —
+  // an admin browsing a customer's billing page via the slug proxy can view
+  // this panel but must never be able to trigger a Stripe portal session on
+  // their behalf, even for support purposes.
+  canUpdate = true,
 }: {
   paymentMethod?: PaymentMethod | null;
   onUpdatePaymentMethod?: () => void;
+  canUpdate?: boolean;
 }) {
   if (!paymentMethod) {
     return (
@@ -26,13 +32,19 @@ export function PaymentMethodPanel({
               No payment method added
             </p>
           </div>
-          <Button
-            size="sm"
-            className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-            onClick={onUpdatePaymentMethod}
-          >
-            Add Card
-          </Button>
+          {canUpdate ? (
+            <Button
+              size="sm"
+              className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+              onClick={onUpdatePaymentMethod}
+            >
+              Add Card
+            </Button>
+          ) : (
+            <p className="smalltext text-muted-foreground italic">
+              Only the account owner can add a payment method
+            </p>
+          )}
         </CardContent>
       </Card>
     );
@@ -55,13 +67,19 @@ export function PaymentMethodPanel({
             </p>
           </div>
         </div>
-        <Button
-          size="sm"
-          className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-          onClick={onUpdatePaymentMethod}
-        >
-          Update Card
-        </Button>
+        {canUpdate ? (
+          <Button
+            size="sm"
+            className="self-start sm:self-auto bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+            onClick={onUpdatePaymentMethod}
+          >
+            Update Card
+          </Button>
+        ) : (
+          <p className="smalltext text-muted-foreground italic">
+            Only the account owner can update payment details
+          </p>
+        )}
       </CardContent>
     </Card>
   );

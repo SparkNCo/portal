@@ -151,21 +151,27 @@ function SetPasswordForm() {
     }
 
     if (isCustomer && customerId) {
-      const customerPatchRes = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
-        {
-          method: "PATCH",
-          headers: API_JSON_HEADERS,
-          body: JSON.stringify({
-            customer_id: customerId,
-            clientName: clientName.trim(),
-          }),
-        },
-      );
+      try {
+        const customerPatchRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
+          {
+            method: "PATCH",
+            headers: API_JSON_HEADERS,
+            body: JSON.stringify({
+              customer_id: customerId,
+              clientName: clientName.trim(),
+            }),
+          },
+        );
 
-      if (!customerPatchRes.ok) {
-        const body = await customerPatchRes.json().catch(() => null);
-        setError(body?.error ?? "Password set, but could not save the client name.");
+        if (!customerPatchRes.ok) {
+          const body = await customerPatchRes.json().catch(() => null);
+          setError(body?.error ?? "Password set, but could not save the client name.");
+          setSubmitting(false);
+          return;
+        }
+      } catch {
+        setError("Password set, but could not save the client name.");
         setSubmitting(false);
         return;
       }

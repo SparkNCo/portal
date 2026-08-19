@@ -26,7 +26,7 @@ export function ProjectSelect({
       </SelectTrigger>
       <SelectContent>
         {projects.map((p) => (
-          <SelectItem key={p.id} value={p.id} className="focus:text-primary text-xs md:smalltext">
+          <SelectItem key={p.id} value={p.id} className="text-xs md:smalltext">
             {p.name}
           </SelectItem>
         ))}

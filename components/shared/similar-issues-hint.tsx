@@ -5,18 +5,12 @@ import { AlertTriangle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { API_HEADERS } from "@/lib/api-headers";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
-import { LabelPill, LABEL_ICONS, NEUTRAL_STATUS_NAMES } from "@/components/client/issue-cards";
-import { Badge } from "@/components/ui/badge";
-import { priorityColors, statusColors, type Issue } from "@/components/client/issues.types";
+import { IssueCard } from "@/components/client/issue-cards";
+import type { Issue } from "@/components/client/issues.types";
 
 type SimilarIssueMatch = {
   id: string;
   score: number;
-  // `kind` mirrors deriveIssueKind() in supabase/functions/lib/vector.ts — lets the
-  // row show the bug/feature icon immediately from the search response, instead of
-  // waiting on the follow-up fetch of the full issue just to read its labels. Older
-  // vectors upserted before this existed simply won't have it, which is fine — the
-  // icon just shows up a beat later once matchIssues resolves, same as before.
   metadata?: { ticket_id?: string; title?: string; kind?: "bug" | "feature" };
 };
 
@@ -161,80 +155,32 @@ export function SimilarIssuesHint({
               Searching…
             </div>
           ) : (
-            <div className="flex flex-col gap-1">
+            <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
               {matches.slice(0, 3).map((m) => {
                 const issue = matchIssues[m.id];
-                // Every match is already server-filtered to this hint's `kind` (see
-                // fetchSimilarIssues), so the icon is constant for the whole list —
-                // no need to wait on the per-row issue fetch or fall back to metadata.
-                const kindIcon = LABEL_ICONS[kind];
-                // Excludes the bug/feature label so it isn't rendered a second time by
-                // the plain label loop below — kindIcon already covers it.
-                const otherLabels = issue?.labels?.nodes?.filter(
-                  (l) => l.name.toLowerCase() !== "bug" && l.name.toLowerCase() !== "feature",
-                );
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg light-card border border-transparent"
-                  >
-                    <span className="font-mono light-card-muted w-20 flex-shrink-0">
-                      {issue ? issue.branchName.slice(0, 7).toUpperCase() : "···"}
-                    </span>
-                    {issue && (
-                      <Badge
-                        variant="outline"
-                        className={`smalltext flex-shrink-0 w-16 justify-center px-1 ${priorityColors[issue.priorityLabel]}`}
-                      >
-                        {issue.priorityLabel}
-                      </Badge>
-                    )}
-                    <p className="font-medium flex-1 truncate light-card-text">
-                      {m.metadata?.title ?? m.id}
-                    </p>
-                    {issue?.state?.name &&
-                      (NEUTRAL_STATUS_NAMES.has(issue.state.name) ? (
-                        // Backlog/Not Started/waiting share a flat bg-muted/text-muted-foreground
-                        // pairing in statusColors that's tuned for the app's dark background —
-                        // it blends into this row's light-card surface, so use the theme-aware
-                        // light-card text/border tokens instead for just these three.
-                        <Badge
-                          variant="outline"
-                          className="smalltext flex-shrink-0 border light-card-text"
-                        >
-                          {issue.state.name}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className={`smalltext flex-shrink-0 ${
-                            statusColors[issue.state.name as keyof typeof statusColors] ?? ""
-                          }`}
-                        >
-                          {issue.state.name}
-                        </Badge>
-                      ))}
-                    {kindIcon && (
-                      <kindIcon.Icon
-                        className={`h-3.5 w-3.5 shrink-0 ${kindIcon.className}`}
-                        aria-label={kind}
-                      />
-                    )}
-                    {otherLabels?.map((l) => (
-                      <LabelPill key={l.id} label={l} iconOnly />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => handleEditInstead(m)}
-                      disabled={loadingMatchId === m.id}
-                      className="shrink-0 text-primary hover:underline disabled:opacity-50"
+                if (!issue) {
+                  // Full issue hasn't loaded yet (fetched right after matches
+                  // come in) — a lightweight placeholder card avoids a layout
+                  // jump once IssueCard replaces it.
+                  return (
+                    <div
+                      key={m.id}
+                      className="rounded-lg border border-border light-card p-4 animate-pulse"
                     >
-                      {loadingMatchId === m.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        "Edit this instead"
-                      )}
-                    </button>
+                      <p className="smalltext font-medium light-card-text truncate">
+                        {m.metadata?.title ?? "Loading…"}
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={m.id} className="relative">
+                    <IssueCard issue={issue} onOpen={() => handleEditInstead(m)} lightCard />
+                    {loadingMatchId === m.id && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      </div>
+                    )}
                   </div>
                 );
               })}

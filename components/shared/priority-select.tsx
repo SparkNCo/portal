@@ -21,10 +21,10 @@ export function PrioritySelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="low" className="focus:text-primary text-xs md:smalltext">Low</SelectItem>
-        <SelectItem value="medium" className="focus:text-primary text-xs md:smalltext">Medium</SelectItem>
-        <SelectItem value="high" className="focus:text-primary text-xs md:smalltext">High</SelectItem>
-        <SelectItem value="urgent" className="focus:text-primary text-xs md:smalltext">Urgent</SelectItem>
+        <SelectItem value="low" className="text-xs md:smalltext">Low</SelectItem>
+        <SelectItem value="medium" className="text-xs md:smalltext">Medium</SelectItem>
+        <SelectItem value="high" className="text-xs md:smalltext">High</SelectItem>
+        <SelectItem value="urgent" className="text-xs md:smalltext">Urgent</SelectItem>
       </SelectContent>
     </Select>
   );

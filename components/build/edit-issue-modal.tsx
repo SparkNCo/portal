@@ -102,23 +102,27 @@ export function EditIssueModal({
         aria-describedby={undefined}
       >
         <DialogHeader>
-          <div className="flex items-center justify-between gap-3 pr-6">
-            <DialogTitle className="text-primary">Edit Ticket</DialogTitle>
-            <button
-              type="button"
-              onClick={() => setIsExpanded((e) => !e)}
-              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-              title={isExpanded ? "Shrink" : "Expand"}
-            >
-              {isExpanded ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+          <DialogTitle className="text-primary pr-12">Edit Ticket</DialogTitle>
         </DialogHeader>
+
+        {/* Positioned to match DialogContent's own close button (absolute
+            right-4 top-4) exactly — sitting it inline in the header row
+            instead left it vertically offset from the X, since that row's
+            baseline follows the title's line-height rather than the fixed
+            corner the X is pinned to. */}
+        <button
+          type="button"
+          onClick={() => setIsExpanded((e) => !e)}
+          className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+          title={isExpanded ? "Shrink" : "Expand"}
+        >
+          {isExpanded ? (
+            <Minimize2 className="h-4 w-4" />
+          ) : (
+            <Maximize2 className="h-4 w-4" />
+          )}
+        </button>
 
         <div className="space-y-4 pt-2">
           <div className="space-y-1.5">
@@ -150,7 +154,7 @@ export function EditIssueModal({
               </SelectTrigger>
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p} className="focus:text-primary text-xs md:smalltext">
+                  <SelectItem key={p} value={p} className="text-xs md:smalltext">
                     {p === "none"
                       ? "No priority"
                       : p.charAt(0).toUpperCase() + p.slice(1)}

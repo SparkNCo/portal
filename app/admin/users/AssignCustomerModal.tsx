@@ -112,7 +112,6 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                     key={c.id}
                     value={c.id}
                     disabled={assignedCustomerIds.has(c.id)}
-                    className="focus:text-primary"
                   >
                     {c.clientName ?? c.email}{assignedCustomerIds.has(c.id) ? " (already assigned)" : ""}
                   </SelectItem>

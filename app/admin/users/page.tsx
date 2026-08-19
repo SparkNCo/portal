@@ -493,7 +493,6 @@ export default function AdminUsersPage() {
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <DropdownMenuItem
-                                      className="focus:text-primary"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,
@@ -504,7 +503,6 @@ export default function AdminUsersPage() {
                                       Resend invite
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
-                                      className="focus:text-primary"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,

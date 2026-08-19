@@ -186,8 +186,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
     setLastFilterTouched("date");
   }
 
-  // Shared by the "Cycle" dropdown's "All Cycles" entry and the "Show all
-  // cycles" button on the bar chart — both just call showAllCycles().
+  // Used by the "Cycle" dropdown's "All Cycles" entry.
   function handleCycleSelect(value: string) {
     if (value === ALL_CYCLES_VALUE) {
       showAllCycles();
@@ -208,11 +207,11 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext focus:text-primary">
+            <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext">
               All Projects
             </SelectItem>
             {projects.map((p) => (
-              <SelectItem key={p.name} value={p.name} className="smalltext focus:text-primary">
+              <SelectItem key={p.name} value={p.name} className="smalltext">
                 {p.name}
               </SelectItem>
             ))}
@@ -228,11 +227,11 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
               <SelectValue placeholder="Cycle" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CYCLES_VALUE} className="smalltext focus:text-primary">
+              <SelectItem value={ALL_CYCLES_VALUE} className="smalltext">
                 All Cycles
               </SelectItem>
               {[...cycleNumbers].reverse().map((number) => (
-                <SelectItem key={number} value={String(number)} className="smalltext focus:text-primary">
+                <SelectItem key={number} value={String(number)} className="smalltext">
                   Cycle {number}
                 </SelectItem>
               ))}
@@ -298,7 +297,6 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
           data={filteredCycleMetrics}
           activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
           onCycleClick={selectCycle}
-          onShowAllCycles={cycles.length > 0 ? showAllCycles : undefined}
         />
         <IssueMetricsView
           data={issueMetrics}

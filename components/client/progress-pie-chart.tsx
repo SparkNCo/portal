@@ -108,11 +108,11 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext focus:text-primary">
+                <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext">
                   All Projects
                 </SelectItem>
                 {projectNames.map((name) => (
-                  <SelectItem key={name} value={name} className="smalltext focus:text-primary">
+                  <SelectItem key={name} value={name} className="smalltext">
                     {name}
                   </SelectItem>
                 ))}

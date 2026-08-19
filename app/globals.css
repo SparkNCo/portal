@@ -127,9 +127,10 @@
     @apply !text-muted-foreground hover:!text-primary hover:!bg-background;
   }
 
+  /* Cream-card variant disabled for now — app stays on the dark look
+     regardless of the visitor's OS/browser color-scheme preference. Kept
+     here, inert, in case light mode comes back later.
   @media (prefers-color-scheme: light) {
-    /* A flat cream card on the app's near-black page also reads better with a
-       soft lift than perfectly flush, hence the shadow/border here too. */
     .light-card {
       @apply !bg-card/90 !text-card-foreground hover:!bg-card shadow-sm hover:shadow-md !border-card-foreground/10 hover:!border-card-foreground/25;
     }
@@ -143,6 +144,7 @@
       @apply !text-card-foreground/60 hover:!bg-card-foreground/10;
     }
   }
+  */
 }
 
 @layer base {

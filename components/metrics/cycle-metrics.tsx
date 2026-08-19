@@ -80,12 +80,10 @@ export function CycleBarChart({
   data,
   activeCycleNumber,
   onCycleClick,
-  onShowAllCycles,
 }: {
   readonly data: CycleMetric[];
   readonly activeCycleNumber?: string;
   readonly onCycleClick?: (cycleNumber: string) => void;
-  readonly onShowAllCycles?: () => void;
 }) {
   // With "All Projects" selected, every project has its own row for "Cycle
   // 13" — merge same-numbered cycles into a single bar (Scope/Completed
@@ -127,20 +125,9 @@ export function CycleBarChart({
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="body font-semibold flex items-center justify-between gap-2 text-foreground">
-          <span className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-primary" />
-            Cycle Scope vs Completed
-          </span>
-          {onShowAllCycles && (
-            <button
-              type="button"
-              onClick={onShowAllCycles}
-              className="hidden sm:inline-flex h-8 items-center rounded-md border border-input bg-background px-3 smalltext font-normal text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              Show all cycles
-            </button>
-          )}
+        <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
+          <RefreshCw className="h-4 w-4 text-primary" />
+          Cycle Scope vs Completed
         </CardTitle>
       </CardHeader>
       <CardContent>

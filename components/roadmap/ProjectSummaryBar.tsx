@@ -88,7 +88,7 @@ export function ProjectSummaryBar({
       <div className="hidden shrink-0 sm:block sm:w-52" />
 
       <div
-        className="grid gap-0.5 sm:flex-1 sm:gap-1"
+        className="grid gap-px sm:flex-1 sm:gap-0.5"
         style={{ gridTemplateColumns: `repeat(${buckets.length || 1}, minmax(0, 1fr))` }}
       >
         {buckets.map((bucket) => {
@@ -182,7 +182,7 @@ export function MilestoneRow({
       </div>
 
       <div
-        className="grid gap-0.5 sm:flex-1 sm:gap-1"
+        className="grid gap-px sm:flex-1 sm:gap-0.5"
         style={{ gridTemplateColumns: `repeat(${buckets.length || 1}, minmax(0, 1fr))` }}
       >
         {buckets.map((bucket) => {
@@ -202,7 +202,7 @@ export function MilestoneRow({
                     <div
                       className={cn(
                         "absolute inset-y-1 inset-x-0 rounded-md",
-                        isInRange ? getMilestoneBarColor(data) : "bg-card/90",
+                        isInRange ? getMilestoneBarColor(data) : "bg-transparent",
                         isSelected && "ring-2 ring-accent",
                       )}
                     />

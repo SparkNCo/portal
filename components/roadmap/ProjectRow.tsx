@@ -1,5 +1,6 @@
 import { Box, ChevronDown, ChevronRight } from "lucide-react";
-import { MilestoneRow, ProjectSummaryBar } from "./ProjectSummaryBar";
+import { cn } from "@/lib/utils";
+import { MilestoneRow } from "./ProjectSummaryBar";
 import { Milestone } from "./roadmap-timeline";
 import type { TimeBucket } from "./TimelineHeader";
 
@@ -103,35 +104,13 @@ export function ProjectRow({
   const isThisProjectSelected = selection?.projectName === projectName;
 
   return (
-    <div className="mb-6 space-y-3">
+    <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
       <ProjectHeader
         projectName={projectName}
         milestoneCount={milestones.length}
         expanded={expanded}
         onToggle={onToggle}
       />
-
-      {!expanded && (
-        <ProjectSummaryBar
-          projectName={projectName}
-          milestones={chainedMilestones}
-          buckets={buckets}
-          selectedCycleKey={
-            isThisProjectSelected && selection?.milestoneName === null
-              ? selection.cycleKey
-              : null
-          }
-          onCycleClick={(cycleKey) =>
-            onCycleSelect({
-              projectName,
-              projectId,
-              milestoneName: null,
-              milestoneId: null,
-              cycleKey,
-            })
-          }
-        />
-      )}
 
       {expanded &&
         chainedMilestones.map((m) => (

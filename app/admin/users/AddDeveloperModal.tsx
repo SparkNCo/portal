@@ -163,9 +163,9 @@ export default function AddDeveloperModal({ onClose }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="hourly" className="focus:text-primary">Hourly</SelectItem>
-              <SelectItem value="monthly" className="focus:text-primary">Monthly</SelectItem>
-              <SelectItem value="annual" className="focus:text-primary">Annual</SelectItem>
+              <SelectItem value="hourly">Hourly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="annual">Annual</SelectItem>
             </SelectContent>
           </Select>
         </div>
