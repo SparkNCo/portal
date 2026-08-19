@@ -11,7 +11,7 @@ import { PaymentMethodPanel } from "./billing-panels/payment-method-expand";
 import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { CreditCard, ChevronUp, ChevronDown } from "lucide-react";
+import { CreditCard, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -75,7 +75,7 @@ function calculateInvoicesBalance(invoices: any[] = []) {
 // `users?type=customer`, to keep this in-progress toggle isolated from the
 // already-deployed `users` function.
 
-function BillingModeToggle({
+function BillingModeFields({
   customerId,
   billingMode,
   onSaved,
@@ -123,34 +123,32 @@ function BillingModeToggle({
   const nextModeLabel = nextMode === "automatic" ? "Automatic" : "Manual";
 
   return (
-    <Card className="bg-transparent text-foreground">
-      <CardContent className="bg-background flex flex-col gap-3 pt-4">
-        <div className="flex flex-col gap-1">
-          <p className="smalltext text-foreground">Invoicing</p>
-          <p className="smalltext text-foreground/70">
-            Automatic charges this client through Stripe. Manual hides the
-            Stripe billing dashboard — invoice this client outside the portal.
-          </p>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <p className="smalltext text-foreground">
-            Current mode:{" "}
-            <span className="font-medium text-primary capitalize">
-              {billingMode}
-            </span>
-          </p>
-          <Button
-            size="sm"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(nextMode)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-          >
-            {mutation.isPending ? "Saving..." : `Change mode to ${nextModeLabel}`}
-          </Button>
-        </div>
-        {error && <p className="smalltext text-destructive">{error}</p>}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <p className="smalltext text-foreground">Invoicing</p>
+        <p className="smalltext text-foreground/70">
+          Automatic charges this client through Stripe. Manual hides the
+          Stripe billing dashboard — invoice this client outside the portal.
+        </p>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="smalltext text-foreground">
+          Current mode:{" "}
+          <span className="font-medium text-primary capitalize">
+            {billingMode}
+          </span>
+        </p>
+        <Button
+          size="sm"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate(nextMode)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+        >
+          {mutation.isPending ? "Saving..." : `Change mode to ${nextModeLabel}`}
+        </Button>
+      </div>
+      {error && <p className="smalltext text-destructive">{error}</p>}
+    </div>
   );
 }
 
@@ -237,7 +235,7 @@ function NumberStepper({
   );
 }
 
-function InvoiceSettingsPanel({
+function InvoiceSettingsFields({
   customerId,
   invoiceAmount,
   invoiceInterval,
@@ -333,104 +331,147 @@ function InvoiceSettingsPanel({
 
   if (editing) {
     return (
-      <Card className="bg-transparent text-foreground">
-        <CardContent className="bg-background flex flex-col gap-3 pt-4">
-          <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <NumberStepper
-              autoFocus
-              min={0}
-              step={0.01}
-              value={amount}
-              onChange={setAmount}
-              onBump={bumpAmount}
-              placeholder="0.00"
-              className="w-28"
-              leadingSlot={
-                <span className="flex items-center pl-2 smalltext text-foreground/70">
-                  $
-                </span>
-              }
-            />
-            <span className="smalltext text-foreground/70">every</span>
-            <NumberStepper
-              min={1}
-              step={1}
-              value={intervalCount}
-              onChange={setIntervalCount}
-              onBump={bumpIntervalCount}
-              className="w-16"
-            />
-            <Select
-              value={interval}
-              onValueChange={(v) => setInterval(v as "day" | "week" | "month" | "year")}
-            >
-              <SelectTrigger className="h-9 w-28 smalltext">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERVAL_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="smalltext">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={mutation.isPending || !amount.trim()}
-              onClick={() => mutation.mutate()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-            >
-              {mutation.isPending ? "Saving..." : "Save"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={cancelEditing}
-              disabled={mutation.isPending}
-              className="smalltext"
-            >
-              Cancel
-            </Button>
-          </div>
-          {error && <p className="smalltext text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-3">
+        <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <NumberStepper
+            autoFocus
+            min={0}
+            step={0.01}
+            value={amount}
+            onChange={setAmount}
+            onBump={bumpAmount}
+            placeholder="0.00"
+            className="w-28"
+            leadingSlot={
+              <span className="flex items-center pl-2 smalltext text-foreground/70">
+                $
+              </span>
+            }
+          />
+          <span className="smalltext text-foreground/70">every</span>
+          <NumberStepper
+            min={1}
+            step={1}
+            value={intervalCount}
+            onChange={setIntervalCount}
+            onBump={bumpIntervalCount}
+            className="w-16"
+          />
+          <Select
+            value={interval}
+            onValueChange={(v) => setInterval(v as "day" | "week" | "month" | "year")}
+          >
+            <SelectTrigger className="h-9 w-28 smalltext">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INTERVAL_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="smalltext">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={mutation.isPending || !amount.trim()}
+            onClick={() => mutation.mutate()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+          >
+            {mutation.isPending ? "Saving..." : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={cancelEditing}
+            disabled={mutation.isPending}
+            className="smalltext"
+          >
+            Cancel
+          </Button>
+        </div>
+        {error && <p className="smalltext text-destructive">{error}</p>}
+      </div>
     );
   }
 
   return (
-    <Card className="bg-transparent text-foreground">
-      <CardContent className="bg-background flex flex-col gap-2 pt-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
-            <p className="smalltext text-foreground/70">
-              {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
-            </p>
-          </div>
-          <Button size="sm" variant="outline" onClick={startEditing} className="smalltext">
-            Edit
-          </Button>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
+          <p className="smalltext text-foreground/70">
+            {describeInvoiceSchedule(invoiceAmount, invoiceInterval, invoiceIntervalCount)}
+          </p>
         </div>
-        {notice && <p className="smalltext text-amber-500">{notice}</p>}
-      </CardContent>
-    </Card>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={startEditing}
+          className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label="Edit invoice amount & frequency"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {notice && <p className="smalltext text-amber-500">{notice}</p>}
+    </div>
   );
 }
 
 function StripeIdPanel({
   stripeCustomerId,
-  customerId,
   isAdmin,
-  onSaved,
 }: {
   stripeCustomerId?: string | null;
-  customerId?: string;
   isAdmin: boolean;
+}) {
+  // Admins manage the Stripe Customer ID from the merged admin billing
+  // controls panel instead (see StripeIdField below), which handles both the
+  // missing-ID and existing-ID states — this component only needs to explain
+  // the missing-ID state to non-admins, who have no way to act on it.
+  if (isAdmin || stripeCustomerId) return null;
+
+  return (
+    <Card className="bg-transparent text-foreground">
+      <CardContent className="bg-background flex items-center gap-4 pt-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
+          <CreditCard className="h-6 w-6 text-foreground" />
+        </div>
+        <div>
+          <p className="smalltext font-medium text-foreground">
+            No Stripe Customer ID on file
+          </p>
+          <p className="smalltext text-foreground/70">
+            Contact your administrator to set up billing information.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Stripe customer IDs are always "cus_" followed by an alphanumeric string
+// (Stripe has changed the exact length before, so this only checks the
+// shape, not a fixed length) — catches pasting the wrong kind of Stripe ID
+// (e.g. a subscription "sub_..." or price "price_...") or a stray typo
+// before it's saved.
+const STRIPE_CUSTOMER_ID_RE = /^cus_[A-Za-z0-9]+$/;
+
+// Admin-only fields (Stripe Customer ID, invoicing mode, invoice amount &
+// frequency) merged into one panel — all three only ever show for admins and
+// only once a Stripe Customer ID is on file, so three stacked cards were
+// really one settings group.
+function StripeIdField({
+  customerId,
+  stripeCustomerId,
+  onSaved,
+}: {
+  customerId?: string;
+  stripeCustomerId?: string | null;
   onSaved?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -442,6 +483,11 @@ function StripeIdPanel({
       if (!customerId)
         throw new Error("Missing customer record for this account");
 
+      const trimmed = nextValue.trim();
+      if (!STRIPE_CUSTOMER_ID_RE.test(trimmed)) {
+        throw new Error("Enter a valid Stripe Customer ID (starts with cus_)");
+      }
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
         {
@@ -449,7 +495,7 @@ function StripeIdPanel({
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             customer_id: customerId,
-            stripe_customer_id: nextValue,
+            stripe_customer_id: trimmed,
           }),
         },
       );
@@ -482,84 +528,147 @@ function StripeIdPanel({
     setEditing(false);
   };
 
-  if (isAdmin && editing) {
+  if (editing) {
     return (
-      <Card className="bg-transparent text-foreground">
-        <CardContent className="bg-background flex flex-col gap-3 pt-4">
-          <p className="smalltext text-foreground">Stripe Customer ID</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="cus_..."
-              className="h-9 flex-1 rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={mutation.isPending || !value.trim()}
-                onClick={() => mutation.mutate(value)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
-              >
-                {mutation.isPending ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={cancelEditing}
-                disabled={mutation.isPending}
-                className="smalltext"
-              >
-                Cancel
-              </Button>
-            </div>
+      <div className="flex flex-col gap-3">
+        <p className="smalltext text-foreground">Stripe Customer ID</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="cus_..."
+            className="h-9 flex-1 rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={mutation.isPending || !STRIPE_CUSTOMER_ID_RE.test(value.trim())}
+              onClick={() => mutation.mutate(value)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+            >
+              {mutation.isPending ? "Saving..." : "Save"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={cancelEditing}
+              disabled={mutation.isPending}
+              className="smalltext"
+            >
+              Cancel
+            </Button>
           </div>
-          {error && <p className="smalltext text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
+        </div>
+        {value.trim() && !STRIPE_CUSTOMER_ID_RE.test(value.trim()) && (
+          <p className="smalltext text-destructive">
+            Must start with cus_ followed by letters/numbers
+          </p>
+        )}
+        {error && <p className="smalltext text-destructive">{error}</p>}
+      </div>
     );
   }
 
   if (!stripeCustomerId) {
     return (
-      <Card className="bg-transparent text-foreground">
-        <CardContent className="bg-background flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4 ">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
-              <CreditCard className="h-6 w-6 text-foreground" />
-            </div>
-            <div>
-              <p className="smalltext font-medium text-foreground">
-                No Stripe Customer ID on file
-              </p>
-              <p className="smalltext text-foreground/70">
-                {isAdmin
-                  ? "Add one below to enable billing for this account."
-                  : "Contact your administrator to set up billing information."}
-              </p>
-            </div>
-          </div>
-          {isAdmin && (
-            <Button
-              size="sm"
-              className="self-start bg-primary text-primary-foreground hover:bg-primary/90 sm:self-auto smalltext"
-              onClick={startEditing}
-            >
-              Add Stripe ID
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="smalltext text-foreground">Stripe Customer ID</p>
+          <p className="smalltext text-foreground/70">
+            This customer doesn&apos;t have a customer id yet.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={startEditing}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 smalltext"
+        >
+          Add one
+        </Button>
+      </div>
     );
   }
 
-  if (!isAdmin) return null;
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <p className="smalltext text-foreground">Stripe Customer ID</p>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={startEditing}
+        className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-foreground"
+        aria-label="Edit Stripe Customer ID"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function AdminBillingControls({
+  customerId,
+  stripeCustomerId,
+  billingMode,
+  invoiceAmount,
+  invoiceInterval,
+  invoiceIntervalCount,
+  onStripeIdSaved,
+  onBillingModeSaved,
+  onInvoiceSettingsSaved,
+}: {
+  customerId?: string;
+  stripeCustomerId?: string | null;
+  billingMode: "automatic" | "manual";
+  invoiceAmount: number | null;
+  invoiceInterval: "day" | "week" | "month" | "year" | null;
+  invoiceIntervalCount: number | null;
+  onStripeIdSaved?: () => void;
+  onBillingModeSaved?: () => void;
+  onInvoiceSettingsSaved?: () => void;
+}) {
+  const isManual = billingMode === "manual";
+  // Invoicing mode and invoice amount/frequency only make sense once a
+  // Stripe Customer ID actually exists — the ID field itself always shows,
+  // handling both the missing- and existing-ID states on its own.
+  const hasStripeId = !!stripeCustomerId;
 
   return (
-    <Button size="sm" variant="outline" onClick={startEditing} className="smalltext">
-      Edit Stripe Customer ID (only admins)
-    </Button>
+    <Card className="bg-transparent text-foreground">
+      <CardContent
+        className={`bg-background flex flex-col pt-4 ${hasStripeId ? "divide-y divide-border" : ""}`}
+      >
+        <div className={hasStripeId ? "pb-4" : ""}>
+          <StripeIdField
+            customerId={customerId}
+            stripeCustomerId={stripeCustomerId}
+            onSaved={onStripeIdSaved}
+          />
+        </div>
+        {hasStripeId && (
+          <>
+            <div className="py-4">
+              <BillingModeFields
+                customerId={customerId}
+                billingMode={billingMode}
+                onSaved={onBillingModeSaved}
+              />
+            </div>
+            {!isManual && (
+              <div className="pt-4">
+                <InvoiceSettingsFields
+                  customerId={customerId}
+                  invoiceAmount={invoiceAmount}
+                  invoiceInterval={invoiceInterval}
+                  invoiceIntervalCount={invoiceIntervalCount}
+                  onSaved={onInvoiceSettingsSaved}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -675,28 +784,19 @@ export function BillingSection({
 
   return (
     <div className="space-y-6">
-      <StripeIdPanel
-        stripeCustomerId={stripeCustomerId}
-        customerId={customerId}
-        isAdmin={isAdmin}
-        onSaved={onStripeIdSaved}
-      />
+      <StripeIdPanel stripeCustomerId={stripeCustomerId} isAdmin={isAdmin} />
 
-      {stripeCustomerId && isAdmin && (
-        <BillingModeToggle
+      {isAdmin && (
+        <AdminBillingControls
           customerId={customerId}
+          stripeCustomerId={stripeCustomerId}
           billingMode={billingMode}
-          onSaved={onBillingModeSaved}
-        />
-      )}
-
-      {stripeCustomerId && isAdmin && !isManual && (
-        <InvoiceSettingsPanel
-          customerId={customerId}
           invoiceAmount={invoiceAmount}
           invoiceInterval={invoiceInterval}
           invoiceIntervalCount={invoiceIntervalCount}
-          onSaved={onInvoiceSettingsSaved}
+          onStripeIdSaved={onStripeIdSaved}
+          onBillingModeSaved={onBillingModeSaved}
+          onInvoiceSettingsSaved={onInvoiceSettingsSaved}
         />
       )}
 
