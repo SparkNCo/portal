@@ -61,7 +61,7 @@ export default function AddStakeholderModal({ onClose }: Props) {
   });
 
   return (
-    <ModalShell title="Add Stakeholder">
+    <ModalShell title="Add Stakeholder" widthClassName="w-[28rem]">
       <NameFields
         firstName={firstName}
         onFirstNameChange={setFirstName}

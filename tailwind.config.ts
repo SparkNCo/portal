@@ -18,6 +18,14 @@ const config = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: [
+          "var(--font-body)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       fontSize: {
         heading1: ["40px", { lineHeight: "auto" }],
         heading2: ["24px", { lineHeight: "32px" }],
@@ -73,6 +81,7 @@ const config = {
           foreground: "hsl(var(--sidebar-foreground))",
           accent: "hsl(var(--sidebar-accent))",
         },
+        donut: "hsl(var(--donut))",
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",

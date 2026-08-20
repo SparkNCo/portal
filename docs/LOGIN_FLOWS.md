@@ -105,29 +105,32 @@ Once the session is detected, the page fetches the user's record from the Supaba
 
 | Field | Required | Notes |
 |---|---|---|
-| Email | Read-only | Pre-filled from the Supabase session, cannot be changed |
+| Email | Read-only | Pre-filled from the Supabase session, cannot be changed. Shown as a plain label (icon + text), not an input. |
+| Client name / Username | ✅ Yes | **Customers:** read-only — pre-filled from `userName` (set by the admin when the account was created) and shown as a label, not editable here. **Everyone else (developer/admin):** a regular editable "User name" input. Either way, this becomes the URL slug (spaces → hyphens). |
 | First name | ✅ Yes | |
 | Last name | ✅ Yes | |
-| Client name / Username | ✅ Yes | For customers this becomes the URL slug (spaces → hyphens) |
 | Phone number | No | Numbers and `+`, `-`, `(`, `)` only |
 | New password | ✅ Yes | Min 8 characters |
 | Confirm password | ✅ Yes | Must match |
 
 ### What happens on submit
 
-Two things happen in sequence:
+Three things happen in sequence:
 
 1. `supabase.auth.updateUser({ password })` — sets the password in Supabase Auth.
-2. `PATCH /users` with `{ id, firstName, lastName, clientName, phoneNumber? }` — saves the profile data to the backend.
+2. `PATCH /users` with `{ id, firstName, lastName, userName, phoneNumber? }` — saves the profile data to the backend. Note the field is `userName`, not `clientName`, and it's already slugified (spaces replaced with hyphens) before this call.
+3. **Customers only:** `PATCH /users?type=customer` with `{ customer_id, clientName }` — syncs the (unchanged, since it isn't editable for customers) name onto their `customers` row too, keeping `users.userName` and `customers.clientName` in sync. If this call fails, the error shown is "Password set, but could not save the client name."
 
-The `clientName` is slugified before saving (spaces replaced with hyphens). This slug is then used to build the redirect URL.
+The slugified name from step 2 is what's used to build the redirect URL.
 
-**Redirect after setup:**
+**Redirect after setup** — same fixed/slug-based split as the regular login redirect (see section 1's "Admin/developer redirect history" for why admin/developer are slug-less):
 
 | Role | Redirect |
 |---|---|
-| `customer` | `/{clientName}/dashboards/{clientName}/dashboard` |
-| Everyone else | `/{clientName}/dashboards` |
+| `customer` | `/{clientName}/dashboard` |
+| `admin` | `/admin/users` |
+| `developer` | `/dev/developer` |
+| Anyone else (e.g. `stakeholder`) | `/{clientName}/dashboard/dashboards` |
 
 After redirecting, `reloadUser()` is called to refresh the global user context so the rest of the app has the updated profile immediately.
 
@@ -167,6 +170,7 @@ Redirect to dashboard          │     Dashboard loaded         │   Sets new p
 | Passwords don't match (reset or set-password) | "Passwords do not match." |
 | Password too short (reset: 6 chars, set-password: 8 chars) | Minimum length error message |
 | Profile save fails after password set | "Password set, but could not save your profile." |
+| Customer's client-name sync fails after password set | "Password set, but could not save the client name." |
 
 ---
 

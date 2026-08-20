@@ -109,7 +109,7 @@ export default function ChatLayout({
 
   if (profileLoading || !ready) {
     return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+      <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm md:smalltext">
         {error ?? "Loading chat..."}
       </div>
     );
@@ -178,7 +178,7 @@ export default function ChatLayout({
             <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
           )}
           {!selectedGroup && !selectedDirect && (
-            <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
+            <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm md:smalltext">
               {hasNoChats ? "No chats yet." : "Select a chat to start messaging."}
             </div>
           )}

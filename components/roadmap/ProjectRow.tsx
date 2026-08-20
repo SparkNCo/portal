@@ -1,5 +1,6 @@
 import { Box, ChevronDown, ChevronRight } from "lucide-react";
-import { MilestoneRow, ProjectSummaryBar } from "./ProjectSummaryBar";
+import { cn } from "@/lib/utils";
+import { MilestoneRow } from "./ProjectSummaryBar";
 import { Milestone } from "./roadmap-timeline";
 import type { TimeBucket } from "./TimelineHeader";
 
@@ -50,7 +51,10 @@ function getCycleIds(milestone: Milestone): Set<string> {
 
 // A project with zero milestones is treated as having a single, nameless
 // one — so it still renders a row instead of an empty state.
-function withPlaceholder(milestones: Milestone[], projectName: string): Milestone[] {
+function withPlaceholder(
+  milestones: Milestone[],
+  projectName: string,
+): Milestone[] {
   if (milestones.length > 0) return milestones;
 
   return [
@@ -93,40 +97,20 @@ export function ProjectRow({
   selection,
   onCycleSelect,
 }: ProjectRowProps) {
-  const chainedMilestones = withCycleIds(withPlaceholder(milestones, projectName));
+  const chainedMilestones = withCycleIds(
+    withPlaceholder(milestones, projectName),
+  );
 
   const isThisProjectSelected = selection?.projectName === projectName;
 
   return (
-    <div className="mb-6 space-y-3">
+    <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
       <ProjectHeader
         projectName={projectName}
         milestoneCount={milestones.length}
         expanded={expanded}
         onToggle={onToggle}
       />
-
-      {!expanded && (
-        <ProjectSummaryBar
-          projectName={projectName}
-          milestones={chainedMilestones}
-          buckets={buckets}
-          selectedCycleKey={
-            isThisProjectSelected && selection?.milestoneName === null
-              ? selection.cycleKey
-              : null
-          }
-          onCycleClick={(cycleKey) =>
-            onCycleSelect({
-              projectName,
-              projectId,
-              milestoneName: null,
-              milestoneId: null,
-              cycleKey,
-            })
-          }
-        />
-      )}
 
       {expanded &&
         chainedMilestones.map((m) => (
@@ -168,16 +152,21 @@ function ProjectHeader({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2.5 text-left transition-colors hover:bg-secondary/50"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border 
+      bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75"
       aria-expanded={expanded}
-      aria-label={expanded ? `Collapse ${projectName}` : `Expand ${projectName}`}
+      aria-label={
+        expanded ? `Collapse ${projectName}` : `Expand ${projectName}`
+      }
     >
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20">
-          <Box className="h-4 w-4 text-accent" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+          <Box className="h-4 w-4 text-primary" />
         </div>
-        <h3 className="truncate text-sm font-semibold">{projectName}</h3>
-        <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+        <h3 className="truncate smalltext  text-card-foreground font-semibold">
+          {projectName}
+        </h3>
+        <span className="shrink-0 rounded-md bg-muted/90 px-2 py-0.5 smalltext text-primary">
           {milestoneCount} milestone{milestoneCount === 1 ? "" : "s"}
         </span>
       </div>

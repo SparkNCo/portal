@@ -53,8 +53,8 @@ export function QuickLinks() {
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <ExternalLink className="h-4 w-4 text-accent" />
+        <CardTitle className="text-base font-semibold flex items-center gap-2 text-white">
+          <ExternalLink className="h-4 w-4 text-primary" />
           Quick Links
         </CardTitle>
       </CardHeader>
@@ -65,16 +65,16 @@ export function QuickLinks() {
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 p-3 hover:bg-secondary/50 transition-colors group"
+            className="flex items-center gap-3 rounded-lg border border-border bg-card/90 p-3 transition-colors group"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent/10">
-              <link.icon className="h-4 w-4 text-accent" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+              <link.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors">
+              <p className="text-sm font-medium text-card-foreground">
                 {link.title}
               </p>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-card-foreground truncate">
                 {link.description}
               </p>
             </div>

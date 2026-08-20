@@ -69,7 +69,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Record a UAT outcome — "Approved" (→ Done) or "Fixes Required" (→ back to QA).
 - Answer questions asked by the dev team (Decisions tab).
 - Approve test cases and record UAT results.
-- View project stats, DORA metrics, roadmap, and documents.
+- View project stats, SDLC metrics, roadmap, and documents.
 - Manage billing and staffing in Settings.
 
 **Sidebar:** Dashboard, Roadmap, Documents, Chat, Settings
@@ -574,7 +574,7 @@ Users with `role === "customer"` or `role === "stakeholder"` after login. URL: `
 
 **Decision counts** — `GET /decisions/counts?user_email={email}`: unanswered questions per issue. Refetches every 30 seconds.
 
-**DORA Metrics** — `GET /get-dora-metrics?linear_name={slug}`: engineering performance metrics.
+**SDLC Metrics** — `GET /get-dora-metrics?linear_name={slug}`: engineering performance metrics.
 
 ### 5.2 Project filter
 
@@ -589,18 +589,23 @@ The **New project Request** button (`components/client/request-project-dialog.ts
 **Project Stats — `ProgressPieChart`**  
 Donut chart of issues by status with legend, total task count, and completion percentage. Computed entirely client-side from `allIssues`.
 
-**DORA Metrics — `SoftwareKPIs`**
+**SDLC Metrics — `SoftwareKPIs`** *("SDLC Metrics" is the user-facing name only — the table (`dora_metrics`), edge functions (`dora/`, `get-dora-metrics/`), and internal types/keys (`DoraMetric`, `dorametrics_id`, the `["dora-metrics"]` query key) are still named after the original "DORA metrics" feature and haven't been renamed.*
 
 | Metric | What it measures |
 |---|---|
 | Deploy Frequency | Count of `feat/`/`fix/` merges whose squash commit is confirmed reachable on `main` (last 30/90 days) |
 | Lead Time for Changes | Avg hours from branch creation to squash-merge, `feat/` branches only |
-| MTTR | Avg hours from branch creation to squash-merge, `fix/` branches only (not incident-recovery time, despite the classic DORA name) |
+| MTTR | Avg hours from (the last `feat/` branch's close time before this fix) to (this `fix/` branch's completion) — not literally "recovery from a production incident" despite the classic DORA name, but does track how long the system was left in a broken state |
 | Change Failure Rate | % of non-hotfix deployments immediately followed by a hotfix deployment |
+| Feature Cycle Time | Avg hours from branch creation to squash-merge, `feat/` branches only — currently the same underlying computation as Lead Time (Lead Time hasn't yet been redefined to "time from staging→main merge" per the newer spec, so for now the two tiles report the same number) |
+| Fix Cycle Time | Avg hours from branch creation to squash-merge, `fix/` branches only — how long a dev takes to ship a bug fix once they start it. Distinct from MTTR: MTTR measures how long the system was left broken (from the last `feat` branch's close time to this fix's completion), Fix Cycle Time measures only the fix branch's own lifetime |
+| Defect Escape Rate | `total fix/ branches / (total fix/ + total feat/ branches)`, counted over all of `dora_branch_events` history — share of merged work that was a bug fix rather than a new feature |
+| Code Coverage | Entered by hand by an admin or developer via `PATCH manual-metrics` (0–100%) — never computed |
+| Sonar Quality Gate | Entered by hand by an admin or developer via `PATCH manual-metrics` (`pass`/`fail`) — never computed |
 
-**How DORA metrics are calculated** (`supabase/functions/dora/`)
+**How SDLC metrics are calculated** (`supabase/functions/dora/`, plus manual entry for the last two)
 
-All four metrics are computed from Git branch and commit history via the GitHub API (`base=main`) — **no GitHub issues are used anywhere in this flow.** Full internal pipeline: `supabase/functions/dora/diagrams/dora-flow.mmd`.
+The first seven metrics are computed from Git branch and commit history via the GitHub API (`base=main`) — **no GitHub issues are used anywhere in this flow.** Full internal pipeline: `supabase/functions/dora/diagrams/dora-flow.mmd`.
 
 **Lead Time for Changes** (`leadTime.ts`) and **MTTR** (`mttr.ts`) share the same join logic in `lifecycle.ts`. A PR only qualifies if its **title** (`pr.title`, not `pr.head.ref`) starts with `feat/` (Lead Time) or `fix/` (MTTR) and contains a Linear id, e.g. `feat/SPA-123-add-login`. It's checked against the title specifically because every PR here is opened staging→main, so `pr.head.ref` is always the literal string `"staging"` and carries no branch identity — the convention that makes title-matching work is that the original working branch is created with the same name that later becomes the PR title:
 
@@ -614,14 +619,23 @@ Branches without a `feat/`/`fix/` prefix, without a parseable Linear id, or whos
 
 **Change Failure Rate** (`cfr.ts`) is the one metric still based on **all** merged PRs (not just `feat/`/`fix/`) and on PR title/commits rather than a qualifying branch prefix — unchanged by the Git-history migration. A PR is a "hotfix" if its title, labels, or commit messages start with one of `ERROR_SIGNALS` in `supabase/functions/dora/github.ts` (`revert`, `hotfix`, `rollback`, `bugfix`, `fix/`, `fix:`), or the title matches `fix: SPA-<id>`, **or** the title itself is a qualifying `fix/`-type title (`parseQualifyingBranch(pr.title)?.type === "fix"` — added once `fix/` PRs became first-class qualifying work for the other three metrics, so CFR still counts them as "reactive work" even without any other hotfix signal). A non-hotfix deployment counts as "failed" if the next chronological deployment is a hotfix.
 
+**Feature Cycle Time** (`featureCycleTime.ts`) and **Fix Cycle Time** (`fixCycleTime.ts`) use the same `branch_created_at → dev_completed_at` join logic as Lead Time/MTTR, scoped to `feat/` and `fix/` branches respectively — today Feature Cycle Time is computationally identical to Lead Time, and will diverge once Lead Time gets redefined to "staging→main merge time" as planned.
+
+**MTTR** (`mttr.ts`) does **not** use the fix branch's own `branch_created_at`. Instead it looks up the `closed_date` of the last `feat` branch that shipped before this fix (`getLastFeatClosedBefore` in `db.ts`) as `incident_start`, and measures `this fix's dev_completed_at - incident_start` — i.e. "how long was the system left broken since the last feature shipped," not "how long did this fix take to write" (that's Fix Cycle Time).
+
+**Defect Escape Rate** (`defectEscape.ts`) is `total_fix / (total_fix + total_feat)`, counted via `getBranchTypeCount` (`db.ts`) over all of `portal.dora_branch_events` history for that repo — not windowed by `since` like the metrics above.
+
+**Code Coverage and Sonar Quality Gate** are not computed at all — neither tool is integrated with the portal. Code Coverage is the test-coverage % from whatever coverage tool the customer's own repo uses (Jest/Vitest + a coverage reporter, Istanbul, etc.); Sonar Quality Gate is the pass/fail result of that repo's SonarQube/SonarCloud Quality Gate check. Someone (an admin or developer) has to look at the customer's coverage report / Sonar dashboard themselves and type the value in — there's no webhook or API pull from either tool. A separate endpoint, `supabase/functions/manual-metrics/`, lets them `PATCH` that value directly onto `dora_metrics.code_coverage_details`/`sonar_quality_gate_details` — the entry point in the UI is the "Edit" link on each tile in `SoftwareKPIs`, visible only to admin/developer roles. It only ever touches those two columns, so a scheduled `dora` cron run can never overwrite a manually-entered value, and this endpoint never affects any computed metric. A row must already exist for that customer (i.e. `dora`'s cron must have run at least once) before a value can be set.
+
 **How `dora` gets triggered & how metrics accumulate over time**
 
-`dora` runs on its **own cron**, independent of `issueMetrics` — `POST /dora { method: "allCustomers" }` → `handleAllCustomers`, iterating every customer with a `linear_slug` and non-empty `project_url`. This is deliberate: GitHub's API is slower/more rate-limited than Linear's, so it shouldn't share a run or timeout budget with Linear-only metrics. `issueMetrics/index.ts` no longer triggers `dora` at the end of its own run (an older comment to that effect still lives in `supabase/functions/users/createCustomerFlow.ts`, but the code it describes is gone) — so creating a new customer today only kicks off `issueMetrics` immediately; that customer's DORA numbers populate on the next scheduled `dora` cron run, not instantly. Each `dora` run starts by polling GitHub's events feed (`pollBranchCreationEvents`) before computing the four metrics.
+`dora` runs on its **own cron**, independent of `issueMetrics` — `POST /dora { method: "allCustomers" }` → `handleAllCustomers`, iterating every customer with a `linear_slug` and non-empty `project_url`. This is deliberate: GitHub's API is slower/more rate-limited than Linear's, so it shouldn't share a run or timeout budget with Linear-only metrics. `issueMetrics/index.ts` no longer triggers `dora` at the end of its own run (an older comment to that effect still lives in `supabase/functions/users/createCustomerFlow.ts`, but the code it describes is gone) — so creating a new customer today only kicks off `issueMetrics` immediately; that customer's SDLC numbers populate on the next scheduled `dora` cron run, not instantly. Each `dora` run starts by polling GitHub's events feed (`pollBranchCreationEvents`) before computing the seven Git-derived metrics.
 
 **Since-window, per customer:** each run looks back at least 90 days (`MIN_LOOKBACK_DAYS`), extending further back if that customer's stored `dora_metrics.last_called` is older than 90 days — the window self-heals to cover however long it's actually been since that customer last ran successfully, rather than trusting a fixed short window that could silently and permanently drop merges from a missed run.
 
-- **Change Failure Rate** is recomputed from scratch on every run — it always re-fetches the most recent `limit` merged PRs (default 100, no date filter), so it's a sliding window over PR history, not a cumulative store.
-- **Lead Time, MTTR, and Deploy Frequency** are cumulative and stored in `dora_metrics`. Each run only fetches PRs merged within the since-window above and appends new, deduped entries (by `pr_number`) to the existing lists — it never overwrites or drops old entries, so the averages reflect *all* accumulated samples, not just the current run's window.
+- **Change Failure Rate** and **Defect Escape Rate** are recomputed from scratch on every run — CFR always re-fetches the most recent `limit` merged PRs (default 100, no date filter), and Defect Escape Rate re-counts all branch-event history; neither is a cumulative store.
+- **Lead Time, MTTR, Deploy Frequency, Feature Cycle Time, and Fix Cycle Time** are cumulative and stored in `dora_metrics`. Each run only fetches PRs merged within the since-window above and appends new, deduped entries (by `pr_number`) to the existing lists — it never overwrites or drops old entries, so the averages reflect *all* accumulated samples, not just the current run's window.
+- **Code Coverage and Sonar Quality Gate** are untouched by any `dora` run — they only change when someone manually `PATCH`es them via `manual-metrics`.
 
 **Business Review — `PriorityTasks` (Business Review)**  
 Issues in Business Review state, sorted by unanswered question count. Client reviews and approves user stories here.
@@ -654,7 +668,7 @@ User lands on /{slug}/dashboard
 | `app/[slug]/(portal)/dashboard/page.tsx` | Main client dashboard page |
 | `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
-| `components/roadmap/software-kpis.tsx` | DORA Metrics card |
+| `components/roadmap/software-kpis.tsx` | SDLC Metrics card |
 | `components/client/priority-tasks.tsx` | Issue list (Business Review + Acceptance Testing) |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
@@ -791,13 +805,13 @@ Three independent fetches: `GET /issues?slug=` (feeds `ProgressPieChart`/"Projec
 
 `cycles` is resolved separately (cycles belong to a **team**, not a project — the backend looks up the first project's team, then that team's cycles) and is what drives the Projects Timeline's columns (7.3) — an axis independent of the milestones' own dates. A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each, and builds a `projectIdsByName` map used by the cycle drill-down.
 
-### 7.2 Software KPIs (DORA Metrics) — `SoftwareKPIs`
+### 7.2 Software KPIs (SDLC Metrics) — `SoftwareKPIs`
 
 **Data:** `GET /get-dora-metrics?linear_name={slug}` → cached row from `portal.dora_metrics`.
 
-Four tiles from `averages`: **Change Failure Rate**, **Lead Time for Changes** (`feat/` branches), **Mean Time to Restore** (`fix/` branches), **Deploy Frequency** (last 30/90 days).
+Nine tiles from `averages` in a 3x3 grid: **Deploy Frequency**, **Lead Time for Changes** (`feat/` branches), **Mean Time to Restore** (`fix/` branches), **Change Failure Rate**, **Feature Cycle Time** (`feat/` branches), **Fix Cycle Time** (`fix/` branches), **Defect Escape Rate**, **Code Coverage**, **Sonar Quality Gate**. See 5.3 for what each one measures and how it's calculated.
 
-All of it is derived from Git branch/commit history in the `dora` edge function — **no GitHub issues involved**. A PR only qualifies if its **title** (not `pr.head.ref`, which is always `"staging"` here since every PR is opened staging→main) starts with `feat/` or `fix/` and contains a Linear id. Dev start = branch creation (webhook, or a GitHub-events poll / first-commit-date fallback when no webhook is registered); dev completion = confirmed squash merge; deployment = squash commit confirmed reachable on `main`. Runs on its own cron, decoupled from `issueMetrics` (see 5.3 for the since-window/accumulation details). Full pipeline: [supabase/functions/dora/diagrams/dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd).
+The first seven are derived from Git branch/commit history in the `dora` edge function — **no GitHub issues involved**. A PR only qualifies if its **title** (not `pr.head.ref`, which is always `"staging"` here since every PR is opened staging→main) starts with `feat/` or `fix/` and contains a Linear id. Dev start = branch creation (webhook, or a GitHub-events poll / first-commit-date fallback when no webhook is registered); dev completion = confirmed squash merge; deployment = squash commit confirmed reachable on `main`. Runs on its own cron, decoupled from `issueMetrics` (see 5.3 for the since-window/accumulation details). Code Coverage and Sonar Quality Gate are manual entry only, via `manual-metrics` (also 5.3). Full pipeline: [supabase/functions/dora/diagrams/dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd).
 
 ### 7.3 Projects Timeline — `RoadmapTimeline`
 
@@ -840,7 +854,7 @@ Stacked area chart driven by `cycle_metrics.issues_averages` — a day-by-day ar
 **Components available but not currently rendered:**  
 `CycleHistoryChart`, `CycleTable`, `UncompletedIssuesList` — imported in `metrics-panel.tsx` but not rendered in the current UI.
 
-Every panel on this page (Project Stats, DORA, Timeline, Metrics) has a `PinButton` in its corner — pins that panel onto the viewer's own dashboard (`portal.pinned_panels`, `hooks/use-pinned-panels.ts`). Cross-page feature (also on Build/Bugs), not fully written up here.
+Every panel on this page (Project Stats, SDLC Metrics, Timeline, Metrics) has a `PinButton` in its corner — pins that panel onto the viewer's own dashboard (`portal.pinned_panels`, `hooks/use-pinned-panels.ts`). Cross-page feature (also on Build/Bugs), not fully written up here.
 
 ### 7.5 Data flow
 
@@ -848,7 +862,7 @@ Every panel on this page (Project Stats, DORA, Timeline, Metrics) has a `PinButt
 User lands on /{slug}/monitor
   ├── GET /issues?slug → ProgressPieChart ("Project Stats")
   ├── GET /roadmap/?slug → projects+milestones flattened, cycles pooled → RoadmapTimeline
-  ├── GET /get-dora-metrics?linear_name= → SoftwareKPIs (4 DORA tiles)
+  ├── GET /get-dora-metrics?linear_name= → SoftwareKPIs (9 SDLC tiles, 3x3 grid)
   ├── GET /issueMetrics/?slug → MetricsPanel (CycleBarChart + IssueMetricsView)
   └── (on cycle-cell click) GET /roadmap?cycleId= → drill-down panel
 ```
@@ -859,7 +873,7 @@ User lands on /{slug}/monitor
 |---|---|
 | `app/[slug]/(portal)/monitor/page.tsx` | Main page — fetches issues/roadmap data |
 | `components/client/progress-pie-chart.tsx` | "Project Stats" donut, shared with Client Dashboard |
-| `components/roadmap/software-kpis.tsx` | Software KPIs — fetches/renders the 4 DORA tiles |
+| `components/roadmap/software-kpis.tsx` | Software KPIs — fetches/renders the 9 SDLC tiles |
 | `components/roadmap/roadmap-timeline.tsx` | Timeline shell — cycle windowing, drill-down fetch/state |
 | `components/roadmap/ProjectRow.tsx` | Collapsed/expanded project row, per-milestone cycle membership |
 | `components/roadmap/ProjectSummaryBar.tsx` | Summary bar + `MilestoneRow` cycle cells |
@@ -870,8 +884,9 @@ User lands on /{slug}/monitor
 | `components/metrics/issues-metrics.tsx` | Issues by Status area chart |
 | `components/build/edit-issue-modal.tsx` | Edit modal opened from the drill-down panel |
 | `supabase/functions/roadmap/index.ts` | Backend: `?slug=` (projects/milestones/cycles) and `?cycleId=` (paginated team-wide cycle issues) |
-| `supabase/functions/dora/` | Backend: computes DORA metrics from Git history, see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
+| `supabase/functions/dora/` | Backend: computes 7 of the 9 SDLC metrics from Git history, see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
 | `supabase/functions/get-dora-metrics/` | Read-only endpoint `SoftwareKPIs` calls |
+| `supabase/functions/manual-metrics/` | `PATCH` endpoint for the 2 manually-entered SDLC metrics (Code Coverage, Sonar Quality Gate) |
 
 ---
 

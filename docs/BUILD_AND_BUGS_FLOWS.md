@@ -119,30 +119,34 @@ Because `FilterState` fields are optional, each page only needs to supply the fi
 
 ## Recently Updated badge
 
-A small **orange dot** appears on an issue card (top-right corner on the grid `IssueCard`, left of the branch tag on the compact `IssueListRow`) whenever someone has edited that ticket and nobody has opened it since. It's a single shared flag per issue — not tied to any one viewer.
+A small **orange message-icon badge** appears on an issue card (top-right corner on the grid `IssueCard`, left of the branch tag on the compact `IssueListRow`) whenever the issue changed — an edit, a new/answered Decision, a new Test, a Design resource, or a Demo video/comment — since *that specific viewer* last opened it. Each member of the initiative gets their own read state; one person opening the issue does not clear it for anyone else.
 
-**Backed by:** `portal.issue_updates` — one row per issue:
+**Backed by two tables:**
+
+`portal.issue_updates` — one row per issue, the latest change:
 
 | Column | Notes |
 |---|---|
 | `issue_id` | Primary key |
-| `updated_by` | Email of whoever made the edit |
-| `updated_at` | When the edit happened |
-| `seen` | `false` = badge shows, `true` = badge hidden |
+| `updated_by` | Email of whoever made the change |
+| `updated_at` | When the change happened |
+| `seen` | Unused — superseded by `portal.issue_views` below |
 
-**Write path (flips to unseen):**
-1. Any role uses the Edit Ticket pencil → `EditIssueModal` (`components/build/edit-issue-modal.tsx`) sends `actorEmail: profile.email` along with the `PATCH /issues/edit` payload.
-2. `handleUpdateIssue` (`supabase/functions/issues/updateIsste.ts`) calls `markIssueUpdated(issueId, actorEmail)` after the Linear update succeeds.
-3. `markIssueUpdated` (`supabase/functions/utils/issueUpdates.ts`) upserts the row with `seen: false` (`on_conflict=issue_id`, so repeated edits just refresh the timestamp instead of duplicating rows).
+`portal.issue_views` — one row per (issue, viewer):
+
+| Column | Notes |
+|---|---|
+| `issue_id` / `user_id` | Composite primary key |
+| `viewed_at` | When this user last opened the issue |
+
+**Write path (produces an update):** every create/answer handler across the four panels — plus the Edit Ticket flow — calls `markIssueUpdated(issueId, actorEmail)` (`supabase/functions/utils/issueUpdates.ts`) after its insert succeeds, upserting the `issue_updates` row (`on_conflict=issue_id`, so repeated changes just refresh the timestamp): `handleUpdateIssue`, `handleAddComment`, `handleSetDecision` (`supabase/functions/issues/updateIsste.ts`), `handleCreateTest` (`supabase/functions/tests/index.ts`), `createDesignResource` (`supabase/functions/design-resources/createDesignResource.ts`), `createDemoVideoFromUpload`/`createDemoVideoFromEmbed`/`createComment` (`supabase/functions/demo-videos/`).
 
 **Read path (shows the badge):**
-- `useIssueUpdateBadge()` (`components/client/use-issue-update-badge.ts`) runs one bulk Supabase read — `select issue_id, seen, updated_by from portal.issue_updates where seen = false` — and exposes `hasUnseenUpdate(issue, currentUserEmail)` and `isOwnUnseenUpdate(issue, currentUserEmail)`.
-- `PriorityTasks` calls `hasUnseenUpdate(issue, profile?.email)` per issue and passes `hasUpdate` down to `IssueCard` / `IssueListRow` (`components/client/issue-cards.tsx`), which render the dot. The actor who made the edit never sees their own dot, since `hasUnseenUpdate` returns `false` when `updated_by` matches the current viewer.
+- `useIssueUpdateBadge()` (`components/client/use-issue-update-badge.ts`) reads all of `issue_updates` plus the current user's own rows from `issue_views` (`eq("user_id", profile.id)`), and exposes `hasUnseenUpdate(issue, currentUserEmail)` / `isOwnUnseenUpdate(issue, currentUserEmail)`. An issue is unseen for a viewer when its latest `updated_at` is newer than that viewer's `viewed_at` (or they have no view row at all) and they weren't the one who made the change.
+- `PriorityTasks` calls `hasUnseenUpdate(issue, profile?.email)` per issue and passes `hasUpdate` down to `IssueCard` / `IssueListRow` (`components/client/issue-cards.tsx`), which render the badge. The actor who made the change never sees their own badge.
 
-**Clear path (flips back to seen):**
-- Opening the full Issue Detail Modal (`components/client/issue-detail-modal.tsx`) fires `POST /issues/seen` → `handleMarkIssueSeen` → `markIssueSeen(issueId)`, which sets `seen: true` for that issue and invalidates the `issue-updates` query so the dot disappears immediately for everyone — **unless** the viewer opening it is the same person who made the edit (`isOwnUnseenUpdate`), in which case the request is skipped so the flag stays unseen for everyone else.
-
-> Still **not** per-user in storage — one shared `seen` flag per issue — but the actor's own identity (`updated_by`) is used client-side to suppress both their badge and their ability to silently clear it for others.
+**Clear path (marks viewed for that user only):**
+- Opening the full Issue Detail Modal (`components/client/issue-detail-modal.tsx`) fires `POST /issues/seen` with `{ issueId, userId: profile.id }` → `handleMarkIssueSeen` → `markIssueViewed(issueId, userId)`, which upserts *that user's* `issue_views` row and invalidates their `["issue-views", profile.id]` query — the badge disappears only for them. Skipped when the viewer is the author of the latest change (`isOwnUnseenUpdate`), since they never had a badge to clear.
 
 ---
 
@@ -158,6 +162,6 @@ A small **orange dot** appears on an issue card (top-right corner on the grid `I
 | `components/client/issue-cards.tsx` | `IssueCard` / `IssueListRow` |
 | `components/build/edit-issue-modal.tsx` | Edit Title/Description/Priority modal (Build only); triggers the Recently Updated flag |
 | `components/shared/create-issue.tsx` | Create Issue dialog (both pages, different `defaultType`/`label`) |
-| `components/client/use-issue-update-badge.ts` | Reads `portal.issue_updates`, exposes `hasUnseenUpdate(issue)` |
-| `supabase/functions/utils/issueUpdates.ts` | `markIssueUpdated()` / `markIssueSeen()` helpers for `portal.issue_updates` |
-| `supabase/functions/issues/updateIsste.ts` | `handleUpdateIssue` (writes the update flag), `handleMarkIssueSeen` (clears it) |
+| `components/client/use-issue-update-badge.ts` | Reads `portal.issue_updates` + `portal.issue_views`, exposes `hasUnseenUpdate(issue)` per viewer |
+| `supabase/functions/utils/issueUpdates.ts` | `markIssueUpdated()` (writes `issue_updates`) / `markIssueViewed()` (writes `issue_views`) |
+| `supabase/functions/issues/updateIsste.ts` | `handleUpdateIssue`, `handleAddComment`, `handleSetDecision` (write the update flag), `handleMarkIssueSeen` (clears it per-user) |

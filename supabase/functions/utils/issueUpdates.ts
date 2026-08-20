@@ -1,6 +1,7 @@
-// Tracks a single "has unseen update" flag per issue (portal.issue_updates).
-// Not per-user: any developer's edit flips it to unseen for everyone, and
-// any user opening the issue flips it back to seen.
+// portal.issue_updates tracks who/when an issue was last changed (Tests,
+// Decisions, Design, Demo, or an issue edit). portal.issue_views tracks each
+// user's own last-viewed timestamp per issue, so "has an unseen update" is
+// computed per-user by comparing the two (see use-issue-update-badge.ts).
 function restHeaders(extra: Record<string, string> = {}) {
   return {
     "Content-Type": "application/json",
@@ -30,16 +31,20 @@ export async function markIssueUpdated(issueId: string, updatedBy: string): Prom
   }
 }
 
-export async function markIssueSeen(issueId: string): Promise<void> {
+export async function markIssueViewed(issueId: string, userId: string): Promise<void> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
 
   try {
-    await fetch(`${supabaseUrl}/rest/v1/issue_updates?issue_id=eq.${issueId}`, {
-      method: "PATCH",
-      headers: restHeaders(),
-      body: JSON.stringify({ seen: true }),
+    await fetch(`${supabaseUrl}/rest/v1/issue_views?on_conflict=issue_id,user_id`, {
+      method: "POST",
+      headers: restHeaders({ Prefer: "resolution=merge-duplicates" }),
+      body: JSON.stringify({
+        issue_id: issueId,
+        user_id: userId,
+        viewed_at: new Date().toISOString(),
+      }),
     });
   } catch (err) {
-    console.error("[markIssueSeen] failed (non-fatal):", err);
+    console.error("[markIssueViewed] failed (non-fatal):", err);
   }
 }

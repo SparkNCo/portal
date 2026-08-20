@@ -97,8 +97,8 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
           <Bot className="w-4 h-4 text-accent" />
         </div>
         <div>
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="text-xs text-muted-foreground">AI Agent</div>
+          <div className="smalltext font-semibold">{title}</div>
+          <div className="text-xs md:smalltext text-muted-foreground">AI Agent</div>
         </div>
       </div>
 
@@ -107,7 +107,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Bot className="w-8 h-8 opacity-30" />
-            <p className="text-sm">No messages yet. Ask the AI something!</p>
+            <p className="text-sm md:smalltext">No messages yet. Ask the AI something!</p>
           </div>
         )}
 
@@ -129,16 +129,16 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
               )}
               <div className={`flex flex-col max-w-[65%] ${isMe ? "items-end" : "items-start"}`}>
                 <div
-                  className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                  className={`px-3 py-2 rounded-2xl text-sm md:smalltext leading-relaxed ${
                     isMe
-                      ? "bg-accent text-accent-foreground rounded-tr-sm"
+                      ? "bg-primary text-primary-foreground rounded-tr-sm"
                       : "bg-secondary text-secondary-foreground rounded-tl-sm"
                   }`}
                 >
                   {text}
                 </div>
                 {!!sentAt && (
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1">
+                  <span className="text-xs md:smalltext text-muted-foreground mt-1 px-1">
                     {formatMessageTime(sentAt)}
                   </span>
                 )}
@@ -151,10 +151,10 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <div className="flex items-center gap-2 bg-secondary/50 border rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-secondary border rounded-xl px-3 py-2">
           <input
             aria-label="Message the AI"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent smalltext text-secondary-foreground outline-none placeholder:text-secondary-foreground/40"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Message the AI..."
@@ -164,7 +164,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
             onClick={sendMessage}
             disabled={!message.trim() || sending}
             aria-label="Send message"
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-accent text-accent-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>

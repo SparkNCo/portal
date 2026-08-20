@@ -75,7 +75,7 @@ export function RequestProjectDialog({
       <Button
         size={compact ? "sm" : "default"}
         onClick={() => setOpen(true)}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90"
       >
         <Plus className="h-4 w-4 mr-2" />
         New Project Request
@@ -104,7 +104,7 @@ export function RequestProjectDialog({
                 placeholder="Brief summary..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-secondary border-0"
+                className="bg-secondary border-0 text-card-foreground placeholder:text-card-foreground/40"
                 autoFocus
               />
             </div>

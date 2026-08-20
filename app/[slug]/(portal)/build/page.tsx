@@ -40,7 +40,12 @@ export default function BuildPage() {
     (i: any) => i.state?.name === "Business Review",
   );
 
-  const uatIssues = allIssues.filter((i: any) => i.state?.name === "UAT");
+  const uatIssues = allIssues
+    .filter((i: any) => i.state?.name === "UAT")
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+    );
 
   const noopFilterState = {
     selectedStatuses: [],
@@ -73,16 +78,16 @@ export default function BuildPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Build" subtitle="Guide new features" />
+      <Header title="Build" subtitle="Guide new features" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         <FeatureRequestPanel slug={slug} />
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSelectedProject(null)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
               selectedProject === null
-                ? "bg-accent text-accent-foreground border-accent/40"
+                ? "bg-primary text-primary-foreground border-primary/40"
                 : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
             }`}
           >
@@ -92,9 +97,9 @@ export default function BuildPage() {
             <button
               key={p.id}
               onClick={() => setSelectedProject(p.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
                 selectedProject === p.id
-                  ? "bg-accent text-accent-foreground border-accent/40"
+                  ? "bg-primary text-primary-foreground border-primary/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >
@@ -114,6 +119,7 @@ export default function BuildPage() {
               title="Business Reviews"
               slug={slug}
               compact
+              lightCard
             />
           </div>
           <div className="relative">
@@ -126,6 +132,7 @@ export default function BuildPage() {
               title="Acceptance Testing"
               slug={slug}
               compact
+              lightCard
             />
           </div>
         </div>

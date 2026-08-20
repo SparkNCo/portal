@@ -38,6 +38,13 @@ model customers {
   customer_id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // is this a copy of linear_projects? if so please delete
   project_url          String[]
+  // SPA-384: manual vs automatic invoicing toggle + invoice terms while
+  // automatic. Applied directly via the Supabase dashboard, not a tracked
+  // migration — see supabase/functions/stripe-test/.
+  billing_mode           String @default("automatic")
+  invoice_amount_cents   Int?
+  invoice_interval       String?
+  invoice_interval_count Int    @default(1)
 }
 
 model cycle_metrics {

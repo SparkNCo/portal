@@ -133,10 +133,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background">
+    <Card className="bg-background text-foreground">
       <CardHeader>
-        <CardTitle level={2} className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-chart-2" />
+        <CardTitle level={2} className="body font-semibold flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-primary" />
           Request a Feature
         </CardTitle>
       </CardHeader>
@@ -146,13 +146,15 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           onTitleChange={setTitle}
           detailsRevealed={detailsRevealed}
           onContinue={() => setDetailsRevealed(true)}
+          slug={slug}
+          kind="feature"
         />
 
         {detailsRevealed && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="feature-description">Description</Label>
+                <Label htmlFor="feature-description" className="smalltext">Description</Label>
                 <RichTextEditor
                   id="feature-description"
                   ariaLabel="Description"
@@ -165,7 +167,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               </div>
 
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="feature-requirements">
+                <Label htmlFor="feature-requirements" className="smalltext">
                   Requirements{" "}
                   <span className="text-muted-foreground font-normal">
                     (optional)
@@ -192,7 +194,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="feature-attachments">
+              <Label htmlFor="feature-attachments" className="smalltext">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)
@@ -228,7 +230,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="text-sm truncate">{file.name}</p>
+                        <p className="smalltext truncate">{file.name}</p>
                       </div>
                       <Button
                         variant="ghost"

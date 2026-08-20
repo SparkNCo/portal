@@ -4,44 +4,58 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProjectSelect } from "@/components/shared/project-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
+import { SimilarIssuesHint } from "@/components/shared/similar-issues-hint";
 
 // Title is always visible; the Continue button sits next to it (same row on
 // desktop, stacked on mobile) until details are revealed, then disappears.
+// When `slug` is provided, a "similar issue" hint is shown below the title as the
+// user types, backed by the Upstash issues vector search — shared by both the
+// Feature Request and Bug Report panels since they both render this component.
 export function TitleContinueRow({
   title,
   onTitleChange,
   detailsRevealed,
   onContinue,
+  slug,
+  kind,
 }: {
   title: string;
   onTitleChange: (value: string) => void;
   detailsRevealed: boolean;
   onContinue: () => void;
+  slug?: string;
+  // Which panel this is — scopes the similar-issues hint to just bugs or just
+  // features. See SimilarIssuesHint's own `kind` prop.
+  kind: "bug" | "feature";
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-      <div className="flex-1 space-y-1.5">
-        <Label htmlFor="issue-title">Title</Label>
-        <Input
-          id="issue-title"
-          placeholder="Brief summary..."
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
-          }}
-          className="bg-secondary border-0"
-        />
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="issue-title" className="smalltext">Title</Label>
+          <Input
+            id="issue-title"
+            placeholder="Brief summary..."
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !detailsRevealed && title.trim()) onContinue();
+            }}
+            className="bg-card border-0 text-card-foreground placeholder:text-card-foreground/40"
+            autoComplete="off"
+          />
+        </div>
+        {!detailsRevealed && (
+          <Button
+            onClick={onContinue}
+            disabled={!title.trim()}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
+          >
+            Continue
+          </Button>
+        )}
       </div>
-      {!detailsRevealed && (
-        <Button
-          onClick={onContinue}
-          disabled={!title.trim()}
-          className="bg-accent text-accent-foreground hover:bg-accent/90 sm:w-auto"
-        >
-          Continue
-        </Button>
-      )}
+      {slug && <SimilarIssuesHint slug={slug} query={title} kind={kind} />}
     </div>
   );
 }
@@ -57,7 +71,7 @@ export function ProjectField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="issue-project">
+      <Label htmlFor="issue-project" className="smalltext">
         Project{" "}
         <span className="text-muted-foreground font-normal">(optional)</span>
       </Label>
@@ -80,7 +94,7 @@ export function PriorityField({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="issue-priority">Priority</Label>
+      <Label htmlFor="issue-priority" className="smalltext">Priority</Label>
       <PrioritySelect id="issue-priority" value={value} onValueChange={onValueChange} />
     </div>
   );
@@ -102,7 +116,7 @@ export function SubmitButton({
       <Button
         onClick={onClick}
         disabled={disabled}
-        className="bg-accent text-accent-foreground hover:bg-accent/90"
+        className="bg-primary text-primary-foreground hover:bg-primary/90"
       >
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
       </Button>

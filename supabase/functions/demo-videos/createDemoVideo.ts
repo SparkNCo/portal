@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { markIssueUpdated } from "../utils/issueUpdates.ts";
 import {
   BUCKET,
   SCHEMA,
@@ -8,7 +9,7 @@ import {
   getUserIdByEmail,
   signStorageUrl,
   validateEmbedUrl,
-  validateVideoFile,
+  validateMediaFile,
 } from "./helpers.ts";
 
 const getNextVersion = async (issueId: string) => {
@@ -38,7 +39,7 @@ export const createDemoVideoFromUpload = async (
   email: string,
   file: File,
 ) => {
-  validateVideoFile(file);
+  validateMediaFile(file);
 
   const uploadedBy = await getUserIdByEmail(supabase, email);
   const nextVersion = await getNextVersion(issueId);
@@ -82,6 +83,8 @@ export const createDemoVideoFromUpload = async (
     throw new Error(insertError.message);
   }
 
+  await markIssueUpdated(issueId, email);
+
   return { ...demo, file_url: await signStorageUrl(supabase, storagePath) };
 };
 
@@ -118,6 +121,8 @@ export const createDemoVideoFromEmbed = async (
 
     throw new Error(insertError.message);
   }
+
+  await markIssueUpdated(issueId, email);
 
   return demo;
 };

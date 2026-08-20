@@ -65,7 +65,7 @@ export default function AddClientModal({ onClose }: Props) {
   });
 
   return (
-    <ModalShell title="Add Customer">
+    <ModalShell title="Add Customer" widthClassName="w-[28rem]">
       <NameFields
         firstName={firstName}
         onFirstNameChange={setFirstName}

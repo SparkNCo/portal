@@ -37,20 +37,32 @@ export const ALLOWED_VIDEO_TYPES = new Set([
   "video/ogg",
 ]);
 
-export const validateVideoFile = (file: File) => {
-  if (!file.type || !ALLOWED_VIDEO_TYPES.has(file.type)) {
+export const ALLOWED_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
+export const ALLOWED_MEDIA_TYPES = new Set([
+  ...ALLOWED_VIDEO_TYPES,
+  ...ALLOWED_IMAGE_TYPES,
+]);
+
+export const validateMediaFile = (file: File) => {
+  if (!file.type || !ALLOWED_MEDIA_TYPES.has(file.type)) {
     throw new Error(
-      "Invalid video format. Supported formats: MP4, WebM, MOV, AVI, MKV, MPEG and OGG.",
+      "Invalid file format. Supported formats: MP4, WebM, MOV, AVI, MKV, MPEG, OGG, PNG, JPEG, WebP and GIF.",
     );
   }
 
   if (file.size <= 0) {
-    throw new Error("The uploaded video is empty.");
+    throw new Error("The uploaded file is empty.");
   }
 
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(
-      `The video is too large. Maximum allowed size is ${MAX_FILE_SIZE / (1024 * 1024)} MB.`,
+      `The file is too large. Maximum allowed size is ${MAX_FILE_SIZE / (1024 * 1024)} MB.`,
     );
   }
 };
@@ -70,6 +82,10 @@ export const getFileExtension = (fileName: string, mimeType: string) => {
     "video/x-matroska": ".mkv",
     "video/mpeg": ".mpeg",
     "video/ogg": ".ogv",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
   };
 
   return mimeExtensions[mimeType] ?? ".mp4";

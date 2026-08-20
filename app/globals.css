@@ -4,36 +4,55 @@
 
 @layer base {
   :root {
-    /* Canonical palette — mode-independent. Defined once here and never
-       overridden in .dark, instead of being copy-pasted into both blocks. */
-    --card: 30 27% 95%;
-    --primary: 25 92% 59%;
+    /* Brand palette (buildwithspark.co) — single theme, no light/dark split.
+       ThemeProvider in app/layout.tsx forces the "dark" class site-wide, but
+       these values are defined only once on :root (no .dark overrides) so
+       the app renders identically regardless of that class.
+       Hex sources: background #111111, foreground/secondary/card #f7f4f0,
+       primary #f78035, donut #b5b5b5. */
+    --background: 0 0% 7%;
+    --foreground: 34 30% 95%;
+
+    --primary: 23 92% 59%;
+    --primary-foreground: 0 0% 7%;
+
+    --secondary: 34 30% 95%;
+    --secondary-foreground: 0 0% 7%;
+
+    --card: 34 30% 95%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 34 30% 95%;
+    --popover-foreground: 0 0% 7%;
+
+    --donut: 0 0% 71%;
+
+    /* Supporting neutrals — not part of the brand spec, tuned to stay
+       legible against the #111111 background. Deviate here because border/
+       input/muted carry structural meaning (dividers, disabled states),
+       not brand identity. */
+    --muted: 0 0% 16%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 34 30% 95%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 34 30% 95%;
+
+    --sidebar: 0 0% 7%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-foreground: 34 30% 95%;
+    --sidebar-accent: 0 0% 16%;
+
+    /* Semantic colors — untouched, they carry meaning (error/warn/success)
+       rather than brand identity. */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --warning: 35 93% 58%;
+    --warning-foreground: 240 10% 10%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 98%;
 
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --sidebar: 240 5% 96%;
-    --sidebar-border: 240 5.9% 88%;
-    --sidebar-foreground: 240 10% 3.9%;
-    --sidebar-accent: 240 4.8% 90%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary-foreground: 0 0% 71%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --warning: 45 93% 58%;
-    --warning-foreground: 240 10% 10%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -41,37 +60,91 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
   }
+}
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --sidebar: 240 5% 8%;
-    --sidebar-border: 240 3.7% 18%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-accent: 240 3.7% 15%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 220 70% 50%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --warning: 35 93% 58%;
-    --warning-foreground: 240 10% 10%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+/* Typography — consolidated font-size, font-weight, and line-height
+   combinations. Prefer these over ad hoc utility combos going forward.
+   Named after the fontSize scale in tailwind.config.ts (heading1/largeBody/
+   heading2/body/smalltext) so the class name and the size token match.
+   Tailwind's variants (md:, hover:, etc.) work on these automatically since
+   they're registered via @layer components — e.g. `md:smalltext` is valid.
+   `!` (important) on the size utility so these reliably win over a
+   component's own baked-in text size (e.g. Button's cva `text-sm`) — plain
+   cascade order wasn't reliable there since Button's classes get merged
+   through tailwind-merge/cn rather than sitting in the same plain class
+   string as everything else. */
+@layer components {
+  .title,
+  .heading1 {
+    @apply !text-heading1 font-bold leading-tight;
   }
+  .largeBody {
+    @apply !text-largeBody font-semibold leading-tight;
+  }
+  .subtitle,
+  .heading2 {
+    @apply !text-heading2 font-semibold leading-snug;
+  }
+  .body {
+    @apply !text-body font-normal leading-relaxed;
+  }
+  .smalltext {
+    @apply !text-smalltext font-normal leading-relaxed;
+  }
+
+  /* "Light card" — the light cream card surface (bg-card/text-card-foreground)
+     used for cards meant to stand out from the app's otherwise all-dark
+     background, e.g. the issue cards in Roadmap's cycle view. --card and
+     --card-foreground are inverted relative to --background/--foreground in
+     this theme, so anything sitting on a light-card surface needs these
+     card-based tokens instead of the usual text-foreground/text-muted-foreground
+     utilities to stay legible.
+
+     This app has no in-app theme toggle (ThemeProvider forces "dark" site-wide
+     — see app/layout.tsx), so there's no .dark class to key off. These classes
+     default to the app's normal dark row look, and only switch to the cream
+     surface under an actual `prefers-color-scheme: light` media query — i.e.
+     a visitor whose OS/browser is set to light mode. Everyone else sees the
+     same row they always did. */
+  /* `!` (important) on every declaration here, in both this default block and the
+     light-preference override below — these classes are routinely combined with
+     other components (e.g. a status Badge's own `variant="outline"`, which injects
+     its own plain `text-foreground` utility) that set the same property. Utilities
+     always outrank a plain components-layer rule regardless of source order, so
+     without `!important` these silently lose that fight and never take effect —
+     which is exactly what happened to the Backlog status badge: `.light-card-text`
+     was being completely overridden by Badge's own `text-foreground`. */
+  .light-card {
+    @apply !bg-background !text-foreground hover:!bg-muted transition-colors;
+  }
+  .light-card-text {
+    @apply !text-foreground;
+  }
+  .light-card-muted {
+    @apply !text-muted-foreground;
+  }
+  .light-card-chip {
+    @apply !text-muted-foreground hover:!text-primary hover:!bg-background;
+  }
+
+  /* Cream-card variant disabled for now — app stays on the dark look
+     regardless of the visitor's OS/browser color-scheme preference. Kept
+     here, inert, in case light mode comes back later.
+  @media (prefers-color-scheme: light) {
+    .light-card {
+      @apply !bg-card/90 !text-card-foreground hover:!bg-card shadow-sm hover:shadow-md !border-card-foreground/10 hover:!border-card-foreground/25;
+    }
+    .light-card-text {
+      @apply !text-card-foreground;
+    }
+    .light-card-muted {
+      @apply !text-card-foreground/70;
+    }
+    .light-card-chip {
+      @apply !text-card-foreground/60 hover:!bg-card-foreground/10;
+    }
+  }
+  */
 }
 
 @layer base {
@@ -96,13 +169,33 @@
 
 /* Browser autofill (Chrome/Edge/Safari) ignores background-color and forces
    its own light grey fill, which breaks contrast on dark inputs. Force it
-   back to match the input's own bg-foreground/text-background colors. */
+   back to match the input's own bg-foreground/text-background colors.
+   `!important` is required here — Chromium's own autofill UA styles (in
+   particular -webkit-text-fill-color) otherwise win over a plain author
+   override, which is what let autofilled text render white-on-white (e.g.
+   picking a browser-remembered value in the "Request a Feature" title
+   field). */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px hsl(var(--foreground)) inset;
-  -webkit-text-fill-color: hsl(var(--background));
-  caret-color: hsl(var(--background));
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--foreground)) inset !important;
+  -webkit-text-fill-color: hsl(var(--background)) !important;
+  caret-color: hsl(var(--background)) !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Some inputs (/set-password's "User Data" form, the login panel's Username/
+   Password) are deliberately bg-white regardless of the app's cream/near-black
+   brand tokens above — a class selector beats the plain `input:-webkit-autofill`
+   tag selector above it (both !important, so specificity is the tiebreaker), so
+   this reliably wins for just these inputs without touching the site-wide rule. */
+.white-input:-webkit-autofill,
+.white-input:-webkit-autofill:hover,
+.white-input:-webkit-autofill:focus,
+.white-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000 !important;
   transition: background-color 9999s ease-in-out 0s;
 }

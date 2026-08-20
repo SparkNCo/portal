@@ -14,7 +14,7 @@ function ChatContent() {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header title="Chat" subtitle="Messages and AI Assistant" />
+      <Header title="Chat" subtitle="Messages and AI Assistant" subtitleClassName="smalltext" />
       <div className="flex flex-1 overflow-hidden">
         <ChatLayout initialTitle={initialTitle} fallbackProjectSlug={urlSlug} />
       </div>

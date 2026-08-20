@@ -241,7 +241,11 @@ export default function AdminUsersPage() {
             ...apiHeaders,
             Authorization: `Bearer ${session?.access_token ?? ""}`,
           },
-          body: JSON.stringify({ id: user.id, emailType }),
+          body: JSON.stringify({
+            id: user.id,
+            emailType,
+            testRedirectOrigin: window.location.origin,
+          }),
         },
       );
       if (!res.ok) {
@@ -292,7 +296,7 @@ export default function AdminUsersPage() {
   }
   return (
     <div className="min-h-screen">
-      <Header title="Admin Panel" subtitle="Manage users and settings" />
+      <Header title="Admin Panel" subtitle="Manage users and settings" subtitleClassName="smalltext" />
       <div className="sm:px-6 py-6 space-y-4 ">
       {showAddDevModal && (
         <AddDeveloperModal onClose={() => setShowAddDevModal(false)} />
@@ -335,27 +339,27 @@ export default function AdminUsersPage() {
 
       {/* ── View toggle ── */}
       <div className="flex items-center">
-        <div className="flex gap-1 p-1 rounded-lg bg-secondary/40 border border-border">
+        <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border">
           <button
             onClick={() => setView("users")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all ${
               view === "users"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Users className="h-3.5 w-3.5" />
+            <Users className="h-3.5 w-3.5 text-primary" />
             Users
           </button>
           <button
             onClick={() => setView("projects")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all ${
               view === "projects"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <FolderKanban className="h-3.5 w-3.5" />
+            <FolderKanban className="h-3.5 w-3.5 text-primary" />
             Projects
           </button>
         </div>
@@ -366,7 +370,7 @@ export default function AdminUsersPage() {
         <div className="space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
             <input
               type="text"
               aria-label="Search by email or username"
@@ -385,14 +389,14 @@ export default function AdminUsersPage() {
             return (
               <Card key={role} className="bg-background border-border">
                 <CardHeader>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize">
-                    <Users className="h-4 w-4 text-accent" />
+                  <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize text-foreground">
+                    <Users className="h-4 w-4 text-primary" />
                     {role}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {roleUsers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6">
+                    <p className="text-sm md:smalltext text-muted-foreground text-center py-6">
                       No {role}s found
                     </p>
                   ) : (
@@ -402,45 +406,45 @@ export default function AdminUsersPage() {
                         return (
                           <div
                             key={u.id}
-                            className="rounded-lg border border-border bg-secondary/30 transition-colors group"
+                            className="rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-colors group"
                           >
-                            <div className="flex items-center justify-between p-3 hover:bg-secondary/50">
+                            <div className="flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-medium text-accent">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                                   {getInitials(u.email)}
                                 </div>
                                 <div className="min-w-0">
                                   <p
                                     title={u.email}
-                                    className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors truncate"
+                                    className="text-sm md:smalltext font-medium text-card-foreground truncate"
                                   >
                                     {u.email}
                                   </p>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1">
-                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1">
+                              <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
+                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1 flex-wrap">
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingProfileUser(u)}
                                     >
-                                      <Eye className="h-4 w-4" />
-                                      View Profile
+                                      <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">View Profile</span>
                                     </Button>
                                   )}
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setEditingProfileUser(u)}
                                     >
-                                      <Pencil className="h-4 w-4" />
-                                      Edit Profile
+                                      <Pencil className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">Edit Profile</span>
                                     </Button>
                                   )}
                                   {(u.role === "developer" ||
@@ -448,14 +452,14 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 text-xs"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => {
                                         setAssigningUserId(u.id);
                                         setAssigningUserRole(u.role);
                                       }}
                                     >
-                                      <UserCheck className="h-4 w-4" />
-                                      Assign
+                                      <UserCheck className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">Assign</span>
                                     </Button>
                                   )}
                                 </div>
@@ -469,7 +473,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      className="h-8 w-8 group/icon hover:bg-background hover:text-primary focus-visible:ring-0 focus-visible:ring-offset-0"
                                       title="Resend account email"
                                       aria-label="Resend account email"
                                       disabled={
@@ -479,8 +483,9 @@ export default function AdminUsersPage() {
                                       onClick={(e) => e.stopPropagation()}
                                     >
                                       <Mail
-                                        className={`h-4 w-4 ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
+                                        className={`h-4 w-4 text-card-foreground group-hover/icon:text-primary ${resendPending && resendingVariables?.user.id === u.id ? "animate-pulse" : ""}`}
                                       />
+                                      <span className="sr-only">Resend account email</span>
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
@@ -513,15 +518,17 @@ export default function AdminUsersPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8"
+                                    className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
+                                    title={isExpanded ? "Hide assignments" : "Show assignments"}
+                                    aria-label={isExpanded ? "Hide assignments" : "Show assignments"}
                                     onClick={() =>
                                       setExpandedUser(isExpanded ? null : u)
                                     }
                                   >
                                     {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4" />
+                                      <ChevronUp className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                     ) : (
-                                      <ChevronDown className="h-4 w-4" />
+                                      <ChevronDown className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                     )}
                                   </Button>
                                 )}
@@ -531,13 +538,13 @@ export default function AdminUsersPage() {
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-3 border-t border-border">
                         {assignmentsLoading && (
-                          <p className="text-sm text-muted-foreground animate-pulse">
+                          <p className="text-sm md:smalltext text-muted-foreground animate-pulse">
                             Loading...
                           </p>
                         )}
                         {!assignmentsLoading &&
                           userAssignments?.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm md:smalltext text-muted-foreground">
                               No assignments found
                             </p>
                           )}
@@ -556,16 +563,16 @@ export default function AdminUsersPage() {
                                       <div className="min-w-0">
                                         <p
                                           title={a.email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                          className="font-medium text-card-foreground truncate max-w-[15ch] md:smalltext"
                                         >
                                           {a.email}
                                         </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
+                                        <p className="text-xs md:smalltext text-muted-foreground capitalize">
                                           {a.role}
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-4 text-xs md:smalltext text-muted-foreground">
                                       {a.joined && (
                                         <span>
                                           Joined{" "}
@@ -585,10 +592,10 @@ export default function AdminUsersPage() {
                               : userAssignments.map((a: any) => (
                                   <div
                                     key={a.id}
-                                    className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2 text-sm"
+                                    className="flex items-center justify-between rounded-lg border border-border bg-card/90 hover:bg-card transition-colors cursor-pointer px-3 py-2 text-sm"
                                   >
                                     <div className="flex items-center gap-3 min-w-0">
-                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-primary">
                                         {a.customer_email
                                           ?.slice(0, 2)
                                           .toUpperCase()}
@@ -596,16 +603,16 @@ export default function AdminUsersPage() {
                                       <div className="min-w-0">
                                         <p
                                           title={a.customer_email}
-                                          className="font-medium text-card-foreground truncate max-w-[15ch]"
+                                          className="font-medium text-card-foreground truncate max-w-[15ch] md:smalltext"
                                         >
                                           {a.customer_email}
                                         </p>
-                                        <p className="text-xs text-muted-foreground capitalize">
+                                        <p className="text-xs md:smalltext text-card-foreground/60 capitalize">
                                           Customer
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-4 text-xs md:smalltext text-card-foreground/60">
                                       {a.joined && (
                                         <span>
                                           Joined{" "}
@@ -614,7 +621,7 @@ export default function AdminUsersPage() {
                                           ).toLocaleDateString()}
                                         </span>
                                       )}
-                                      <span className="font-medium text-foreground">
+                                      <span className="font-medium text-card-foreground">
                                         {a.allocation}h/week
                                       </span>
                                     </div>
@@ -633,10 +640,10 @@ export default function AdminUsersPage() {
             <button
               type="button"
               onClick={addHandlersByRole[role]}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-3 text-sm md:smalltext text-muted-foreground hover:border-primary hover:text-primary transition-colors"
               aria-label={`Add ${role}`}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 text-primary" />
               Add {role}
             </button>
           )}
@@ -651,22 +658,22 @@ export default function AdminUsersPage() {
       {view === "projects" && (
         <Card className="bg-background border-border">
           <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <FolderKanban className="h-4 w-4 text-accent" />
+            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <FolderKanban className="h-4 w-4 text-primary" />
               Projects
             </CardTitle>
           </CardHeader>
           <CardContent>
             {allAssignmentsLoading && (
-              <p className="text-sm text-muted-foreground animate-pulse">
+              <p className="text-sm md:smalltext text-muted-foreground animate-pulse">
                 Loading projects...
               </p>
             )}
 
             {!allAssignmentsLoading && customers.length === 0 && (
               <div className="text-center py-8">
-                <FolderKanban className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
+                <FolderKanban className="h-10 w-10 text-primary mx-auto mb-2" />
+                <p className="text-sm md:smalltext text-muted-foreground">
                   No customers yet
                 </p>
               </div>
@@ -681,21 +688,21 @@ export default function AdminUsersPage() {
                   return (
                     <div
                       key={customer.id}
-                      className="rounded-lg border border-border bg-secondary/30"
+                      className="rounded-lg border border-border bg-card/90 hover:bg-card transition-colors cursor-pointer"
                     >
                       {/* Initiative header */}
                       <div className="flex items-center gap-3 p-3 border-b border-border">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chart-3/20 text-sm font-medium text-chart-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                           {initiativeName.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p
                             title={initiativeName}
-                            className="text-sm font-semibold text-card-foreground truncate"
+                            className="text-sm md:body font-semibold text-card-foreground truncate"
                           >
                             {initiativeName}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs md:smalltext text-card-foreground/60">
                             {developers.length === 0
                               ? "No assignees"
                               : `${developers.length} assignee${developers.length > 1 ? "s" : ""}`}
@@ -743,22 +750,22 @@ export default function AdminUsersPage() {
                                 className="flex items-center justify-between px-4 py-2.5 text-sm"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chart-2/20 text-xs font-medium text-chart-2">
+                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-primary">
                                     {m.email?.slice(0, 2).toUpperCase()}
                                   </div>
                                   <div className="min-w-0">
                                     <p
                                       title={m.email}
-                                      className="font-medium text-card-foreground truncate"
+                                      className="font-medium text-card-foreground truncate md:smalltext"
                                     >
                                       {m.email}
                                     </p>
-                                    <p className="text-xs text-muted-foreground capitalize">
+                                    <p className="text-xs md:smalltext text-card-foreground/60 capitalize">
                                       {m.role}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-4 text-xs md:smalltext text-card-foreground/60">
                                   {m.joined && (
                                     <span>
                                       Joined{" "}
@@ -766,7 +773,7 @@ export default function AdminUsersPage() {
                                     </span>
                                   )}
                                   {m.role === "developer" && m.allocation && (
-                                    <span className="font-medium text-foreground">
+                                    <span className="font-medium text-card-foreground">
                                       {m.allocation}h/week
                                     </span>
                                   )}

@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/components/ui/button";
 import { UserCheck } from "lucide-react";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
@@ -58,10 +65,10 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-96 bg-background border-border shadow-lg">
+      <Card className="w-96 bg-background border-border shadow-lg text-foreground">
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <UserCheck className="h-4 w-4 text-accent" />
+          <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary">
+            <UserCheck className="h-4 w-4 text-primary" />
             {userRole === "stakeholder" ? "Assign Stakeholder" : "Assign Developer"}
           </CardTitle>
         </CardHeader>
@@ -95,18 +102,22 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Add Assignment
             </p>
-            <select
-              className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm"
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-            >
-              <option value="">Select Customer</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id} disabled={assignedCustomerIds.has(c.id)}>
-                  {c.clientName ?? c.email}{assignedCustomerIds.has(c.id) ? " (already assigned)" : ""}
-                </option>
-              ))}
-            </select>
+            <Select value={selectedCustomer || undefined} onValueChange={setSelectedCustomer}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select Customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem
+                    key={c.id}
+                    value={c.id}
+                    disabled={assignedCustomerIds.has(c.id)}
+                  >
+                    {c.clientName ?? c.email}{assignedCustomerIds.has(c.id) ? " (already assigned)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {userRole !== "stakeholder" && (
               <div className="mt-3">
@@ -117,10 +128,13 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
                   id="allocation-input"
                   type="number"
                   min={1}
-                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  step={1}
+                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-secondary-foreground text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                   value={allocation}
-                  onChange={(e) => setAllocation(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) =>
+                    setAllocation(e.target.value === "" ? "" : Math.round(Number(e.target.value)))
+                  }
                 />
               </div>
             )}

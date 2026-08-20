@@ -16,7 +16,7 @@ function canEditIssue(issue: Issue) {
   return issue.state?.name !== "Done";
 }
 
-export type { Decision, TestCase, Issue, FilterState, PriorityTasksProps } from "./issues.types";
+export type { Decision, Test, TestExecution, Issue, FilterState, PriorityTasksProps } from "./issues.types";
 export { STATUS_ORDER } from "./issues.types";
 export { IssueDetailModal } from "./issue-detail-modal";
 
@@ -26,6 +26,7 @@ export function PriorityTasks({
   onEditIssue,
   title = "Priority Tasks",
   compact = false,
+  lightCard = false,
   headerAction,
   slug,
 }: PriorityTasksProps) {
@@ -71,16 +72,16 @@ export function PriorityTasks({
   );
   if (compact) {
     return (
-      <Card className="bg-background border-border flex flex-col w-full h-full ">
+      <Card className="bg-background border-border text-foreground flex flex-col w-full h-full ">
         <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 pr-10">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CardTitle className="body font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
             {headerAction}
             {issuesData.length > 0 && (
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="smalltext text-muted-foreground tabular-nums">
                 {issuesData.length} issue{issuesData.length === 1 ? "" : "s"}
               </span>
             )}
@@ -88,7 +89,7 @@ export function PriorityTasks({
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
           {visibleIssues.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic px-1">No issues.</p>
+            <p className="smalltext text-muted-foreground italic px-1">No issues.</p>
           ) : (
             <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
               {visibleIssues.map((issue) => (
@@ -102,6 +103,7 @@ export function PriorityTasks({
                       : undefined
                   }
                   hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                  lightCard={lightCard}
                 />
               ))}
             </div>
@@ -113,9 +115,9 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-border flex flex-col w-full">
+    <Card className="bg-background border-border text-foreground flex flex-col w-full">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
+        <CardTitle className="body font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>
@@ -126,20 +128,20 @@ export function PriorityTasks({
             placeholder="Search by title..."
             value={titleFilter}
             onChange={(e) => setTitleFilter(e.target.value)}
-            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs gap-1.5 relative"
+                className="h-7 smalltext gap-1.5 relative"
                 onClick={(e) => e.stopPropagation()}
               >
                 <SlidersHorizontal className="h-3 w-3" />
                 Filter
                 {activeFilters > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-accent text-accent-foreground text-[10px] flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
                     {activeFilters}
                   </span>
                 )}
@@ -147,7 +149,7 @@ export function PriorityTasks({
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-64 p-4"
+              className="w-64 p-4 bg-background border-border text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
@@ -166,21 +168,22 @@ export function PriorityTasks({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
+      <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
         {visibleIssues.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic p-2">
+          <p className="smalltext text-muted-foreground italic p-2">
             No issues match the current filters.
           </p>
         ) : (
           <div
             ref={scrollRef}
             className={`
-              grid gap-2 grid-flow-row auto-rows-auto
+              grid gap-2 grid-flow-row auto-rows-auto pt-3
               grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
               scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
+              overflow-x-hidden
               ${
                 expanded
-                  ? "overflow-visible h-auto"
+                  ? "overflow-y-visible h-auto"
                   : "max-h-[600px] overflow-y-auto"
               }
             `}
@@ -196,6 +199,7 @@ export function PriorityTasks({
                     : undefined
                 }
                 hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                lightCard={lightCard}
               />
             ))}
           </div>

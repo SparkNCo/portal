@@ -17,6 +17,24 @@ function getAssetsArray(assetLinks: any[], includes: any) {
     .filter(Boolean);
 }
 
+// igPost has no "author" field in Contentful — each igPost has a sibling
+// blogPost entry with the same "url" that holds the real author.
+async function getAuthorsByUrl(urls: string[]): Promise<Map<string, string>> {
+  const uniqueUrls = [...new Set(urls)].filter(Boolean);
+  if (!uniqueUrls.length) return new Map();
+
+  const url = `https://preview.contentful.com/spaces/${SPACE_ID}/environments/master/entries?access_token=${PREVIEW_TOKEN}&content_type=blogPost&fields.url[in]=${uniqueUrls.map(encodeURIComponent).join(",")}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  if (!res.ok) return new Map();
+
+  return new Map(
+    data.items.map((item: any) => [item.fields.url, item.fields.author || null]),
+  );
+}
+
 export async function getAllPosts({ contentType } = {}) {
   if (!contentType) {
     throw new Error("contentType is required");
@@ -33,6 +51,11 @@ export async function getAllPosts({ contentType } = {}) {
     throw new Error(JSON.stringify(data));
   }
 
+  const authorsByUrl =
+    contentType === "igPost"
+      ? await getAuthorsByUrl(data.items.map((item: any) => item.fields.url))
+      : new Map();
+
   return data.items.map((item: any) => {
     const fields = item.fields;
 
@@ -41,7 +64,7 @@ export async function getAllPosts({ contentType } = {}) {
 
       // 🧠 core
       title: fields.title || null,
-      author: fields.author || null,
+      author: fields.author || authorsByUrl.get(fields.url) || null,
       url: fields.url || null,
 
       // 📝 new fields from igPost
@@ -81,15 +104,20 @@ export async function getPostByURL(urlParam: string, contentType = "igPost") {
   // pick the first matching entry
   const item = data.items[0];
   if (!item) return null;
-
   const fields = item.fields;
+
+  const author = fields.author
+    || (contentType === "igPost"
+      ? (await getAuthorsByUrl([fields.url])).get(fields.url)
+      : null)
+    || null;
 
   return {
     id: item.sys.id,
 
     // 🧠 core fields
     title: fields.title || null,
-    author: fields.author || null,
+    author,
     url: fields.url || null,
     content: fields.content || null,
 

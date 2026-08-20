@@ -10,6 +10,9 @@ import { handleLatest } from "./latest.ts";
 import { handleIssueResolutionTime } from "./mttr.ts";
 import { handleLeadTime } from "./leadTime.ts";
 import { handleDeployFreq } from "./deployFreq.ts";
+import { handleFeatureCycleTime } from "./featureCycleTime.ts";
+import { handleFixCycleTime } from "./fixCycleTime.ts";
+import { handleDefectEscapeRate } from "./defectEscape.ts";
 import { pollBranchCreationEvents } from "./events.ts";
 
 const handlers: Record<string, (repo: string, token: string, limit: number) => Promise<unknown>> = {
@@ -18,6 +21,9 @@ const handlers: Record<string, (repo: string, token: string, limit: number) => P
   mttr: handleIssueResolutionTime,
   leadTime: handleLeadTime,
   deployFreq: handleDeployFreq,
+  featureCycleTime: handleFeatureCycleTime,
+  fixCycleTime: handleFixCycleTime,
+  defectEscapeRate: (repo) => handleDefectEscapeRate(repo),
   pollEvents: async (repo, token) => ({ recorded: await pollBranchCreationEvents(repo, token, "portal") }),
 };
 
@@ -59,15 +65,18 @@ async function handleAll(repo: string, token: string, limit: number, since: Date
     .then((n) => console.log(`✅ [${repo}] pollBranchCreationEvents done (${n} recorded)`))
     .catch((e) => console.error(`⚠️ [${repo}] pollBranchCreationEvents failed (non-fatal)`, e.message));
 
-  // mttr reads the closed_date that leadTime writes for feat branches
-  // (getLastFeatClosedBefore in db.ts), so leadTime must finish — and its
-  // writes must land — before mttr runs. Racing them in the same Promise.all
-  // let mttr read a feat's closed_date before leadTime had written it,
-  // silently dropping that MTTR sample.
-  const [cfr, leadTime, deployFreq] = await Promise.all([
+  // mttr reads the closed_date that leadTime/featureCycleTime write for feat
+  // branches (getLastFeatClosedBefore in db.ts), so both must finish — and
+  // their writes must land — before mttr runs. Racing them in the same
+  // Promise.all let mttr read a feat's closed_date before it had been
+  // written, silently dropping that MTTR sample.
+  const [cfr, leadTime, deployFreq, featureCycleTime, fixCycleTime, defectEscapeRate] = await Promise.all([
     handleCFR(repo, token, limit).then(r => { console.log(`✅ [${repo}] CFR done:`, JSON.stringify(r)); return r; }).catch(e => { console.error(`❌ [${repo}] CFR failed`, String(e)); throw e; }),
     handleLeadTime(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Lead Time done: sample_size=${r.sample_size} avg_lead_hours=${r.avg_lead_hours}`); return r; }).catch(e => { console.error(`❌ [${repo}] Lead Time failed`, String(e)); throw e; }),
     handleDeployFreq(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Deploy Freq done: total=${r.total_deployments} last_30d=${r.deployments_last_30_days} last_90d=${r.deployments_last_90_days}`); return r; }).catch(e => { console.error(`❌ [${repo}] Deploy Freq failed`, String(e)); throw e; }),
+    handleFeatureCycleTime(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Feature Cycle Time done: sample_size=${r.sample_size} avg_cycle_hours=${r.avg_cycle_hours}`); return r; }).catch(e => { console.error(`❌ [${repo}] Feature Cycle Time failed`, String(e)); throw e; }),
+    handleFixCycleTime(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Fix Cycle Time done: sample_size=${r.sample_size} avg_cycle_hours=${r.avg_cycle_hours}`); return r; }).catch(e => { console.error(`❌ [${repo}] Fix Cycle Time failed`, String(e)); throw e; }),
+    handleDefectEscapeRate(repo, schema).then(r => { console.log(`✅ [${repo}] Defect Escape Rate done: rate=${r.defect_escape_rate} (fix=${r.total_fix}/feat=${r.total_feat})`); return r; }).catch(e => { console.error(`❌ [${repo}] Defect Escape Rate failed`, String(e)); throw e; }),
   ]);
 
   const mttr = await handleIssueResolutionTime(repo, token, limit, since)
@@ -77,7 +86,7 @@ async function handleAll(repo: string, token: string, limit: number, since: Date
   console.log(`✅ [${repo}] All metrics computed successfully`);
   return {
     repo,
-    details: { cfr, leadTime, mttr, deployFreq },
+    details: { cfr, leadTime, mttr, deployFreq, featureCycleTime, fixCycleTime, defectEscapeRate },
   };
 }
 
@@ -132,7 +141,15 @@ function avg(values: number[]): number | null {
 }
 
 function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<ReturnType<typeof handleAll>>) {
-  const { cfr: newCfr, leadTime: newLeadTime, mttr: newMttr, deployFreq: newDeployFreq } = result.details;
+  const {
+    cfr: newCfr,
+    leadTime: newLeadTime,
+    mttr: newMttr,
+    deployFreq: newDeployFreq,
+    featureCycleTime: newFeatureCycleTime,
+    fixCycleTime: newFixCycleTime,
+    defectEscapeRate: newDefectEscapeRate,
+  } = result.details;
 
   const cfr_details = { ...newCfr };
 
@@ -164,6 +181,28 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
     deployments_last_90_days: allDeployments.filter((d) => new Date(d.merged_at) >= last90).length,
   };
 
+  const featureCycleResults = dedupeByPrNumber(existing?.feature_cycle_details?.results ?? [], newFeatureCycleTime.results);
+  const feature_cycle_details = {
+    ...newFeatureCycleTime,
+    results: featureCycleResults,
+    sample_size: featureCycleResults.length,
+    avg_cycle_hours: avg(featureCycleResults.map((r) => r.cycle_hours)),
+  };
+
+  const fixCycleResults = dedupeByPrNumber(existing?.fix_cycle_details?.results ?? [], newFixCycleTime.results);
+  const fix_cycle_details = {
+    ...newFixCycleTime,
+    results: fixCycleResults,
+    sample_size: fixCycleResults.length,
+    avg_cycle_hours: avg(fixCycleResults.map((r) => r.cycle_hours)),
+  };
+
+  // Defect escape is a straight count over all of `dora_branch_events`
+  // history (not a `since`-windowed fetch like the metrics above), so
+  // there's nothing to dedupe/accumulate — the fresh result is already the
+  // complete picture.
+  const defect_escape_details = { ...newDefectEscapeRate };
+
   const averages = {
     change_failure_rate: { value: cfr_details.change_failure_rate, unit: "%" },
     lead_time_for_changes: { value: lead_time_details.avg_lead_hours, unit: "hours" },
@@ -174,9 +213,21 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
       last_90_days: deploy_freq_details.deployments_last_90_days,
       unit: "deployments",
     },
+    feature_cycle_time: { value: feature_cycle_details.avg_cycle_hours, unit: "hours" },
+    fix_cycle_time: { value: fix_cycle_details.avg_cycle_hours, unit: "hours" },
+    defect_escape_rate: { value: defect_escape_details.defect_escape_rate, unit: "%" },
   };
 
-  return { averages, cfr_details, lead_time_details, mttr_details, deploy_freq_details };
+  return {
+    averages,
+    cfr_details,
+    lead_time_details,
+    mttr_details,
+    deploy_freq_details,
+    feature_cycle_details,
+    fix_cycle_details,
+    defect_escape_details,
+  };
 }
 
 async function saveDoraMetrics(
@@ -188,7 +239,7 @@ async function saveDoraMetrics(
   console.log(`🔍 [${linearSlug}] Fetching existing dora_metrics row`);
   const { data: existing, error: fetchError } = await supabase.schema(schema)
     .from("dora_metrics")
-    .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, last_called")
+    .select("cfr_details, lead_time_details, mttr_details, deploy_freq_details, feature_cycle_details, fix_cycle_details, defect_escape_details, last_called")
     .ilike("linear_slug", escapeIlike(linearSlug))
     .maybeSingle();
 

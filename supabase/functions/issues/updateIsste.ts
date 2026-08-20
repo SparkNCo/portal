@@ -1,7 +1,8 @@
 // @ts-nocheck
-import { markIssueUpdated, markIssueSeen } from "../utils/issueUpdates.ts";
+import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
+import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -110,7 +111,7 @@ const UPDATE_ISSUE_MUTATION = `
   mutation IssueUpdate($issueId: String!, $input: IssueUpdateInput!) {
     issueUpdate(id: $issueId, input: $input) {
       success
-      issue { id title description priorityLabel }
+      issue { id title description priorityLabel labels { nodes { name } } }
     }
   }
 `;
@@ -125,7 +126,7 @@ const EDIT_PRIORITY_MAP: Record<string, number> = {
 
 export async function handleUpdateIssue(req: Request): Promise<Response> {
   const body = await req.json();
-  const { issueId, title, description, priority, actorEmail } = body;
+  const { issueId, title, description, priority, actorEmail, slug } = body;
 
   if (!issueId) {
     return Response.json({ error: "Missing issueId" }, { status: 400 });
@@ -143,22 +144,52 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   }
 
   const data = await linearRequest(UPDATE_ISSUE_MUTATION, { issueId, input });
+  const updatedIssue = data.issueUpdate?.issue;
 
   if (actorEmail) {
     await markIssueUpdated(issueId, actorEmail);
   }
 
+  // Best-effort — keeps the issues vector index in sync for edits made through this
+  // app. Edits made directly in Linear are caught by the linear-vector-sync cron.
+  if (slug && updatedIssue) {
+    await upsertIssueVector(slug, {
+      id: updatedIssue.id,
+      title: updatedIssue.title,
+      description: updatedIssue.description,
+      kind: deriveIssueKind(updatedIssue.labels?.nodes),
+    });
+  }
+
   return Response.json(data.issueUpdate);
 }
 
-export async function handleMarkIssueSeen(req: Request): Promise<Response> {
-  const { issueId } = await req.json();
+// Powers the "similar issue" hint shown while typing a title in the Feature Request /
+// Bug Report panels — a lightweight read over the issues vector index, scoped to the
+// customer's namespace, so we can nudge users toward an existing ticket instead of a
+// duplicate. Matching is fuzzy/semantic (Upstash), so the caller is expected to apply
+// its own confidence threshold on the returned scores.
+export async function handleGetSimilarIssues(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const slug = url.searchParams.get("slug");
+  const q = url.searchParams.get("q");
+  const kindParam = url.searchParams.get("kind");
+  const kind = kindParam === "bug" || kindParam === "feature" ? kindParam : undefined;
 
-  if (!issueId) {
-    return Response.json({ error: "Missing issueId" }, { status: 400 });
+  if (!slug || !q?.trim()) return Response.json([]);
+
+  const matches = await queryTopIssueMatches(slug, q.trim(), 3, kind);
+  return Response.json(matches);
+}
+
+export async function handleMarkIssueSeen(req: Request): Promise<Response> {
+  const { issueId, userId } = await req.json();
+
+  if (!issueId || !userId) {
+    return Response.json({ error: "Missing issueId or userId" }, { status: 400 });
   }
 
-  await markIssueSeen(issueId);
+  await markIssueViewed(issueId, userId);
   return Response.json({ success: true });
 }
 
@@ -194,6 +225,8 @@ export async function handleAddComment(req: Request): Promise<Response> {
   if (!res.ok) {
     return Response.json({ error: "Failed to create decision", details: data }, { status: 500 });
   }
+
+  await markIssueUpdated(issueId, ownerEmail);
 
   return Response.json(data[0] ?? data);
 }
@@ -323,6 +356,8 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   } catch (err) {
     console.error("[handleSetDecision] Linear sync error (non-fatal):", err);
   }
+
+  await markIssueUpdated(row.issue_id, decisionEmail);
 
   return Response.json(row);
 }

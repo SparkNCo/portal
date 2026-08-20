@@ -83,7 +83,7 @@ export default function RoadmapPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title={pageTitle} subtitle="Project timeline and progress" />
+      <Header title={pageTitle} subtitle="Project timeline and progress" subtitleClassName="smalltext" />
       <div className="p-4 md:p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
