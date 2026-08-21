@@ -221,6 +221,15 @@ const fetchUser = async (email: string, schema: string) => {
   data.linear_slug = client?.linear_slug ?? null;
   data.stripe_customer_id = client?.stripe_customer_id ?? null;
 
+  if (data.role === "developer") {
+    const { data: developerRow } = await supabase.schema(schema)
+      .from("developers")
+      .select("developer_type")
+      .eq("user_id", data.id)
+      .maybeSingle();
+    data.developerType = developerRow?.developer_type ?? "spark_fde";
+  }
+
   if (data.assignment_id?.length > 0) {
     const { data: assignments, error: assignmentError } = await supabase.schema(schema)
       .from("assignments")

@@ -247,7 +247,7 @@ export function IssueListRow({
       </span>
       <Badge
         variant="outline"
-        className={`smalltext  flex-shrink-0 w-16 justify-center px-1 ${priorityColors[issue.priorityLabel]}`}
+        className={`smalltext flex-shrink-0 w-24 justify-center px-1 whitespace-nowrap ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
