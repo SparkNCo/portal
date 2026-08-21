@@ -314,7 +314,10 @@ export default function AdminUsersPage() {
         <AssignCustomerModal
           userId={assigningUserId}
           userRole={assigningUserRole}
-          customers={customers}
+          customers={customers.map((c) => ({
+            ...c,
+            clientName: initiativeNameByCustomerId.get(c.id) ?? undefined,
+          }))}
           onClose={() => {
             setAssigningUserId(null);
             setAssigningUserRole("developer");

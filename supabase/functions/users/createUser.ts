@@ -129,13 +129,22 @@ export const createUser = async (body: any, schema: string) => {
     await upsertDeveloperRecord(schema, authUserId, { developerType, rateAmount, rateType });
   }
 
-  console.log("[createUser] user upserted, sending invite email", {
-    authUserId,
-    email,
-  });
+  // RFC 2606 reserved test domains (example.com/.net/.org) aren't real
+  // inboxes — Resend rejects sends to them, so skip the invite email
+  // entirely rather than fail user creation over an unsendable email.
+  const isTestDomain = /^example\.(com|net|org)$/i.test(email.split("@")[1] ?? "");
 
-  await sendInviteCustomerMail(email, inviteLink);
-  console.log("[createUser] invite email sent");
+  if (isTestDomain) {
+    console.log("[createUser] skipping invite email for test domain", { authUserId, email });
+  } else {
+    console.log("[createUser] user upserted, sending invite email", {
+      authUserId,
+      email,
+    });
+
+    await sendInviteCustomerMail(email, inviteLink);
+    console.log("[createUser] invite email sent");
+  }
 
   return data;
 };
