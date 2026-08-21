@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
+import { Input } from "@/components/ui/input";
 
 export default function StaffChatInput() {
   const ADMIN_UID = process.env.NEXT_PUBLIC_COMET_ADMIN_UID as string;
@@ -78,14 +79,15 @@ export default function StaffChatInput() {
 
       {/* Input */}
       <div className="flex border-t p-2 gap-2">
-        <input
-          aria-label="Talk with support"
-          className="flex-1 border rounded-lg px-3 py-2"
-          placeholder="Talk with support..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
+        <div className="min-w-0 flex-1">
+          <Input
+            aria-label="Talk with support"
+            placeholder="Talk with support..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          />
+        </div>
 
         <button
           onClick={sendMessage}

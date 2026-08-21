@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-client";
 import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
+import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
 import { useUser } from "context/UserContext";
 
@@ -150,13 +151,13 @@ export default function LoginForm({
                   Enter your email and we'll send you a reset link.
                 </p>
                 <form onSubmit={handleForgotPassword} className="space-y-3">
-                  <input
+                  <Input
                     type="email"
                     placeholder="your@email.com"
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full rounded border border-border bg-background px-3 py-2 smalltext text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="bg-background"
                   />
                   {resetError && (
                     <p className="smalltext text-red-500">{resetError}</p>
@@ -209,9 +210,9 @@ export default function LoginForm({
           >
             Username
           </label>
-          <input
+          <Input
             id="email"
-            className="rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 white-input bg-white text-background selection:bg-primary selection:text-background"
+            className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 white-input bg-white text-background shadow-none selection:bg-primary selection:text-background"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -226,10 +227,10 @@ export default function LoginForm({
             Password
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              className="w-full rounded border-2 border-transparent focus:border-3 focus:border-primary focus:outline-none p-2 pr-10 white-input bg-white text-background selection:bg-primary selection:text-background"
+              className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 pr-10 white-input bg-white text-background shadow-none selection:bg-primary selection:text-background"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -238,7 +239,7 @@ export default function LoginForm({
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-background/50 hover:text-background transition-colors"
+              className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-background/50 hover:text-background transition-colors"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>

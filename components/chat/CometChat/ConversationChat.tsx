@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
+import { Input } from "@/components/ui/input";
 
 type Props = {
   user: any;
@@ -218,14 +219,15 @@ export default function ConversationChat({ user, notification }: Props) {
 
       {/* Input */}
       <div className="flex border-t p-2 gap-2">
-        <input
-          aria-label="Type a message"
-          className="flex-1 border rounded-lg px-3 py-2"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type a message..."
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
+        <div className="min-w-0 flex-1">
+          <Input
+            aria-label="Type a message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type a message..."
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          />
+        </div>
 
         <button
           onClick={sendMessage}

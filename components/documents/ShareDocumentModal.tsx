@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useMutation } from "@tanstack/react-query";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -84,8 +85,8 @@ export function ShareDocumentModal({
           Enter emails separated by commas
         </p>
 
-        <input
-          className="w-full border rounded px-2 py-1 smalltext"
+        <Input
+          className="bg-secondary border-0"
           placeholder="example@mail.com, another@mail.com"
           value={emails}
           onChange={(e) => setEmails(e.target.value)}

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isValidPhone } from "@/lib/phone";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  inputClass,
   ModalShell,
   NameFields,
   PhoneField,
@@ -68,19 +69,29 @@ export default function AddStakeholderModal({ onClose }: Props) {
         lastName={lastName}
         onLastNameChange={setLastName}
       />
-      <input
-        className={inputClass}
-        placeholder="Username (optional)"
-        value={userName}
-        onChange={(e) => setUserName(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Stakeholder email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
-      />
+      <div className="space-y-1.5">
+        <Label>
+          Username{" "}
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Input
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. janedoe"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Email</Label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="stakeholder@company.com"
+          onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
+        />
+      </div>
       <PhoneField
         value={phoneNumber}
         onChange={setPhoneNumber}

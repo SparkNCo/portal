@@ -85,7 +85,7 @@ export function ProjectSummaryBar({
 }: ProjectSummaryBarProps) {
   return (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-      <div className="hidden shrink-0 sm:block sm:w-52" />
+      <div className="hidden shrink-0 sm:block sm:w-[25ch]" />
 
       <div
         className="grid gap-px sm:flex-1 sm:gap-0.5"
@@ -169,7 +169,7 @@ export function MilestoneRow({
 }: MilestoneRowProps) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4">
-      <div className="w-full sm:w-52">
+      <div className="w-full shrink-0 sm:w-[25ch]">
         {data.name && (
           <Badge
             variant="outline"

@@ -11,6 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { UserCheck } from "lucide-react";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -120,16 +122,14 @@ export default function AssignCustomerModal({ userId, userRole = "developer", cu
             </Select>
 
             {userRole !== "stakeholder" && (
-              <div className="mt-3">
-                <label htmlFor="allocation-input" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground block mb-1">
-                  Allocation (hrs/week)
-                </label>
-                <input
+              <div className="mt-3 space-y-1.5">
+                <Label htmlFor="allocation-input">Weekly Allocation (Hours)</Label>
+                <Input
                   id="allocation-input"
                   type="number"
                   min={1}
                   step={1}
-                  className="w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-secondary-foreground text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   placeholder="e.g. 20"
                   value={allocation}
                   onChange={(e) =>

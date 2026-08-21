@@ -87,7 +87,7 @@ export function RequestProjectDialog({
           aria-describedby={undefined}
         >
           <DialogHeader>
-            <DialogTitle>New project Request</DialogTitle>
+            <DialogTitle>New Project Request</DialogTitle>
           </DialogHeader>
 
           <div className="flex items-start gap-2.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2.5">

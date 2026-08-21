@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isValidPhone } from "@/lib/phone";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  inputClass,
   ModalShell,
   NameFields,
   PhoneField,
@@ -72,35 +73,51 @@ export default function AddClientModal({ onClose }: Props) {
         lastName={lastName}
         onLastNameChange={setLastName}
       />
-      <input
-        className={inputClass}
-        placeholder="Client name"
-        value={userName}
-        onChange={(e) => setUserName(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Client email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Linear Slug"
-        value={linearSlug}
-        onChange={(e) => setLinearSlug(e.target.value)}
-      />
+      <div className="space-y-1.5">
+        <Label>Client Name</Label>
+        <Input
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. Acme Inc"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Email</Label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="client@company.com"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Linear Slug</Label>
+        <Input
+          value={linearSlug}
+          onChange={(e) => setLinearSlug(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. acme"
+        />
+      </div>
       <PhoneField
         value={phoneNumber}
         onChange={setPhoneNumber}
         showError={submitted && !isPhoneValid}
       />
-      <input
-        className={inputClass}
-        placeholder="Stripe Customer ID (optional)"
-        value={stripeId}
-        onChange={(e) => setStripeId(e.target.value)}
-      />
+      <div className="space-y-1.5">
+        <Label>
+          Stripe Customer ID{" "}
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Input
+          value={stripeId}
+          onChange={(e) => setStripeId(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="cus_..."
+        />
+      </div>
 
       <ModalError error={error} />
 

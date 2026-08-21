@@ -22,7 +22,7 @@ export async function sendProjectRequestMail({
 
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-      <h2>New project request 📁</h2>
+      <h2>New Project request 📁</h2>
       <p>A new project has been requested from the client dashboard.</p>
 
       <p><strong>Title:</strong> ${title}</p>
