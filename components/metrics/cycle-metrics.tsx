@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
+  Cell,
   LineChart,
   Line,
   XAxis,
@@ -29,6 +30,7 @@ interface CycleMetric {
   cycle_id: string;
   name: string | null;
   number: number;
+  project_name?: string;
   description: string | null;
   completed_at: string | null;
   starts_at: string | null;
@@ -74,32 +76,67 @@ const PRIORITY_COLOR: Record<number, string> = {
   4: "text-muted-foreground",
 };
 
-export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
-  const chartData = useMemo(
-    () =>
-      data.map((c) => ({
-        label: c.name ?? `Cycle ${c.number}`,
-        Scope: c.scope_history.at(-1) ?? 0,
-        Completed: c.completed_scope_history.at(-1) ?? 0,
-      })),
-    [data],
-  );
+export function CycleBarChart({
+  data,
+  activeCycleNumber,
+  onCycleClick,
+}: {
+  readonly data: CycleMetric[];
+  readonly activeCycleNumber?: string;
+  readonly onCycleClick?: (cycleNumber: string) => void;
+}) {
+  // With "All Projects" selected, every project has its own row for "Cycle
+  // 13" — merge same-numbered cycles into a single bar (Scope/Completed
+  // summed across projects) instead of showing one per project. With a
+  // single project selected this is a no-op: one row per number already.
+  const chartData = useMemo(() => {
+    const byNumber = new Map<
+      number,
+      { label: string; cycleNumber: number; Scope: number; Completed: number }
+    >();
+    for (const c of data) {
+      const scope = c.scope_history.at(-1) ?? 0;
+      const completed = c.completed_scope_history.at(-1) ?? 0;
+      const existing = byNumber.get(c.number);
+      if (existing) {
+        existing.Scope += scope;
+        existing.Completed += completed;
+      } else {
+        byNumber.set(c.number, {
+          label: c.name ?? `Cycle ${c.number}`,
+          cycleNumber: c.number,
+          Scope: scope,
+          Completed: completed,
+        });
+      }
+    }
+    return Array.from(byNumber.values()).sort((a, b) => a.cycleNumber - b.cycleNumber);
+  }, [data]);
+
+  // Clicking a bar applies that cycle's number as the filter everywhere else
+  // on the panel (same effect as picking it from the "Cycle" dropdown) —
+  // Recharts hands the clicked segment's merged row data back, which carries
+  // the cycleNumber we added above.
+  const handleBarClick = (point: any) => {
+    const cycleNumber = point?.cycleNumber ?? point?.payload?.cycleNumber;
+    if (cycleNumber != null) onCycleClick?.(String(cycleNumber));
+  };
 
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-accent" />
+        <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
+          <RefreshCw className="h-4 w-4 text-primary" />
           Cycle Scope vs Completed
         </CardTitle>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
+          <p className="smalltext text-muted-foreground py-6 text-center">
             No cycles in selected range
           </p>
         ) : (
-          <div className="h-56">
+          <div className="h-56 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
             <ResponsiveContainer width="100%" height={224}>
               <BarChart data={chartData} barGap={4}>
                 <XAxis
@@ -129,12 +166,30 @@ export function CycleBarChart({ data }: { readonly data: CycleMetric[] }) {
                   dataKey="Scope"
                   fill="oklch(0.65 0.2 250)"
                   radius={[3, 3, 0, 0]}
-                />
+                  onClick={handleBarClick}
+                  cursor={onCycleClick ? "pointer" : undefined}
+                >
+                  {chartData.map((entry) => (
+                    <Cell
+                      key={entry.cycleNumber}
+                      fillOpacity={!activeCycleNumber || String(entry.cycleNumber) === activeCycleNumber ? 1 : 0.4}
+                    />
+                  ))}
+                </Bar>
                 <Bar
                   dataKey="Completed"
                   fill="oklch(0.7 0.18 140)"
                   radius={[3, 3, 0, 0]}
-                />
+                  onClick={handleBarClick}
+                  cursor={onCycleClick ? "pointer" : undefined}
+                >
+                  {chartData.map((entry) => (
+                    <Cell
+                      key={entry.cycleNumber}
+                      fillOpacity={!activeCycleNumber || String(entry.cycleNumber) === activeCycleNumber ? 1 : 0.4}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -194,7 +249,7 @@ export function CycleHistoryChart({
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
+        <CardTitle className="body font-semibold flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-accent" />
           Scope &amp; Completed History
           {activeCycleId && (
@@ -203,7 +258,7 @@ export function CycleHistoryChart({
                 <button
                   key={label}
                   onClick={() => setShowAll(label === "All")}
-                  className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  className={`rounded-md px-3 py-1 smalltext font-medium transition-colors ${
                     (label === "All") === showAll
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -218,7 +273,7 @@ export function CycleHistoryChart({
       </CardHeader>
       <CardContent>
         {lineChartData.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">
+          <p className="smalltext text-muted-foreground py-6 text-center">
             No cycles in selected range
           </p>
         ) : (
@@ -295,7 +350,7 @@ export function CycleHistoryChart({
             <div className="mt-3">
               <button
                 onClick={() => setLegendOpen((o) => !o)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1 smalltext text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ChevronDown
                   className={`h-3 w-3 transition-transform duration-200 ${legendOpen ? "rotate-180" : ""}`}
@@ -310,13 +365,13 @@ export function CycleHistoryChart({
                     return (
                       <div key={label} className="flex flex-col gap-1">
                         {(lineFilter === "all" || lineFilter === "scope") && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5 smalltext text-muted-foreground">
                             <span style={{ display: "inline-block", width: 16, height: 2, background: color }} />
                             {label} – Scope
                           </div>
                         )}
                         {(lineFilter === "all" || lineFilter === "done") && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5 smalltext text-muted-foreground">
                             <svg width="16" height="4" aria-hidden>
                               <line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="2" strokeDasharray="4 3" />
                             </svg>
@@ -437,10 +492,10 @@ export function UncompletedIssuesList({
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
+        <CardTitle className="body font-semibold flex items-center gap-2 flex-wrap">
           <AlertCircle className="h-4 w-4 text-accent shrink-0" />
           Uncompleted at Close — Cycle #{cycleNumber}
-          <span className="ml-auto text-sm font-normal text-muted-foreground">
+          <span className="ml-auto smalltext font-normal text-muted-foreground">
             {realIssues.length} left open
             {noiseIssues.length > 0 && (
               <> · <span className="text-muted-foreground/60">{noiseIssues.length} added after close (excluded)</span></>
@@ -450,7 +505,7 @@ export function UncompletedIssuesList({
       </CardHeader>
       {realIssues.length === 0 ? (
         <CardContent>
-          <p className="text-sm text-muted-foreground py-2">
+          <p className="smalltext text-muted-foreground py-2">
             All issues were added after the cycle closed — nothing was genuinely left open.
           </p>
         </CardContent>
@@ -471,24 +526,24 @@ export function UncompletedIssuesList({
               <TableBody>
                 {sorted.map((issue) => (
                   <TableRow key={issue.id}>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono smalltext text-muted-foreground">
                       {issue.number}
                     </TableCell>
                     <TableCell>{issue.title}</TableCell>
                     <TableCell
-                      className={`text-xs ${PRIORITY_COLOR[issue.priority] ?? ""}`}
+                      className={`smalltext ${PRIORITY_COLOR[issue.priority] ?? ""}`}
                     >
                       {PRIORITY_LABEL[issue.priority] ?? "—"}
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="smalltext">
                       {issue.dueDate
                         ? new Date(issue.dueDate).toLocaleDateString()
                         : "—"}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="smalltext text-muted-foreground">
                       {new Date(issue.addedToCycleAt).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="smalltext">
                       {prevUncompletedIds.has(issue.id) ? (
                         <span className="text-yellow-500">Yes</span>
                       ) : (

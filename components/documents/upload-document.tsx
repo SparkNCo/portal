@@ -169,10 +169,10 @@ export function UploadDocument({
   };
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-border text-foreground">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Upload className="h-4 w-4 text-accent" />
+        <CardTitle className="body font-semibold flex items-center gap-2">
+          <Upload className="h-4 w-4 text-primary" />
           Upload Document
         </CardTitle>
       </CardHeader>
@@ -180,14 +180,14 @@ export function UploadDocument({
       <CardContent className="space-y-4">
         {hasMultipleInitiatives && (
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="smalltext font-medium text-muted-foreground">
               Upload to initiative
             </p>
             <Select
               value={selectedProjectSlug}
               onValueChange={setSelectedProjectSlug}
             >
-              <SelectTrigger className="bg-secondary border-0">
+              <SelectTrigger className="bg-secondary border-0 text-card-foreground smalltext">
                 <SelectValue placeholder="Select an initiative…" />
               </SelectTrigger>
               <SelectContent>
@@ -212,20 +212,20 @@ export function UploadDocument({
               ? "cursor-not-allowed opacity-50 border-border"
               : "cursor-pointer",
             isDragging
-              ? "border-accent bg-accent/10"
+              ? "border-primary bg-primary/10"
               : canUploadNow &&
-                  "border-border hover:border-accent/50 hover:bg-secondary/30",
+                  "border-border hover:border-primary/50 hover:bg-secondary/30",
           )}
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 mb-3">
-            <Upload className="h-6 w-6 text-accent" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3">
+            <Upload className="h-6 w-6 text-primary" />
           </div>
-          <p className="text-sm font-medium text-background-foreground text-center">
+          <p className="smalltext font-medium text-foreground text-center">
             {canUploadNow
               ? "Drag and drop files here, or click to browse"
               : "Select an initiative above to upload"}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="smalltext text-muted-foreground mt-1">
             PDF, DOCX, XLSX, PNG, JPG up to 50MB
           </p>
         </div>
@@ -243,7 +243,7 @@ export function UploadDocument({
 
         {uploadedFiles.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="smalltext font-medium text-muted-foreground">
               Uploaded Files
             </p>
 
@@ -255,10 +255,10 @@ export function UploadDocument({
                 <div className="flex items-center gap-2">
                   <File className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm text-background-foreground truncate max-w-[150px]">
+                    <p className="smalltext text-foreground truncate max-w-[150px]">
                       {file.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">{file.size}</p>
+                    <p className="smalltext text-muted-foreground">{file.size}</p>
                   </div>
                 </div>
 
@@ -268,7 +268,7 @@ export function UploadDocument({
                   ) : file.status === "error" ? (
                     <X className="h-4 w-4 text-destructive" />
                   ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                    <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                   )}
 
                   <Button

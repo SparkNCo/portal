@@ -61,7 +61,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="w-9 h-9 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0">
+    <div className="w-9 h-9 rounded-full bg-muted text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0">
       {initials}
     </div>
   );
@@ -70,16 +70,12 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
 function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   return (
     <div
-      className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
-        isSelected
-          ? "bg-accent/10 border-l-2 border-l-accent"
-          : "hover:bg-secondary/40 border-l-2 border-l-transparent"
-      }`}
+      className="group/item flex items-center gap-3 px-3 py-2.5 border-b bg-black"
     >
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <GroupAvatar name={group.getName()} />
         <div className="min-w-0">
-          <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+          <div className={`text-sm md:smalltext font-medium truncate ${isSelected ? "text-primary" : ""}`}>
             {group.getName()}
           </div>
         </div>
@@ -104,7 +100,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
     <div>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         {slug || "Other"}
@@ -157,15 +153,11 @@ export default function ChatSideBar({
 
   return (
     <div className="w-full h-full border-r flex flex-col bg-background">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-accent" />
-          <span className="font-semibold text-sm">Chats</span>
-        </div>
+      <div className="flex items-center justify-end px-4 py-3 border-b">
         {isCustomer && (
           <button
             onClick={onCreateChat}
-            className="flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1 text-xs md:smalltext bg-accent text-accent-foreground px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
           >
             <Plus className="w-3 h-3" />
             New
@@ -181,11 +173,13 @@ export default function ChatSideBar({
               onSelectedCustomerIdChange?.(value === ALL_CUSTOMERS_VALUE ? "" : value)
             }
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-xs md:smalltext">
               <SelectValue placeholder="All customers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CUSTOMERS_VALUE}>All customers</SelectItem>
+              <SelectItem value={ALL_CUSTOMERS_VALUE}>
+                All customers
+              </SelectItem>
               {customerOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.userName}
@@ -200,7 +194,7 @@ export default function ChatSideBar({
         {hasNoChats ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm md:smalltext text-muted-foreground">
               {showCustomerFilter && selectedCustomerId
                 ? "No chats found for that customer."
                 : isCustomer
@@ -249,10 +243,10 @@ export default function ChatSideBar({
                       <Bot className="w-4 h-4 text-accent" />
                     </div>
                     <div className="min-w-0">
-                      <div className={`text-sm font-medium truncate ${isSelected ? "text-accent" : ""}`}>
+                      <div className={`text-sm md:smalltext font-medium truncate ${isSelected ? "text-primary" : ""}`}>
                         {entry.title}
                       </div>
-                      <div className="text-xs text-muted-foreground">AI Agent</div>
+                      <div className="text-xs md:smalltext text-muted-foreground">AI Agent</div>
                     </div>
                   </button>
                   <button
@@ -273,7 +267,7 @@ export default function ChatSideBar({
       <div className="p-3 border-t">
         <button
           onClick={onCreateChat}
-          className="flex items-center justify-center gap-2 w-full text-sm bg-accent text-accent-foreground px-3 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium"
+          className="flex items-center justify-center gap-2 w-full text-sm md:smalltext bg-accent text-accent-foreground px-3 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium"
         >
           <Plus className="w-4 h-4" />
           New Chat

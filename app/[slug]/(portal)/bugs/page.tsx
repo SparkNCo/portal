@@ -88,6 +88,12 @@ export default function BugsPage() {
 
   const visibleIssues = useMemo(() => {
     return [...dateFiltered].sort((a: any, b: any) => {
+      // Not-Done issues first, Done issues last — each half is then ordered by
+      // priority (desc) and createdAt (asc) same as before.
+      const doneA = a?.state?.name === "Done" ? 1 : 0;
+      const doneB = b?.state?.name === "Done" ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
       const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
       const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
       if (rankA !== rankB) return rankB - rankA;
@@ -129,7 +135,7 @@ export default function BugsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Bugs" subtitle="Issues discovered in production" />
+      <Header title="Bugs" subtitle="Issues discovered in production" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         <BugReportPanel slug={slug} />
@@ -137,9 +143,9 @@ export default function BugsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSelectedProject(null)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
               selectedProject === null
-                ? "bg-accent text-accent-foreground border-accent/40"
+                ? "bg-primary text-primary-foreground border-primary/40"
                 : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
             }`}
           >
@@ -149,9 +155,9 @@ export default function BugsPage() {
             <button
               key={p.id}
               onClick={() => setSelectedProject(p.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
                 selectedProject === p.id
-                  ? "bg-accent text-accent-foreground border-accent/40"
+                  ? "bg-primary text-primary-foreground border-primary/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
               }`}
             >
@@ -173,6 +179,7 @@ export default function BugsPage() {
                 onEditIssue={(issue) => setEditingIssue(issue)}
                 title="Bugs"
                 slug={slug}
+                lightCard
               />
             </>
           )}

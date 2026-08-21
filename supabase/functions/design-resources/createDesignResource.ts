@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { markIssueUpdated } from "../utils/issueUpdates.ts";
 import { validateDesignResourceUrl } from "./validateUrl.ts";
 
 export const createDesignResource = async (req: Request, schema: string) => {
@@ -56,6 +57,8 @@ export const createDesignResource = async (req: Request, schema: string) => {
     console.error("[createDesignResource] insert failed", insertError.message);
     throw new Error(insertError.message);
   }
+
+  await markIssueUpdated(issue_id, email);
 
   return resource;
 };

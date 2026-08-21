@@ -46,16 +46,24 @@ export function DeveloperDetailsModal({
           <>
             <DialogHeader>
               <div className="flex flex-col gap-3 pr-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/20 text-base font-medium text-accent">
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-muted text-lg font-semibold text-primary ring-2 ring-primary/20">
                     {developer.avatar}
                   </div>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 space-y-1">
                     <DialogTitle className="truncate">{developer.name}</DialogTitle>
                     {developer.email && (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="smalltext text-muted-foreground truncate">
                         {developer.email}
                       </p>
+                    )}
+                    {developer.role && (
+                      <Badge
+                        variant="outline"
+                        className="smalltext border-primary/30 bg-primary/5 text-primary capitalize"
+                      >
+                        {developer.role}
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -63,7 +71,7 @@ export function DeveloperDetailsModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-1 self-start sm:shrink-0"
+                    className="gap-1 self-start sm:shrink-0 smalltext"
                     onClick={onEdit}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -73,45 +81,46 @@ export function DeveloperDetailsModal({
               </div>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2">
-              <div className="flex flex-wrap gap-4 text-sm">
-                {developer.role && (
-                  <div className="flex items-center gap-1.5 text-background-foreground">
-                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="capitalize">{developer.role}</span>
-                  </div>
-                )}
-                {developer.joined && (
-                  <div className="flex items-center gap-1.5 text-background-foreground">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>
-                      Added {new Date(developer.joined).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-              </div>
+            <div className="space-y-5 pt-4 mt-1 border-t border-border">
+              {developer.joined && (
+                <div className="flex items-center gap-1.5 smalltext text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  <span>
+                    Added {new Date(developer.joined).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">Bio</p>
-                <p className="text-sm text-background-foreground whitespace-pre-wrap">
-                  {developer.bio || "No bio provided yet."}
+                <p className="flex items-center gap-1.5 smalltext font-medium text-muted-foreground mb-1.5">
+                  <Briefcase className="h-3.5 w-3.5" />
+                  Bio
                 </p>
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="smalltext text-foreground whitespace-pre-wrap">
+                    {developer.bio || "No bio provided yet."}
+                  </p>
+                </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                <p className="smalltext font-medium text-muted-foreground mb-1.5">
                   Tech Stack
                 </p>
                 {developer.techStack.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {developer.techStack.map((tech) => (
-                      <Badge key={tech} variant="secondary">
+                      <Badge
+                        key={tech}
+                        variant="outline"
+                        className="smalltext border-border bg-muted/40 text-foreground"
+                      >
                         {tech}
                       </Badge>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="smalltext text-muted-foreground">
                     No tech stack listed yet.
                   </p>
                 )}

@@ -141,15 +141,19 @@ export function PinnedPanelRenderer({
           title="Business Review"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );
   }
 
   if (panelId === "build_acceptance_testing") {
-    const issues = allIssues.filter(
-      (i) => i.state?.name === "UAT" && matchesSelectedProject(i),
-    );
+    const issues = allIssues
+      .filter((i) => i.state?.name === "UAT" && matchesSelectedProject(i))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+      );
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
@@ -161,6 +165,7 @@ export function PinnedPanelRenderer({
           title="Acceptance Testing"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );
@@ -192,6 +197,7 @@ export function PinnedPanelRenderer({
           title="Bugs"
           slug={slug}
           compact
+          lightCard
         />
       </div>
     );

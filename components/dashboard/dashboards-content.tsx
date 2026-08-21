@@ -7,7 +7,7 @@ import { useUser } from "context/UserContext";
 import { Header } from "@/components/headerDashboard";
 import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, User } from "lucide-react";
+import { Plus, User, Mail, Hash } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import AddClientModal from "@/app/admin/users/AddClientModal";
 
@@ -50,18 +50,24 @@ function CustomerCard({
 
   return (
     <Link href={href}>
-      <Card className="bg-background border-border hover:border-accent transition-colors cursor-pointer">
+      <Card className="bg-card/90 hover:bg-card border-border transition-all duration-150 hover:shadow-md hover:-translate-y-0.5">
         <CardHeader className="flex flex-row items-center gap-3 pb-2">
-          <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center">
-            <User className="h-4 w-4 text-accent" />
+          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+            <User className="h-4 w-4 text-primary" />
           </div>
-          <CardTitle className="text-sm font-semibold">
+          <CardTitle className="body font-semibold">
             {clientName || "—"}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-0.5">
-          <p>{email}</p>
-          <p className="text-xs">Slug: {linear_slug}</p>
+        <CardContent className="smalltext text-card-foreground/60 space-y-0.5">
+          <p className="flex items-center gap-1.5">
+            <Mail className="h-3.5 w-3.5 shrink-0 text-black" />
+            {email}
+          </p>
+          <p className="smalltext flex items-center gap-1.5">
+            <Hash className="h-3.5 w-3.5 shrink-0 text-black" />
+            {linear_slug}
+          </p>
         </CardContent>
       </Card>
     </Link>
@@ -73,10 +79,10 @@ function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-accent hover:text-accent transition-colors"
+      className="flex min-h-[104px] items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors"
       aria-label="Add Customer"
     >
-      <Plus className="h-6 w-6" />
+      <Plus className="h-6 w-6 text-primary" />
     </button>
   );
 }
@@ -131,7 +137,7 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <Header title="Dashboards" subtitle="Customer dashboards" />
+        <Header title="Dashboards" subtitle="Customer dashboards" subtitleClassName="smalltext" />
         <LoadingDataPanel />
       </div>
     );
@@ -155,6 +161,7 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
         subtitle={
           isAdmin ? "All customer dashboards" : "Your assigned dashboards"
         }
+        subtitleClassName="smalltext"
       />
 
       {cards.length || isAdmin ? (
@@ -174,7 +181,7 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
           )}
         </div>
       ) : (
-        <p className="p-6 text-sm text-muted-foreground">
+        <p className="p-6 smalltext text-muted-foreground">
           No dashboards assigned yet.
         </p>
       )}

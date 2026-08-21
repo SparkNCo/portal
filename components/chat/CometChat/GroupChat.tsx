@@ -88,11 +88,11 @@ export default function GroupChat({ user, group }: Props) {
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b">
-        <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-          <Users className="w-4 h-4 text-accent" />
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+          <Users className="w-4 h-4 text-primary" />
         </div>
         <div>
-          <div className="text-sm font-semibold">{group.getName()}</div>
+          <div className="smalltext font-semibold">{group.getName()}</div>
         </div>
       </div>
 
@@ -101,7 +101,7 @@ export default function GroupChat({ user, group }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30" />
-            <p className="text-sm">No messages yet. Say hello!</p>
+            <p className="text-sm md:smalltext">No messages yet. Say hello!</p>
           </div>
         )}
 
@@ -113,10 +113,10 @@ export default function GroupChat({ user, group }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <div className="flex items-center gap-2 bg-secondary/50 border rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-secondary border rounded-xl px-3 py-2">
           <input
             aria-label="Type a message"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent smalltext text-secondary-foreground outline-none placeholder:text-secondary-foreground/40"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Type a message..."
@@ -126,7 +126,7 @@ export default function GroupChat({ user, group }: Props) {
             onClick={sendMessage}
             disabled={!message.trim() || sending}
             aria-label="Send message"
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-accent text-accent-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>

@@ -51,8 +51,43 @@ export function SettingsTabs() {
   const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
   const isAdmin = profile?.role === "admin";
 
+  // SPA-384: billing_mode lives behind its own `stripe-edit` endpoint for now
+  // (kept out of `users` so that function stays untouched while it's being
+  // tested) — fetched separately rather than from the `customers` list above.
+  const {
+    data: billingModeData,
+    isLoading: isBillingModeLoading,
+    isError: isBillingModeError,
+  } = useQuery({
+    queryKey: ["billing-mode", effectiveCustomerId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-edit?customer_id=${effectiveCustomerId}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch billing mode");
+      return res.json() as Promise<{
+        billing_mode: "automatic" | "manual";
+        invoice_amount: number | null;
+        invoice_interval: "day" | "week" | "month" | "year" | null;
+        invoice_interval_count: number | null;
+      }>;
+    },
+    enabled: !!effectiveCustomerId,
+  });
+
+  // Undefined (rather than defaulting to "automatic") while the query above
+  // is still loading or has failed — BillingSection treats that as "unknown"
+  // rather than assuming automatic billing.
+  const effectiveBillingMode = billingModeData?.billing_mode;
+
   const handleStripeIdSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["billing"] });
+  };
+
+  const handleBillingSettingsSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["billing-mode", effectiveCustomerId] });
     queryClient.invalidateQueries({ queryKey: ["billing"] });
   };
 
@@ -72,7 +107,7 @@ export function SettingsTabs() {
       console.log("[SettingsTabs][billing debug] queryFn firing with stripeId:", effectiveStripeId);
       return fetchBillingData({ user: { stripe_customer_id: effectiveStripeId } });
     },
-    enabled: !!effectiveStripeId,
+    enabled: !!effectiveStripeId && effectiveBillingMode === "automatic",
     staleTime: 1000 * 30,
   });
 
@@ -80,19 +115,19 @@ export function SettingsTabs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 p-1 rounded-lg bg-muted border border-border w-fit">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm md:smalltext font-medium transition-all",
               activeTab === tab.id
-                ? "border-accent text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className="h-3.5 w-3.5 text-primary" />
             {tab.label}
           </button>
         ))}
@@ -106,8 +141,16 @@ export function SettingsTabs() {
             isLoading={isLoading}
             stripeCustomerId={effectiveStripeId}
             customerId={effectiveCustomerId}
+            billingMode={effectiveBillingMode}
+            isBillingModeLoading={isBillingModeLoading}
+            isBillingModeError={isBillingModeError}
+            invoiceAmount={billingModeData?.invoice_amount ?? null}
+            invoiceInterval={billingModeData?.invoice_interval ?? null}
+            invoiceIntervalCount={billingModeData?.invoice_interval_count ?? null}
             isAdmin={isAdmin}
             onStripeIdSaved={handleStripeIdSaved}
+            onBillingModeSaved={handleBillingSettingsSaved}
+            onInvoiceSettingsSaved={handleBillingSettingsSaved}
           />
         )}
         {activeTab === "staffing" && (

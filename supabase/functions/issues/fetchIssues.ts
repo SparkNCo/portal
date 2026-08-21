@@ -107,6 +107,44 @@ function extractText(bodyData: string): string {
   }
 }
 
+const GET_ISSUE_BY_ID_QUERY = `
+  query GetIssueById($id: String!) {
+    issue(id: $id) {
+      id
+      branchName
+      title
+      description
+      priorityLabel
+      state { name }
+      labels { nodes { id name color } }
+    }
+  }
+`;
+
+// Backs the "Edit this instead" action on the similar-issues hint — the vector match
+// only carries { id, title } metadata, so this fetches the rest of the Issue shape
+// EditIssueModal needs, straight from Linear by id (no project/customer filtering
+// required since it's a direct id lookup).
+export async function handleGetIssueById(req: Request): Promise<Response> {
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+
+  const res = await fetch(LINEAR_GRAPHQL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: Deno.env.get("LINEAR_API_KEY")!,
+    },
+    body: JSON.stringify({ query: GET_ISSUE_BY_ID_QUERY, variables: { id } }),
+  });
+
+  const json = await res.json();
+  if (json.errors) throw new Error(JSON.stringify(json.errors));
+  if (!json.data?.issue) return Response.json({ error: "Issue not found" }, { status: 404 });
+
+  return Response.json(json.data.issue);
+}
+
 export async function handleGetIssues(req: Request): Promise<Response> {
   const schema = "portal";
   const { searchParams } = new URL(req.url);

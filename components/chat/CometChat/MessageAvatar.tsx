@@ -18,7 +18,7 @@ export function MessageAvatar({
   return (
     <div
       className={cn(
-        "w-7 h-7 rounded-full bg-accent/20 text-accent flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5",
+        "w-7 h-7 rounded-full bg-muted text-primary flex items-center justify-center text-xs font-semibold flex-shrink-0 mt-0.5",
         className,
       )}
     >

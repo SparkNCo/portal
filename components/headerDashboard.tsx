@@ -6,9 +6,11 @@ import { useSidebar } from "@/lib/sidebar-context";
 interface HeaderProps {
   title: string
   subtitle?: string
+  /** Override the subtitle's default text-sm sizing for a specific page — e.g. "smalltext" for 16px. */
+  subtitleClassName?: string
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, subtitleClassName }: HeaderProps) {
   const { open } = useSidebar();
 
   return (
@@ -16,14 +18,16 @@ export function Header({ title, subtitle }: HeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={open}
-          className="lg:hidden -ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="lg:hidden -ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
         </button>
         <div>
           <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+          {subtitle && (
+            <p className={`${subtitleClassName ?? "text-sm"} text-muted-foreground`}>{subtitle}</p>
+          )}
         </div>
       </div>
     </header>

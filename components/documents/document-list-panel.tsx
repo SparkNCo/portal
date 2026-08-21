@@ -53,7 +53,8 @@ export function DocumentRow({
 }) {
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
-  const { user } = useUser();
+  const { user, profile } = useUser();
+  const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -110,25 +111,25 @@ export function DocumentRow({
         return (
           <div
             key={doc.id}
-            className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3 hover:bg-secondary/50 transition-colors group"
+            className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between rounded-lg border border-transparent bg-background hover:bg-muted transition-colors group"
           >
             {/* Left */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <FormatIcon className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <FormatIcon className="h-5 w-5 text-primary" />
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-card-foreground group-hover:text-accent transition-colors">
+              <div className="min-w-0">
+                <p className="smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate">
                   {doc.name}
                 </p>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 smalltext text-muted-foreground flex-wrap">
                   <Badge
                     variant="secondary"
-                    className={
+                    className={`smalltext ${
                       categoryColors[doc.category] ?? "bg-muted text-foreground"
-                    }
+                    }`}
                   >
                     {doc.category}
                   </Badge>
@@ -141,8 +142,9 @@ export function DocumentRow({
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions — always visible on touch screens (no hover state to
+                reveal them); hover-revealed only at sm: and up. */}
+            <div className="flex items-center gap-1 self-end sm:self-auto opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
               {/* Category settings */}
 
               {["write", "owner"].includes(doc.permission) && (
@@ -151,7 +153,7 @@ export function DocumentRow({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 hover:text-primary"
                       aria-label={`Change category for ${doc.name}`}
                     >
                       <Settings className="h-4 w-4" />
@@ -165,7 +167,7 @@ export function DocumentRow({
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "w-full justify-start text-sm",
+                          "w-full justify-start smalltext",
                           doc.category === category &&
                             "bg-secondary font-medium",
                         )}
@@ -187,7 +189,7 @@ export function DocumentRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hover:text-primary"
                 onClick={() => handleOpen(doc)}
                 aria-label={`Open ${doc.name}`}
               >
@@ -199,11 +201,11 @@ export function DocumentRow({
                 />
               </Button>
 
-              {["write", "owner"].includes(doc.permission) && (
+              {(["write", "owner"].includes(doc.permission) || isAdmin) && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 hover:text-primary"
                   onClick={() => {
                     setSelectedDoc(doc);
                     setIsShareOpen(true);
@@ -217,7 +219,7 @@ export function DocumentRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 hover:text-primary"
                 onClick={() => handleDownload(doc)}
                 aria-label={`Download ${doc.name}`}
               >

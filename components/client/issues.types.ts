@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 
+// Low -> High escalates through the orange family (lightest to most
+// intense/red-leaning); Urgent stays destructive red as the tier beyond High.
 export const priorityColors = {
   Urgent: "bg-destructive/20 text-destructive border-destructive/30",
-  High: "bg-warning/20 text-warning border-warning/30",
-  Medium: "bg-accent/20 text-accent border-accent/30",
-  Low: "bg-muted/50 text-muted-foreground border-muted",
+  High: "bg-chart-1/20 text-chart-1 border-chart-1/30",
+  Medium: "bg-primary/20 text-primary border-primary/30",
+  Low: "bg-chart-5/20 text-chart-5 border-chart-5/30",
 };
 
 export const statusColors = {
@@ -47,15 +49,22 @@ export const CHART_STATUS_COLORS: Record<string, string> = {
   "In Progress": "hsl(var(--warning))",
   "In Review": "hsl(var(--warning))",
   Blocked: "hsl(var(--destructive))",
-  "Not Started": "hsl(var(--muted))",
-  Todo: "hsl(var(--muted))",
-  Canceled: "hsl(var(--muted))",
-  Backlog: "hsl(0, 0%, 30%)",
-  Planning: "hsl(50, 90%, 35%)",
-  "Business Review": "hsl(320, 65%, 40%)",
-  Development: "hsl(265, 60%, 45%)",
-  QA: "hsl(210, 70%, 35%)",
-  UAT: "hsl(180, 60%, 30%)",
+  // Same red as Blocked — matches its own badge color in `statusColors`
+  // above, and reads as "negative outcome" rather than a neutral no-op.
+  Canceled: "hsl(var(--destructive))",
+  // "Hasn't started yet" cluster — the dedicated neutral chart gray, tuned
+  // to actually show up against the #111111 page background (the old
+  // `--muted`/hardcoded values here were near-black and barely visible).
+  "Not Started": "hsl(var(--donut))",
+  Todo: "hsl(var(--donut))",
+  Backlog: "hsl(var(--donut))",
+  // Active-workflow stages — same hues as before, brightened so they're
+  // legible on a dark background instead of the old ~30-45% lightness.
+  Planning: "hsl(43, 74%, 66%)",
+  "Business Review": "hsl(320, 65%, 60%)",
+  Development: "hsl(265, 60%, 65%)",
+  QA: "hsl(210, 70%, 55%)",
+  UAT: "hsl(180, 60%, 50%)",
 };
 
 export type Decision = {
@@ -70,21 +79,41 @@ export type Decision = {
   created_at: string;
 };
 
-export type TestCase = {
+export type TestStep = { order: number; description: string };
+
+// A reusable test definition — no longer tied to one ticket. Attaching it to a ticket
+// creates a TestExecution (see below).
+export type Test = {
   id: string;
+  project_slug: string | null;
   title: string;
-  steps: { order: number; description: string }[];
+  steps: TestStep[];
+  last_passed_execution_id: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+export type TestExecutionResult = {
+  text: string;
+  recorded_by?: string | null;
+  recorded_at?: string;
+  kind?: "qa" | "uat";
+  attachments?: { name: string; url: string }[];
+};
+
+// One attachment of a Test to one ticket: the expected behaviour for that ticket, its
+// status, and the accumulated QA/UAT results recorded against it.
+export type TestExecution = {
+  id: string;
+  test_id: string;
+  issue_id: string;
   expected: string;
-  actual?: {
-    text: string;
-    recorded_by?: string | null;
-    recorded_at?: string;
-    kind?: "qa" | "uat";
-    attachments?: { name: string; url: string }[];
-  }[];
   status: "draft" | "approved" | "passed" | "failed";
+  results: TestExecutionResult[];
   created_by: string;
   approved_by?: string;
+  // Merged in by GET /test-executions — the reusable test's own title/steps.
+  test: Pick<Test, "title" | "steps"> | null;
 };
 
 export type Issue = {
@@ -117,6 +146,7 @@ export type Issue = {
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
   createdAt?: string;
+  project?: { id: string; name: string; slugId?: string };
 };
 
 export type FilterState = {
@@ -146,6 +176,10 @@ export type PriorityTasksProps = {
   onEditIssue?: (issue: Issue) => void;
   title?: string;
   compact?: boolean;
+  // Renders the compact row list on the light-card surface (see .light-card in
+  // globals.css) instead of the default dark bg-background rows — opt-in per
+  // panel rather than a global IssueListRow change.
+  lightCard?: boolean;
   headerAction?: ReactNode;
   // Which customer these issues belong to — passed through to the issue
   // detail modal's Chat tab so a brand-new chat group gets tagged with the

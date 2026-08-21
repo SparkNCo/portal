@@ -19,14 +19,14 @@ export function ProjectSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger id={id} className="bg-secondary border-0">
+      <SelectTrigger id={id} className="h-8 text-xs md:smalltext">
         <SelectValue
           placeholder={projects.length ? "Select a project…" : "Loading projects…"}
         />
       </SelectTrigger>
       <SelectContent>
         {projects.map((p) => (
-          <SelectItem key={p.id} value={p.id}>
+          <SelectItem key={p.id} value={p.id} className="text-xs md:smalltext">
             {p.name}
           </SelectItem>
         ))}

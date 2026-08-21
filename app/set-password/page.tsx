@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
-import { KeyRound, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { KeyRound, Eye, EyeOff, AlertTriangle, Mail, Building2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 
 // Supabase redirects an invite link it can no longer honor (expired/already
@@ -37,6 +37,7 @@ function SetPasswordForm() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -57,7 +58,7 @@ function SetPasswordForm() {
     const { data } = await supabase
       .schema("portal")
       .from("users")
-      .select("role, firstName, lastName, userName, phoneNumber")
+      .select("role, firstName, lastName, userName, phoneNumber, customer_id")
       .eq("id", session.user.id)
       .maybeSingle();
 
@@ -66,6 +67,7 @@ function SetPasswordForm() {
     if (data?.lastName) setLastName(data.lastName);
     if (data?.userName) setClientName(data.userName);
     if (data?.phoneNumber) setPhoneNumber(data.phoneNumber);
+    if (data?.customer_id) setCustomerId(data.customer_id);
     setReady(true);
   }
 
@@ -148,23 +150,58 @@ function SetPasswordForm() {
       return;
     }
 
+    if (isCustomer && customerId) {
+      try {
+        // The edge function derives the caller's own customer_id from this
+        // token rather than trusting customer_id in the body — the anon key
+        // in API_JSON_HEADERS isn't a real session, so it has to be swapped
+        // out here for the one this page already established above.
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const customerPatchRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer`,
+          {
+            method: "PATCH",
+            headers: {
+              ...API_JSON_HEADERS,
+              Authorization: `Bearer ${session?.access_token ?? ""}`,
+            },
+            body: JSON.stringify({
+              customer_id: customerId,
+              clientName: clientName.trim(),
+            }),
+          },
+        );
+
+        if (!customerPatchRes.ok) {
+          const body = await customerPatchRes.json().catch(() => null);
+          setError(body?.error ?? "Password set, but could not save the client name.");
+          setSubmitting(false);
+          return;
+        }
+      } catch {
+        setError("Password set, but could not save the client name.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setDone(true);
     await reloadUser();
     router.replace(redirectPath);
   }
 
   const inputClass =
-    "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
-
-  const readOnlyClass =
-    "w-full rounded p-2 bg-secondary/50 text-muted-foreground text-sm cursor-not-allowed select-none";
+    "white-input w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-white text-black text-sm";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-96 bg-background border-border shadow-lg">
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-accent" />
+          <CardTitle className="body font-semibold flex items-center gap-2 text-primary">
+            <KeyRound className="h-4 w-4 text-primary" />
             User Data
           </CardTitle>
         </CardHeader>
@@ -190,14 +227,26 @@ function SetPasswordForm() {
 
           {ready && !done && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email — read only */}
-              <input
-                className={readOnlyClass}
-                type="email"
-                value={email}
-                readOnly
-                tabIndex={-1}
-              />
+              {/* Email is never editable here — shown as a label, not an input. */}
+              <div className="flex items-center gap-2 text-primary smalltext font-medium">
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="truncate">{email}</span>
+              </div>
+
+              {isCustomer ? (
+                // Customers can't rename their own client — shown as a label too.
+                <div className="flex items-center gap-2 text-primary smalltext font-medium">
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{clientName}</span>
+                </div>
+              ) : (
+                <input
+                  className={inputClass}
+                  placeholder="User name"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              )}
 
               <div className="flex gap-2">
                 <input
@@ -213,13 +262,6 @@ function SetPasswordForm() {
                   onChange={(e) => setLastName(e.target.value)}
                 />
               </div>
-
-              <input
-                className={inputClass}
-                placeholder={isCustomer ? "Client name" : "User name"}
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
 
               <input
                 className={inputClass}
@@ -242,7 +284,7 @@ function SetPasswordForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -264,7 +306,7 @@ function SetPasswordForm() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
                   tabIndex={-1}
                 >
                   {showConfirm ? (

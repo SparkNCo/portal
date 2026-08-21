@@ -43,8 +43,8 @@ interface TimelineHeaderProps {
 export function TimelineHeader({ onPrev, onNext, canGoBack, canGoForward }: TimelineHeaderProps) {
   return (
     <CardHeader className="flex flex-row flex-wrap justify-between gap-2">
-      <CardTitle className="flex items-center gap-2">
-        <Map className="h-4 w-4 text-accent" />
+      <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
+        <Map className="h-4 w-4 text-primary" />
         Projects Timeline
       </CardTitle>
 
@@ -77,7 +77,7 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
     <div className="flex border-b pb-2 mb-4">
       <div className="hidden w-56 shrink-0 sm:block" />
       <div
-        className="grid flex-1 gap-0.5 sm:gap-1"
+        className="grid flex-1 gap-px sm:gap-0.5"
         style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
       >
         {buckets.map((bucket) => {
@@ -89,9 +89,9 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
                 <Tooltip.Trigger asChild>
                   <div
                     className={cn(
-                      "rounded py-1 text-center text-[10px] sm:text-xs cursor-default",
+                      "rounded py-1 text-center smalltext cursor-default",
                       isCurrent
-                        ? "bg-accent/20 text-accent"
+                        ? "bg-primary/20 text-primary"
                         : "text-muted-foreground",
                     )}
                   >
@@ -102,7 +102,7 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 rounded-md bg-popover px-3 py-2 text-xs shadow-md"
+                    className="z-50 rounded-md bg-popover px-3 py-2 smalltext shadow-md"
                   >
                     {formatDate(bucket.start)} – {formatDate(bucket.end)}
                     <Tooltip.Arrow className="fill-popover" />

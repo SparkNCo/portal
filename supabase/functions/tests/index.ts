@@ -1,5 +1,9 @@
 // @ts-nocheck
+// Reusable Test definitions (name + steps). Executions of a test against a specific
+// Linear ticket live in the separate `test-executions` function/table — see
+// supabase/functions/test-executions/index.ts.
 import { corsHeaders } from "../utils/headers.ts";
+import { upsertTestVector, queryTopTestMatches } from "../lib/vector.ts";
 
 const supabaseUrl = () => Deno.env.get("PROJECT_URL")!;
 const serviceKey = () => Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -28,16 +32,14 @@ Deno.serve(async (req) => {
     const pathname = new URL(req.url).pathname;
     let res: Response;
 
-    if (req.method === "GET") {
-      res = await handleGetTests(req);
+    if (req.method === "GET" && pathname.endsWith("/similar")) {
+      res = await handleSimilarTests(req);
+    } else if (req.method === "GET") {
+      res = await handleSearchTests(req);
     } else if (req.method === "POST") {
       res = await handleCreateTest(req);
-    } else if (req.method === "PATCH" && pathname.endsWith("/approve")) {
-      res = await handleApproveTest(req);
     } else if (req.method === "PATCH" && pathname.endsWith("/update")) {
       res = await handleUpdateTest(req);
-    } else if (req.method === "PATCH" && pathname.endsWith("/uat")) {
-      res = await handleUatTest(req);
     } else if (req.method === "DELETE") {
       res = await handleDeleteTest(req);
     } else {
@@ -57,81 +59,98 @@ Deno.serve(async (req) => {
   }
 });
 
-// GET /tests?issue_id=xxx
-async function handleGetTests(req: Request): Promise<Response> {
+// GET /tests?project_slug=xxx&q=search — autocomplete for "pick an existing test",
+// scoped to the current customer/initiative so one customer's test names never leak
+// into another's suggestions. `q` is optional (empty search just lists recent tests).
+// `id` looks up one specific test directly — used to resolve a semantic match from
+// /tests/similar (which only carries {test_id, name} metadata) into the full row.
+async function handleSearchTests(req: Request): Promise<Response> {
   const schema = "portal";
-  const issue_id = new URL(req.url).searchParams.get("issue_id");
-  if (!issue_id) return Response.json({ error: "Missing issue_id" }, { status: 400 });
+  const url = new URL(req.url);
+  const project_slug = url.searchParams.get("project_slug");
+  const id = url.searchParams.get("id");
+  const q = url.searchParams.get("q")?.trim();
+  if (!project_slug) return Response.json({ error: "Missing project_slug" }, { status: 400 });
 
-  const res = await fetch(
-    `${db("tests")}?issue_id=eq.${issue_id}&order=created_at.asc`,
-    { headers: headers(schema) },
-  );
+  const params = new URLSearchParams({
+    project_slug: `eq.${project_slug}`,
+    select: "id,title,steps,last_passed_execution_id",
+    order: "title.asc",
+    limit: "10",
+  });
+  if (id) params.set("id", `eq.${id}`);
+  else if (q) params.set("title", `ilike.*${q}*`);
+
+  const res = await fetch(`${db("tests")}?${params.toString()}`, { headers: headers(schema) });
   const data = await res.json();
   return Response.json(data);
 }
 
-// POST /tests — admin creates a test case
+// GET /tests/similar?project_slug=xxx&q=... — semantic "similar tests" suggestion,
+// backed by the Upstash test-cases vector index. Only meaningful once the user has
+// typed enough real text to embed; the frontend enforces that minimum, not this
+// endpoint (mirrors GET /issues/similar).
+async function handleSimilarTests(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const project_slug = url.searchParams.get("project_slug");
+  const q = url.searchParams.get("q");
+
+  if (!project_slug || !q?.trim()) return Response.json([]);
+
+  const matches = await queryTopTestMatches(project_slug, q.trim(), 3);
+  return Response.json(matches);
+}
+
+// POST /tests — create a new reusable test case (no issue_id/expected/status anymore —
+// those live on the test_executions row created separately once this test is attached
+// to a ticket).
 async function handleCreateTest(req: Request): Promise<Response> {
   const schema = "portal";
-  const { issue_id, title, steps, expected, created_by } = await req.json();
+  const { project_slug, title, steps, created_by } = await req.json();
 
-  if (!issue_id || !title || !created_by) {
-    return Response.json({ error: "Missing issue_id, title, or created_by" }, { status: 400 });
+  if (!project_slug || !title || !created_by) {
+    return Response.json({ error: "Missing project_slug, title, or created_by" }, { status: 400 });
   }
 
   const res = await fetch(db("tests"), {
     method: "POST",
     headers: headers(schema, { Prefer: "return=representation" }),
     body: JSON.stringify({
-      issue_id,
+      project_slug,
       title,
       steps: steps ?? [],
-      expected: expected ?? "",
-      status: "draft",
       created_by,
     }),
   });
 
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to create test", details: data }, { status: 500 });
-  return Response.json(data[0] ?? data);
+
+  const created = data[0] ?? data;
+  await upsertTestVector(project_slug, created);
+  return Response.json(created);
 }
 
-// PATCH /tests/approve — stakeholder approves a test case
-async function handleApproveTest(req: Request): Promise<Response> {
-  const schema = "portal";
-  const { test_id, approved_by } = await req.json();
-  if (!test_id || !approved_by) {
-    return Response.json({ error: "Missing test_id or approved_by" }, { status: 400 });
-  }
-
-  const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
-    method: "PATCH",
-    headers: headers(schema, { Prefer: "return=representation" }),
-    body: JSON.stringify({ status: "approved", approved_by }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) return Response.json({ error: "Failed to approve test", details: data }, { status: 500 });
-  return Response.json(data[0] ?? data);
-}
-
-// PATCH /tests/update — admin edits a test case while it's still in draft
+// PATCH /tests/update — edit a test's title/steps. Only while it has never had a
+// passed execution, so the "recipe" can't be rewritten out from under a ticket that
+// already certified it worked.
 async function handleUpdateTest(req: Request): Promise<Response> {
   const schema = "portal";
-  const { test_id, title, steps, expected } = await req.json();
+  const { test_id, title, steps } = await req.json();
   if (!test_id || !title) {
     return Response.json({ error: "Missing test_id or title" }, { status: 400 });
   }
 
-  const getRes = await fetch(`${db("tests")}?id=eq.${test_id}&select=status`, {
+  const getRes = await fetch(`${db("tests")}?id=eq.${test_id}&select=last_passed_execution_id`, {
     headers: headers(schema),
   });
   const [row] = await getRes.json();
   if (!row) return Response.json({ error: "Test not found" }, { status: 404 });
-  if (row.status !== "draft") {
-    return Response.json({ error: "Only draft tests can be edited" }, { status: 400 });
+  if (row.last_passed_execution_id) {
+    return Response.json(
+      { error: "This test has already passed on a ticket and can no longer be edited" },
+      { status: 400 },
+    );
   }
 
   const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
@@ -140,65 +159,37 @@ async function handleUpdateTest(req: Request): Promise<Response> {
     body: JSON.stringify({
       title,
       steps: steps ?? [],
-      expected: expected ?? "",
       updated_at: new Date().toISOString(),
     }),
   });
 
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to update test", details: data }, { status: 500 });
-  return Response.json(data[0] ?? data);
+
+  const updated = data[0] ?? data;
+  if (updated.project_slug) await upsertTestVector(updated.project_slug, updated);
+  return Response.json(updated);
 }
 
-// PATCH /tests/uat — record the actual UAT result and/or toggle passed status
-async function handleUatTest(req: Request): Promise<Response> {
-  const schema = "portal";
-  const { test_id, actual, passed, recorded_by, kind, attachments } = await req.json();
-  if (!test_id || (actual === undefined && passed === undefined)) {
-    return Response.json({ error: "Missing test_id, and at least one of actual or passed" }, { status: 400 });
-  }
-
-  const updatePayload: Record<string, unknown> = {};
-
-  if (actual !== undefined) {
-    const getRes = await fetch(`${db("tests")}?id=eq.${test_id}&select=actual`, {
-      headers: headers(schema),
-    });
-    const [row] = await getRes.json();
-    const current: unknown[] = Array.isArray(row?.actual) ? row.actual : [];
-
-    updatePayload.actual = [
-      ...current,
-      {
-        text: actual,
-        recorded_by: recorded_by ?? null,
-        recorded_at: new Date().toISOString(),
-        kind: kind ?? null,
-        attachments: Array.isArray(attachments) ? attachments : [],
-      },
-    ];
-  }
-
-  if (passed !== undefined) {
-    updatePayload.status = passed ? "passed" : "approved";
-  }
-
-  const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
-    method: "PATCH",
-    headers: headers(schema, { Prefer: "return=representation" }),
-    body: JSON.stringify(updatePayload),
-  });
-
-  const data = await res.json();
-  if (!res.ok) return Response.json({ error: "Failed to update UAT result", details: data }, { status: 500 });
-  return Response.json(data[0] ?? data);
-}
-
-// DELETE /tests?test_id=xxx — admin deletes a draft test
+// DELETE /tests?test_id=xxx — refuses to delete a test that's attached to any ticket
+// (test_executions.test_id cascades on delete, so allowing this unconditionally would
+// silently wipe another ticket's test history).
 async function handleDeleteTest(req: Request): Promise<Response> {
   const schema = "portal";
   const test_id = new URL(req.url).searchParams.get("test_id");
   if (!test_id) return Response.json({ error: "Missing test_id" }, { status: 400 });
+
+  const executionsRes = await fetch(
+    `${db("test_executions")}?test_id=eq.${test_id}&select=id&limit=1`,
+    { headers: headers(schema) },
+  );
+  const existingExecutions = await executionsRes.json();
+  if (Array.isArray(existingExecutions) && existingExecutions.length > 0) {
+    return Response.json(
+      { error: "Can't delete a test that's already attached to a ticket" },
+      { status: 400 },
+    );
+  }
 
   const res = await fetch(`${db("tests")}?id=eq.${test_id}`, {
     method: "DELETE",

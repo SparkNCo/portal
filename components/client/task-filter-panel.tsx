@@ -33,12 +33,12 @@ export function TaskFilterPanel({
     <div className="space-y-4">
       {hasCycles && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Cycle
           </p>
           <button
             onClick={onToggleActive}
-            className={`text-xs px-3 py-1.5 rounded-md border transition-colors font-medium ${
+            className={`smalltext px-3 py-1.5 rounded-md border transition-colors font-medium ${
               onlyActive
                 ? "bg-primary text-primary-foreground border-primary"
                 : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
@@ -51,7 +51,7 @@ export function TaskFilterPanel({
 
       {availableStatuses.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Status
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -61,7 +61,7 @@ export function TaskFilterPanel({
                 <button
                   key={status}
                   onClick={() => onToggleStatus(status)}
-                  className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                  className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                     active
                       ? `${statusColors[status as keyof typeof statusColors]} border-current opacity-100`
                       : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
@@ -77,7 +77,7 @@ export function TaskFilterPanel({
 
       {availablePriorities.length > 0 && onTogglePriority && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Priority
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -87,7 +87,7 @@ export function TaskFilterPanel({
                 <button
                   key={priority}
                   onClick={() => onTogglePriority(priority)}
-                  className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                  className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                     active
                       ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
                       : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
@@ -103,30 +103,30 @@ export function TaskFilterPanel({
 
       {(onDateFromChange || onDateToChange) && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Date
           </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
+              <span className="w-8 shrink-0 smalltext text-muted-foreground">
                 From
               </span>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => onDateFromChange?.(e.target.value)}
-                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-8 shrink-0 text-[11px] text-muted-foreground">
+              <span className="w-8 shrink-0 smalltext text-muted-foreground">
                 To
               </span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => onDateToChange?.(e.target.value)}
-                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -135,7 +135,7 @@ export function TaskFilterPanel({
 
       {availableLabels.length > 0 && onToggleLabel && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <p className="smalltext font-semibold text-primary mb-2">
             Labels
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -145,7 +145,7 @@ export function TaskFilterPanel({
                 <button
                   key={label}
                   onClick={() => onToggleLabel(label)}
-                  className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all ${
+                  className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                     active
                       ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
                       : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
@@ -161,7 +161,7 @@ export function TaskFilterPanel({
 
       {activeFilters > 0 && (
         <button
-          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          className="smalltext text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
           onClick={onClearFilters}
         >
           <span className="text-base leading-none">×</span> Clear all filters

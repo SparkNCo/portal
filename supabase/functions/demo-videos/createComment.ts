@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { markIssueUpdated } from "../utils/issueUpdates.ts";
 import { SCHEMA, getUserIdByEmail } from "./helpers.ts";
 
 export const createComment = async (
@@ -25,6 +26,15 @@ export const createComment = async (
     .single();
 
   if (error) throw new Error(error.message);
+
+  const { data: video } = await supabase
+    .schema(SCHEMA)
+    .from("demo_videos")
+    .select("issue_id")
+    .eq("id", demoVideoId)
+    .maybeSingle();
+
+  if (video?.issue_id) await markIssueUpdated(video.issue_id, email);
 
   return data;
 };

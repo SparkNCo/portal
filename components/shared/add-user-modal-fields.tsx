@@ -4,21 +4,24 @@ import { Button } from "@/components/components/ui/button";
 import { UserPlus } from "lucide-react";
 
 export const inputClass =
-  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-foreground text-sm";
+  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-secondary-foreground smalltext";
 
 export function ModalShell({
   title,
   children,
+  widthClassName = "w-96",
 }: {
   title: string;
   children: ReactNode;
+  /** Override the default w-96 for modals that need more room (e.g. Add Developer). */
+  widthClassName?: string;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <Card className="w-96 bg-background border-border shadow-lg">
+      <Card className={`${widthClassName} bg-background border-border shadow-lg text-foreground`}>
         <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-accent" />
+          <CardTitle className="body font-semibold flex items-center gap-2 text-primary">
+            <UserPlus className="h-4 w-4 text-primary" />
             {title}
           </CardTitle>
         </CardHeader>
@@ -76,7 +79,7 @@ export function PhoneField({
         onChange={(e) => onChange(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))}
       />
       {showError && (
-        <p className="text-sm text-destructive">Enter a valid phone number.</p>
+        <p className="smalltext text-destructive">Enter a valid phone number.</p>
       )}
     </>
   );
@@ -84,7 +87,7 @@ export function PhoneField({
 
 export function ModalError({ error }: { error: unknown }) {
   if (!error) return null;
-  return <p className="text-sm text-destructive">{(error as Error).message}</p>;
+  return <p className="smalltext text-destructive">{(error as Error).message}</p>;
 }
 
 export function ModalFooter({

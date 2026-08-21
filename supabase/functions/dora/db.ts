@@ -100,6 +100,27 @@ export async function getLastFeatClosedBefore(
   return data?.closed_date ?? null;
 }
 
+// Total branches ever recorded of a given type for this repo — used by
+// Defect Escape Rate, which is a ratio over all known fix/feat branches, not
+// just ones inside a lookback window.
+export async function getBranchTypeCount(
+  schema: string,
+  repo: string,
+  branchType: string,
+): Promise<number> {
+  const { count, error } = await supabase.schema(schema)
+    .from("dora_branch_events")
+    .select("*", { count: "exact", head: true })
+    .eq("repo", repo)
+    .eq("branch_type", branchType);
+
+  if (error) {
+    throw new Error(`Failed to count ${branchType} branch events: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
 export async function getBranchCreatedAtMap(
   schema: string,
   repo: string,

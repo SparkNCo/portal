@@ -12,7 +12,7 @@ export const PINNABLE_PANELS: Record<
   { label: string; sourceDashboard: "monitor" | "build" | "bugs" }
 > = {
   progress_pie_chart: { label: "Project Status", sourceDashboard: "monitor" },
-  software_kpis: { label: "DORA Metrics", sourceDashboard: "monitor" },
+  software_kpis: { label: "SDLC Metrics", sourceDashboard: "monitor" },
   roadmap_timeline: { label: "Roadmap Timeline", sourceDashboard: "monitor" },
   metrics_panel: { label: "Cycle & Issue Metrics", sourceDashboard: "monitor" },
   build_product_decisions: {

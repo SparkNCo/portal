@@ -22,14 +22,14 @@ export default function CreateChatModal({ creating, initialTitle, onCreate, onCl
       <div className="bg-background border rounded-2xl p-6 w-[360px] shadow-xl space-y-5">
         <div>
           <h2 className="font-semibold text-base">New Chat</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs md:smalltext text-muted-foreground mt-0.5">
             Group chat with your assigned developers
           </p>
         </div>
 
         <input
           autoFocus
-          className="w-full border rounded-lg px-3 py-2.5 text-sm bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-accent/50"
+          className="w-full border rounded-lg px-3 py-2.5 text-sm md:smalltext bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-accent/50"
           placeholder="Chat title..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -40,14 +40,14 @@ export default function CreateChatModal({ creating, initialTitle, onCreate, onCl
           <button
             onClick={onClose}
             disabled={creating}
-            className="px-4 py-2 text-sm rounded-lg border hover:bg-secondary transition-colors"
+            className="px-4 py-2 text-sm md:smalltext rounded-lg border hover:bg-secondary transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={creating || !title.trim()}
-            className="px-4 py-2 text-sm rounded-lg bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-40 transition-opacity font-medium"
+            className="px-4 py-2 text-sm md:smalltext rounded-lg bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-40 transition-opacity font-medium"
           >
             {creating ? "Creating..." : "Create"}
           </button>
