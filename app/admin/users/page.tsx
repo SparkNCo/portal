@@ -11,6 +11,7 @@ import AssignCustomerModal from "./AssignCustomerModal";
 import EditDeveloperProfileModal from "./EditDeveloperProfileModal";
 import ViewDeveloperProfileModal from "./ViewDeveloperProfileModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
@@ -370,14 +371,14 @@ export default function AdminUsersPage() {
         <div className="space-y-4">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
-            <input
+            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-primary pointer-events-none" />
+            <Input
               type="text"
               aria-label="Search by email or username"
               placeholder="Search by email or username..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="pl-8"
             />
           </div>
 

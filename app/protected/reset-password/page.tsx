@@ -16,14 +16,14 @@ export default async function ResetPassword(props: {
         <p className="text-sm text-foreground/60">
           Please enter your new password below.
         </p>
-        <Label htmlFor="password">New password</Label>
+        <Label htmlFor="password">New Password</Label>
         <Input
           type="password"
           name="password"
           placeholder="New password"
           required
         />
-        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Label htmlFor="confirmPassword">Confirm Password</Label>
         <Input
           type="password"
           name="confirmPassword"

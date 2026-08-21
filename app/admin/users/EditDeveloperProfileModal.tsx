@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { TechStackPicker } from "@/components/shared/tech-stack-picker";
+import { Label } from "@/components/ui/label";
 import {
-  inputClass,
   ModalShell,
   ModalError,
   ModalFooter,
@@ -70,18 +70,18 @@ export default function EditDeveloperProfileModal({ userId, userEmail, onClose }
         <p className="text-sm text-muted-foreground">Loading...</p>
       ) : (
         <>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Bio</label>
+          <div className="space-y-1.5">
+            <Label>Bio</Label>
             <textarea
-              className={`${inputClass} min-h-[80px] resize-none`}
+              className="w-full rounded-md border-0 bg-secondary p-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px] resize-none"
               placeholder="Short bio..."
               value={bio}
               onChange={(e) => setBio(e.target.value)}
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Tech Stack</label>
+          <div className="space-y-1.5">
+            <Label>Skills</Label>
             <TechStackPicker value={techStack} onChange={setTechStack} />
           </div>
         </>

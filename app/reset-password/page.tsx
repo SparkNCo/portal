@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { SparkButton } from "@/components/ui/spark-button";
+import { Input } from "@/components/ui/input";
 import { Eye, EyeOff, LinkIcon } from "lucide-react";
 
 function ResetPasswordForm() {
@@ -109,20 +110,20 @@ function ResetPasswordForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col gap-1">
-            <label htmlFor="new-password" className="text-sm font-medium text-foreground">New password</label>
+            <label htmlFor="new-password" className="text-sm font-medium text-foreground">New Password</label>
             <div className="relative">
-              <input
+              <Input
                 id="new-password"
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded border border-border bg-background px-3 py-2 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="bg-background pr-9"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -130,20 +131,20 @@ function ResetPasswordForm() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="confirm-password" className="text-sm font-medium text-foreground">Confirm password</label>
+            <label htmlFor="confirm-password" className="text-sm font-medium text-foreground">Confirm Password</label>
             <div className="relative">
-              <input
+              <Input
                 id="confirm-password"
                 type={showConfirm ? "text" : "password"}
                 required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full rounded border border-border bg-background px-3 py-2 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="bg-background pr-9"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

@@ -117,7 +117,7 @@ export function RequestDocumentDialog({
 
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label>What do you need?</Label>
+              <Label>What Do You Need?</Label>
               <Input
                 placeholder="e.g. Q3 performance report"
                 value={title}
@@ -153,7 +153,7 @@ export function RequestDocumentDialog({
             {pastRequests.length > 0 && (
               <div className="space-y-1.5">
                 <Label>
-                  Related to a previous request{" "}
+                  Related to a Previous Request{" "}
                   <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <Select

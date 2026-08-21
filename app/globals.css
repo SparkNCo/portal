@@ -92,6 +92,13 @@
     @apply !text-smalltext font-normal leading-relaxed;
   }
 
+  /* Cream surfaces (--secondary) sit on the dark page, so they must not
+     inherit body `text-foreground` (also cream). Utilities like
+     `text-muted-foreground` on a child still win over this. */
+  .bg-secondary {
+    @apply text-secondary-foreground;
+  }
+
   /* "Light card" — the light cream card surface (bg-card/text-card-foreground)
      used for cards meant to stand out from the app's otherwise all-dark
      background, e.g. the issue cards in Roadmap's cycle view. --card and

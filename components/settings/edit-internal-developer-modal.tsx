@@ -17,7 +17,7 @@ import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
 import type { DeveloperDetails } from "./developer-details-modal";
 
 const textareaClass =
-  "w-full rounded-md border-0 bg-secondary p-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px] resize-none";
+  "w-full rounded-md border-0 bg-secondary p-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px] resize-none";
 
 async function updateInternalDeveloper(payload: {
   userId: string;
@@ -127,40 +127,54 @@ export function EditInternalDeveloperModal({
         <div className="space-y-4 pt-2">
           <div className="flex gap-2">
             <div className="flex-1 space-y-1.5">
-              <Label>First name</Label>
+              <Label>
+                First Name{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 className="bg-secondary border-0"
+                placeholder="e.g. Jane"
               />
             </div>
             <div className="flex-1 space-y-1.5">
-              <Label>Last name</Label>
+              <Label>
+                Last Name{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
               <Input
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 className="bg-secondary border-0"
+                placeholder="e.g. Smith"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Phone number</Label>
+            <Label>
+              Phone Number{" "}
+              <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
             <Input
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              onChange={(e) =>
+                setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
+              }
               className="bg-secondary border-0"
+              placeholder="e.g. (555) 123-4567"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Weekly hours</Label>
+            <Label>Weekly Allocation (Hours)</Label>
             <Input
               type="number"
               min={1}
               value={allocation}
               onChange={(e) => setAllocation(e.target.value)}
-              className="bg-secondary border-0"
+              className="bg-secondary border-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               placeholder="e.g. 20"
             />
             {submitted && !isAllocationValid && (
@@ -184,7 +198,7 @@ export function EditInternalDeveloperModal({
 
           <div className="space-y-1.5">
             <Label>
-              Tech Stack <span className="text-muted-foreground font-normal">(optional)</span>
+              Skills <span className="text-muted-foreground font-normal">(optional)</span>
             </Label>
             <TechStackPicker value={techStack} onChange={setTechStack} />
           </div>

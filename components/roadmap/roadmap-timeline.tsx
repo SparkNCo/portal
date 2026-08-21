@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
 import type { TimeBucket } from "./TimelineHeader";
@@ -458,14 +459,14 @@ export function RoadmapTimeline({
               <>
                 <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:flex-wrap">
                   <div className="relative flex-1 sm:max-w-[220px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    <input
+                    <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                    <Input
                       type="text"
                       aria-label="Search by title or ID"
                       placeholder="Search by title or ID..."
                       value={issueSearch}
                       onChange={(e) => setIssueSearch(e.target.value)}
-                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 smalltext text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="pl-8"
                     />
                   </div>
                   {availableStatuses.length > 0 && (

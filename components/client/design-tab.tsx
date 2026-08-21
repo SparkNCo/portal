@@ -550,7 +550,7 @@ export function DesignTab({ issue }: { issue: Issue }) {
           {isCreatingNew && (
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                Service name
+                Service Name
               </span>
               <Input
                 value={newServiceName}

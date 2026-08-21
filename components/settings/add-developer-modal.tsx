@@ -22,7 +22,7 @@ import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
 type DeveloperKind = "internal" | "spark_fde";
 
 const textareaClass =
-  "w-full rounded-md border-0 bg-secondary p-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px] resize-none";
+  "w-full rounded-md border-0 bg-secondary p-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[80px] resize-none";
 
 async function createInternalDeveloper(payload: {
   email: string;
@@ -244,19 +244,27 @@ export function AddDeveloperModal({
 
               <div className="flex gap-2">
                 <div className="flex-1 space-y-1.5">
-                  <Label>First name</Label>
+                  <Label>
+                    First Name{" "}
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
                   <Input
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="bg-secondary border-0"
+                    placeholder="e.g. Jane"
                   />
                 </div>
                 <div className="flex-1 space-y-1.5">
-                  <Label>Last name</Label>
+                  <Label>
+                    Last Name{" "}
+                    <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
                   <Input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="bg-secondary border-0"
+                    placeholder="e.g. Smith"
                   />
                 </div>
               </div>
@@ -282,7 +290,7 @@ export function AddDeveloperModal({
               />
 
               <div className="space-y-1.5">
-                <Label>Weekly hours</Label>
+                <Label>Weekly Allocation (Hours)</Label>
                 <Input
                   type="number"
                   min={1}
@@ -312,7 +320,7 @@ export function AddDeveloperModal({
 
               <div className="space-y-1.5">
                 <Label>
-                  Tech Stack{" "}
+                  Skills{" "}
                   <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <TechStackPicker value={techStack} onChange={setTechStack} />
@@ -326,7 +334,7 @@ export function AddDeveloperModal({
               </p>
 
               <div className="space-y-1.5">
-                <Label>Role needed</Label>
+                <Label>Role Needed</Label>
                 <Input
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
@@ -340,7 +348,7 @@ export function AddDeveloperModal({
 
               <div className="space-y-1.5">
                 <Label>
-                  Weekly hours{" "}
+                  Weekly Allocation (Hours){" "}
                   <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 <Input
