@@ -23,7 +23,7 @@ export function Header({ title, subtitle, subtitleClassName }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div>
+        <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           {subtitle && (
             <p className={`${subtitleClassName ?? "text-sm"} text-muted-foreground`}>{subtitle}</p>

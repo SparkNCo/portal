@@ -20,6 +20,7 @@ import {
   UncompletedIssuesList,
 } from "./cycle-metrics";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { Input } from "@/components/ui/input";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 type LineFilter = "all" | "scope" | "done";
@@ -247,16 +248,18 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             >
               From
             </label>
-            <input
-              id="metrics-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => {
-                setLastFilterTouched("date");
-                setDateFrom(e.target.value);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-3 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            <div className="min-w-[10.5rem]">
+              <Input
+                id="metrics-date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setLastFilterTouched("date");
+                  setDateFrom(e.target.value);
+                }}
+                className="bg-background"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <label
@@ -265,16 +268,18 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
             >
               To
             </label>
-            <input
-              id="metrics-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => {
-                setLastFilterTouched("date");
-                setDateTo(e.target.value);
-              }}
-              className="h-9 rounded-md border border-input bg-background px-3 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+            <div className="min-w-[10.5rem]">
+              <Input
+                id="metrics-date-to"
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setLastFilterTouched("date");
+                  setDateTo(e.target.value);
+                }}
+                className="bg-background"
+              />
+            </div>
           </div>
         </div>
         {(dateFrom || dateTo) && (

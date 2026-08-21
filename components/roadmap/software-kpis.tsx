@@ -6,6 +6,7 @@ import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { supabase } from "@/lib/supabase-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useUser } from "context/UserContext";
 import {
   Activity,
@@ -271,17 +272,19 @@ function CodeCoverageCard({
 
       {editing ? (
         <div className="flex flex-col gap-2">
-          <input
-            autoFocus
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="0-100"
-            className="h-8 w-24 rounded-md border border-input bg-background px-2 smalltext text-white focus:outline-none focus:ring-1 focus:ring-ring [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
+          <div className="w-24">
+            <Input
+              autoFocus
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="0-100"
+              className="h-8 bg-background text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
           <div className="flex gap-2">
             <Button
               size="sm"

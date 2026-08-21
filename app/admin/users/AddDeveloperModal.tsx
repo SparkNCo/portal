@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { isValidPhone } from "@/lib/phone";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  inputClass,
   ModalShell,
   NameFields,
   PhoneField,
@@ -90,19 +91,29 @@ export default function AddDeveloperModal({ onClose }: Props) {
         lastName={lastName}
         onLastNameChange={setLastName}
       />
-      <input
-        className={inputClass}
-        placeholder="Username (optional)"
-        value={userName}
-        onChange={(e) => setUserName(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Developer email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-      />
+      <div className="space-y-1.5">
+        <Label>
+          Username{" "}
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Input
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. janedoe"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Email</Label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="developer@company.com"
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        />
+      </div>
       <PhoneField
         value={phoneNumber}
         onChange={setPhoneNumber}
@@ -139,35 +150,41 @@ export default function AddDeveloperModal({ onClose }: Props) {
 
       {isInternal && (
         <div className="flex gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            className={`${inputClass} flex-1`}
-            placeholder="Rate amount"
-            value={rateAmount}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^0-9.]/g, "");
-              const firstDot = value.indexOf(".");
-              setRateAmount(
-                firstDot === -1
-                  ? value
-                  : value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replaceAll(".", ""),
-              );
-            }}
-          />
-          <Select
-            value={rateType}
-            onValueChange={(value) => setRateType(value as "hourly" | "monthly" | "annual")}
-          >
-            <SelectTrigger className="flex-1 h-9 smalltext">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hourly">Hourly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="annual">Annual</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex-1 space-y-1.5">
+            <Label>Rate Amount</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              className="bg-secondary border-0"
+              placeholder="e.g. 150"
+              value={rateAmount}
+              onChange={(e) => {
+                const value = e.target.value.replace(/[^0-9.]/g, "");
+                const firstDot = value.indexOf(".");
+                setRateAmount(
+                  firstDot === -1
+                    ? value
+                    : value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replaceAll(".", ""),
+                );
+              }}
+            />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <Label>Rate Type</Label>
+            <Select
+              value={rateType}
+              onValueChange={(value) => setRateType(value as "hourly" | "monthly" | "annual")}
+            >
+              <SelectTrigger className="bg-secondary border-0 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hourly">Hourly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="annual">Annual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
       {isInternal && submitted && !isRateValid && (

@@ -5,6 +5,7 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
+import { Input } from "@/components/ui/input";
 
 export function IssueGroupChat({
   user,
@@ -127,14 +128,16 @@ export function IssueGroupChat({
 
       <div className="px-3 py-2 border-t border-border">
         <div className="flex items-center gap-1.5 bg-card/90 border border-border rounded-lg px-2.5 py-1.5">
-          <input
-            aria-label="Type a message"
-            className="flex-1 bg-transparent smalltext text-card-foreground outline-none placeholder:text-card-foreground/40"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message…"
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-          />
+          <div className="min-w-0 flex-1">
+            <Input
+              aria-label="Type a message"
+              className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message…"
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            />
+          </div>
           <button
             onClick={sendMessage}
             disabled={!message.trim() || sending}

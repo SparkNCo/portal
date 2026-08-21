@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { KeyRound, Eye, EyeOff, AlertTriangle, Mail, Building2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 
@@ -100,7 +102,7 @@ function SetPasswordForm() {
       return;
     }
     if (!clientName.trim()) {
-      setError("Client name is required.");
+      setError(isCustomer ? "Client name is required." : "GitHub handle is required.");
       return;
     }
     if (password.length < 8) {
@@ -193,12 +195,9 @@ function SetPasswordForm() {
     router.replace(redirectPath);
   }
 
-  const inputClass =
-    "white-input w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-white text-black text-sm";
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-96 bg-background border-border shadow-lg">
+      <Card className="w-96 bg-background text-foreground border-border shadow-lg">
         <CardHeader>
           <CardTitle className="body font-semibold flex items-center gap-2 text-primary">
             <KeyRound className="h-4 w-4 text-primary" />
@@ -240,81 +239,102 @@ function SetPasswordForm() {
                   <span className="truncate">{clientName}</span>
                 </div>
               ) : (
-                <input
-                  className={inputClass}
-                  placeholder="User name"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                />
+                <div className="space-y-1.5">
+                  <Label>GitHub Handle</Label>
+                  <Input
+                    className="bg-white text-black border-0"
+                    placeholder="e.g. janedoe"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                  />
+                </div>
               )}
 
               <div className="flex gap-2">
-                <input
-                  className={inputClass}
-                  placeholder="First name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-                <input
-                  className={inputClass}
-                  placeholder="Last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                <div className="flex-1 space-y-1.5">
+                  <Label>First Name</Label>
+                  <Input
+                    className="bg-white text-black border-0"
+                    placeholder="e.g. Jane"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label>Last Name</Label>
+                  <Input
+                    className="bg-white text-black border-0"
+                    placeholder="e.g. Smith"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  Phone Number{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input
+                  className="bg-white text-black border-0"
+                  placeholder="e.g. (555) 123-4567"
+                  value={phoneNumber}
+                  onChange={(e) =>
+                    setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
+                  }
                 />
               </div>
 
-              <input
-                className={inputClass}
-                placeholder="Phone number (optional)"
-                value={phoneNumber}
-                onChange={(e) =>
-                  setPhoneNumber(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))
-                }
-              />
-
-              <div className="relative">
-                <input
-                  className={`${inputClass} pr-10`}
-                  type={showPassword ? "text" : "password"}
-                  placeholder="New password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+              <div className="space-y-1.5">
+                <Label>New Password</Label>
+                <div className="relative">
+                  <Input
+                    className="bg-white text-black border-0 pr-10"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter a password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
-                <input
-                  className={`${inputClass} pr-10`}
-                  type={showConfirm ? "text" : "password"}
-                  placeholder="Confirm password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
-                  tabIndex={-1}
-                >
-                  {showConfirm ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+              <div className="space-y-1.5">
+                <Label>Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    className="bg-white text-black border-0 pr-10"
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-gray-500 hover:text-black transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirm ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -346,7 +366,7 @@ function SetPasswordForm() {
 
       {showExpiredModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-96 bg-background border-border shadow-lg">
+          <Card className="w-96 bg-background text-foreground border-border shadow-lg">
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-4 w-4" />

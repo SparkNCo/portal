@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useUser } from "context/UserContext";
 import { type Issue, type PriorityTasksProps } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
@@ -122,14 +123,16 @@ export function PriorityTasks({
           {title}
         </CardTitle>
         <div className="flex items-center gap-2 flex-wrap">
-          <input
-            type="text"
-            aria-label="Search by title"
-            placeholder="Search by title..."
-            value={titleFilter}
-            onChange={(e) => setTitleFilter(e.target.value)}
-            className="h-7 flex-1 min-w-[120px] sm:flex-none sm:w-36 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+          <div className="flex-1 min-w-[120px] sm:flex-none sm:w-36">
+            <Input
+              type="text"
+              aria-label="Search by title"
+              placeholder="Search by title..."
+              value={titleFilter}
+              onChange={(e) => setTitleFilter(e.target.value)}
+              className="h-7 bg-secondary/30 border-border smalltext"
+            />
+          </div>
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
             <PopoverTrigger asChild>
               <Button

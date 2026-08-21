@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 type Props = {
   readonly creating: boolean;
@@ -27,9 +28,9 @@ export default function CreateChatModal({ creating, initialTitle, onCreate, onCl
           </p>
         </div>
 
-        <input
+        <Input
           autoFocus
-          className="w-full border rounded-lg px-3 py-2.5 text-sm md:smalltext bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-accent/50"
+          className="bg-secondary/30"
           placeholder="Chat title..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}

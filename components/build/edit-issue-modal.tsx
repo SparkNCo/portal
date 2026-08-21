@@ -132,6 +132,7 @@ export function EditIssueModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="bg-secondary border-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
+              placeholder="Brief summary..."
               autoFocus
             />
           </div>

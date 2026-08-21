@@ -20,7 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { badgeVariants } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { cn } from "@/lib/utils";
-import { inputClass } from "@/components/shared/add-user-modal-fields";
+import { Input } from "@/components/ui/input";
 
 // Same dnd-kit sortable-list pattern as the Steps editor in the issue
 // detail modal's Tests tab (components/client/issue-detail-modal.tsx),
@@ -126,18 +126,20 @@ export function TechStackPicker({
   return (
     <div className="space-y-1">
       <div className="flex gap-2">
-        <input
-          className={`${inputClass} flex-1`}
-          placeholder="Type a technology..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              addTech();
-            }
-          }}
-        />
+        <div className="min-w-0 flex-1 mb-4">
+          <Input
+            className="bg-secondary border-0"
+            placeholder="Type a skill..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addTech();
+              }
+            }}
+          />
+        </div>
         <Button
           type="button"
           size="sm"
@@ -149,10 +151,10 @@ export function TechStackPicker({
         </Button>
       </div>
 
-      <div className="min-h-[60px] rounded-lg border border-dashed border-border bg-secondary/20 p-2.5">
+      <div className="min-h-[60px] rounded-lg border border-dashed border-border p-2.5">
         {value.length === 0 ? (
           <p className="text-xs text-muted-foreground italic text-center py-2.5">
-            Add tech stacks here
+            Add skills here
           </p>
         ) : (
           <DraggableTechChips techStack={value} onChange={onChange} />

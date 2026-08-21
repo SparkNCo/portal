@@ -1,6 +1,7 @@
 "use client";
 
 import { statusColors, type FilterState } from "./issues.types";
+import { Input } from "@/components/ui/input";
 
 export function TaskFilterPanel({
   filterState,
@@ -111,23 +112,27 @@ export function TaskFilterPanel({
               <span className="w-8 shrink-0 smalltext text-muted-foreground">
                 From
               </span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => onDateFromChange?.(e.target.value)}
-                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              <div className="min-w-0 flex-1">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => onDateFromChange?.(e.target.value)}
+                  className="h-7 bg-secondary/30 border-border smalltext"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-8 shrink-0 smalltext text-muted-foreground">
                 To
               </span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => onDateToChange?.(e.target.value)}
-                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-secondary/30 px-2 smalltext text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              <div className="min-w-0 flex-1">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => onDateToChange?.(e.target.value)}
+                  className="h-7 bg-secondary/30 border-border smalltext"
+                />
+              </div>
             </div>
           </div>
         </div>
