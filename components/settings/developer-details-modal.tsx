@@ -105,8 +105,9 @@ export function DeveloperDetailsModal({
 
               <div>
                 <p className="smalltext font-medium text-muted-foreground mb-1.5">
-                  Tech Stack
+                  Skills
                 </p>
+                <br/>
                 {developer.techStack.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {developer.techStack.map((tech) => (
@@ -121,7 +122,7 @@ export function DeveloperDetailsModal({
                   </div>
                 ) : (
                   <p className="smalltext text-muted-foreground">
-                    No tech stack listed yet.
+                    No skills listed yet.
                   </p>
                 )}
               </div>

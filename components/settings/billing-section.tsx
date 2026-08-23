@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { NextPaymentPanel } from "./billing-panels/next-payment-panel";
 import { InvoicesPanel } from "./billing-panels/invoices-panel";
 import { PendingBalancePanel } from "./billing-panels/pending-balance";
@@ -333,7 +334,7 @@ function InvoiceSettingsFields({
   if (editing) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="smalltext text-foreground">Invoice amount &amp; frequency</p>
+        <p className="smalltext text-foreground">Invoice Amount &amp; Frequency</p>
         <div className="flex flex-wrap items-center gap-2">
           <NumberStepper
             autoFocus
@@ -440,7 +441,7 @@ function StripeIdPanel({
     <Card className="bg-transparent text-foreground">
       <CardContent className="bg-background flex items-center gap-4 pt-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
-          <CreditCard className="h-6 w-6 text-foreground" />
+          <CreditCard className="h-6 w-6" />
         </div>
         <div>
           <p className="smalltext font-medium text-foreground">
@@ -551,13 +552,14 @@ function StripeIdField({
             </p>
           )}
         </div>
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="cus_..."
-          className="h-9 w-full max-w-[28rem] rounded-md border border-input bg-background px-3 smalltext focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+        <div className="max-w-[28rem]">
+          <Input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="cus_..."
+          />
+        </div>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -767,7 +769,7 @@ export function BillingSection({
         <Card className="bg-transparent text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
-              <CreditCard className="h-6 w-6 text-foreground" />
+              <CreditCard className="h-6 w-6" />
             </div>
             <div>
               <p className="text-base font-medium text-foreground">
@@ -787,7 +789,7 @@ export function BillingSection({
         <Card className="bg-transparent text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
-              <CreditCard className="h-6 w-6 text-foreground" />
+              <CreditCard className="h-6 w-6" />
             </div>
             <div>
               <p className="text-base font-medium text-foreground">

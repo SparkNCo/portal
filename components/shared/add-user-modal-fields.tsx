@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
-
-export const inputClass =
-  "w-full rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 bg-secondary text-secondary-foreground smalltext";
 
 export function ModalShell({
   title,
@@ -45,18 +44,30 @@ export function NameFields({
 }) {
   return (
     <div className="flex gap-2">
-      <input
-        className={inputClass}
-        placeholder="First name (optional)"
-        value={firstName}
-        onChange={(e) => onFirstNameChange(e.target.value)}
-      />
-      <input
-        className={inputClass}
-        placeholder="Last name (optional)"
-        value={lastName}
-        onChange={(e) => onLastNameChange(e.target.value)}
-      />
+      <div className="flex-1 space-y-1.5">
+        <Label>
+          First Name{" "}
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Input
+          value={firstName}
+          onChange={(e) => onFirstNameChange(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. Jane"
+        />
+      </div>
+      <div className="flex-1 space-y-1.5">
+        <Label>
+          Last Name{" "}
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Input
+          value={lastName}
+          onChange={(e) => onLastNameChange(e.target.value)}
+          className="bg-secondary border-0"
+          placeholder="e.g. Smith"
+        />
+      </div>
     </div>
   );
 }
@@ -71,17 +82,21 @@ export function PhoneField({
   showError: boolean;
 }) {
   return (
-    <>
-      <input
-        className={inputClass}
-        placeholder="Phone number (optional)"
+    <div className="space-y-1.5">
+      <Label>
+        Phone Number{" "}
+        <span className="text-muted-foreground font-normal">(optional)</span>
+      </Label>
+      <Input
         value={value}
         onChange={(e) => onChange(e.target.value.replaceAll(/[^0-9+\-() ]/g, ""))}
+        className="bg-secondary border-0"
+        placeholder="e.g. (555) 123-4567"
       />
       {showError && (
-        <p className="smalltext text-destructive">Enter a valid phone number.</p>
+        <p className="text-sm text-destructive">Enter a valid phone number.</p>
       )}
-    </>
+    </div>
   );
 }
 

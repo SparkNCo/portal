@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
@@ -516,19 +517,21 @@ function SortableStepRow({
       <span className="w-4 shrink-0 smalltext text-muted-foreground">
         {index + 1}.
       </span>
-      <input
-        ref={inputRef}
-        className="flex-1 rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
-        placeholder={`Step ${index + 1}…`}
-        value={step.text}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            onEnter();
-          }
-        }}
-      />
+      <div className="min-w-0 flex-1">
+        <Input
+          ref={inputRef}
+          className="border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 shadow-none"
+          placeholder={`Step ${index + 1}…`}
+          value={step.text}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onEnter();
+            }
+          }}
+        />
+      </div>
       <button
         type="button"
         onClick={onRemove}
@@ -1176,8 +1179,8 @@ function TestsTab({
                 <p className="smalltext font-semibold text-muted-foreground">
                   Title
                 </p>
-                <input
-                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                <Input
+                  className="border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 shadow-none"
                   placeholder="Test case title…"
                   value={editForm.title}
                   onChange={(ev) =>
@@ -1192,7 +1195,7 @@ function TestsTab({
               />
               <div className="space-y-1.5">
                 <p className="smalltext font-semibold text-muted-foreground">
-                  Expected result
+                  Expected Result
                 </p>
                 <textarea
                   className="w-full rounded-lg border border-border bg-secondary/30 smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1363,8 +1366,8 @@ function TestsTab({
                 <p className="smalltext font-semibold text-muted-foreground">
                   Title
                 </p>
-                <input
-                  className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-ring"
+                <Input
+                  className="border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 shadow-none"
                   placeholder="Test case title…"
                   value={testForm.title}
                   onChange={(ev) =>
@@ -1379,7 +1382,7 @@ function TestsTab({
               />
               <div className="space-y-1.5">
                 <p className="smalltext font-semibold text-muted-foreground">
-                  Expected result
+                  Expected Result
                 </p>
                 <textarea
                   className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1439,7 +1442,7 @@ function TestsTab({
               )}
               <div className="space-y-1.5">
                 <p className="smalltext font-semibold text-muted-foreground">
-                  Expected result on this ticket
+                  Expected Result on This Ticket
                 </p>
                 <textarea
                   className="w-full rounded-lg border-0 bg-secondary smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"

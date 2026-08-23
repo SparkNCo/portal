@@ -75,7 +75,7 @@ export function TimelineHeader({ onPrev, onNext, canGoBack, canGoForward }: Time
 export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
   return (
     <div className="flex border-b pb-2 mb-4">
-      <div className="hidden w-56 shrink-0 sm:block" />
+      <div className="hidden w-[25ch] shrink-0 sm:block" />
       <div
         className="grid flex-1 gap-px sm:gap-0.5"
         style={{ gridTemplateColumns: `repeat(${buckets.length}, minmax(0, 1fr))` }}
@@ -102,7 +102,7 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
                   <Tooltip.Content
                     side="top"
                     align="center"
-                    className="z-50 rounded-md bg-popover px-3 py-2 smalltext shadow-md"
+                    className="z-50 rounded-md bg-popover text-popover-foreground px-3 py-2 smalltext shadow-md"
                   >
                     {formatDate(bucket.start)} – {formatDate(bucket.end)}
                     <Tooltip.Arrow className="fill-popover" />
