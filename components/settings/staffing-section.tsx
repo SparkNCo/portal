@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Clock } from "lucide-react";
+import { Users, Plus, Clock, ChevronRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
@@ -60,7 +60,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   }
 
   const teamMembers = assignments.map((item: any) => ({
-    name: item.userName || item?.email || "Unknown",
+    name: item.firstName || item.userName || item?.email || "Unknown",
     email: item.email || "",
     role: item.role,
     hours: item.allocation,
@@ -157,7 +157,11 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
                     {member.email}
                   </p>
                   <p className="smalltext text-card-foreground/60 capitalize">
-                    {member.role}
+                    {member.role === "developer"
+                      ? member.developerType === "internal"
+                        ? "Internal Dev"
+                        : "Spark & Co Dev"
+                      : member.role}
                   </p>
                 </div>
               </div>
@@ -175,6 +179,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
                   <Clock className="h-3 w-3" />
                   {member.hours}h/week
                 </div>
+                <ChevronRight className="h-4 w-4 text-card-foreground/40" />
               </div>
             </button>
           ))}
@@ -194,7 +199,8 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
         developer={selectedDeveloper}
         onClose={() => setSelectedDeveloper(null)}
         onEdit={
-          profile?.role === "customer" && selectedDeveloper?.developerType === "internal"
+          selectedDeveloper?.developerType === "internal" &&
+          (profile?.role === "admin" || profile?.role === "customer")
             ? () => {
                 setEditingDeveloper(selectedDeveloper);
                 setSelectedDeveloper(null);
