@@ -34,7 +34,7 @@ export default function DocumentsPage() {
     "";
 
   const canUpload = profile?.role === "developer" || profile?.role === "admin";
-  const canRequest = profile?.role === "customer" || profile?.role === "stakeholder";
+  const canRequest = profile?.role === "customer" || profile?.role === "stakeholder" || profile?.role === "admin";
 
   const isAdmin = profile?.role === "admin";
 
