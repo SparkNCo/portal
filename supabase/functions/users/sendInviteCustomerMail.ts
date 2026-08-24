@@ -70,7 +70,17 @@ function InviteTemplateHtml({ inviteLink, isNew }: { inviteLink: string; isNew: 
   `;
 }
 
+// RFC 2606 reserved test domains (example.com/.net/.org) aren't real
+// inboxes — Resend rejects sends to them, so skip the send entirely
+// rather than fail whatever flow is trying to invite a test user.
+const isTestDomain = (email: string) => /^example\.(com|net|org)$/i.test(email.split("@")[1] ?? "");
+
 export async function sendInviteCustomerMail(email: string, inviteLink: string, isNew: boolean = true) {
+  if (isTestDomain(email)) {
+    console.log("[sendInviteCustomerMail] skipping invite email for test domain", { to: email });
+    return { skipped: true };
+  }
+
   const from = Deno.env.get("FROM_EMAIL");
   console.log("[sendInviteCustomerMail] sending", { from, to: email, isNew });
 

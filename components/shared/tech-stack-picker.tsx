@@ -125,8 +125,8 @@ export function TechStackPicker({
 
   return (
     <div className="space-y-1">
-      <div className="flex gap-2">
-        <div className="min-w-0 flex-1 mb-4">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
           <Input
             className="bg-secondary border-0"
             placeholder="Type a skill..."
@@ -144,6 +144,7 @@ export function TechStackPicker({
           type="button"
           size="sm"
           variant="outline"
+          className="h-9"
           disabled={!input.trim()}
           onClick={addTech}
         >
