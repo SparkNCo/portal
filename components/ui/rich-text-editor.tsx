@@ -179,7 +179,7 @@ export function RichTextEditor({
         ...(id ? { id } : {}),
         ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
         class:
-          "prose prose-sm max-w-none text-card-foreground focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2",
+          "prose prose-sm !text-smalltext max-w-none text-card-foreground focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2",
         style: `min-height: ${minHeight}`,
       },
     },

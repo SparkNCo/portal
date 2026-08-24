@@ -7,6 +7,13 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ModalShell,
   NameFields,
   PhoneField,
@@ -14,16 +21,24 @@ import {
   ModalFooter,
 } from "@/components/shared/add-user-modal-fields";
 
+type Customer = {
+  id: string;
+  email: string;
+  clientName?: string;
+};
+
 type Props = {
+  customers: Customer[];
   onClose: () => void;
 };
 
-export default function AddStakeholderModal({ onClose }: Props) {
+export default function AddStakeholderModal({ customers, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const queryClient = useQueryClient();
 
@@ -53,13 +68,37 @@ export default function AddStakeholderModal({ onClose }: Props) {
         throw new Error(body?.error ?? "Failed to create stakeholder");
       }
 
-      return res.json();
+      const user = await res.json();
+
+      const assignRes = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            user_id: user.id,
+            customer_id: selectedCustomer,
+            role: "stakeholder",
+          }),
+        },
+      );
+
+      if (!assignRes.ok) {
+        throw new Error(
+          "Stakeholder was created but couldn't be assigned to the initiative. Contact support.",
+        );
+      }
+
+      return user;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
       onClose();
     },
   });
+
+  const isFormValid = email && selectedCustomer && isPhoneValid;
 
   return (
     <ModalShell title="Add Stakeholder" widthClassName="w-[28rem]">
@@ -89,7 +128,7 @@ export default function AddStakeholderModal({ onClose }: Props) {
           onChange={(e) => setEmail(e.target.value)}
           className="bg-secondary border-0"
           placeholder="stakeholder@company.com"
-          onKeyDown={(e) => e.key === "Enter" && email && !isPending && mutate()}
+          onKeyDown={(e) => e.key === "Enter" && isFormValid && !isPending && mutate()}
         />
       </div>
       <PhoneField
@@ -98,15 +137,34 @@ export default function AddStakeholderModal({ onClose }: Props) {
         showError={submitted && !isPhoneValid}
       />
 
+      <div className="space-y-1.5">
+        <Label>Initiative</Label>
+        <Select value={selectedCustomer || undefined} onValueChange={setSelectedCustomer}>
+          <SelectTrigger className="bg-secondary border-0">
+            <SelectValue placeholder="Select an initiative" />
+          </SelectTrigger>
+          <SelectContent>
+            {customers.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.clientName ?? c.email}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {submitted && !selectedCustomer && (
+          <p className="smalltext text-destructive">Select an initiative to assign this stakeholder to.</p>
+        )}
+      </div>
+
       <ModalError error={error} />
 
       <ModalFooter
         onCancel={onClose}
         onSubmit={() => {
           setSubmitted(true);
-          if (isPhoneValid) mutate();
+          if (isFormValid) mutate();
         }}
-        disabled={isPending || !email}
+        disabled={isPending || !isFormValid}
         pending={isPending}
       />
     </ModalShell>

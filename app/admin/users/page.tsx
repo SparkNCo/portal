@@ -130,6 +130,11 @@ export default function AdminUsersPage() {
     customerDetails.map((c) => [c.id, c.clientName]),
   );
 
+  const customersWithInitiativeNames = customers.map((c) => ({
+    ...c,
+    clientName: initiativeNameByCustomerId.get(c.id) ?? undefined,
+  }));
+
   const { data: allAssignments = [], isLoading: allAssignmentsLoading } =
     useQuery({
       queryKey: ["all-assignments", customerIds],
@@ -307,6 +312,7 @@ export default function AdminUsersPage() {
       )}
       {showAddStakeholderModal && (
         <AddStakeholderModal
+          customers={customersWithInitiativeNames}
           onClose={() => setShowAddStakeholderModal(false)}
         />
       )}
@@ -314,7 +320,7 @@ export default function AdminUsersPage() {
         <AssignCustomerModal
           userId={assigningUserId}
           userRole={assigningUserRole}
-          customers={customers}
+          customers={customersWithInitiativeNames}
           onClose={() => {
             setAssigningUserId(null);
             setAssigningUserRole("developer");

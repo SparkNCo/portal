@@ -93,7 +93,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
       />
       <div className="space-y-1.5">
         <Label>
-          Username{" "}
+          Github Handle{" "}
           <span className="text-muted-foreground font-normal">(optional)</span>
         </Label>
         <Input
@@ -126,7 +126,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
           {(
             [
               { value: "spark_fde", label: "Spark & Co FDE" },
-              { value: "internal", label: "Internal" },
+              { value: "internal", label: "External" },
             ] as const
           ).map((option) => (
             <button
@@ -144,7 +144,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
           ))}
         </div>
         <p className="smalltext text-muted-foreground">
-          Spark & Co FDE developers are billed through the customer's subscription. Internal developers are not billed to customers — set their rate below.
+          Spark & Co FDE developers are billed through the customer's subscription. External developers are not billed to customers — set their rate below.
         </p>
       </div>
 

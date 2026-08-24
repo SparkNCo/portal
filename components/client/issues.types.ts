@@ -7,6 +7,7 @@ export const priorityColors = {
   High: "bg-chart-1/20 text-chart-1 border-chart-1/30",
   Medium: "bg-primary/20 text-primary border-primary/30",
   Low: "bg-chart-5/20 text-chart-5 border-chart-5/30",
+  "No priority": "bg-muted/50 text-muted-foreground border-muted",
 };
 
 export const statusColors = {
@@ -119,7 +120,7 @@ export type TestExecution = {
 export type Issue = {
   id: string;
   branchName: string;
-  priorityLabel: "Urgent" | "High" | "Medium" | "Low";
+  priorityLabel: "Urgent" | "High" | "Medium" | "Low" | "No priority";
   title: string;
   state?: {
     name:
