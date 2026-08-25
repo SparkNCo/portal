@@ -71,6 +71,46 @@ export default function ChatLayout({
       .sort((a, b) => a.userName.localeCompare(b.userName));
   }, [allUsers]);
 
+  const isDeveloper = profile?.role === "developer";
+
+  // Developer-only: which initiatives they're assigned to, for the "New
+  // Chat" initiative picker (admins reuse customerOptions above instead,
+  // since they can start a chat for any initiative).
+  const { data: developerAssignments } = useQuery({
+    queryKey: ["developer-initiatives-for-chat", profile?.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?developer=${profile!.id}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json() as Promise<
+        { customer_id: string; clientName?: string | null; customer_email?: string | null }[]
+      >;
+    },
+    enabled: isDeveloper && !!profile?.id,
+  });
+
+  // Only developers/admins get the "pick an initiative" step in New Chat —
+  // customers/stakeholders each have exactly one implicit initiative already.
+  const initiativeOptions = useMemo(() => {
+    if (isAdmin) {
+      return customerOptions.map((c) => ({ id: c.id, label: c.userName }));
+    }
+    if (isDeveloper) {
+      const byId = new Map<string, string>();
+      for (const a of developerAssignments ?? []) {
+        if (a.customer_id && !byId.has(a.customer_id)) {
+          byId.set(a.customer_id, a.clientName ?? a.customer_email ?? a.customer_id);
+        }
+      }
+      return Array.from(byId.entries())
+        .map(([id, label]) => ({ id, label }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
+    return [];
+  }, [isAdmin, isDeveloper, customerOptions, developerAssignments]);
+
   const clearNewChatParam = () => router.replace(pathname);
 
   const [directChats, setDirectChats] = useState<DirectChatEntry[]>([]);
@@ -92,10 +132,10 @@ export default function ChatLayout({
   // the customer's (see dashboards/[customer]/[panel]/page.tsx).
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
-  const handleCreate = async (title: string) => {
+  const handleCreate = async (title: string, initiativeId?: string) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title, customerId, projectSlug);
+      const created = await createSupportGroup(title, initiativeId ?? customerId, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
@@ -191,6 +231,8 @@ export default function ChatLayout({
           initialTitle={initialTitle}
           onCreate={handleCreate}
           onClose={() => setShowCreateModal(false)}
+          requireInitiative={isAdmin || isDeveloper}
+          initiativeOptions={initiativeOptions}
         />
       )}
     </div>

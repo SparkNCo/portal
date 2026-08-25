@@ -145,6 +145,26 @@ export function useCometChat(customerId?: string | null) {
             .filter((a) => a.user_id)
             .forEach((a) => memberUids.add(a.user_id));
         }
+      } else if (profile.role === "developer" || profile.role === "admin") {
+        // Developers/admins have no single home initiative — the caller
+        // (CreateChatModal's dropdown, via ChatLayout) tells us which one via
+        // groupCustomerId. Unlike the stakeholder/customer branches, the
+        // customer themself never shows up in the assignments list (that
+        // table only has *other* people assigned to a customer), so they're
+        // added explicitly here.
+        if (groupCustomerId) {
+          resolvedCustomerId = groupCustomerId;
+          memberUids.add(groupCustomerId);
+
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${groupCustomerId}`,
+            { headers: API_JSON_HEADERS },
+          );
+          assignees = await res.json();
+          (assignees ?? [])
+            .filter((a) => a.user_id)
+            .forEach((a) => memberUids.add(a.user_id));
+        }
       } else {
         // Customer: fetch all assignees (developers + stakeholders)
         const res = await fetch(
