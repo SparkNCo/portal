@@ -36,7 +36,9 @@ export function SortablePinnedPanel({
       className={`relative ${fullWidth ? "md:col-span-2" : ""}`}
     >
       {/* Grouped in one toolbar so dragging, resizing and unpinning don't
-          end up as separate floating buttons overlapping the panel title. */}
+          end up as separate floating buttons overlapping the panel title.
+          Absolutely positioned, so it doesn't push panel content down on its
+          own — the pt-12 wrapper below reserves the space instead. */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
         <button
           type="button"
@@ -68,7 +70,7 @@ export function SortablePinnedPanel({
           <Pin className="h-3.5 w-3.5 fill-current" />
         </button>
       </div>
-      {children}
+      <div className="pt-12">{children}</div>
     </div>
   );
 }

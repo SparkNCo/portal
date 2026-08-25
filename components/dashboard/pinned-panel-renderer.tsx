@@ -88,12 +88,21 @@ export function PinnedPanelRenderer({
     selectedProjectIds.size === 0 ||
     selectedProjectIds.has(i.project?.id);
 
+  // The pin button is absolutely positioned, so it doesn't reserve any
+  // space on its own — panels rendered with their own PinButton (i.e. not
+  // already wrapped by SortablePinnedPanel, which reserves this space
+  // itself) need their content pushed down so the button doesn't sit on top
+  // of the panel's own title.
+  const contentPadding = hidePinButton ? "" : "pt-12";
+
   if (panelId === "progress_pie_chart") {
     const issues = allIssues.filter(matchesSelectedProject);
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <ProgressPieChart issuesData={issues} />
+        <div className={contentPadding}>
+          <ProgressPieChart issuesData={issues} />
+        </div>
       </div>
     );
   }
@@ -102,7 +111,9 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <SoftwareKPIs linearName={slug} />
+        <div className={contentPadding}>
+          <SoftwareKPIs linearName={slug} />
+        </div>
       </div>
     );
   }
@@ -111,7 +122,9 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <MetricsPanel slug={slug} />
+        <div className={contentPadding}>
+          <MetricsPanel slug={slug} />
+        </div>
       </div>
     );
   }
@@ -133,16 +146,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={issues}
-          filterState={noopFilterState}
-          onOpenChat={onOpenChat ?? (() => {})}
-          onEditIssue={onEditIssue}
-          title="Business Review"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={issues}
+            filterState={noopFilterState}
+            onOpenChat={onOpenChat ?? (() => {})}
+            onEditIssue={onEditIssue}
+            title="Business Review"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -157,16 +172,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={issues}
-          filterState={noopFilterState}
-          onOpenChat={onOpenChat ?? (() => {})}
-          onEditIssue={onEditIssue}
-          title="Acceptance Testing"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={issues}
+            filterState={noopFilterState}
+            onOpenChat={onOpenChat ?? (() => {})}
+            onEditIssue={onEditIssue}
+            title="Acceptance Testing"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -189,16 +206,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative w-full max-w-full overflow-hidden">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={bugs}
-          filterState={noopFilterState}
-          onOpenChat={() => {}}
-          onEditIssue={onEditIssue}
-          title="Bugs"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={bugs}
+            filterState={noopFilterState}
+            onOpenChat={() => {}}
+            onEditIssue={onEditIssue}
+            title="Bugs"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -220,13 +239,15 @@ function RoadmapTimelinePinned({
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
-      <RoadmapTimeline
-        projectMilestones={milestones}
-        allProjectNames={projectNames}
-        projectIdsByName={projectIdsByName}
-        cycles={cycles}
-        slug={slug}
-      />
+      <div className={hidePinButton ? "" : "pt-12"}>
+        <RoadmapTimeline
+          projectMilestones={milestones}
+          allProjectNames={projectNames}
+          projectIdsByName={projectIdsByName}
+          cycles={cycles}
+          slug={slug}
+        />
+      </div>
     </div>
   );
 }

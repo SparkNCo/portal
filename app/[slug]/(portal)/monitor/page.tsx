@@ -88,39 +88,47 @@ export default function RoadmapPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="progress_pie_chart" />
-            <ProgressPieChart issuesData={allIssues} />
+            <div className="pt-12">
+              <ProgressPieChart issuesData={allIssues} />
+            </div>
           </div>
           <div className="relative">
             <PinButton panelId="software_kpis" />
-            <SoftwareKPIs linearName={slug} />
+            <div className="pt-12">
+              <SoftwareKPIs linearName={slug} />
+            </div>
           </div>
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          {isLoading && (
-            <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading roadmap…
-            </div>
-          )}
-          {!isLoading && error && (
-            <p className="p-6 text-destructive">Failed to load roadmap</p>
-          )}
-          {!isLoading && !error && (
-            <RoadmapTimeline
-              projectMilestones={allMilestones}
-              allProjectNames={allProjectNames}
-              projectIdsByName={projectIdsByName}
-              cycles={roadmapCycles}
-              slug={slug}
-            />
-          )}
+          <div className="pt-12">
+            {isLoading && (
+              <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Loading roadmap…
+              </div>
+            )}
+            {!isLoading && error && (
+              <p className="p-6 text-destructive">Failed to load roadmap</p>
+            )}
+            {!isLoading && !error && (
+              <RoadmapTimeline
+                projectMilestones={allMilestones}
+                allProjectNames={allProjectNames}
+                projectIdsByName={projectIdsByName}
+                cycles={roadmapCycles}
+                slug={slug}
+              />
+            )}
+          </div>
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
         <div className="relative">
           <PinButton panelId="metrics_panel" />
-          <MetricsPanel slug={slug} />
+          <div className="pt-12">
+            <MetricsPanel slug={slug} />
+          </div>
         </div>
       </div>
     </div>
