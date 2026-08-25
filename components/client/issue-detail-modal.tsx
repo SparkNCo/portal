@@ -473,6 +473,13 @@ function DecisionsTab({
 type StepDraft = { id: string; text: string };
 type UatFormState = { executionId: string; result: string; files: File[] } | null;
 
+// A brand-new test always opens with one blank step already showing, rather
+// than an empty list — otherwise there's no input row for "+ Add step" below
+// to line up with until the user adds one themselves.
+function createEmptyStep(): StepDraft {
+  return { id: crypto.randomUUID(), text: "" };
+}
+
 function SortableStepRow({
   step,
   index,
@@ -624,6 +631,10 @@ function StepsEditor({
         type="button"
         size="sm"
         variant="outline"
+        // Lines the button up with the step inputs above, which are indented
+        // past the drag handle (14px) and step number (16px), each followed
+        // by a gap-1.5 (6px) — 14 + 6 + 16 + 6 = 42px.
+        className="ml-[42px]"
         onClick={() => insertStepAfter(steps.length - 1)}
       >
         + Add step
@@ -796,7 +807,7 @@ function TestsTab({
     expected: string;
   }>({
     title: "",
-    steps: [],
+    steps: [createEmptyStep()],
     expected: "",
   });
   const [pendingExisting, setPendingExisting] = useState<{
@@ -863,7 +874,7 @@ function TestsTab({
       const created = await attachTest(test, testForm.expected.trim());
       if (created) setExecutions((prev) => [...prev, created]);
 
-      setTestForm({ title: "", steps: [], expected: "" });
+      setTestForm({ title: "", steps: [createEmptyStep()], expected: "" });
       setShowNewTestForm(false);
     } finally {
       setSubmitting(false);
@@ -1400,7 +1411,7 @@ function TestsTab({
                   variant="ghost"
                   onClick={() => {
                     setShowNewTestForm(false);
-                    setTestForm({ title: "", steps: [], expected: "" });
+                    setTestForm({ title: "", steps: [createEmptyStep()], expected: "" });
                   }}
                 >
                   Cancel
@@ -1469,7 +1480,7 @@ function TestsTab({
               projectSlug={projectSlug}
               onSelectExisting={handleSelectExisting}
               onCreateNew={(title) => {
-                setTestForm({ title, steps: [], expected: "" });
+                setTestForm({ title, steps: [createEmptyStep()], expected: "" });
                 setShowNewTestForm(true);
               }}
             />
