@@ -223,9 +223,23 @@ export function RoadmapTimeline({
     [selection, buckets],
   );
 
-  // Fetches the real, complete set of issues in the clicked cycle directly
-  // from Linear (team-wide) rather than pooling whatever happened to already
-  // be loaded via project milestones.
+  // Builds the query for GET /roadmap: a specific cycle when one was
+  // clicked, or — when the project/milestone itself was clicked directly —
+  // every issue under it with no cycle restriction at all (the edge
+  // function branches on cycleId's absence to fetch that way).
+  function buildIssuesParams(sel: CycleSelection, after?: string | null) {
+    const params = new URLSearchParams();
+    if (sel.cycleKey) params.set("cycleId", sel.cycleKey);
+    if (sel.projectId) params.set("projectId", sel.projectId);
+    if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
+    if (after) params.set("after", after);
+    return params;
+  }
+
+  // Fetches the real, complete set of issues in the clicked cycle (or, with
+  // no cycle selected, the whole project/milestone) directly from Linear
+  // (team-wide) rather than pooling whatever happened to already be loaded
+  // via project milestones.
   useEffect(() => {
     if (!selection) {
       setCycleIssues([]);
@@ -240,9 +254,7 @@ export function RoadmapTimeline({
     setPriorityFilter(null);
     setCycleIssuesLoading(true);
 
-    const params = new URLSearchParams({ cycleId: selection.cycleKey });
-    if (selection.projectId) params.set("projectId", selection.projectId);
-    if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+    const params = buildIssuesParams(selection);
 
     fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
@@ -278,10 +290,7 @@ export function RoadmapTimeline({
     if (!selection || loadingMoreCycleIssues) return;
     setLoadingMoreCycleIssues(true);
     try {
-      const params = new URLSearchParams({ cycleId: selection.cycleKey });
-      if (cycleIssuesCursor) params.set("after", cycleIssuesCursor);
-      if (selection.projectId) params.set("projectId", selection.projectId);
-      if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+      const params = buildIssuesParams(selection, cycleIssuesCursor);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
         { headers: API_JSON_HEADERS },
@@ -414,28 +423,40 @@ export function RoadmapTimeline({
         </CardContent>
       </Card>
 
-      {selection && selectedBucket && (
+      {selection && (
         <Card className="bg-background text-foreground">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="body font-semibold">
-                  {selectedBucket.label}
-                  <span className="ml-2 smalltext font-normal text-muted-foreground">
-                    {selectedBucket.start.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    –{" "}
-                    {selectedBucket.end.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
+                  {selectedBucket ? (
+                    <>
+                      {selectedBucket.label}
+                      <span className="ml-2 smalltext font-normal text-muted-foreground">
+                        {selectedBucket.start.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        –{" "}
+                        {selectedBucket.end.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </>
+                  ) : (
+                    selection.milestoneName ?? selection.projectName
+                  )}
                 </h3>
                 <p className="smalltext text-muted-foreground">
-                  All issues in this cycle · opened from {selection.projectName}
+                  {selectedBucket
+                    ? "All issues in this cycle"
+                    : selection.milestoneName
+                      ? "Every issue in this milestone, across all cycles"
+                      : "Every issue in this project, across all cycles"}
+                  {" · opened from "}
+                  {selection.projectName}
                   {selection.milestoneName ? ` · ${selection.milestoneName}` : ""}
                 </p>
               </div>
@@ -453,7 +474,7 @@ export function RoadmapTimeline({
               <p className="smalltext text-muted-foreground">Loading issues...</p>
             ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
-                No issues in this cycle.
+                {selectedBucket ? "No issues in this cycle." : "No issues found."}
               </p>
             ) : (
               <>

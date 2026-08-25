@@ -19,7 +19,10 @@ export type CycleSelection = {
   // name/id scopes the selection to just that milestone's issues instead.
   milestoneName: string | null;
   milestoneId: string | null;
-  cycleKey: string;
+  // A specific cycle column, or null for "every cycle" — set when the
+  // project/milestone itself was clicked directly rather than one of its
+  // cycle cells.
+  cycleKey: string | null;
 };
 
 interface ProjectRowProps {
@@ -37,7 +40,9 @@ interface ProjectHeaderProps {
   projectName: string;
   milestoneCount: number;
   expanded: boolean;
+  selected: boolean;
   onToggle: () => void;
+  onOpenAllIssues: () => void;
 }
 
 function getCycleIds(milestone: Milestone): Set<string> {
@@ -102,6 +107,10 @@ export function ProjectRow({
   );
 
   const isThisProjectSelected = selection?.projectName === projectName;
+  // Highlights the project header only when it's the whole-project view —
+  // not when a specific milestone/cycle under it is selected instead.
+  const isWholeProjectSelected =
+    isThisProjectSelected && !selection?.milestoneName && !selection?.cycleKey;
 
   return (
     <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
@@ -109,7 +118,17 @@ export function ProjectRow({
         projectName={projectName}
         milestoneCount={milestones.length}
         expanded={expanded}
+        selected={isWholeProjectSelected}
         onToggle={onToggle}
+        onOpenAllIssues={() =>
+          onCycleSelect({
+            projectName,
+            projectId,
+            milestoneName: null,
+            milestoneId: null,
+            cycleKey: null,
+          })
+        }
       />
 
       {expanded &&
@@ -124,6 +143,14 @@ export function ProjectRow({
                 ? selection.cycleKey
                 : null
             }
+            // The whole-milestone view (no cycle) is a distinct selection
+            // from any single cycle cell within it — highlighted separately
+            // so clicking the name doesn't look identical to clicking a bar.
+            isWholeMilestoneSelected={
+              isThisProjectSelected &&
+              selection?.milestoneName === m.name &&
+              !selection?.cycleKey
+            }
             onCycleClick={(cycleKey) =>
               onCycleSelect({
                 projectName,
@@ -136,6 +163,18 @@ export function ProjectRow({
                 cycleKey,
               })
             }
+            onMilestoneClick={
+              m.name
+                ? () =>
+                    onCycleSelect({
+                      projectName,
+                      projectId,
+                      milestoneName: m.name,
+                      milestoneId: m.id,
+                      cycleKey: null,
+                    })
+                : undefined
+            }
           />
         ))}
     </div>
@@ -146,14 +185,21 @@ function ProjectHeader({
   projectName,
   milestoneCount,
   expanded,
+  selected,
   onToggle,
+  onOpenAllIssues,
 }: ProjectHeaderProps) {
   return (
     <button
       type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-border 
-      bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75"
+      onClick={() => {
+        onToggle();
+        onOpenAllIssues();
+      }}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 rounded-lg border bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75",
+        selected ? "border-primary" : "border-border",
+      )}
       aria-expanded={expanded}
       aria-label={
         expanded ? `Collapse ${projectName}` : `Expand ${projectName}`
