@@ -917,7 +917,10 @@ function TestsTab({
       },
     );
     const created = await res.json();
-    if (!created.id) return null;
+    if (!created.id) {
+      toast.error(created.error ?? "Failed to attach test case");
+      return null;
+    }
     return { ...created, test: { title: test.title, steps: test.steps } };
   }
 
@@ -971,6 +974,17 @@ function TestsTab({
       })),
       expected: execution.expected,
     });
+  }
+
+  // The "add test case" picker routes an already-attached match here instead
+  // of trying to attach it again — same draft-only restriction as the pencil
+  // icon on the attached-tests list below (canManageTests is already implied,
+  // since the picker itself only renders when that's true).
+  function handleEditAttachedFromPicker(testId: string) {
+    const execution = executions.find(
+      (e) => e.test_id === testId && e.status === "draft",
+    );
+    if (execution) handleStartEdit(execution);
   }
 
   // Edits route to two different tables: title/steps belong to the reusable Test,
@@ -1479,10 +1493,12 @@ function TestsTab({
             <TestPicker
               projectSlug={projectSlug}
               onSelectExisting={handleSelectExisting}
+              onSelectAttached={handleEditAttachedFromPicker}
               onCreateNew={(title) => {
                 setTestForm({ title, steps: [createEmptyStep()], expected: "" });
                 setShowNewTestForm(true);
               }}
+              attachedTestIds={new Set(executions.map((e) => e.test_id))}
             />
           )}
         </div>
