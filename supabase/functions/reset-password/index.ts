@@ -1,6 +1,6 @@
 // @ts-nocheck
+import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { resolveAuthUser } from "../users/resolveAuthUser.ts";
 import { sendInviteCustomerMail } from "../users/sendInviteCustomerMail.ts";
 
 Deno.serve(async (req) => {
@@ -41,9 +41,21 @@ Deno.serve(async (req) => {
     // (resendAccountEmail.ts) never hits this because it only uses the admin
     // API to generate the link, then sends it itself via Resend. Same
     // approach here.
+    //
+    // Deliberately NOT resolveAuthUser (used by the admin resend flow) — that
+    // helper falls back to an "invite" link when the email isn't already
+    // registered, which actually CREATES a brand-new orphaned auth user for
+    // any email typed into this public, unauthenticated form. "recovery"
+    // requires an existing user and errors out instead, so an unknown email
+    // is a no-op here, matching resetPasswordForEmail()'s original behavior.
     try {
-      const { inviteLink } = await resolveAuthUser(email, redirectTo);
-      await sendInviteCustomerMail(email, inviteLink, false);
+      const { data, error } = await supabase.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo },
+      });
+      if (error) throw new Error(error.message);
+      await sendInviteCustomerMail(email, data.properties.action_link, false);
       console.log("[reset-password] Password reset email sent to:", email);
     } catch (err) {
       // Never reveal whether the email exists — same anti-enumeration
