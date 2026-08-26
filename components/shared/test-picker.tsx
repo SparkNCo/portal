@@ -70,22 +70,17 @@ export function TestPicker({
   projectSlug,
   onSelectExisting,
   onCreateNew,
-  onSelectAttached,
   attachedTestIds,
 }: {
   readonly projectSlug: string;
   readonly onSelectExisting: (test: Test) => void;
   readonly onCreateNew: (title: string) => void;
-  // Called instead of onSelectExisting when the picked match is already
-  // attached to this ticket — the caller uses it to jump straight into
-  // editing that ticket's existing test case rather than trying to attach
-  // it again (which would violate one-instance-per-ticket).
-  readonly onSelectAttached?: (testId: string) => void;
   // Test cases already attached to this ticket — still shown in the search
-  // results (so the user can see why a near-duplicate already exists), but
-  // tagged "(implemented)" and routed to onSelectAttached instead of
-  // onSelectExisting so the same test can't be added twice to the same
-  // ticket (it can still be reused across other tickets).
+  // results (so the user can see why a near-duplicate already exists),
+  // tagged "(implemented)" and inert when clicked (it can't be attached
+  // again — one instance per ticket max — and picking it isn't allowed to
+  // jump into editing it; that stays a deliberate, manual action from the
+  // attached-tests list below).
   readonly attachedTestIds?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
@@ -129,8 +124,8 @@ export function TestPicker({
 
   // Tests already attached to this ticket stay visible (so the user can see
   // why a near-duplicate they're about to create already exists), tagged
-  // "(implemented)" and routed to onSelectAttached (edit) instead of
-  // onSelectExisting (attach) when clicked.
+  // "(implemented)" and inert instead of routed to onSelectExisting (attach)
+  // when clicked.
   const isAttached = (testId: string) => !!attachedTestIds?.has(testId);
 
   // Once there's enough text to have actually checked for similar tests, the
@@ -147,12 +142,10 @@ export function TestPicker({
     const testId = match.metadata?.test_id;
     if (!testId) return;
 
-    if (isAttached(testId)) {
-      onSelectAttached?.(testId);
-      setOpen(false);
-      setQuery("");
-      return;
-    }
+    // Already attached — inert. Not routed anywhere; editing it is a
+    // deliberate action from the attached-tests list, not a side effect of
+    // browsing similar-test suggestions here.
+    if (isAttached(testId)) return;
 
     setSelectingSimilarId(match.id);
     const test = await fetchTestById(projectSlug, testId);
@@ -217,9 +210,10 @@ export function TestPicker({
                       // Not `disabled` on purpose — that sets pointer-events-none via
                       // CommandItem's base classes, which would silently block hover
                       // too, so the tooltip below would never fire. An attached test
-                      // routes to onSelectAttached (edit) instead of being inert.
+                      // is inert on click (handleSelectSimilar no-ops), just shown so
+                      // the user sees why a near-duplicate already exists.
                       onSelect={() => handleSelectSimilar(match)}
-                      title={attached ? "Already attached to this ticket — click to edit" : undefined}
+                      title={attached ? "Already attached to this ticket" : undefined}
                       className={cn(
                         "smalltext",
                         attached

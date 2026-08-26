@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,30 +110,49 @@ export function RequestDocumentDialog({
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
-          <DialogHeader>
-            <DialogTitle>Request a Report or Document</DialogTitle>
+        <DialogContent
+          className="w-[95vw] sm:w-full sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden"
+          aria-describedby={undefined}
+        >
+          {/* Orange accent bar ties the modal back to the card it was opened from. */}
+          <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
+
+          <DialogHeader className="pt-4">
+            <div className="flex min-w-0 items-center gap-3.5 pr-6">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-2 ring-primary/30">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="truncate text-primary">
+                  Request a Report or Document
+                </DialogTitle>
+                <p className="smalltext text-muted-foreground">
+                  Ask the team to prepare a report or document for you.
+                </p>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4 pt-4 mt-1 border-t border-border">
             <div className="space-y-1.5">
-              <Label>What Do You Need?</Label>
+              <Label htmlFor="doc-request-title" className="smalltext">What Do You Need?</Label>
               <Input
+                id="doc-request-title"
                 placeholder="e.g. Q3 performance report"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-secondary border-0"
+                className="smalltext bg-secondary border-0"
                 autoFocus
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label>
+              <Label htmlFor="doc-request-project" className="smalltext">
                 Project{" "}
                 <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="bg-secondary border-0">
+                <SelectTrigger id="doc-request-project" className="smalltext bg-secondary border-0">
                   <SelectValue
                     placeholder={
                       projects.length ? "Select a project…" : "Loading projects…"
@@ -152,7 +171,7 @@ export function RequestDocumentDialog({
 
             {pastRequests.length > 0 && (
               <div className="space-y-1.5">
-                <Label>
+                <Label htmlFor="doc-request-related" className="smalltext">
                   Related to a Previous Request{" "}
                   <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
@@ -160,7 +179,7 @@ export function RequestDocumentDialog({
                   value={selectedRelatedRequestId}
                   onValueChange={setSelectedRelatedRequestId}
                 >
-                  <SelectTrigger className="bg-secondary border-0">
+                  <SelectTrigger id="doc-request-related" className="smalltext bg-secondary border-0">
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
@@ -175,15 +194,16 @@ export function RequestDocumentDialog({
             )}
 
             <div className="space-y-1.5">
-              <Label>
+              <Label htmlFor="doc-request-details" className="smalltext">
                 Details{" "}
                 <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Textarea
+                id="doc-request-details"
                 placeholder="Any context that helps the team prepare this..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="bg-secondary border-0 min-h-[90px] resize-none"
+                className="smalltext bg-secondary border-0 min-h-[90px] resize-none"
               />
             </div>
 

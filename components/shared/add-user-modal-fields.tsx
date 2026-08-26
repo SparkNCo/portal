@@ -1,6 +1,15 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isValidPhone } from "@/lib/phone";
+
+// How long to wait after the user stops typing before flagging an invalid
+// phone number on its own — long enough that it never fires mid-keystroke
+// (e.g. between typing the area code and the rest of the number).
+const PHONE_VALIDATION_DEBOUNCE_MS = 3000;
 
 export function NameFields({
   firstName,
@@ -52,8 +61,33 @@ export function PhoneField({
 }: {
   value: string;
   onChange: (value: string) => void;
+  // Forces the error on immediately (e.g. after a failed submit attempt) —
+  // separate from the field's own debounced live check below, which only
+  // ever fires after a pause in typing, never on submit.
   showError: boolean;
 }) {
+  const [debouncedInvalid, setDebouncedInvalid] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Empty is valid (phone is optional) — only debounce-flag a non-empty,
+    // still-invalid value once the user pauses typing.
+    if (isValidPhone(value)) {
+      setDebouncedInvalid(false);
+      return;
+    }
+    debounceRef.current = setTimeout(
+      () => setDebouncedInvalid(true),
+      PHONE_VALIDATION_DEBOUNCE_MS,
+    );
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [value]);
+
+  const displayError = showError || debouncedInvalid;
+
   return (
     <div className="space-y-1.5">
       <Label htmlFor="user-phone-number" className="smalltext">
@@ -67,7 +101,7 @@ export function PhoneField({
         className="smalltext bg-secondary border-0"
         placeholder="e.g. (555) 123-4567"
       />
-      {showError && (
+      {displayError && (
         <p className="smalltext text-red-400">Enter a valid phone number.</p>
       )}
     </div>

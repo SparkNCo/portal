@@ -434,10 +434,6 @@ export function RoadmapTimeline({
                     <span className="h-2.5 w-2.5 rounded-full bg-destructive/50" />
                     Overdue
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-card/50 border border-border" />
-                    No issues in this cycle
-                  </span>
                 </div>
               </>
             )}

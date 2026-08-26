@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Check,
   RotateCcw,
   MessageSquare,
@@ -817,6 +823,8 @@ function TestsTab({
   } | null>(null);
   const [uatForm, setUatForm] = useState<UatFormState>(null);
   const uatFileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDeleteExecution, setPendingDeleteExecution] =
+    useState<TestExecution | null>(null);
   const [editForm, setEditForm] = useState<{
     executionId: string;
     testId: string;
@@ -976,17 +984,6 @@ function TestsTab({
     });
   }
 
-  // The "add test case" picker routes an already-attached match here instead
-  // of trying to attach it again — same draft-only restriction as the pencil
-  // icon on the attached-tests list below (canManageTests is already implied,
-  // since the picker itself only renders when that's true).
-  function handleEditAttachedFromPicker(testId: string) {
-    const execution = executions.find(
-      (e) => e.test_id === testId && e.status === "draft",
-    );
-    if (execution) handleStartEdit(execution);
-  }
-
   // Edits route to two different tables: title/steps belong to the reusable Test,
   // expected behaviour belongs to this ticket's execution.
   async function handleSaveEdit() {
@@ -1088,15 +1085,21 @@ function TestsTab({
     }
   }
 
-  // Admin-only. Detaches the test from this ticket, then best-effort deletes the
+  // Admin-only. Asks for confirmation before detaching the test from this
+  // ticket — the actual delete runs in confirmDeleteExecution below once the
+  // modal is confirmed.
+  function handleDeleteExecution(execution: TestExecution) {
+    if (!isAdmin || submitting) return;
+    setPendingDeleteExecution(execution);
+  }
+
+  // Detaches the test from this ticket, then best-effort deletes the
   // underlying reusable Test too — the backend refuses that second step (silently,
   // here) when the test is still attached to other tickets, which is expected and
   // fine: this ticket's attachment is gone either way.
-  async function handleDeleteExecution(execution: TestExecution) {
-    if (!isAdmin || submitting) return;
-    if (!window.confirm(`Delete "${execution.test?.title ?? "this test"}" from this ticket? This can't be undone.`)) {
-      return;
-    }
+  async function confirmDeleteExecution() {
+    const execution = pendingDeleteExecution;
+    if (!execution) return;
     setSubmitting(true);
     try {
       const res = await fetch(
@@ -1114,6 +1117,7 @@ function TestsTab({
       );
     } finally {
       setSubmitting(false);
+      setPendingDeleteExecution(null);
     }
   }
 
@@ -1276,7 +1280,7 @@ function TestsTab({
                   <p className="smalltext font-semibold text-muted-foreground mb-0.5">
                     Expected
                   </p>
-                  <p className="smalltext text-foreground">{e.expected}</p>
+                  <p className="smalltext text-foreground whitespace-pre-wrap break-words">{e.expected}</p>
                 </div>
               )}
             </>
@@ -1296,7 +1300,7 @@ function TestsTab({
                         ? "UAT Result"
                         : "Actual"}
                   </p>
-                  <p className="smalltext text-foreground">{entry.text}</p>
+                  <p className="smalltext text-foreground whitespace-pre-wrap break-words">{entry.text}</p>
                   {entry.attachments && entry.attachments.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {entry.attachments.map((att, ai) =>
@@ -1493,7 +1497,6 @@ function TestsTab({
             <TestPicker
               projectSlug={projectSlug}
               onSelectExisting={handleSelectExisting}
-              onSelectAttached={handleEditAttachedFromPicker}
               onCreateNew={(title) => {
                 setTestForm({ title, steps: [createEmptyStep()], expected: "" });
                 setShowNewTestForm(true);
@@ -1503,6 +1506,61 @@ function TestsTab({
           )}
         </div>
       )}
+
+      <Dialog
+        open={!!pendingDeleteExecution}
+        onOpenChange={(v) => !v && setPendingDeleteExecution(null)}
+      >
+        <DialogContent
+          className="w-[95vw] sm:w-full sm:max-w-lg overflow-x-hidden"
+          aria-describedby={undefined}
+        >
+          {/* Red accent bar — same treatment as the orange one on Add
+              Developer/Customer/Stakeholder, but red for a destructive
+              confirmation. */}
+          <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-destructive via-destructive/60 to-transparent" />
+
+          <DialogHeader className="pt-4">
+            <div className="flex min-w-0 items-center gap-3.5 pr-6">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-red-400 ring-2 ring-destructive/30">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="truncate text-red-400">Delete Test Case?</DialogTitle>
+                <p className="smalltext text-muted-foreground">
+                  This can't be undone.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-5 pt-4 mt-1 border-t border-border">
+            <p className="smalltext text-foreground">
+              Delete "{pendingDeleteExecution?.test?.title ?? "this test"}" from this ticket?
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="smalltext"
+                onClick={() => setPendingDeleteExecution(null)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="smalltext bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={confirmDeleteExecution}
+                disabled={submitting}
+              >
+                {submitting ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
