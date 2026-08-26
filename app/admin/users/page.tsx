@@ -74,9 +74,7 @@ export default function AdminUsersPage() {
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showAddStakeholderModal, setShowAddStakeholderModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
-  const [assigningUserRole, setAssigningUserRole] =
-    useState<string>("developer");
+  const [assigningUser, setAssigningUser] = useState<User | null>(null);
   const [editingProfileUser, setEditingProfileUser] = useState<User | null>(
     null,
   );
@@ -206,7 +204,7 @@ export default function AdminUsersPage() {
           method: "POST",
           headers: apiHeaders,
           body: JSON.stringify({
-            user_id: assigningUserId,
+            user_id: assigningUser?.id,
             customer_id: selectedCustomer,
           }),
         },
@@ -217,7 +215,7 @@ export default function AdminUsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["all-assignments"] });
-      setAssigningUserId(null);
+      setAssigningUser(null);
       setSelectedCustomer("");
     },
   });
@@ -315,15 +313,14 @@ export default function AdminUsersPage() {
           onClose={() => setShowAddStakeholderModal(false)}
         />
       )}
-      {assigningUserId && (
+      {assigningUser && (
         <AssignCustomerModal
-          userId={assigningUserId}
-          userRole={assigningUserRole}
+          userId={assigningUser.id}
+          userEmail={assigningUser.email}
+          userName={assigningUser.userName}
+          userRole={assigningUser.role}
           customers={customersWithInitiativeNames}
-          onClose={() => {
-            setAssigningUserId(null);
-            setAssigningUserRole("developer");
-          }}
+          onClose={() => setAssigningUser(null)}
         />
       )}
       {editingProfileUser && (
@@ -454,10 +451,7 @@ export default function AdminUsersPage() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
-                                      onClick={() => {
-                                        setAssigningUserId(u.id);
-                                        setAssigningUserRole(u.role);
-                                      }}
+                                      onClick={() => setAssigningUser(u)}
                                     >
                                       <UserCheck className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       <span className="hidden sm:inline">Assign</span>

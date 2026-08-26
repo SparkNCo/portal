@@ -75,6 +75,13 @@ export function useCometChat(customerId?: string | null) {
       if (batch.length < 50) break;
     }
 
+    // Most-recently-active chats first. GroupsRequestBuilder has no
+    // server-side sort option, and a group's `updatedAt` already bumps on
+    // new activity in it (not just membership/profile edits), so it's a
+    // reliable stand-in for "last message time" without a second request
+    // per group.
+    all.sort((a, b) => b.getUpdatedAt() - a.getUpdatedAt());
+
     if (!customerId) return all;
     return all.filter(
       (g) => (g.getMetadata() as { customerId?: string } | undefined)?.customerId === customerId,

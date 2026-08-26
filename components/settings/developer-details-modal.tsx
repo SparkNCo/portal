@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
-import { CalendarDays, Briefcase, Sparkles, Pencil } from "lucide-react";
+import {
+  CalendarDays,
+  Briefcase,
+  Sparkles,
+  Pencil,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 
 export type DeveloperDetails = {
   name: string;
@@ -36,10 +44,16 @@ export function DeveloperDetailsModal({
   readonly onClose: () => void;
   readonly onEdit?: () => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
     <Dialog open={!!developer} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="w-[95vw] sm:w-full sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden"
+        className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto overflow-x-hidden transition-all duration-200 ${
+          isExpanded
+            ? "sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
+            : "sm:max-w-lg"
+        }`}
         aria-describedby={undefined}
       >
         {developer && (
@@ -47,8 +61,24 @@ export function DeveloperDetailsModal({
             {/* Orange accent bar ties the modal back to the card it was opened from. */}
             <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
 
+            {/* Positioned to match DialogContent's own close button (absolute
+                right-4 top-4) exactly, same as EditIssueModal / EditDeveloperProfileModal. */}
+            <button
+              type="button"
+              onClick={() => setIsExpanded((e) => !e)}
+              className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+              title={isExpanded ? "Shrink" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+
             <DialogHeader className="pt-4">
-              <div className="flex flex-col gap-3 pr-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 pr-12 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3.5">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary ring-2 ring-primary/30">
                     {developer.avatar}
@@ -103,7 +133,7 @@ export function DeveloperDetailsModal({
                 </p>
                 <div className="rounded-lg bg-muted/40 p-3">
                   <p className="smalltext text-foreground whitespace-pre-wrap break-words">
-                    {developer.bio || "No bio provided yet."}
+                    {developer.bio?.trim() || "No bio provided yet."}
                   </p>
                 </div>
               </div>
