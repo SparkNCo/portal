@@ -39,6 +39,7 @@ function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; proje
 // read in the issues chart.
 const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
   completed: "bg-success",
+  done: "bg-success",
   "in-progress": "bg-primary/50",
   overdue: "bg-destructive/50",
   next: "bg-[hsl(180,60%,50%)]/50",
@@ -60,6 +61,7 @@ const MILESTONE_STATUS_PRIORITY: MilestoneStatus[] = [
   "planned",
   "unstarted",
   "completed",
+  "done",
 ];
 
 function getBucketColor(milestonesInBucket: ChainedMilestone[]): string {

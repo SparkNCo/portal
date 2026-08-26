@@ -27,7 +27,6 @@ import {
   ChevronUp,
   Search,
   FolderKanban,
-  Pencil,
   Eye,
   Mail,
   Plus,
@@ -331,6 +330,8 @@ export default function AdminUsersPage() {
         <EditDeveloperProfileModal
           userId={editingProfileUser.id}
           userEmail={editingProfileUser.email}
+          userName={editingProfileUser.userName}
+          role={editingProfileUser.role}
           onClose={() => setEditingProfileUser(null)}
         />
       )}
@@ -341,6 +342,10 @@ export default function AdminUsersPage() {
           userName={viewingProfileUser.userName}
           role={viewingProfileUser.role}
           onClose={() => setViewingProfileUser(null)}
+          onEdit={() => {
+            setEditingProfileUser(viewingProfileUser);
+            setViewingProfileUser(null);
+          }}
         />
       )}
 
@@ -440,18 +445,7 @@ export default function AdminUsersPage() {
                                       onClick={() => setViewingProfileUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
-                                      <span className="hidden sm:inline">View Profile</span>
-                                    </Button>
-                                  )}
-                                  {u.role === "developer" && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
-                                      onClick={() => setEditingProfileUser(u)}
-                                    >
-                                      <Pencil className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
-                                      <span className="hidden sm:inline">Edit Profile</span>
+                                      <span className="hidden sm:inline">Profile</span>
                                     </Button>
                                   )}
                                   {(u.role === "developer" ||

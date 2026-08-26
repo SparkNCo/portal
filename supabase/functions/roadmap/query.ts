@@ -1,8 +1,12 @@
 export const PROJECTS_QUERY = `
-query Projects($initiativeId: String!) {
+query Projects($initiativeId: String!, $after: String) {
   initiative(id: $initiativeId) {
     id
-    projects(first: 5) {
+    projects(first: 5, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         id
         name

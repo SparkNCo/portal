@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
@@ -9,6 +9,7 @@ import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
+import { API_HEADERS } from "@/lib/api-headers";
 
 const noopFilterState = {
   selectedStatuses: [],
@@ -33,13 +34,7 @@ function useRoadmapMilestones(slug: string) {
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
-            "Content-Type": "application/json",
-          },
-        },
+        { headers: API_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch roadmap");
       return res.json();
@@ -47,23 +42,56 @@ function useRoadmapMilestones(slug: string) {
     enabled: Boolean(slug),
   });
 
+  const [projectNodes, setProjectNodes] = useState<any[]>([]);
+  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
+  const [hasMoreProjects, setHasMoreProjects] = useState(false);
+  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
+
+  useEffect(() => {
+    if (!roadmap?.initiative?.projects) return;
+
+    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
+    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
+    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
+  }, [roadmap]);
+
+  async function handleLoadMoreProjects() {
+    if (!slug || !projectsCursor || loadingMoreProjects) return;
+    setLoadingMoreProjects(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more projects");
+      const data = await res.json();
+      const nextProjects = data?.initiative?.projects;
+      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
+      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
+      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
+    } catch (err) {
+      console.error("Failed to load more projects:", err);
+    } finally {
+      setLoadingMoreProjects(false);
+    }
+  }
+
   const derived = useMemo(() => {
-    const projects = roadmap?.initiative?.projects?.nodes ?? [];
-    const milestones = projects.flatMap((project: any) =>
+    const milestones = projectNodes.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
         ...milestone,
         projectName: project.name,
       })),
     );
-    const projectNames = projects.map((project: any) => project.name);
+    const projectNames = projectNodes.map((project: any) => project.name);
     const projectIdsByName: Record<string, string> = Object.fromEntries(
-      projects.map((project: any) => [project.name, project.id]),
+      projectNodes.map((project: any) => [project.name, project.id]),
     );
     const cycles = roadmap?.cycles?.nodes ?? [];
     return { milestones, projectNames, projectIdsByName, cycles };
-  }, [roadmap]);
+  }, [projectNodes, roadmap]);
 
-  return derived;
+  return { ...derived, hasMoreProjects, loadingMoreProjects, onLoadMoreProjects: handleLoadMoreProjects };
 }
 
 export function PinnedPanelRenderer({
@@ -234,8 +262,15 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames, projectIdsByName, cycles } =
-    useRoadmapMilestones(slug);
+  const {
+    milestones,
+    projectNames,
+    projectIdsByName,
+    cycles,
+    hasMoreProjects,
+    loadingMoreProjects,
+    onLoadMoreProjects,
+  } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
@@ -246,6 +281,9 @@ function RoadmapTimelinePinned({
           projectIdsByName={projectIdsByName}
           cycles={cycles}
           slug={slug}
+          hasMoreProjects={hasMoreProjects}
+          loadingMoreProjects={loadingMoreProjects}
+          onLoadMoreProjects={onLoadMoreProjects}
         />
       </div>
     </div>

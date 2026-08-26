@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
@@ -20,6 +21,7 @@ import { X, Pencil, Gauge, Search, Mail } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
+  | "done"
   | "in-progress"
   | "planned"
   | "overdue"
@@ -66,6 +68,9 @@ type RoadmapTimelineProps = {
   projectIdsByName?: Record<string, string>;
   cycles?: RawCycle[];
   slug?: string;
+  hasMoreProjects?: boolean;
+  loadingMoreProjects?: boolean;
+  onLoadMoreProjects?: () => void;
 };
 
 function toIssue(issue: any): Issue {
@@ -132,6 +137,9 @@ export function RoadmapTimeline({
   projectIdsByName = {},
   cycles: rawCycles = [],
   slug = "",
+  hasMoreProjects = false,
+  loadingMoreProjects = false,
+  onLoadMoreProjects,
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
@@ -386,6 +394,20 @@ export function RoadmapTimeline({
                     }
                   />
                 ))}
+
+                {hasMoreProjects && (
+                  <div className="flex justify-center mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={onLoadMoreProjects}
+                      disabled={loadingMoreProjects}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {loadingMoreProjects ? "Loading..." : "Load more projects"}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border smalltext text-muted-foreground">
                   <span className="flex items-center gap-1.5">

@@ -39,7 +39,7 @@ export function DeveloperDetailsModal({
   return (
     <Dialog open={!!developer} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="w-[95vw] sm:w-full sm:max-w-md max-h-[85vh] overflow-y-auto"
+        className="w-[95vw] sm:w-full sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden"
         aria-describedby={undefined}
       >
         {developer && (
@@ -102,7 +102,7 @@ export function DeveloperDetailsModal({
                   Bio
                 </p>
                 <div className="rounded-lg bg-muted/40 p-3">
-                  <p className="smalltext text-foreground whitespace-pre-wrap">
+                  <p className="smalltext text-foreground whitespace-pre-wrap break-words">
                     {developer.bio || "No bio provided yet."}
                   </p>
                 </div>
@@ -119,7 +119,7 @@ export function DeveloperDetailsModal({
                       <Badge
                         key={tech}
                         variant="outline"
-                        className="smalltext border-border bg-muted/40 text-foreground"
+                        className="smalltext border-border bg-muted/40 text-foreground max-w-full break-words"
                       >
                         {tech}
                       </Badge>

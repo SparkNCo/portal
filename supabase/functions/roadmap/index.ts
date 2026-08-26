@@ -60,10 +60,10 @@ async function linearRequest(query: string, variables: Record<string, unknown>) 
   return data.data;
 }
 
-async function fetchFromLinear(initiativeId: string) {
-  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId);
+async function fetchFromLinear(initiativeId: string, after: string | null) {
+  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId, "after", after);
 
-  const data = await linearRequest(PROJECTS_QUERY, { initiativeId });
+  const data = await linearRequest(PROJECTS_QUERY, { initiativeId, after });
 
   const projects = data?.initiative?.projects?.nodes ?? [];
   console.log(
@@ -220,9 +220,16 @@ Deno.serve(async (req) => {
     }
 
     const initiativeId = customer.linear_slug;
+    const projectsAfter = searchParams.get("projectsAfter");
 
-    const data = await fetchFromLinear(initiativeId);
-    const cycles = await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
+    const data = await fetchFromLinear(initiativeId, projectsAfter);
+
+    // Cycles are team-wide and already fully fetched (first: 100) on the
+    // initial page, so a "load more projects" request (projectsAfter set)
+    // skips re-fetching them — the frontend already has the full list.
+    const cycles = projectsAfter
+      ? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+      : await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
 
     console.log("[roadmap] returning response for slug", slug, "- cycles:", cycles.nodes.length);
 

@@ -1,7 +1,7 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -51,32 +51,55 @@ export default function RoadmapPage() {
     // staleTime: 10_000,
   });
 
-  const [allMilestones, setAllMilestones] = useState<any[]>([]);
+  const [projectNodes, setProjectNodes] = useState<any[]>([]);
+  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
+  const [hasMoreProjects, setHasMoreProjects] = useState(false);
+  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
 
   useEffect(() => {
-    if (!roadmap?.initiative?.projects?.nodes) return;
+    if (!roadmap?.initiative?.projects) return;
 
-    const milestones = roadmap.initiative.projects.nodes.flatMap(
-      (project: any) => {
-        const projectName = project.name;
-
-        return (project.projectMilestones?.nodes ?? []).map(
-          (milestone: any) => ({
-            ...milestone,
-            projectName,
-          }),
-        );
-      },
-    );
-
-    setAllMilestones(milestones);
+    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
+    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
+    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
   }, [roadmap]);
 
-  const allProjectNames: string[] =
-    roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
+  async function handleLoadMoreProjects() {
+    if (!slug || !projectsCursor || loadingMoreProjects) return;
+    setLoadingMoreProjects(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more projects");
+      const data = await res.json();
+      const nextProjects = data?.initiative?.projects;
+      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
+      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
+      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
+    } catch (err) {
+      console.error("Failed to load more projects:", err);
+    } finally {
+      setLoadingMoreProjects(false);
+    }
+  }
+
+  const allMilestones = useMemo(
+    () =>
+      projectNodes.flatMap((project: any) =>
+        (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
+          ...milestone,
+          projectName: project.name,
+        })),
+      ),
+    [projectNodes],
+  );
+
+  const allProjectNames: string[] = projectNodes.map((p: any) => p.name);
 
   const projectIdsByName: Record<string, string> = Object.fromEntries(
-    (roadmap?.initiative?.projects?.nodes ?? []).map((p: any) => [p.name, p.id]),
+    projectNodes.map((p: any) => [p.name, p.id]),
   );
 
   const roadmapCycles = roadmap?.cycles?.nodes ?? [];
@@ -118,6 +141,9 @@ export default function RoadmapPage() {
                 projectIdsByName={projectIdsByName}
                 cycles={roadmapCycles}
                 slug={slug}
+                hasMoreProjects={hasMoreProjects}
+                loadingMoreProjects={loadingMoreProjects}
+                onLoadMoreProjects={handleLoadMoreProjects}
               />
             )}
           </div>
