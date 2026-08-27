@@ -237,7 +237,7 @@ export function IssueListRow({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border",
+        "group relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border",
         lightCard
           ? "light-card"
           : "bg-background hover:bg-muted text-foreground",
@@ -251,7 +251,7 @@ export function IssueListRow({
       />
       <span
         className={cn(
-          "smalltext font-mono w-24 flex-shrink-0 whitespace-nowrap",
+          "smalltext font-mono flex-shrink-0 whitespace-nowrap",
           lightCard ? "light-card-muted" : "text-muted-foreground",
         )}
       >
@@ -259,7 +259,7 @@ export function IssueListRow({
       </span>
       <Badge
         variant="outline"
-        className={`smalltext flex-shrink-0 w-24 justify-center px-1 whitespace-nowrap ${priorityColors[issue.priorityLabel]}`}
+        className={`smalltext flex-shrink-0 w-24 justify-center px-1 whitespace-nowrap mr-2 ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
