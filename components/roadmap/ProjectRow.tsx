@@ -1,4 +1,4 @@
-import { Box, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MilestoneRow } from "./ProjectSummaryBar";
 import { Milestone } from "./roadmap-timeline";
@@ -28,6 +28,9 @@ export type CycleSelection = {
 interface ProjectRowProps {
   projectName: string;
   projectId: string | null;
+  // Hex color of the project's current Linear status (Project.status.color)
+  // — colors the circle in the header instead of a generic icon.
+  projectColor?: string;
   milestones: Milestone[];
   buckets: TimeBucket[];
   expanded: boolean;
@@ -38,6 +41,7 @@ interface ProjectRowProps {
 
 interface ProjectHeaderProps {
   projectName: string;
+  projectColor?: string;
   milestoneCount: number;
   expanded: boolean;
   selected: boolean;
@@ -95,6 +99,7 @@ function withCycleIds(milestones: Milestone[]): ChainedMilestone[] {
 export function ProjectRow({
   projectName,
   projectId,
+  projectColor,
   milestones,
   buckets,
   expanded,
@@ -116,6 +121,7 @@ export function ProjectRow({
     <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
       <ProjectHeader
         projectName={projectName}
+        projectColor={projectColor}
         milestoneCount={milestones.length}
         expanded={expanded}
         selected={isWholeProjectSelected}
@@ -183,6 +189,7 @@ export function ProjectRow({
 
 function ProjectHeader({
   projectName,
+  projectColor,
   milestoneCount,
   expanded,
   selected,
@@ -206,9 +213,11 @@ function ProjectHeader({
       }
     >
       <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-          <Box className="h-4 w-4 text-primary" />
-        </div>
+        <div
+          className="h-3.5 w-3.5 shrink-0 rounded-full bg-muted"
+          style={projectColor ? { backgroundColor: projectColor } : undefined}
+          aria-hidden="true"
+        />
         <h3 className="truncate smalltext  text-card-foreground font-semibold">
           {projectName}
         </h3>

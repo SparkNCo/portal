@@ -60,16 +60,13 @@ function buildBugDescription(steps: string[], expected: string, actual: string) 
     .map((s, i) => `${i + 1}. ${s}`)
     .join("\n");
 
-  return `
-### Steps to Reproduce
-${stepsList}
-
-### Expected Behavior
-${expected}
-
-### Actual Behavior
-${actual}
-`.trim();
+  return [
+    stepsList ? `### Steps to Reproduce\n${stepsList}` : null,
+    expected.trim() ? `### Expected Behavior\n${expected.trim()}` : null,
+    actual.trim() ? `### Actual Behavior\n${actual.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export function BugReportPanel({ slug }: { slug: string }) {

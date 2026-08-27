@@ -63,23 +63,21 @@ interface IssueFields {
 function buildDescription(type: IssueType, data: IssueFields): string {
   switch (type) {
     case "bug":
-      return `
-### Steps to Reproduce
-${data.steps || ""}
-
-### Expected Behavior
-${data.expected || ""}
-
-### Actual Behavior
-${data.actual || ""}
-
-`.trim();
+      return [
+        data.steps?.trim() ? `### Steps to Reproduce\n${data.steps.trim()}` : null,
+        data.expected?.trim() ? `### Expected Behavior\n${data.expected.trim()}` : null,
+        data.actual?.trim() ? `### Actual Behavior\n${data.actual.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
     case "feature":
       return [
-        `### Feature Description\n${data.featureDescription || ""}`,
-        data.successLooksLike
-          ? `### Requirement\n${data.successLooksLike}`
+        data.featureDescription?.trim()
+          ? `### Feature Description\n${data.featureDescription.trim()}`
+          : null,
+        data.successLooksLike?.trim()
+          ? `### Requirement\n${data.successLooksLike.trim()}`
           : null,
       ]
         .filter(Boolean)
@@ -87,16 +85,16 @@ ${data.actual || ""}
 
     case "uat":
       return [
-`### Test Steps\n${data.testSteps || ""}`,
-        `### Expected Result\n${data.testExpected || ""}`,
-        `### Actual Result\n${data.testActual || ""}`,
+        data.testSteps?.trim() ? `### Test Steps\n${data.testSteps.trim()}` : null,
+        data.testExpected?.trim() ? `### Expected Result\n${data.testExpected.trim()}` : null,
+        data.testActual?.trim() ? `### Actual Result\n${data.testActual.trim()}` : null,
       ]
         .filter(Boolean)
         .join("\n\n");
 
     case "project":
       return [
-        `### Description\n${data.projectDescription || ""}`,
+        data.projectDescription?.trim() ? `### Description\n${data.projectDescription.trim()}` : null,
         data.projectDueDate ? `### Due Date\n${data.projectDueDate}` : null,
         data.projectMilestones
           ? `### Milestones\n${data.projectMilestones}`

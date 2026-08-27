@@ -39,7 +39,6 @@ export const createUser = async (body: any, schema: string) => {
     initiative_ids = null,
     projects_slug = null,
     auth_id = null,
-    origin,
     firstName = null,
     lastName = null,
     phoneNumber = null,
@@ -59,7 +58,12 @@ export const createUser = async (body: any, schema: string) => {
   // whatever this form submitted (role, customer_id, name, etc.).
   await assertEmailNotTaken(schema, email);
 
-  const redirectTo = `${origin ?? "https://app.buildwithspark.co"}/set-password`;
+  // Never trust a client-supplied redirect origin (open-redirect / token-leak
+  // risk) — same fix as reset-password/index.ts. This link goes out in an
+  // invite email to the *new user's* inbox, so if the admin creating them was
+  // on localhost or a preview deployment, the recipient would get a link
+  // back to that unusable origin instead of production.
+  const redirectTo = "https://app.buildwithspark.co/set-password";
 
   const { data: inviteData, error: inviteError } =
     await supabase.auth.admin.generateLink({

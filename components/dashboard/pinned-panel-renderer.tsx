@@ -100,8 +100,13 @@ function useRoadmapMilestones(slug: string) {
     const projectIdsByName: Record<string, string> = Object.fromEntries(
       projectNodes.map((project: any) => [project.name, project.id]),
     );
+    const projectColorByName: Record<string, string> = Object.fromEntries(
+      projectNodes
+        .filter((project: any) => project.status?.color)
+        .map((project: any) => [project.name, project.status.color]),
+    );
     const cycles = roadmap?.cycles?.nodes ?? [];
-    return { milestones, projectNames, projectIdsByName, cycles };
+    return { milestones, projectNames, projectIdsByName, projectColorByName, cycles };
   }, [projectNodes, roadmap]);
 
   return { ...derived, hasMoreProjects, loadingMoreProjects, onLoadMoreProjects: handleLoadMoreProjects };
@@ -291,6 +296,7 @@ function RoadmapTimelinePinned({
     milestones,
     projectNames,
     projectIdsByName,
+    projectColorByName,
     cycles,
     hasMoreProjects,
     loadingMoreProjects,
@@ -304,6 +310,7 @@ function RoadmapTimelinePinned({
           projectMilestones={milestones}
           allProjectNames={projectNames}
           projectIdsByName={projectIdsByName}
+          projectColorByName={projectColorByName}
           cycles={cycles}
           slug={slug}
           hasMoreProjects={hasMoreProjects}

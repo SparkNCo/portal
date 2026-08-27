@@ -54,8 +54,8 @@ async function attachFileToIssue(issueId: string, url: string, title: string) {
 
 function buildFeatureDescription(description: string, requirements: string) {
   return [
-    `### Feature Description\n${description}`,
-    requirements ? `### Requirement\n${requirements}` : null,
+    description.trim() ? `### Feature Description\n${description.trim()}` : null,
+    requirements.trim() ? `### Requirement\n${requirements.trim()}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");

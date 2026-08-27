@@ -102,6 +102,12 @@ export default function RoadmapPage() {
     projectNodes.map((p: any) => [p.name, p.id]),
   );
 
+  const projectColorByName: Record<string, string> = Object.fromEntries(
+    projectNodes
+      .filter((p: any) => p.status?.color)
+      .map((p: any) => [p.name, p.status.color]),
+  );
+
   const roadmapCycles = roadmap?.cycles?.nodes ?? [];
 
   return (
@@ -139,6 +145,7 @@ export default function RoadmapPage() {
                 projectMilestones={allMilestones}
                 allProjectNames={allProjectNames}
                 projectIdsByName={projectIdsByName}
+                projectColorByName={projectColorByName}
                 cycles={roadmapCycles}
                 slug={slug}
                 hasMoreProjects={hasMoreProjects}

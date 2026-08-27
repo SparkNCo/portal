@@ -29,22 +29,25 @@ function CycleTooltipHeader({ bucket, projectName }: { bucket: TimeBucket; proje
 // Keyed on Linear's own milestone `status`, not a progress/date heuristic —
 // "unstarted", "next", "planned", and "in-progress" all used to collapse
 // into the same default color since only completion% + due date were
-// checked. Each status now gets its own color, reusing the same hues as
-// the "Issues by Status" chart (CHART_STATUS_COLORS in issues.types.ts) so
-// the same concept reads as the same color across both views: next ~ UAT's
-// teal, planned ~ QA's blue, unstarted ~ Planning's yellow — kept as
-// real colors rather than a neutral gray, so every status stays readable at
-// a glance on the timeline. overdue moved off warning (too close to
-// in-progress's orange) onto destructive, matching how Canceled/Blocked
-// read in the issues chart.
+// checked. Each status now gets its own color, matched to the exact same
+// hex the equivalent concept uses in CHART_STATUS_COLORS (issues.types.ts) —
+// which is itself matched to (and lightened/split from) the Bugs list's
+// status plates (`statusColors`) — so the same concept reads as the same
+// color across the timeline, the issue badges, and the "Issues by Status"
+// chart: next ~ UAT's teal, planned ~ QA's blue, unstarted ~ Planning's
+// yellow, in-progress ~ Development's orange. `in-progress`/`planned`/
+// `completed` are currently unreachable for a milestone's own status field
+// (Linear's real ProjectMilestoneStatus enum is only unstarted/next/
+// overdue/done — see @linear/sdk's generated types), but are kept mapped
+// for consistency if that ever changes.
 const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
   completed: "bg-success",
   done: "bg-success",
-  "in-progress": "bg-primary/50",
+  "in-progress": "bg-[#fb923c]/50", // orange-400, matches Development
   overdue: "bg-destructive/50",
-  next: "bg-[hsl(180,60%,50%)]/50",
-  planned: "bg-[hsl(210,70%,55%)]/50",
-  unstarted: "bg-[hsl(43,74%,66%)]/50",
+  next: "bg-[#2dd4bf]/50", // teal-400, matches UAT
+  planned: "bg-[#60a5fa]/50", // blue-400, matches QA
+  unstarted: "bg-[#fde047]/50", // yellow-300, matches Planning
 };
 
 function getMilestoneBarColor(m: Milestone): string {

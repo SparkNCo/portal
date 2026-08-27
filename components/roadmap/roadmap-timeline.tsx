@@ -66,6 +66,10 @@ type RoadmapTimelineProps = {
   // the issues panel down to just that project (and milestone, when the
   // click came from a milestone row) instead of every issue in the cycle.
   projectIdsByName?: Record<string, string>;
+  // Maps project name -> the hex color of that project's current Linear
+  // status (Project.status.color) — colors the little circle on each
+  // project row instead of a generic icon.
+  projectColorByName?: Record<string, string>;
   cycles?: RawCycle[];
   slug?: string;
   hasMoreProjects?: boolean;
@@ -136,6 +140,7 @@ export function RoadmapTimeline({
   allProjectNames = [],
   projectIdsByName = {},
   cycles: rawCycles = [],
+  projectColorByName = {},
   slug = "",
   hasMoreProjects = false,
   loadingMoreProjects = false,
@@ -372,6 +377,7 @@ export function RoadmapTimeline({
                     key={projectName}
                     projectName={projectName}
                     projectId={projectIdsByName[projectName] ?? null}
+                    projectColor={projectColorByName[projectName]}
                     milestones={milestones}
                     buckets={buckets}
                     expanded={!!expandedProjects[projectName]}
@@ -415,19 +421,19 @@ export function RoadmapTimeline({
                     Completed
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#fb923c]/50" />
                     In progress
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(180,60%,50%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#2dd4bf]/50" />
                     Next
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(210,70%,55%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#60a5fa]/50" />
                     Planned
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(43,74%,66%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#fde047]/50" />
                     Unstarted
                   </span>
                   <span className="flex items-center gap-1.5">

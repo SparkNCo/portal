@@ -79,6 +79,8 @@ query Projects($initiativeId: String!, $after: String) {
         status {
           name
           position
+          color
+          type
         }
         lead {
           displayName
