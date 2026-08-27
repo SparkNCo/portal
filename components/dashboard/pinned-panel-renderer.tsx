@@ -59,7 +59,6 @@ function useRoadmapMilestones(slug: string) {
   const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
   const [hasMoreProjects, setHasMoreProjects] = useState(false);
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
-  const [milestoneCycleSnapshots, setMilestoneCycleSnapshots] = useState<any[]>([]);
 
   useEffect(() => {
     if (!roadmap?.initiative?.projects) return;
@@ -67,7 +66,6 @@ function useRoadmapMilestones(slug: string) {
     setProjectNodes(roadmap.initiative.projects.nodes ?? []);
     setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
     setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
-    setMilestoneCycleSnapshots(roadmap.milestoneCycleSnapshots ?? []);
   }, [roadmap]);
 
   async function handleLoadMoreProjects() {
@@ -84,7 +82,6 @@ function useRoadmapMilestones(slug: string) {
       setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
       setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
       setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
-      setMilestoneCycleSnapshots((prev) => [...prev, ...(data?.milestoneCycleSnapshots ?? [])]);
     } catch (err) {
       console.error("Failed to load more projects:", err);
     } finally {
@@ -104,8 +101,8 @@ function useRoadmapMilestones(slug: string) {
       projectNodes.map((project: any) => [project.name, project.id]),
     );
     const cycles = roadmap?.cycles?.nodes ?? [];
-    return { milestones, projectNames, projectIdsByName, cycles, milestoneCycleSnapshots };
-  }, [projectNodes, roadmap, milestoneCycleSnapshots]);
+    return { milestones, projectNames, projectIdsByName, cycles };
+  }, [projectNodes, roadmap]);
 
   return { ...derived, hasMoreProjects, loadingMoreProjects, onLoadMoreProjects: handleLoadMoreProjects };
 }
@@ -295,7 +292,6 @@ function RoadmapTimelinePinned({
     projectNames,
     projectIdsByName,
     cycles,
-    milestoneCycleSnapshots,
     hasMoreProjects,
     loadingMoreProjects,
     onLoadMoreProjects,
@@ -309,7 +305,6 @@ function RoadmapTimelinePinned({
           allProjectNames={projectNames}
           projectIdsByName={projectIdsByName}
           cycles={cycles}
-          milestoneCycleSnapshots={milestoneCycleSnapshots}
           slug={slug}
           hasMoreProjects={hasMoreProjects}
           loadingMoreProjects={loadingMoreProjects}

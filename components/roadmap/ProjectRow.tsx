@@ -1,7 +1,7 @@
 import { Box, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MilestoneRow } from "./ProjectSummaryBar";
-import { Milestone, type MilestoneStatus } from "./roadmap-timeline";
+import { Milestone } from "./roadmap-timeline";
 import type { TimeBucket } from "./TimelineHeader";
 
 export interface ChainedMilestone extends Milestone {
@@ -34,7 +34,6 @@ interface ProjectRowProps {
   onToggle: () => void;
   selection: CycleSelection | null;
   onCycleSelect: (selection: CycleSelection) => void;
-  milestoneCycleSnapshots?: Map<string, MilestoneStatus>;
 }
 
 interface ProjectHeaderProps {
@@ -102,7 +101,6 @@ export function ProjectRow({
   onToggle,
   selection,
   onCycleSelect,
-  milestoneCycleSnapshots,
 }: ProjectRowProps) {
   const chainedMilestones = withCycleIds(
     withPlaceholder(milestones, projectName),
@@ -140,7 +138,6 @@ export function ProjectRow({
             data={m}
             cycleIds={m.cycleIds}
             buckets={buckets}
-            milestoneCycleSnapshots={milestoneCycleSnapshots}
             selectedCycleKey={
               isThisProjectSelected && selection?.milestoneName === m.name
                 ? selection.cycleKey

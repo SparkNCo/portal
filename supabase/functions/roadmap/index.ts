@@ -100,30 +100,6 @@ async function fetchCyclesForInitiative(projects: any[]) {
   return cyclesData?.team?.cycles ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
-// Frozen per-cycle milestone status, written by the milestone-snapshots cron
-// once a cycle closes (see portal.milestone_cycle_snapshots) — lets the
-// frontend show a milestone's actual status for a past cycle instead of
-// re-deriving it live from each issue's *current* state every time. Only
-// covers closed cycles; the active/future ones the frontend still derives
-// live (getBucketMilestoneStatus in ProjectSummaryBar.tsx).
-async function fetchMilestoneCycleSnapshots(projects: any[], schema: string) {
-  const milestoneIds = projects.flatMap((p: any) =>
-    (p.projectMilestones?.nodes ?? []).map((m: any) => m.id),
-  );
-  if (!milestoneIds.length) return [];
-
-  const { data, error } = await supabase.schema(schema)
-    .from("milestone_cycle_snapshots")
-    .select("milestone_id, cycle_id, status")
-    .in("milestone_id", milestoneIds);
-
-  if (error) {
-    console.error("[roadmap] fetchMilestoneCycleSnapshots failed (non-fatal)", error.message);
-    return [];
-  }
-  return data ?? [];
-}
-
 async function fetchCycleIssues(
   cycleId: string,
   after: string | null,
@@ -255,14 +231,9 @@ Deno.serve(async (req) => {
       ? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
       : await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
 
-    const milestoneCycleSnapshots = await fetchMilestoneCycleSnapshots(
-      data?.initiative?.projects?.nodes ?? [],
-      schema,
-    );
-
     console.log("[roadmap] returning response for slug", slug, "- cycles:", cycles.nodes.length);
 
-    return new Response(JSON.stringify({ ...data, cycles, milestoneCycleSnapshots }), {
+    return new Response(JSON.stringify({ ...data, cycles }), {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/json",

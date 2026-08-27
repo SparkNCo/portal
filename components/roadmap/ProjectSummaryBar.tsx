@@ -47,48 +47,8 @@ const MILESTONE_STATUS_COLOR: Record<MilestoneStatus, string> = {
   unstarted: "bg-[hsl(43,74%,66%)]/50",
 };
 
-// Linear's own milestone `status` is a single value for the whole milestone,
-// so every cycle bucket it spans used to get painted the same color — a
-// milestone that's overdue today paints every past cycle red too, even ones
-// where it was on track back then. This derives a color per bucket instead.
-// A frozen snapshot (written once that cycle closed — see
-// portal.milestone_cycle_snapshots / supabase/functions/milestone-snapshots)
-// wins when one exists, since it reflects what the cycle actually looked
-// like at close time. Otherwise (typically the active/future cycles, which
-// never get snapshotted) falls back to a live computation from the
-// completion of just this milestone's issues that belong to that cycle
-// (already fetched alongside each issue as `issue.cycle`) — an
-// approximation, since issue state reflects its *current* value, not what
-// it was while that cycle was active.
-function getBucketMilestoneStatus(
-  m: Milestone,
-  bucket: TimeBucket,
-  snapshots?: Map<string, MilestoneStatus>,
-): MilestoneStatus {
-  const snapshot = snapshots?.get(`${m.id}:${bucket.key}`);
-  if (snapshot) return snapshot;
-
-  const issuesInCycle = (m.issues?.nodes ?? []).filter(
-    (issue: any) => issue?.cycle?.id === bucket.key,
-  );
-  // No issues of this milestone actually landed in this cycle (shouldn't
-  // happen when the caller already checked cycleIds/isInRange) — fall back
-  // to the milestone's own overall status rather than guessing.
-  if (issuesInCycle.length === 0) return m.status;
-
-  const allDone = issuesInCycle.every(
-    (issue: any) => issue.completedAt || issue.canceledAt,
-  );
-  if (allDone) return "done";
-
-  const now = Date.now();
-  if (bucket.end.getTime() < now) return "overdue";
-  if (bucket.start.getTime() > now) return "unstarted";
-  // Cycle is currently active and this milestone's slice of it isn't fully
-  // done yet — reuses the "in-progress" color, which Linear's own status
-  // never actually sends (its milestone status enum is only unstarted/next/
-  // overdue/done), so this was previously dead in the color map.
-  return "in-progress";
+function getMilestoneBarColor(m: Milestone): string {
+  return MILESTONE_STATUS_COLOR[m.status] ?? "bg-card/50";
 }
 
 // Most-urgent-first: if any milestone landing in this cycle bucket is
@@ -104,10 +64,8 @@ const MILESTONE_STATUS_PRIORITY: MilestoneStatus[] = [
   "done",
 ];
 
-function getBucketColor(milestonesInBucket: ChainedMilestone[], bucket: TimeBucket): string {
-  const statusesPresent = new Set(
-    milestonesInBucket.map((m) => getBucketMilestoneStatus(m, bucket)),
-  );
+function getBucketColor(milestonesInBucket: ChainedMilestone[]): string {
+  const statusesPresent = new Set(milestonesInBucket.map((m) => m.status));
   const leadStatus = MILESTONE_STATUS_PRIORITY.find((s) => statusesPresent.has(s));
   return leadStatus ? MILESTONE_STATUS_COLOR[leadStatus] : "bg-card/50";
 }
@@ -154,7 +112,7 @@ export function ProjectSummaryBar({
                       <div
                         className={cn(
                           "absolute inset-y-2 inset-x-0 rounded-md",
-                          getBucketColor(milestonesInBucket, bucket),
+                          getBucketColor(milestonesInBucket),
                           isSelected && "ring-2 ring-accent",
                         )}
                       />
@@ -178,7 +136,7 @@ export function ProjectSummaryBar({
                           >
                             <span className="font-medium">{m.name}</span>
                             <span className="smalltext text-popover-foreground/60">
-                              {getBucketMilestoneStatus(m, bucket)}
+                              {m.status}
                             </span>
                           </div>
                         ))}
@@ -206,7 +164,6 @@ type MilestoneRowProps = {
   // Undefined for the placeholder milestone used by projects with none yet
   // (no real name/id to select by), so the name isn't rendered as clickable.
   onMilestoneClick?: () => void;
-  milestoneCycleSnapshots?: Map<string, MilestoneStatus>;
 };
 
 export function MilestoneRow({
@@ -217,7 +174,6 @@ export function MilestoneRow({
   isWholeMilestoneSelected,
   onCycleClick,
   onMilestoneClick,
-  milestoneCycleSnapshots,
 }: MilestoneRowProps) {
   return (
     <div className="flex flex-col gap-1.5 rounded-md transition-colors sm:flex-row sm:items-center sm:gap-4">
@@ -264,9 +220,7 @@ export function MilestoneRow({
                     <div
                       className={cn(
                         "absolute inset-y-1 inset-x-0 rounded-md",
-                        isInRange
-                          ? MILESTONE_STATUS_COLOR[getBucketMilestoneStatus(data, bucket, milestoneCycleSnapshots)]
-                          : "bg-transparent",
+                        isInRange ? getMilestoneBarColor(data) : "bg-transparent",
                         isSelected && "ring-2 ring-accent",
                       )}
                     />
@@ -282,9 +236,7 @@ export function MilestoneRow({
                     {data.name && (
                       <div className="flex flex-col">
                         <span className="font-medium">{data.name}</span>
-                        <span className="smalltext text-popover-foreground/60">
-                          {getBucketMilestoneStatus(data, bucket, milestoneCycleSnapshots)}
-                        </span>
+                        <span className="smalltext text-popover-foreground/60">{data.status}</span>
                       </div>
                     )}
                     <Tooltip.Arrow className="fill-popover" />
