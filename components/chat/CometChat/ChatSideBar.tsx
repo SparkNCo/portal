@@ -153,21 +153,6 @@ export default function ChatSideBar({
 
   return (
     <div className="w-full h-full border-r flex flex-col bg-background">
-      {/* Only rendered when there's actually a button inside — otherwise this
-          left an empty padded/bordered strip above the list for every
-          non-customer role. */}
-      {isCustomer && (
-        <div className="flex items-center justify-end px-4 py-3 border-b">
-          <button
-            onClick={onCreateChat}
-            className="flex items-center gap-1 text-xs md:smalltext bg-accent text-accent-foreground px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3 h-3" />
-            New
-          </button>
-        </div>
-      )}
-
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
           <Select
