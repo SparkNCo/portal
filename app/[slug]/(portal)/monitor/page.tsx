@@ -55,6 +55,7 @@ export default function RoadmapPage() {
   const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
   const [hasMoreProjects, setHasMoreProjects] = useState(false);
   const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
+  const [milestoneCycleSnapshots, setMilestoneCycleSnapshots] = useState<any[]>([]);
 
   useEffect(() => {
     if (!roadmap?.initiative?.projects) return;
@@ -62,6 +63,7 @@ export default function RoadmapPage() {
     setProjectNodes(roadmap.initiative.projects.nodes ?? []);
     setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
     setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
+    setMilestoneCycleSnapshots(roadmap.milestoneCycleSnapshots ?? []);
   }, [roadmap]);
 
   async function handleLoadMoreProjects() {
@@ -78,6 +80,7 @@ export default function RoadmapPage() {
       setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
       setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
       setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
+      setMilestoneCycleSnapshots((prev) => [...prev, ...(data?.milestoneCycleSnapshots ?? [])]);
     } catch (err) {
       console.error("Failed to load more projects:", err);
     } finally {
@@ -140,6 +143,7 @@ export default function RoadmapPage() {
                 allProjectNames={allProjectNames}
                 projectIdsByName={projectIdsByName}
                 cycles={roadmapCycles}
+                milestoneCycleSnapshots={milestoneCycleSnapshots}
                 slug={slug}
                 hasMoreProjects={hasMoreProjects}
                 loadingMoreProjects={loadingMoreProjects}

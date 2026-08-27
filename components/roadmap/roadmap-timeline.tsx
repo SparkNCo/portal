@@ -67,6 +67,11 @@ type RoadmapTimelineProps = {
   // click came from a milestone row) instead of every issue in the cycle.
   projectIdsByName?: Record<string, string>;
   cycles?: RawCycle[];
+  // Frozen per-cycle milestone status, written once a cycle closes (see
+  // portal.milestone_cycle_snapshots) — lets a milestone's bar for a past
+  // cycle reflect what it actually looked like back then, instead of being
+  // re-derived live from each issue's *current* state every render.
+  milestoneCycleSnapshots?: { milestone_id: string; cycle_id: string; status: string }[];
   slug?: string;
   hasMoreProjects?: boolean;
   loadingMoreProjects?: boolean;
@@ -136,6 +141,7 @@ export function RoadmapTimeline({
   allProjectNames = [],
   projectIdsByName = {},
   cycles: rawCycles = [],
+  milestoneCycleSnapshots = [],
   slug = "",
   hasMoreProjects = false,
   loadingMoreProjects = false,
@@ -225,6 +231,16 @@ export function RoadmapTimeline({
     () => Object.entries(groupedMilestones).sort(([a], [b]) => a.localeCompare(b)),
     [groupedMilestones],
   );
+
+  // Keyed as "milestoneId:cycleId" so ProjectSummaryBar's getBucketMilestoneStatus
+  // can do a single map lookup per cell instead of a linear scan.
+  const milestoneCycleSnapshotMap = useMemo(() => {
+    const map = new Map<string, MilestoneStatus>();
+    for (const s of milestoneCycleSnapshots) {
+      map.set(`${s.milestone_id}:${s.cycle_id}`, s.status as MilestoneStatus);
+    }
+    return map;
+  }, [milestoneCycleSnapshots]);
 
   const selectedBucket = useMemo(
     () => (selection ? buckets.find((b) => b.key === selection.cycleKey) ?? null : null),
@@ -374,6 +390,7 @@ export function RoadmapTimeline({
                     projectId={projectIdsByName[projectName] ?? null}
                     milestones={milestones}
                     buckets={buckets}
+                    milestoneCycleSnapshots={milestoneCycleSnapshotMap}
                     expanded={!!expandedProjects[projectName]}
                     onToggle={() =>
                       setExpandedProjects((p) => ({

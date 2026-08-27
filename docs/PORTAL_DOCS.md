@@ -791,19 +791,20 @@ Three independent fetches: `GET /issues?slug=` (feeds `ProgressPieChart`/"Projec
 
 ```
 {
-  initiative: { id, projects: { nodes: [
+  initiative: { id, projects: { pageInfo, nodes: [
     { name, targetDate, createdAt, currentProgress, progress, ...,
       projectMilestones: { nodes: [
-        { name, status, progress, targetDate, createdAt,
+        { id, name, status, progress, targetDate, createdAt,
           currentProgress { scopeCount, scopeEstimate, ... },
           issues: { nodes: [ /* first 25 only */ ], pageInfo } }
       ] } }
   ] } },
-  cycles: { nodes: [ { id, number, name, startsAt, endsAt, isActive } ], pageInfo }
+  cycles: { nodes: [ { id, number, name, startsAt, endsAt, isActive } ], pageInfo },
+  milestoneCycleSnapshots: [ { milestone_id, cycle_id, status } ]
 }
 ```
 
-`cycles` is resolved separately (cycles belong to a **team**, not a project — the backend looks up the first project's team, then that team's cycles) and is what drives the Projects Timeline's columns (7.3) — an axis independent of the milestones' own dates. A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each, and builds a `projectIdsByName` map used by the cycle drill-down.
+`cycles` is resolved separately (cycles belong to a **team**, not a project — the backend looks up the first project's team, then that team's cycles) and is what drives the Projects Timeline's columns (7.3) — an axis independent of the milestones' own dates. Projects are paginated 5 at a time; "Load more projects" re-calls with `&projectsAfter={cursor}` and the result (including its slice of `milestoneCycleSnapshots`) is appended client-side. A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each, and builds a `projectIdsByName` map used by the cycle drill-down.
 
 ### 7.2 Software KPIs (SDLC Metrics) — `SoftwareKPIs`
 
@@ -819,18 +820,21 @@ Rebuilt around Linear **cycles**, not calendar months — no more year-at-a-glan
 
 **Cycle-column navigation** — x-axis is a window of 5 cycles (2 before/after the active one), pooled from every project's shared team and centered on whichever cycle is active by default. Left/right arrows slide the window across cycle history.
 
-**Collapsed view (default) — `ProjectSummaryBar`**  
-Each cycle cell is highlighted if any milestone has an issue whose `cycle.id` matches — real membership, not date-range math (many milestones have no `targetDate`). Hovering shows which milestone(s) fall in that cycle.
+**Collapsed view (default)**  
+Just the project header (name, milestone count, toggle) — no per-cycle cells. (`ProjectSummaryBar`, the component that would render per-project cell coloring, is exported from `ProjectSummaryBar.tsx` but not currently imported/rendered anywhere; only its sibling `MilestoneRow`, used below, is live.)
 
 **Expanded view — `MilestoneRow`**  
-Per-milestone cycle cells, colored by actual completion + due date (not Linear's `status` field):
+Per-milestone cycle cells. Color is computed per cell (`getBucketMilestoneStatus`), not from one status painted across every cycle a milestone spans: a frozen row in `portal.milestone_cycle_snapshots` wins if one exists for that `(milestone, cycle)` pair — written once by the `milestone-snapshots` function's daily cron (07:00 UTC, same pattern as the `dora`/`issueMetrics` crons) shortly after a cycle closes, and never updated afterward. Active/future cycles never get a row and always fall back to live derivation from that milestone's issues actually belonging to that cycle.
 
-| Condition | Color |
+| Status | Color |
 |---|---|
-| `progress >= 1` | Green |
-| Open, past `targetDate` | Orange (overdue) |
-| Open, not yet due | Blue/accent |
+| `done` (all issues done/canceled) | Green |
+| `overdue` (cycle ended, not all done) | Red |
+| `in-progress` (cycle active, not all done) | Orange |
+| `unstarted` (cycle hasn't started) | Yellow |
 | No issue that cycle | Uncolored |
+
+Linear's real `ProjectMilestoneStatus` enum only has `unstarted`/`next`/`overdue`/`done` (confirmed via `@linear/sdk`'s generated types) — `in-progress` here is this app's own per-cell classification, not something Linear sends.
 
 **Cycle drill-down panel** — clicking any cell opens a panel showing the *real, complete, team-wide* issue list for that cycle (`GET /roadmap?cycleId=`, optionally scoped by project/milestone), paginated, with client-side search + status/priority filters. Clicking an issue card opens `IssueDetailModal`; a pencil button opens `EditIssueModal` (saving invalidates the `roadmap` query).
 
@@ -861,7 +865,8 @@ Every panel on this page (Project Stats, SDLC Metrics, Timeline, Metrics) has a 
 ```
 User lands on /{slug}/monitor
   ├── GET /issues?slug → ProgressPieChart ("Project Stats")
-  ├── GET /roadmap/?slug → projects+milestones flattened, cycles pooled → RoadmapTimeline
+  ├── GET /roadmap/?slug → projects (first 5)+milestones flattened, cycles pooled, snapshots loaded → RoadmapTimeline
+  │     (└── "Load more projects" → GET /roadmap?slug=&projectsAfter= → appended client-side)
   ├── GET /get-dora-metrics?linear_name= → SoftwareKPIs (9 SDLC tiles, 3x3 grid)
   ├── GET /issueMetrics/?slug → MetricsPanel (CycleBarChart + IssueMetricsView)
   └── (on cycle-cell click) GET /roadmap?cycleId= → drill-down panel
@@ -883,7 +888,8 @@ User lands on /{slug}/monitor
 | `components/metrics/cycle-metrics.tsx` | CycleBarChart + unused chart components |
 | `components/metrics/issues-metrics.tsx` | Issues by Status area chart |
 | `components/build/edit-issue-modal.tsx` | Edit modal opened from the drill-down panel |
-| `supabase/functions/roadmap/index.ts` | Backend: `?slug=` (projects/milestones/cycles) and `?cycleId=` (paginated team-wide cycle issues) |
+| `supabase/functions/roadmap/index.ts` | Backend: `?slug=` (projects/milestones/cycles/milestone-cycle snapshots), `?slug=&projectsAfter=` (load more projects), and `?cycleId=`/`?projectId=`/`?milestoneId=` (paginated team-wide issue drill-downs) |
+| `supabase/functions/milestone-snapshots/` | Daily cron: freezes each milestone's status for newly-closed cycles into `portal.milestone_cycle_snapshots` |
 | `supabase/functions/dora/` | Backend: computes 7 of the 9 SDLC metrics from Git history, see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
 | `supabase/functions/get-dora-metrics/` | Read-only endpoint `SoftwareKPIs` calls |
 | `supabase/functions/manual-metrics/` | `PATCH` endpoint for the 2 manually-entered SDLC metrics (Code Coverage, Sonar Quality Gate) |
