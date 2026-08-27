@@ -124,6 +124,21 @@ async function handleCreateExecution(req: Request): Promise<Response> {
     return Response.json({ error: "Missing test_id, issue_id, or created_by" }, { status: 400 });
   }
 
+  // A test can be reused across many tickets, but only once per ticket — the
+  // frontend already filters the picker, this is the backstop against races
+  // or direct API calls.
+  const existingRes = await fetch(
+    `${db("test_executions")}?issue_id=eq.${issue_id}&test_id=eq.${test_id}&select=id&limit=1`,
+    { headers: headers(schema) },
+  );
+  const existing = await existingRes.json();
+  if (existingRes.ok && Array.isArray(existing) && existing.length > 0) {
+    return Response.json(
+      { error: "This test case is already attached to this ticket" },
+      { status: 409 },
+    );
+  }
+
   const res = await fetch(db("test_executions"), {
     method: "POST",
     headers: headers(schema, { Prefer: "return=representation" }),

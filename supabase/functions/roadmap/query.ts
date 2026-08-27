@@ -1,8 +1,12 @@
 export const PROJECTS_QUERY = `
-query Projects($initiativeId: String!) {
+query Projects($initiativeId: String!, $after: String) {
   initiative(id: $initiativeId) {
     id
-    projects(first: 5) {
+    projects(first: 5, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
         id
         name
@@ -75,6 +79,8 @@ query Projects($initiativeId: String!) {
         status {
           name
           position
+          color
+          type
         }
         lead {
           displayName
@@ -140,6 +146,92 @@ query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
     id
     number
     issues(first: 25, after: $after, filter: $filter) {
+      nodes {
+        id
+        identifier
+        title
+        description
+        priorityLabel
+        estimate
+        dueDate
+        completedAt
+        canceledAt
+        createdAt
+        state {
+          name
+        }
+        assignee {
+          displayName
+        }
+        creator {
+          displayName
+        }
+        labels(last: 4) {
+          nodes {
+            name
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`;
+
+// Fetched when a project header is clicked directly (no cycle selected) —
+// every issue in the project across every cycle, same field shape as
+// CYCLE_ISSUES_QUERY so the results panel doesn't need to branch on where
+// they came from.
+export const PROJECT_ISSUES_QUERY = `
+query ProjectIssues($projectId: String!, $after: String) {
+  project(id: $projectId) {
+    id
+    issues(first: 25, after: $after) {
+      nodes {
+        id
+        identifier
+        title
+        description
+        priorityLabel
+        estimate
+        dueDate
+        completedAt
+        canceledAt
+        createdAt
+        state {
+          name
+        }
+        assignee {
+          displayName
+        }
+        creator {
+          displayName
+        }
+        labels(last: 4) {
+          nodes {
+            name
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+`;
+
+// Fetched when a milestone is clicked directly (no cycle selected) — every
+// issue in that milestone across every cycle it spans.
+export const MILESTONE_ISSUES_QUERY = `
+query MilestoneIssues($milestoneId: String!, $after: String) {
+  projectMilestone(id: $milestoneId) {
+    id
+    issues(first: 25, after: $after) {
       nodes {
         id
         identifier

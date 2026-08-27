@@ -153,18 +153,6 @@ export default function ChatSideBar({
 
   return (
     <div className="w-full h-full border-r flex flex-col bg-background">
-      <div className="flex items-center justify-end px-4 py-3 border-b">
-        {isCustomer && (
-          <button
-            onClick={onCreateChat}
-            className="flex items-center gap-1 text-xs md:smalltext bg-accent text-accent-foreground px-2.5 py-1.5 rounded-md hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-3 h-3" />
-            New
-          </button>
-        )}
-      </div>
-
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
           <Select
@@ -263,7 +251,9 @@ export default function ChatSideBar({
         )}
       </div>
 
-      {/* isCustomer && ( visible only to customers ) */}
+      {/* Visible to every role — customers/stakeholders create a chat for
+          their one initiative directly; developers/admins pick which
+          initiative first, via the dropdown in CreateChatModal. */}
       <div className="p-3 border-t">
         <button
           onClick={onCreateChat}

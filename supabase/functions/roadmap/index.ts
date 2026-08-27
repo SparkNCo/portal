@@ -7,6 +7,8 @@ import {
   PROJECT_TEAM_QUERY,
   TEAM_CYCLES_QUERY,
   CYCLE_ISSUES_QUERY,
+  PROJECT_ISSUES_QUERY,
+  MILESTONE_ISSUES_QUERY,
 } from "./query.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
@@ -58,10 +60,10 @@ async function linearRequest(query: string, variables: Record<string, unknown>) 
   return data.data;
 }
 
-async function fetchFromLinear(initiativeId: string) {
-  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId);
+async function fetchFromLinear(initiativeId: string, after: string | null) {
+  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId, "after", after);
 
-  const data = await linearRequest(PROJECTS_QUERY, { initiativeId });
+  const data = await linearRequest(PROJECTS_QUERY, { initiativeId, after });
 
   const projects = data?.initiative?.projects?.nodes ?? [];
   console.log(
@@ -124,6 +126,23 @@ async function fetchCycleIssues(
   return data?.cycle?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
+// Used when a milestone is clicked directly (no cycle) — every issue in it,
+// across every cycle it spans, takes priority over projectId when both are
+// present since a milestone already belongs to exactly one project.
+async function fetchMilestoneIssues(milestoneId: string, after: string | null) {
+  console.log("[roadmap] fetchMilestoneIssues: requesting milestone", { milestoneId, after });
+  const data = await linearRequest(MILESTONE_ISSUES_QUERY, { milestoneId, after });
+  return data?.projectMilestone?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+}
+
+// Used when a project header is clicked directly (no cycle, no milestone) —
+// every issue in the project across every cycle and milestone.
+async function fetchProjectIssues(projectId: string, after: string | null) {
+  console.log("[roadmap] fetchProjectIssues: requesting project", { projectId, after });
+  const data = await linearRequest(PROJECT_ISSUES_QUERY, { projectId, after });
+  return data?.project?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -142,6 +161,25 @@ Deno.serve(async (req) => {
       const projectId = searchParams.get("projectId");
       const milestoneId = searchParams.get("milestoneId");
       const issues = await fetchCycleIssues(cycleId, after, projectId, milestoneId);
+      return new Response(JSON.stringify(issues), {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
+      });
+    }
+
+    // No cycle selected — a project or milestone was clicked directly, so
+    // every issue under it (across every cycle) is wanted instead of one
+    // cycle's worth. Milestone takes priority since it already implies a
+    // single project.
+    const noCycleMilestoneId = searchParams.get("milestoneId");
+    const noCycleProjectId = searchParams.get("projectId");
+    if (noCycleMilestoneId || noCycleProjectId) {
+      const after = searchParams.get("after");
+      const issues = noCycleMilestoneId
+        ? await fetchMilestoneIssues(noCycleMilestoneId, after)
+        : await fetchProjectIssues(noCycleProjectId!, after);
       return new Response(JSON.stringify(issues), {
         headers: {
           ...corsHeaders,
@@ -182,9 +220,16 @@ Deno.serve(async (req) => {
     }
 
     const initiativeId = customer.linear_slug;
+    const projectsAfter = searchParams.get("projectsAfter");
 
-    const data = await fetchFromLinear(initiativeId);
-    const cycles = await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
+    const data = await fetchFromLinear(initiativeId, projectsAfter);
+
+    // Cycles are team-wide and already fully fetched (first: 100) on the
+    // initial page, so a "load more projects" request (projectsAfter set)
+    // skips re-fetching them — the frontend already has the full list.
+    const cycles = projectsAfter
+      ? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+      : await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
 
     console.log("[roadmap] returning response for slug", slug, "- cycles:", cycles.nodes.length);
 

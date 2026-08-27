@@ -75,6 +75,13 @@ export function useCometChat(customerId?: string | null) {
       if (batch.length < 50) break;
     }
 
+    // Most-recently-active chats first. GroupsRequestBuilder has no
+    // server-side sort option, and a group's `updatedAt` already bumps on
+    // new activity in it (not just membership/profile edits), so it's a
+    // reliable stand-in for "last message time" without a second request
+    // per group.
+    all.sort((a, b) => b.getUpdatedAt() - a.getUpdatedAt());
+
     if (!customerId) return all;
     return all.filter(
       (g) => (g.getMetadata() as { customerId?: string } | undefined)?.customerId === customerId,
@@ -141,6 +148,26 @@ export function useCometChat(customerId?: string | null) {
             { headers: API_JSON_HEADERS },
           );
           assignees = await devRes.json();
+          (assignees ?? [])
+            .filter((a) => a.user_id)
+            .forEach((a) => memberUids.add(a.user_id));
+        }
+      } else if (profile.role === "developer" || profile.role === "admin") {
+        // Developers/admins have no single home initiative — the caller
+        // (CreateChatModal's dropdown, via ChatLayout) tells us which one via
+        // groupCustomerId. Unlike the stakeholder/customer branches, the
+        // customer themself never shows up in the assignments list (that
+        // table only has *other* people assigned to a customer), so they're
+        // added explicitly here.
+        if (groupCustomerId) {
+          resolvedCustomerId = groupCustomerId;
+          memberUids.add(groupCustomerId);
+
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${groupCustomerId}`,
+            { headers: API_JSON_HEADERS },
+          );
+          assignees = await res.json();
           (assignees ?? [])
             .filter((a) => a.user_id)
             .forEach((a) => memberUids.add(a.user_id));
