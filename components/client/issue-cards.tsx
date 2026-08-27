@@ -12,6 +12,17 @@ import {
 import { cn } from "@/lib/utils";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
 
+// `branchName` is Linear's auto-generated git branch suggestion (e.g.
+// "santiago/spa-247-fix-login-bug"), not the clean ticket code — the actual
+// TEAM-123 identifier is embedded in it as a letters-dash-digits run, with
+// the digits stopping at the first non-digit character. Falls back to a
+// blind slice for the rare branch name that doesn't match the pattern at
+// all (e.g. one with no team-key prefix).
+function getIssueCode(branchName: string): string {
+  const match = branchName.match(/[a-zA-Z]+-\d+/);
+  return (match?.[0] ?? branchName.slice(0, 7)).toUpperCase();
+}
+
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
   return (
     <Badge
@@ -165,7 +176,7 @@ export function IssueCard({
               lightCard ? "light-card-muted" : "text-muted-foreground",
             )}
           >
-            {issue.branchName.slice(0, 7).toUpperCase()}
+            {getIssueCode(issue.branchName)}
           </span>
           <Badge
             variant="outline"
@@ -240,11 +251,11 @@ export function IssueListRow({
       />
       <span
         className={cn(
-          "smalltext font-mono w-20 flex-shrink-0",
+          "smalltext font-mono w-24 flex-shrink-0 whitespace-nowrap",
           lightCard ? "light-card-muted" : "text-muted-foreground",
         )}
       >
-        {issue.branchName.slice(0, 7).toUpperCase()}
+        {getIssueCode(issue.branchName)}
       </span>
       <Badge
         variant="outline"
@@ -256,11 +267,7 @@ export function IssueListRow({
       <p
         className={cn(
           "smalltext font-medium  flex-1 truncate",
-          issue.state?.name === "Development"
-            ? "text-yellow-400"
-            : lightCard
-              ? "light-card-text"
-              : "text-foreground",
+          lightCard ? "light-card-text" : "text-foreground",
         )}
       >
         {issue.title}
@@ -273,6 +280,24 @@ export function IssueListRow({
           <Mail className="h-2 w-2 text-white" />
         </span>
       )}
+      {issue.state?.name &&
+        (lightCard && NEUTRAL_STATUS_NAMES.has(issue.state.name) ? (
+          <Badge
+            variant="outline"
+            className="smalltext flex-shrink-0 whitespace-nowrap border light-card-text"
+          >
+            {issue.state.name}
+          </Badge>
+        ) : (
+          <Badge
+            variant="secondary"
+            className={`smalltext flex-shrink-0 whitespace-nowrap ${
+              statusColors[issue.state.name as keyof typeof statusColors]
+            }`}
+          >
+            {issue.state.name}
+          </Badge>
+        ))}
       {issue.labels?.nodes?.map((l) => (
         <LabelPill key={l.id} label={l} iconOnly />
       ))}

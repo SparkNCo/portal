@@ -28,6 +28,19 @@ const PRIORITY_RANK: Record<string, number> = {
   Low: 1,
 };
 
+// Closest-to-done first (Done itself is excluded — handled separately so it
+// always sinks to the very bottom regardless of priority). Reverse of the
+// forward workflow order in STATUS_ORDER (issues.types.ts): Backlog →
+// Planning → Business Review → Development → QA → UAT → Done.
+const STATUS_RANK: Record<string, number> = {
+  UAT: 5,
+  QA: 4,
+  Development: 3,
+  "Business Review": 2,
+  Planning: 1,
+  Backlog: 0,
+};
+
 function useRoadmapMilestones(slug: string) {
   const { data: roadmap } = useQuery({
     queryKey: ["roadmap", slug],
@@ -222,9 +235,21 @@ export function PinnedPanelRenderer({
         (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
       )
       .sort((a, b) => {
+        // Done bugs sink to the bottom regardless of priority — they can't be
+        // edited from here anymore, so they'd otherwise clutter the top of a
+        // list meant to surface what still needs attention.
+        const doneA = a.state?.name === "Done" ? 1 : 0;
+        const doneB = b.state?.name === "Done" ? 1 : 0;
+        if (doneA !== doneB) return doneA - doneB;
+
         const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
         const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
         if (rankA !== rankB) return rankB - rankA;
+
+        const statusRankA = STATUS_RANK[a.state?.name ?? ""] ?? -1;
+        const statusRankB = STATUS_RANK[b.state?.name ?? ""] ?? -1;
+        if (statusRankA !== statusRankB) return statusRankB - statusRankA;
+
         return (
           new Date(a.createdAt ?? 0).getTime() -
           new Date(b.createdAt ?? 0).getTime()
