@@ -135,7 +135,7 @@ export function SimilarIssuesHint({
       {!dismissed && (searching || matches.length > 0) && (
         <div className="space-y-1.5 smalltext">
           <div className="flex items-center justify-between gap-2">
-            <p className="body font-semibold flex items-center gap-2">
+            <p className="smalltext font-semibold flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" />
               {searching ? "Looking for similar tickets…" : "Similar existing tickets"}
             </p>

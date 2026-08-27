@@ -53,7 +53,8 @@ export function LabelPill({
 }) {
   const key = label.name.toLowerCase();
 
-  if (iconOnly && LABEL_ICONS[key]) {
+  if (iconOnly) {
+    if (!LABEL_ICONS[key]) return null;
     const { Icon, className } = LABEL_ICONS[key];
     return (
       <span title={label.name} aria-label={label.name} className="shrink-0">
