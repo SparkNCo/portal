@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
@@ -20,6 +21,7 @@ import { X, Pencil, Gauge, Search, Mail } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
+  | "done"
   | "in-progress"
   | "planned"
   | "overdue"
@@ -64,8 +66,15 @@ type RoadmapTimelineProps = {
   // the issues panel down to just that project (and milestone, when the
   // click came from a milestone row) instead of every issue in the cycle.
   projectIdsByName?: Record<string, string>;
+  // Maps project name -> the hex color of that project's current Linear
+  // status (Project.status.color) — colors the little circle on each
+  // project row instead of a generic icon.
+  projectColorByName?: Record<string, string>;
   cycles?: RawCycle[];
   slug?: string;
+  hasMoreProjects?: boolean;
+  loadingMoreProjects?: boolean;
+  onLoadMoreProjects?: () => void;
 };
 
 function toIssue(issue: any): Issue {
@@ -131,7 +140,11 @@ export function RoadmapTimeline({
   allProjectNames = [],
   projectIdsByName = {},
   cycles: rawCycles = [],
+  projectColorByName = {},
   slug = "",
+  hasMoreProjects = false,
+  loadingMoreProjects = false,
+  onLoadMoreProjects,
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
@@ -223,9 +236,23 @@ export function RoadmapTimeline({
     [selection, buckets],
   );
 
-  // Fetches the real, complete set of issues in the clicked cycle directly
-  // from Linear (team-wide) rather than pooling whatever happened to already
-  // be loaded via project milestones.
+  // Builds the query for GET /roadmap: a specific cycle when one was
+  // clicked, or — when the project/milestone itself was clicked directly —
+  // every issue under it with no cycle restriction at all (the edge
+  // function branches on cycleId's absence to fetch that way).
+  function buildIssuesParams(sel: CycleSelection, after?: string | null) {
+    const params = new URLSearchParams();
+    if (sel.cycleKey) params.set("cycleId", sel.cycleKey);
+    if (sel.projectId) params.set("projectId", sel.projectId);
+    if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
+    if (after) params.set("after", after);
+    return params;
+  }
+
+  // Fetches the real, complete set of issues in the clicked cycle (or, with
+  // no cycle selected, the whole project/milestone) directly from Linear
+  // (team-wide) rather than pooling whatever happened to already be loaded
+  // via project milestones.
   useEffect(() => {
     if (!selection) {
       setCycleIssues([]);
@@ -240,9 +267,7 @@ export function RoadmapTimeline({
     setPriorityFilter(null);
     setCycleIssuesLoading(true);
 
-    const params = new URLSearchParams({ cycleId: selection.cycleKey });
-    if (selection.projectId) params.set("projectId", selection.projectId);
-    if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+    const params = buildIssuesParams(selection);
 
     fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
@@ -278,10 +303,7 @@ export function RoadmapTimeline({
     if (!selection || loadingMoreCycleIssues) return;
     setLoadingMoreCycleIssues(true);
     try {
-      const params = new URLSearchParams({ cycleId: selection.cycleKey });
-      if (cycleIssuesCursor) params.set("after", cycleIssuesCursor);
-      if (selection.projectId) params.set("projectId", selection.projectId);
-      if (selection.milestoneId) params.set("milestoneId", selection.milestoneId);
+      const params = buildIssuesParams(selection, cycleIssuesCursor);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap?${params.toString()}`,
         { headers: API_JSON_HEADERS },
@@ -355,6 +377,7 @@ export function RoadmapTimeline({
                     key={projectName}
                     projectName={projectName}
                     projectId={projectIdsByName[projectName] ?? null}
+                    projectColor={projectColorByName[projectName]}
                     milestones={milestones}
                     buckets={buckets}
                     expanded={!!expandedProjects[projectName]}
@@ -378,34 +401,44 @@ export function RoadmapTimeline({
                   />
                 ))}
 
+                {hasMoreProjects && (
+                  <div className="flex justify-center mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={onLoadMoreProjects}
+                      disabled={loadingMoreProjects}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {loadingMoreProjects ? "Loading..." : "Load more projects"}
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border smalltext text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-success" />
                     Completed
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-primary/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#fb923c]/50" />
                     In progress
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(180,60%,50%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#2dd4bf]/50" />
                     Next
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(210,70%,55%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#60a5fa]/50" />
                     Planned
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[hsl(43,74%,66%)]/50" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#fde047]/50" />
                     Unstarted
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-destructive/50" />
                     Overdue
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-card/50 border border-border" />
-                    No issues in this cycle
                   </span>
                 </div>
               </>
@@ -414,28 +447,40 @@ export function RoadmapTimeline({
         </CardContent>
       </Card>
 
-      {selection && selectedBucket && (
+      {selection && (
         <Card className="bg-background text-foreground">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="body font-semibold">
-                  {selectedBucket.label}
-                  <span className="ml-2 smalltext font-normal text-muted-foreground">
-                    {selectedBucket.start.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })}{" "}
-                    –{" "}
-                    {selectedBucket.end.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
+                  {selectedBucket ? (
+                    <>
+                      {selectedBucket.label}
+                      <span className="ml-2 smalltext font-normal text-muted-foreground">
+                        {selectedBucket.start.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        –{" "}
+                        {selectedBucket.end.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </>
+                  ) : (
+                    selection.milestoneName ?? selection.projectName
+                  )}
                 </h3>
                 <p className="smalltext text-muted-foreground">
-                  All issues in this cycle · opened from {selection.projectName}
+                  {selectedBucket
+                    ? "All issues in this cycle"
+                    : selection.milestoneName
+                      ? "Every issue in this milestone, across all cycles"
+                      : "Every issue in this project, across all cycles"}
+                  {" · opened from "}
+                  {selection.projectName}
                   {selection.milestoneName ? ` · ${selection.milestoneName}` : ""}
                 </p>
               </div>
@@ -453,7 +498,7 @@ export function RoadmapTimeline({
               <p className="smalltext text-muted-foreground">Loading issues...</p>
             ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
-                No issues in this cycle.
+                {selectedBucket ? "No issues in this cycle." : "No issues found."}
               </p>
             ) : (
               <>

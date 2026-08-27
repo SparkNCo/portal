@@ -172,15 +172,17 @@ export default function BugsPage() {
           ) : (
             <>
               <PinButton panelId="bugs_list" />
-              <PriorityTasks
-                issuesData={visibleIssues}
-                filterState={filterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Bugs"
-                slug={slug}
-                lightCard
-              />
+              <div className="pt-12">
+                <PriorityTasks
+                  issuesData={visibleIssues}
+                  filterState={filterState}
+                  onOpenChat={() => {}}
+                  onEditIssue={(issue) => setEditingIssue(issue)}
+                  title="Bugs"
+                  slug={slug}
+                  lightCard
+                />
+              </div>
             </>
           )}
         </div>

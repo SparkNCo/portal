@@ -91,7 +91,7 @@ export function TimelineBucketsHeader({ buckets }: TimelineBucketsHeaderProps) {
                     className={cn(
                       "rounded py-1 text-center smalltext cursor-default",
                       isCurrent
-                        ? "bg-primary/20 text-primary"
+                        ? "bg-[#fb923c]/20 text-[#fb923c]"
                         : "text-muted-foreground",
                     )}
                   >

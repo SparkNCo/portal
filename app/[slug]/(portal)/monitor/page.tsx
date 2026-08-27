@@ -1,7 +1,7 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -51,32 +51,61 @@ export default function RoadmapPage() {
     // staleTime: 10_000,
   });
 
-  const [allMilestones, setAllMilestones] = useState<any[]>([]);
+  const [projectNodes, setProjectNodes] = useState<any[]>([]);
+  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
+  const [hasMoreProjects, setHasMoreProjects] = useState(false);
+  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
 
   useEffect(() => {
-    if (!roadmap?.initiative?.projects?.nodes) return;
+    if (!roadmap?.initiative?.projects) return;
 
-    const milestones = roadmap.initiative.projects.nodes.flatMap(
-      (project: any) => {
-        const projectName = project.name;
-
-        return (project.projectMilestones?.nodes ?? []).map(
-          (milestone: any) => ({
-            ...milestone,
-            projectName,
-          }),
-        );
-      },
-    );
-
-    setAllMilestones(milestones);
+    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
+    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
+    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
   }, [roadmap]);
 
-  const allProjectNames: string[] =
-    roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
+  async function handleLoadMoreProjects() {
+    if (!slug || !projectsCursor || loadingMoreProjects) return;
+    setLoadingMoreProjects(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more projects");
+      const data = await res.json();
+      const nextProjects = data?.initiative?.projects;
+      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
+      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
+      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
+    } catch (err) {
+      console.error("Failed to load more projects:", err);
+    } finally {
+      setLoadingMoreProjects(false);
+    }
+  }
+
+  const allMilestones = useMemo(
+    () =>
+      projectNodes.flatMap((project: any) =>
+        (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
+          ...milestone,
+          projectName: project.name,
+        })),
+      ),
+    [projectNodes],
+  );
+
+  const allProjectNames: string[] = projectNodes.map((p: any) => p.name);
 
   const projectIdsByName: Record<string, string> = Object.fromEntries(
-    (roadmap?.initiative?.projects?.nodes ?? []).map((p: any) => [p.name, p.id]),
+    projectNodes.map((p: any) => [p.name, p.id]),
+  );
+
+  const projectColorByName: Record<string, string> = Object.fromEntries(
+    projectNodes
+      .filter((p: any) => p.status?.color)
+      .map((p: any) => [p.name, p.status.color]),
   );
 
   const roadmapCycles = roadmap?.cycles?.nodes ?? [];
@@ -88,39 +117,51 @@ export default function RoadmapPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="progress_pie_chart" />
-            <ProgressPieChart issuesData={allIssues} />
+            <div className="pt-12">
+              <ProgressPieChart issuesData={allIssues} />
+            </div>
           </div>
           <div className="relative">
             <PinButton panelId="software_kpis" />
-            <SoftwareKPIs linearName={slug} />
+            <div className="pt-12">
+              <SoftwareKPIs linearName={slug} />
+            </div>
           </div>
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          {isLoading && (
-            <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading roadmap…
-            </div>
-          )}
-          {!isLoading && error && (
-            <p className="p-6 text-destructive">Failed to load roadmap</p>
-          )}
-          {!isLoading && !error && (
-            <RoadmapTimeline
-              projectMilestones={allMilestones}
-              allProjectNames={allProjectNames}
-              projectIdsByName={projectIdsByName}
-              cycles={roadmapCycles}
-              slug={slug}
-            />
-          )}
+          <div className="pt-12">
+            {isLoading && (
+              <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Loading roadmap…
+              </div>
+            )}
+            {!isLoading && error && (
+              <p className="p-6 text-destructive">Failed to load roadmap</p>
+            )}
+            {!isLoading && !error && (
+              <RoadmapTimeline
+                projectMilestones={allMilestones}
+                allProjectNames={allProjectNames}
+                projectIdsByName={projectIdsByName}
+                projectColorByName={projectColorByName}
+                cycles={roadmapCycles}
+                slug={slug}
+                hasMoreProjects={hasMoreProjects}
+                loadingMoreProjects={loadingMoreProjects}
+                onLoadMoreProjects={handleLoadMoreProjects}
+              />
+            )}
+          </div>
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
         <div className="relative">
           <PinButton panelId="metrics_panel" />
-          <MetricsPanel slug={slug} />
+          <div className="pt-12">
+            <MetricsPanel slug={slug} />
+          </div>
         </div>
       </div>
     </div>

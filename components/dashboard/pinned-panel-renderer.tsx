@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
@@ -9,6 +9,7 @@ import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
+import { API_HEADERS } from "@/lib/api-headers";
 
 const noopFilterState = {
   selectedStatuses: [],
@@ -27,19 +28,26 @@ const PRIORITY_RANK: Record<string, number> = {
   Low: 1,
 };
 
+// Closest-to-done first (Done itself is excluded — handled separately so it
+// always sinks to the very bottom regardless of priority). Reverse of the
+// forward workflow order in STATUS_ORDER (issues.types.ts): Backlog →
+// Planning → Business Review → Development → QA → UAT → Done.
+const STATUS_RANK: Record<string, number> = {
+  UAT: 5,
+  QA: 4,
+  Development: 3,
+  "Business Review": 2,
+  Planning: 1,
+  Backlog: 0,
+};
+
 function useRoadmapMilestones(slug: string) {
   const { data: roadmap } = useQuery({
     queryKey: ["roadmap", slug],
     queryFn: async () => {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_KEY}`,
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_KEY!,
-            "Content-Type": "application/json",
-          },
-        },
+        { headers: API_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to fetch roadmap");
       return res.json();
@@ -47,23 +55,61 @@ function useRoadmapMilestones(slug: string) {
     enabled: Boolean(slug),
   });
 
+  const [projectNodes, setProjectNodes] = useState<any[]>([]);
+  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
+  const [hasMoreProjects, setHasMoreProjects] = useState(false);
+  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
+
+  useEffect(() => {
+    if (!roadmap?.initiative?.projects) return;
+
+    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
+    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
+    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
+  }, [roadmap]);
+
+  async function handleLoadMoreProjects() {
+    if (!slug || !projectsCursor || loadingMoreProjects) return;
+    setLoadingMoreProjects(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load more projects");
+      const data = await res.json();
+      const nextProjects = data?.initiative?.projects;
+      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
+      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
+      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
+    } catch (err) {
+      console.error("Failed to load more projects:", err);
+    } finally {
+      setLoadingMoreProjects(false);
+    }
+  }
+
   const derived = useMemo(() => {
-    const projects = roadmap?.initiative?.projects?.nodes ?? [];
-    const milestones = projects.flatMap((project: any) =>
+    const milestones = projectNodes.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
         ...milestone,
         projectName: project.name,
       })),
     );
-    const projectNames = projects.map((project: any) => project.name);
+    const projectNames = projectNodes.map((project: any) => project.name);
     const projectIdsByName: Record<string, string> = Object.fromEntries(
-      projects.map((project: any) => [project.name, project.id]),
+      projectNodes.map((project: any) => [project.name, project.id]),
+    );
+    const projectColorByName: Record<string, string> = Object.fromEntries(
+      projectNodes
+        .filter((project: any) => project.status?.color)
+        .map((project: any) => [project.name, project.status.color]),
     );
     const cycles = roadmap?.cycles?.nodes ?? [];
-    return { milestones, projectNames, projectIdsByName, cycles };
-  }, [roadmap]);
+    return { milestones, projectNames, projectIdsByName, projectColorByName, cycles };
+  }, [projectNodes, roadmap]);
 
-  return derived;
+  return { ...derived, hasMoreProjects, loadingMoreProjects, onLoadMoreProjects: handleLoadMoreProjects };
 }
 
 export function PinnedPanelRenderer({
@@ -88,12 +134,21 @@ export function PinnedPanelRenderer({
     selectedProjectIds.size === 0 ||
     selectedProjectIds.has(i.project?.id);
 
+  // The pin button is absolutely positioned, so it doesn't reserve any
+  // space on its own — panels rendered with their own PinButton (i.e. not
+  // already wrapped by SortablePinnedPanel, which reserves this space
+  // itself) need their content pushed down so the button doesn't sit on top
+  // of the panel's own title.
+  const contentPadding = hidePinButton ? "" : "pt-12";
+
   if (panelId === "progress_pie_chart") {
     const issues = allIssues.filter(matchesSelectedProject);
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <ProgressPieChart issuesData={issues} />
+        <div className={contentPadding}>
+          <ProgressPieChart issuesData={issues} />
+        </div>
       </div>
     );
   }
@@ -102,7 +157,9 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <SoftwareKPIs linearName={slug} />
+        <div className={contentPadding}>
+          <SoftwareKPIs linearName={slug} />
+        </div>
       </div>
     );
   }
@@ -111,7 +168,9 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <MetricsPanel slug={slug} />
+        <div className={contentPadding}>
+          <MetricsPanel slug={slug} />
+        </div>
       </div>
     );
   }
@@ -133,16 +192,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={issues}
-          filterState={noopFilterState}
-          onOpenChat={onOpenChat ?? (() => {})}
-          onEditIssue={onEditIssue}
-          title="Business Review"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={issues}
+            filterState={noopFilterState}
+            onOpenChat={onOpenChat ?? (() => {})}
+            onEditIssue={onEditIssue}
+            title="Business Review"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -157,16 +218,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={issues}
-          filterState={noopFilterState}
-          onOpenChat={onOpenChat ?? (() => {})}
-          onEditIssue={onEditIssue}
-          title="Acceptance Testing"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={issues}
+            filterState={noopFilterState}
+            onOpenChat={onOpenChat ?? (() => {})}
+            onEditIssue={onEditIssue}
+            title="Acceptance Testing"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -177,9 +240,21 @@ export function PinnedPanelRenderer({
         (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
       )
       .sort((a, b) => {
+        // Done bugs sink to the bottom regardless of priority — they can't be
+        // edited from here anymore, so they'd otherwise clutter the top of a
+        // list meant to surface what still needs attention.
+        const doneA = a.state?.name === "Done" ? 1 : 0;
+        const doneB = b.state?.name === "Done" ? 1 : 0;
+        if (doneA !== doneB) return doneA - doneB;
+
         const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
         const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
         if (rankA !== rankB) return rankB - rankA;
+
+        const statusRankA = STATUS_RANK[a.state?.name ?? ""] ?? -1;
+        const statusRankB = STATUS_RANK[b.state?.name ?? ""] ?? -1;
+        if (statusRankA !== statusRankB) return statusRankB - statusRankA;
+
         return (
           new Date(a.createdAt ?? 0).getTime() -
           new Date(b.createdAt ?? 0).getTime()
@@ -189,16 +264,18 @@ export function PinnedPanelRenderer({
     return (
       <div className="relative w-full max-w-full overflow-hidden">
         {!hidePinButton && <PinButton panelId={panelId} />}
-        <PriorityTasks
-          issuesData={bugs}
-          filterState={noopFilterState}
-          onOpenChat={() => {}}
-          onEditIssue={onEditIssue}
-          title="Bugs"
-          slug={slug}
-          compact
-          lightCard
-        />
+        <div className={contentPadding}>
+          <PriorityTasks
+            issuesData={bugs}
+            filterState={noopFilterState}
+            onOpenChat={() => {}}
+            onEditIssue={onEditIssue}
+            title="Bugs"
+            slug={slug}
+            compact
+            lightCard
+          />
+        </div>
       </div>
     );
   }
@@ -215,18 +292,32 @@ function RoadmapTimelinePinned({
   slug: string;
   hidePinButton?: boolean;
 }>) {
-  const { milestones, projectNames, projectIdsByName, cycles } =
-    useRoadmapMilestones(slug);
+  const {
+    milestones,
+    projectNames,
+    projectIdsByName,
+    projectColorByName,
+    cycles,
+    hasMoreProjects,
+    loadingMoreProjects,
+    onLoadMoreProjects,
+  } = useRoadmapMilestones(slug);
   return (
     <div className="relative">
       {!hidePinButton && <PinButton panelId={panelId} />}
-      <RoadmapTimeline
-        projectMilestones={milestones}
-        allProjectNames={projectNames}
-        projectIdsByName={projectIdsByName}
-        cycles={cycles}
-        slug={slug}
-      />
+      <div className={hidePinButton ? "" : "pt-12"}>
+        <RoadmapTimeline
+          projectMilestones={milestones}
+          allProjectNames={projectNames}
+          projectIdsByName={projectIdsByName}
+          projectColorByName={projectColorByName}
+          cycles={cycles}
+          slug={slug}
+          hasMoreProjects={hasMoreProjects}
+          loadingMoreProjects={loadingMoreProjects}
+          onLoadMoreProjects={onLoadMoreProjects}
+        />
+      </div>
     </div>
   );
 }

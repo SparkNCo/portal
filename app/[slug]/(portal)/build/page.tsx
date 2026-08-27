@@ -111,29 +111,33 @@ export default function BuildPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="build_product_decisions" />
-            <PriorityTasks
-              issuesData={visibleBusinessReviewIssues}
-              filterState={noopFilterState}
-              onOpenChat={() => {}}
-              onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Business Reviews"
-              slug={slug}
-              compact
-              lightCard
-            />
+            <div className="pt-12">
+              <PriorityTasks
+                issuesData={visibleBusinessReviewIssues}
+                filterState={noopFilterState}
+                onOpenChat={() => {}}
+                onEditIssue={(issue) => setEditingIssue(issue)}
+                title="Business Reviews"
+                slug={slug}
+                compact
+                lightCard
+              />
+            </div>
           </div>
           <div className="relative">
             <PinButton panelId="build_acceptance_testing" />
-            <PriorityTasks
-              issuesData={visibleUatIssues}
-              filterState={noopFilterState}
-              onOpenChat={() => {}}
-              onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Acceptance Testing"
-              slug={slug}
-              compact
-              lightCard
-            />
+            <div className="pt-12">
+              <PriorityTasks
+                issuesData={visibleUatIssues}
+                filterState={noopFilterState}
+                onOpenChat={() => {}}
+                onEditIssue={(issue) => setEditingIssue(issue)}
+                title="Acceptance Testing"
+                slug={slug}
+                compact
+                lightCard
+              />
+            </div>
           </div>
         </div>
       </div>
