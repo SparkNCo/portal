@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
-import { Briefcase, Sparkles, Maximize2, Minimize2 } from "lucide-react";
+import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
+import { Briefcase, Sparkles } from "lucide-react";
 
 type Props = {
   userId: string;
@@ -100,24 +101,10 @@ export default function EditDeveloperProfileModal({
         }`}
         aria-describedby={undefined}
       >
-        {/* Orange accent bar ties the modal back to the card it was opened from. */}
-        <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
-
-        {/* Positioned to match DialogContent's own close button (absolute
-            right-4 top-4) exactly, same as EditIssueModal. */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded((e) => !e)}
-          className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-          title={isExpanded ? "Shrink" : "Expand"}
-        >
-          {isExpanded ? (
-            <Minimize2 className="h-4 w-4" />
-          ) : (
-            <Maximize2 className="h-4 w-4" />
-          )}
-        </button>
+        <ExpandableDialogChrome
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded((e) => !e)}
+        />
 
         <DialogHeader className="pt-4">
           <div className="flex min-w-0 items-center gap-3.5 pr-12">

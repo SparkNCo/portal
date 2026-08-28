@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Maximize2, Minimize2, Pencil } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import {
   Select,
   SelectContent,
@@ -101,27 +102,10 @@ export function EditIssueModal({
         }`}
         aria-describedby={undefined}
       >
-        {/* Orange accent bar ties the modal back to the card it was opened from. */}
-        <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
-
-        {/* Positioned to match DialogContent's own close button (absolute
-            right-4 top-4) exactly — sitting it inline in the header row
-            instead left it vertically offset from the X, since that row's
-            baseline follows the title's line-height rather than the fixed
-            corner the X is pinned to. */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded((e) => !e)}
-          className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-          title={isExpanded ? "Shrink" : "Expand"}
-        >
-          {isExpanded ? (
-            <Minimize2 className="h-4 w-4" />
-          ) : (
-            <Maximize2 className="h-4 w-4" />
-          )}
-        </button>
+        <ExpandableDialogChrome
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded((e) => !e)}
+        />
 
         <DialogHeader className="pt-4">
           <div className="flex min-w-0 items-center gap-3.5 pr-12">
