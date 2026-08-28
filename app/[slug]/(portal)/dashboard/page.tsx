@@ -185,16 +185,16 @@ export default function ClientDashboard() {
             panels below (progress_pie_chart, build_product_decisions,
             build_acceptance_testing), currently always empty so nothing is
             filtered out. */}
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Your Panels
+          </h2>
           <RequestProjectDialog
             slug={slug}
             requestedBy={profile?.email}
             compact
           />
         </div>
-        <h2 className="text-sm font-medium text-muted-foreground">
-          Your Panels
-        </h2>
 
         {pinnedPanels && pinnedPanels.length > 0 ? (
           <DndContext

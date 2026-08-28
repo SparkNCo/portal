@@ -1,7 +1,6 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
-import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -12,7 +11,7 @@ import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
-import { API_HEADERS } from "@/lib/api-headers";
+import { useRoadmapData } from "@/hooks/use-roadmap-data";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function RoadmapPage() {
@@ -33,53 +32,17 @@ export default function RoadmapPage() {
   const pageTitle = "Monitor";
 
   const {
-    data: roadmap,
+    milestones: allMilestones,
+    projectNames: allProjectNames,
+    projectIdsByName,
+    projectColorByName,
+    cycles: roadmapCycles,
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["roadmap", slug],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
-        { headers: API_HEADERS },
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch roadmap");
-      return res.json();
-    },
-    enabled: Boolean(slug),
-    // staleTime: 10_000,
-  });
-
-  const [allMilestones, setAllMilestones] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!roadmap?.initiative?.projects?.nodes) return;
-
-    const milestones = roadmap.initiative.projects.nodes.flatMap(
-      (project: any) => {
-        const projectName = project.name;
-
-        return (project.projectMilestones?.nodes ?? []).map(
-          (milestone: any) => ({
-            ...milestone,
-            projectName,
-          }),
-        );
-      },
-    );
-
-    setAllMilestones(milestones);
-  }, [roadmap]);
-
-  const allProjectNames: string[] =
-    roadmap?.initiative?.projects?.nodes?.map((p: any) => p.name) ?? [];
-
-  const projectIdsByName: Record<string, string> = Object.fromEntries(
-    (roadmap?.initiative?.projects?.nodes ?? []).map((p: any) => [p.name, p.id]),
-  );
-
-  const roadmapCycles = roadmap?.cycles?.nodes ?? [];
+    hasMoreProjects,
+    loadingMoreProjects,
+    onLoadMoreProjects: handleLoadMoreProjects,
+  } = useRoadmapData(slug);
 
   return (
     <div className="min-h-screen">
@@ -88,39 +51,51 @@ export default function RoadmapPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="progress_pie_chart" />
-            <ProgressPieChart issuesData={allIssues} />
+            <div className="pt-12">
+              <ProgressPieChart issuesData={allIssues} />
+            </div>
           </div>
           <div className="relative">
             <PinButton panelId="software_kpis" />
-            <SoftwareKPIs linearName={slug} />
+            <div className="pt-12">
+              <SoftwareKPIs linearName={slug} />
+            </div>
           </div>
         </div>
         <div className="relative">
           <PinButton panelId="roadmap_timeline" />
-          {isLoading && (
-            <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Loading roadmap…
-            </div>
-          )}
-          {!isLoading && error && (
-            <p className="p-6 text-destructive">Failed to load roadmap</p>
-          )}
-          {!isLoading && !error && (
-            <RoadmapTimeline
-              projectMilestones={allMilestones}
-              allProjectNames={allProjectNames}
-              projectIdsByName={projectIdsByName}
-              cycles={roadmapCycles}
-              slug={slug}
-            />
-          )}
+          <div className="pt-12">
+            {isLoading && (
+              <div className="w-full flex items-center justify-center py-16 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Loading roadmap…
+              </div>
+            )}
+            {!isLoading && error && (
+              <p className="p-6 text-destructive">Failed to load roadmap</p>
+            )}
+            {!isLoading && !error && (
+              <RoadmapTimeline
+                projectMilestones={allMilestones}
+                allProjectNames={allProjectNames}
+                projectIdsByName={projectIdsByName}
+                projectColorByName={projectColorByName}
+                cycles={roadmapCycles}
+                slug={slug}
+                hasMoreProjects={hasMoreProjects}
+                loadingMoreProjects={loadingMoreProjects}
+                onLoadMoreProjects={handleLoadMoreProjects}
+              />
+            )}
+          </div>
         </div>
       </div>
       <div className="px-4 md:px-6 pb-6">
         <div className="relative">
           <PinButton panelId="metrics_panel" />
-          <MetricsPanel slug={slug} />
+          <div className="pt-12">
+            <MetricsPanel slug={slug} />
+          </div>
         </div>
       </div>
     </div>

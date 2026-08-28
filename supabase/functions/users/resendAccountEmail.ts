@@ -30,6 +30,24 @@ export const resendAccountEmail = async (body: any, schema: string) => {
   if (!appUser) throw new Error("User not found");
   if (!appUser.email) throw new Error("This user has no email on file");
 
+  // `users.id` is the same id as the Supabase Auth user (see createUser.ts),
+  // so it can be looked up directly — `last_sign_in_at` gets stamped the
+  // moment the invite link is opened (Supabase authenticates the recipient
+  // as part of verifying the link), so a non-null value means this invite
+  // was already accepted. Only blocks the invite flavor — resending a
+  // password-reset email to an already-active user is a normal, separate
+  // action.
+  if (sendAsInvite) {
+    const { data: authUser, error: authLookupError } =
+      await supabase.auth.admin.getUserById(id);
+    if (authLookupError) throw new Error(authLookupError.message);
+    if (authUser?.user?.last_sign_in_at) {
+      throw new Error(
+        "This user has already accepted their invite. Use “Send password reset” instead.",
+      );
+    }
+  }
+
   console.log("[resendAccountEmail] resolving auth user", { id });
 
   // Never trust a client-supplied origin for the redirect URL (open-redirect /

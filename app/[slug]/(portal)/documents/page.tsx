@@ -34,7 +34,7 @@ export default function DocumentsPage() {
     "";
 
   const canUpload = profile?.role === "developer" || profile?.role === "admin";
-  const canRequest = profile?.role === "customer" || profile?.role === "stakeholder";
+  const canRequest = profile?.role === "customer" || profile?.role === "stakeholder" || profile?.role === "admin";
 
   const isAdmin = profile?.role === "admin";
 
@@ -119,7 +119,11 @@ export default function DocumentsPage() {
               <RequestDocumentDialog customerSlug={slug} requestedBy={profile?.email} />
             </div>
 
-            <DocumentRequestsList customerSlug={slug} />
+            {/* Admins get the same "Document Requests"/"Documents Received"
+                panels below from DeveloperDocumentRequests already — with
+                canManage on top, so it's a strict superset. Rendering this
+                plain (non-manage) copy too would just duplicate them. */}
+            {!isAdmin && <DocumentRequestsList customerSlug={slug} />}
           </>
         )}
 

@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
-import { resolveAuthUser } from "./resolveAuthUser.ts";
+import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
 import { escapeIlike } from "../utils/slug.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
@@ -62,6 +62,12 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   if (!linear_slug) throw new Error("linear_slug required");
   if (!clientName) throw new Error("clientName required");
 
+  // Reject up front if this email already belongs to someone — in either the
+  // app's own users table or Supabase Auth — instead of silently reusing the
+  // existing Auth account and overwriting that person's users row (and
+  // creating an unrelated new customer record pointed at their account).
+  await assertEmailNotTaken(schema, email);
+
   // Stripe Customer ID is optional at creation time — admins can add or
   // update it later from Settings/Billing. Normalize blank/whitespace input
   // to null so "not set" is represented consistently everywhere (never "").
@@ -88,8 +94,22 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   // Never trust a client-supplied origin for the redirect URL (open-redirect /
   // token-leak risk) — always use the server-configured portal origin.
   const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
-  const { authUserId, inviteLink, isNew } = await resolveAuthUser(email, redirectTo);
-  console.log("[createCustomerFlow] auth user resolved", { authUserId, isNew, hasInviteLink: !!inviteLink });
+  const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo },
+  });
+
+  if (inviteError) {
+    if (inviteError.message.includes("already been registered")) {
+      throw new Error("A user with this email already exists");
+    }
+    throw new Error(`Auth invite failed: ${inviteError.message}`);
+  }
+
+  const authUserId: string = inviteData.user.id;
+  const inviteLink: string = inviteData.properties.action_link;
+  console.log("[createCustomerFlow] auth user resolved", { authUserId, hasInviteLink: !!inviteLink });
 
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const { data: clientRecord, error: clientError } = await supabase.schema(schema)
@@ -100,7 +120,7 @@ export const createCustomerFlow = async (body: any, schema: string) => {
 
   if (clientError) {
     console.error("[createCustomerFlow] customers insert failed", clientError.message);
-    if (isNew) await supabase.auth.admin.deleteUser(authUserId);
+    await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(clientError.message);
   }
   console.log("[createCustomerFlow] customer record created", { customer_id: clientRecord.customer_id });
@@ -119,7 +139,7 @@ export const createCustomerFlow = async (body: any, schema: string) => {
 
   if (upsertError) {
     console.error("[createCustomerFlow] users upsert failed", upsertError.message);
-    if (isNew) await supabase.auth.admin.deleteUser(authUserId);
+    await supabase.auth.admin.deleteUser(authUserId);
     await supabase.schema(schema).from("customers").delete().eq("customer_id", clientRecord.customer_id);
     throw new Error(upsertError.message);
   }

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
+import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
 
 // Only `internal` developers carry a rate — `spark_fde` developers are billed
 // through the customer's Stripe subscription, unrelated to this record.
@@ -38,7 +39,6 @@ export const createUser = async (body: any, schema: string) => {
     initiative_ids = null,
     projects_slug = null,
     auth_id = null,
-    origin,
     firstName = null,
     lastName = null,
     phoneNumber = null,
@@ -52,10 +52,18 @@ export const createUser = async (body: any, schema: string) => {
     throw new Error("Email is required");
   }
 
-  const redirectTo = `${origin ?? "https://app.buildwithspark.co"}/set-password`;
+  // Reject up front if this email already belongs to someone — in either the
+  // app's own users table or Supabase Auth — instead of silently reusing the
+  // existing Auth account and overwriting that person's users row with
+  // whatever this form submitted (role, customer_id, name, etc.).
+  await assertEmailNotTaken(schema, email);
 
-  let authUserId: string;
-  let inviteLink: string;
+  // Never trust a client-supplied redirect origin (open-redirect / token-leak
+  // risk) — same fix as reset-password/index.ts. This link goes out in an
+  // invite email to the *new user's* inbox, so if the admin creating them was
+  // on localhost or a preview deployment, the recipient would get a link
+  // back to that unusable origin instead of production.
+  const redirectTo = "https://app.buildwithspark.co/set-password";
 
   const { data: inviteData, error: inviteError } =
     await supabase.auth.admin.generateLink({
@@ -65,37 +73,14 @@ export const createUser = async (body: any, schema: string) => {
     });
 
   if (inviteError) {
-    if (!inviteError.message.includes("already been registered")) {
-      throw new Error(`Auth invite failed: ${inviteError.message}`);
+    if (inviteError.message.includes("already been registered")) {
+      throw new Error("A user with this email already exists");
     }
-    console.log("hi");
-
-    // User already exists in auth — find them and generate a recovery link instead
-    const { data: listData, error: listError } =
-      await supabase.auth.admin.listUsers();
-    if (listError)
-      throw new Error(`Could not list auth users: ${listError.message}`);
-
-    const existingAuthUser = listData.users.find((u: any) => u.email === email);
-    if (!existingAuthUser)
-      throw new Error("User exists in auth but could not be found");
-
-    authUserId = existingAuthUser.id;
-
-    const { data: recoveryData, error: recoveryError } =
-      await supabase.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: { redirectTo },
-      });
-    if (recoveryError)
-      throw new Error(`Link generation failed: ${recoveryError.message}`);
-
-    inviteLink = recoveryData.properties.action_link;
-  } else {
-    authUserId = inviteData.user.id;
-    inviteLink = inviteData.properties.action_link;
+    throw new Error(`Auth invite failed: ${inviteError.message}`);
   }
+
+  const authUserId: string = inviteData.user.id;
+  const inviteLink: string = inviteData.properties.action_link;
 
   const { data, error: upsertError } = await supabase
     .schema(schema)
@@ -121,7 +106,7 @@ export const createUser = async (body: any, schema: string) => {
 
   if (upsertError) {
     console.error("[createUser] users upsert failed", upsertError.message);
-    if (!inviteError) await supabase.auth.admin.deleteUser(authUserId);
+    await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(upsertError.message);
   }
 

@@ -237,7 +237,7 @@ export function IssueMetricsView({
                       stackId="a"
                       stroke={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
                       fill={CHART_STATUS_COLORS[status] ?? "hsl(var(--muted))"}
-                      fillOpacity={0.4}
+                      fillOpacity={0.35}
                       strokeWidth={2}
                     />
                   ))}

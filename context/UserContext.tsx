@@ -27,6 +27,7 @@ type Profile = {
   assignment_id?: Assignment[];
   clientName?: string | null;
   stripe_customer_id?: string | null;
+  developerType?: "spark_fde" | "internal";
 };
 
 type UserContextType = {

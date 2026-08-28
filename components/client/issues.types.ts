@@ -7,6 +7,7 @@ export const priorityColors = {
   High: "bg-chart-1/20 text-chart-1 border-chart-1/30",
   Medium: "bg-primary/20 text-primary border-primary/30",
   Low: "bg-chart-5/20 text-chart-5 border-chart-5/30",
+  "No priority": "bg-muted/50 text-muted-foreground border-muted",
 };
 
 export const statusColors = {
@@ -43,11 +44,18 @@ export const STATUS_ORDER = [
 // never disagree on which color a given status is. Keyed by name (not
 // index/position) so a status is always the same color everywhere,
 // regardless of what else is present in a given chart's data.
+// Same hue families as the status "plates" on the Bugs list / issue cards
+// (`statusColors` above), but a couple steps lighter/brighter — that map's
+// raw shades (orange-600, blue-700, etc.) read as muddy against the chart's
+// #111111 background. Business Review and Development share one orange in
+// `statusColors`, but that made them indistinguishable here, so they're
+// deliberately split into a rosier red vs. a warmer amber instead of copied
+// 1:1.
 export const CHART_STATUS_COLORS: Record<string, string> = {
   Completed: "hsl(var(--success))",
   Done: "hsl(var(--success))",
   "In Progress": "hsl(var(--warning))",
-  "In Review": "hsl(var(--warning))",
+  "In Review": "#38bdf8", // sky-400
   Blocked: "hsl(var(--destructive))",
   // Same red as Blocked — matches its own badge color in `statusColors`
   // above, and reads as "negative outcome" rather than a neutral no-op.
@@ -55,16 +63,17 @@ export const CHART_STATUS_COLORS: Record<string, string> = {
   // "Hasn't started yet" cluster — the dedicated neutral chart gray, tuned
   // to actually show up against the #111111 page background (the old
   // `--muted`/hardcoded values here were near-black and barely visible).
+  // Left as-is (not matched to statusColors' generic muted-foreground) for
+  // that same visibility reason.
   "Not Started": "hsl(var(--donut))",
   Todo: "hsl(var(--donut))",
   Backlog: "hsl(var(--donut))",
-  // Active-workflow stages — same hues as before, brightened so they're
-  // legible on a dark background instead of the old ~30-45% lightness.
-  Planning: "hsl(43, 74%, 66%)",
-  "Business Review": "hsl(320, 65%, 60%)",
-  Development: "hsl(265, 60%, 65%)",
-  QA: "hsl(210, 70%, 55%)",
-  UAT: "hsl(180, 60%, 50%)",
+  // Active-workflow stages.
+  Planning: "#fde047", // yellow-300
+  "Business Review": "#fb7185", // rose-400 — redder/pinker
+  Development: "#fb923c", // orange-400 — pushed further from Planning's yellow
+  QA: "#60a5fa", // blue-400
+  UAT: "#2dd4bf", // teal-400
 };
 
 export type Decision = {
@@ -119,7 +128,7 @@ export type TestExecution = {
 export type Issue = {
   id: string;
   branchName: string;
-  priorityLabel: "Urgent" | "High" | "Medium" | "Low";
+  priorityLabel: "Urgent" | "High" | "Medium" | "Low" | "No priority";
   title: string;
   state?: {
     name:

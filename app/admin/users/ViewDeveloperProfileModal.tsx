@@ -10,6 +10,7 @@ type Props = {
   userName?: string;
   role: string;
   onClose: () => void;
+  onEdit?: () => void;
 };
 
 export default function ViewDeveloperProfileModal({
@@ -18,6 +19,7 @@ export default function ViewDeveloperProfileModal({
   userName,
   role,
   onClose,
+  onEdit,
 }: Props) {
   const { data } = useQuery({
     queryKey: ["developer-profile", userId],
@@ -42,6 +44,7 @@ export default function ViewDeveloperProfileModal({
         techStack: Array.isArray(data?.tech_stack) ? data.tech_stack : [],
       }}
       onClose={onClose}
+      onEdit={onEdit}
     />
   );
 }

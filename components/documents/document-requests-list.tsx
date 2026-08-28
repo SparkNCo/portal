@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Upload, FileQuestion, FileCheck2, Lock, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
@@ -40,31 +41,59 @@ function RequestDetailModal({
   readonly relatedRequest?: DocumentRequest;
   readonly onClose: () => void;
 }) {
+  const isDone = request.status === "done";
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle>{request.title}</DialogTitle>
+      <DialogContent
+        className="w-[95vw] sm:w-full sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden"
+        aria-describedby={undefined}
+      >
+        {/* Accent bar ties the modal back to the row it was opened from —
+            green for a delivered document, orange (same as every other
+            modal's accent) for one still pending. */}
+        <div
+          className={cn(
+            "-mx-6 -mt-6 h-1 bg-gradient-to-r to-transparent",
+            isDone ? "from-success via-success/60" : "from-primary via-primary/60",
+          )}
+        />
+
+        <DialogHeader className="pt-4">
+          <div className="flex min-w-0 items-center gap-3.5 pr-6">
+            <div
+              className={cn(
+                "flex h-14 w-14 shrink-0 items-center justify-center rounded-full ring-2",
+                isDone
+                  ? "bg-success/10 text-success ring-success/30"
+                  : "bg-warning/10 text-warning ring-warning/30",
+              )}
+            >
+              {isDone ? <FileCheck2 className="h-6 w-6" /> : <FileQuestion className="h-6 w-6" />}
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <DialogTitle className="truncate text-primary">{request.title}</DialogTitle>
+              {request.project_name && (
+                <p className="smalltext text-muted-foreground truncate">
+                  {request.project_name}
+                </p>
+              )}
+              <Badge
+                variant="outline"
+                className={cn(
+                  "smalltext",
+                  isDone
+                    ? "border-success/30 bg-success/10 text-success"
+                    : "border-warning/30 bg-warning/10 text-warning",
+                )}
+              >
+                {isDone ? "Done" : "Pending"}
+              </Badge>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-3 pt-2">
-          <Badge
-            variant="outline"
-            className={`smalltext ${
-              request.status === "done"
-                ? "border-success/30 bg-success/10 text-success"
-                : "border-warning/30 bg-warning/10 text-warning"
-            }`}
-          >
-            {request.status === "done" ? "Done" : "Pending"}
-          </Badge>
-
-          {request.project_name && (
-            <p className="smalltext font-medium text-foreground">
-              {request.project_name}
-            </p>
-          )}
-
+        <div className="space-y-5 pt-4 mt-1 border-t border-border">
           {relatedRequest && (
             <p className="smalltext text-muted-foreground">
               Related to: <span className="text-foreground">{relatedRequest.title}</span>
@@ -72,12 +101,12 @@ function RequestDetailModal({
           )}
 
           <div>
-            <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              Details
-            </p>
-            <p className="smalltext text-foreground whitespace-pre-wrap">
-              {request.description || "No additional details provided."}
-            </p>
+            <p className="smalltext font-medium text-foreground mb-1.5">Details</p>
+            <div className="rounded-lg bg-muted/40 p-3">
+              <p className="smalltext text-foreground whitespace-pre-wrap break-words">
+                {request.description || "No additional details provided."}
+              </p>
+            </div>
           </div>
 
           <p className="smalltext text-muted-foreground">
@@ -86,7 +115,7 @@ function RequestDetailModal({
             {request.customer_slug ? ` · ${request.customer_slug}` : ""}
           </p>
 
-          {request.status === "done" && request.completed_by && (
+          {isDone && request.completed_by && (
             <p className="smalltext text-muted-foreground">
               Completed by {request.completed_by}
               {request.completed_at

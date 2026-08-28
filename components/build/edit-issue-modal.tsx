@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import {
   Select,
   SelectContent,
@@ -94,37 +95,35 @@ export function EditIssueModal({
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto transition-all duration-200 ${
+        className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto overflow-x-hidden transition-all duration-200 ${
           isExpanded
             ? "sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
             : "sm:max-w-lg md:max-w-xl lg:max-w-2xl"
         }`}
         aria-describedby={undefined}
       >
-        <DialogHeader>
-          <DialogTitle className="text-primary pr-12">Edit Ticket</DialogTitle>
+        <ExpandableDialogChrome
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded((e) => !e)}
+        />
+
+        <DialogHeader className="pt-4">
+          <div className="flex min-w-0 items-center gap-3.5 pr-12">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-2 ring-primary/30">
+              <Pencil className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <DialogTitle className="truncate text-primary">Edit Ticket</DialogTitle>
+              {issue.branchName && (
+                <p className="smalltext text-muted-foreground truncate font-mono">
+                  {issue.branchName}
+                </p>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
-        {/* Positioned to match DialogContent's own close button (absolute
-            right-4 top-4) exactly — sitting it inline in the header row
-            instead left it vertically offset from the X, since that row's
-            baseline follows the title's line-height rather than the fixed
-            corner the X is pinned to. */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded((e) => !e)}
-          className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-          title={isExpanded ? "Shrink" : "Expand"}
-        >
-          {isExpanded ? (
-            <Minimize2 className="h-4 w-4" />
-          ) : (
-            <Maximize2 className="h-4 w-4" />
-          )}
-        </button>
-
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-4 mt-1 border-t border-border">
           <div className="space-y-1.5">
             <Label htmlFor="edit-issue-title" className="smalltext">Title</Label>
             <Input
@@ -144,18 +143,19 @@ export function EditIssueModal({
               onChange={setDescription}
               className="border-0"
               minHeight="140px"
+              ariaLabel="Description"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="smalltext">Priority</Label>
+            <Label htmlFor="edit-issue-priority" className="smalltext">Priority</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="h-8 text-xs md:smalltext">
+              <SelectTrigger id="edit-issue-priority" className="smalltext">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p} className="text-xs md:smalltext">
+                  <SelectItem key={p} value={p} className="smalltext">
                     {p === "none"
                       ? "No priority"
                       : p.charAt(0).toUpperCase() + p.slice(1)}
