@@ -1,7 +1,6 @@
 "use client";
 import { Header } from "@/components/headerDashboard";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
-import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -12,7 +11,7 @@ import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
-import { API_HEADERS } from "@/lib/api-headers";
+import { useRoadmapData } from "@/hooks/use-roadmap-data";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function RoadmapPage() {
@@ -33,82 +32,17 @@ export default function RoadmapPage() {
   const pageTitle = "Monitor";
 
   const {
-    data: roadmap,
+    milestones: allMilestones,
+    projectNames: allProjectNames,
+    projectIdsByName,
+    projectColorByName,
+    cycles: roadmapCycles,
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["roadmap", slug],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
-        { headers: API_HEADERS },
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch roadmap");
-      return res.json();
-    },
-    enabled: Boolean(slug),
-    // staleTime: 10_000,
-  });
-
-  const [projectNodes, setProjectNodes] = useState<any[]>([]);
-  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
-  const [hasMoreProjects, setHasMoreProjects] = useState(false);
-  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
-
-  useEffect(() => {
-    if (!roadmap?.initiative?.projects) return;
-
-    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
-    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
-    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
-  }, [roadmap]);
-
-  async function handleLoadMoreProjects() {
-    if (!slug || !projectsCursor || loadingMoreProjects) return;
-    setLoadingMoreProjects(true);
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to load more projects");
-      const data = await res.json();
-      const nextProjects = data?.initiative?.projects;
-      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
-      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
-      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
-    } catch (err) {
-      console.error("Failed to load more projects:", err);
-    } finally {
-      setLoadingMoreProjects(false);
-    }
-  }
-
-  const allMilestones = useMemo(
-    () =>
-      projectNodes.flatMap((project: any) =>
-        (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
-          ...milestone,
-          projectName: project.name,
-        })),
-      ),
-    [projectNodes],
-  );
-
-  const allProjectNames: string[] = projectNodes.map((p: any) => p.name);
-
-  const projectIdsByName: Record<string, string> = Object.fromEntries(
-    projectNodes.map((p: any) => [p.name, p.id]),
-  );
-
-  const projectColorByName: Record<string, string> = Object.fromEntries(
-    projectNodes
-      .filter((p: any) => p.status?.color)
-      .map((p: any) => [p.name, p.status.color]),
-  );
-
-  const roadmapCycles = roadmap?.cycles?.nodes ?? [];
+    hasMoreProjects,
+    loadingMoreProjects,
+    onLoadMoreProjects: handleLoadMoreProjects,
+  } = useRoadmapData(slug);
 
   return (
     <div className="min-h-screen">

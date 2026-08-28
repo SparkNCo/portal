@@ -18,13 +18,6 @@ import {
   ModalError,
   ModalFooter,
 } from "@/components/shared/add-user-modal-fields";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 
 type Props = {
@@ -40,14 +33,10 @@ export default function AddDeveloperModal({ onClose }: Props) {
   const [userName, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [developerType, setDeveloperType] = useState<DeveloperType>("spark_fde");
-  const [rateAmount, setRateAmount] = useState("");
-  const [rateType, setRateType] = useState<"hourly" | "monthly" | "annual">("hourly");
   const [submitted, setSubmitted] = useState(false);
   const queryClient = useQueryClient();
 
   const isPhoneValid = isValidPhone(phoneNumber);
-  const isInternal = developerType === "internal";
-  const isRateValid = !isInternal || (rateAmount.trim() !== "" && Number(rateAmount) > 0);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
@@ -61,7 +50,6 @@ export default function AddDeveloperModal({ onClose }: Props) {
             role: "developer",
             origin: globalThis.location.origin,
             developerType,
-            ...(isInternal && { rateAmount: Number(rateAmount), rateType }),
             ...(firstName && { firstName }),
             ...(lastName && { lastName }),
             ...(userName && { userName }),
@@ -85,7 +73,7 @@ export default function AddDeveloperModal({ onClose }: Props) {
 
   const handleSubmit = () => {
     setSubmitted(true);
-    if (email && isPhoneValid && isRateValid && !isPending) mutate();
+    if (email && isPhoneValid && !isPending) mutate();
   };
 
   return (
@@ -173,53 +161,9 @@ export default function AddDeveloperModal({ onClose }: Props) {
               ))}
             </div>
             <p className="smalltext text-muted-foreground">
-              Spark & Co FDE developers are billed through the customer's subscription. External developers are not billed to customers — set their rate below.
+              Spark & Co FDE developers are billed through the customer's subscription. External developers are billed to their client directly — rate details stay private to them and aren't collected here.
             </p>
           </div>
-
-          {isInternal && (
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="dev-rate-amount" className="smalltext">Rate Amount</Label>
-                <Input
-                  id="dev-rate-amount"
-                  type="text"
-                  inputMode="decimal"
-                  className="smalltext bg-secondary border-0"
-                  placeholder="e.g. 150"
-                  value={rateAmount}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, "");
-                    const firstDot = value.indexOf(".");
-                    setRateAmount(
-                      firstDot === -1
-                        ? value
-                        : value.slice(0, firstDot + 1) + value.slice(firstDot + 1).replaceAll(".", ""),
-                    );
-                  }}
-                />
-              </div>
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="dev-rate-type" className="smalltext">Rate Type</Label>
-                <Select
-                  value={rateType}
-                  onValueChange={(value) => setRateType(value as "hourly" | "monthly" | "annual")}
-                >
-                  <SelectTrigger id="dev-rate-type" className="smalltext bg-secondary border-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hourly">Hourly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          {isInternal && submitted && !isRateValid && (
-            <p className="smalltext text-red-400">Enter a rate amount greater than 0.</p>
-          )}
 
           <ModalError error={error} />
 
