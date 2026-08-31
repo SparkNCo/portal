@@ -192,6 +192,57 @@ function DescriptionTab({ issue }: { issue: Issue }) {
           No description yet.
         </p>
       )}
+
+      {currentStateName === "Business Review" && reviewComplete && (
+        <Button
+          size="sm"
+          variant="success"
+          className="w-full smalltext"
+          disabled={advancing}
+          onClick={() => onAdvanceState("Development")}
+        >
+          <Check className="h-3.5 w-3.5 mr-1.5" />
+          {advancing ? "Updating…" : "Complete Review"}
+        </Button>
+      )}
+
+      {currentStateName === "UAT" && (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="success"
+            className="flex-1 smalltext"
+            disabled={advancing}
+            onClick={() => onAdvanceState("Done")}
+          >
+            <Check className="h-3.5 w-3.5 mr-1.5" />
+            {advancing ? "Updating…" : "Approved"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 smalltext"
+            disabled={advancing}
+            onClick={() => onAdvanceState("QA")}
+          >
+            <RotateCcw className="h-3 w-3 mr-1.5" />
+            {advancing ? "Updating…" : "Fixes Required"}
+          </Button>
+        </div>
+      )}
+
+      {currentStateName === "Done" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full smalltext"
+          disabled={advancing}
+          onClick={() => onAdvanceState("Development")}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          {advancing ? "Updating…" : "Move back to Development"}
+        </Button>
+      )}
     </div>
   );
 }
