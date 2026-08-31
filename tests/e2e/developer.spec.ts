@@ -100,7 +100,10 @@ test.describe('Developer — panels', () => {
     await page.waitForURL('**/chat', { timeout: 10_000 });
 
     await expect(page.getByText('Chats').first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole('button', { name: 'New Chat' })).toBeVisible({ timeout: 15_000 });
+    // exact: true — an actual chat group in the test data happens to be
+    // named "New Chat testing", which otherwise collides with this button's
+    // accessible name under Playwright's default substring matching.
+    await expect(page.getByRole('button', { name: 'New Chat', exact: true })).toBeVisible({ timeout: 15_000 });
   });
 
   // ── Documents panel ────────────────────────────────────────────────────────
@@ -120,10 +123,8 @@ test.describe('Developer — panels', () => {
     // Wait for the card to render before asserting
     await expect(page.getByPlaceholder('Search documents...')).toBeVisible({ timeout: 10_000 });
 
-    // Filter icon button
-    await expect(page.getByTestId('document-filter-btn')).toBeVisible();
-
-    // Category tabs
+    // Category tabs — there is no separate filter icon button anymore, the
+    // search input above covers that (see components/documents/documents-list.tsx)
     for (const category of ['all', 'reports', 'technical', 'design']) {
       await expect(page.getByTestId(`category-tab-${category}`)).toBeVisible();
     }
@@ -133,12 +134,14 @@ test.describe('Developer — panels', () => {
     await page.getByRole('link', { name: 'Documents' }).click();
     await page.waitForURL('**/documents', { timeout: 10_000 });
 
-    const reportsBtn = page.getByRole('button', { name: 'Reports' });
+    // testid, not role name — a document titled with "reports" in it can
+    // also match an accessible-name search for "Reports".
+    const reportsBtn = page.getByTestId('category-tab-reports');
     await expect(reportsBtn).toBeVisible({ timeout: 10_000 });
     await reportsBtn.click();
 
-    // After clicking, Reports tab should have the active style (bg-secondary)
-    await expect(reportsBtn).toHaveClass(/bg-secondary/, { timeout: 5_000 });
+    // After clicking, Reports tab should have the active style (bg-primary)
+    await expect(reportsBtn).toHaveClass(/bg-primary/, { timeout: 5_000 });
   });
 
   test('Documents panel — UploadDocument card shows drag-and-drop area and file type hint', async ({ page }) => {
