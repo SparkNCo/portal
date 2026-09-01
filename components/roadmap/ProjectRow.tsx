@@ -111,11 +111,11 @@ export function ProjectRow({
     withPlaceholder(milestones, projectName),
   );
 
+  // The project stays highlighted as the active selection even while a
+  // milestone/cycle under it is what's actually filtering the issue panel —
+  // it's still the project whose issues are loaded, milestone/cycle just
+  // narrows the view.
   const isThisProjectSelected = selection?.projectName === projectName;
-  // Highlights the project header only when it's the whole-project view —
-  // not when a specific milestone/cycle under it is selected instead.
-  const isWholeProjectSelected =
-    isThisProjectSelected && !selection?.milestoneName && !selection?.cycleKey;
 
   return (
     <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
@@ -124,7 +124,7 @@ export function ProjectRow({
         projectColor={projectColor}
         milestoneCount={milestones.length}
         expanded={expanded}
-        selected={isWholeProjectSelected}
+        selected={isThisProjectSelected}
         onToggle={onToggle}
         onOpenAllIssues={() =>
           onCycleSelect({
