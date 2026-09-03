@@ -37,6 +37,10 @@ interface ProjectRowProps {
   onToggle: () => void;
   selection: CycleSelection | null;
   onCycleSelect: (selection: CycleSelection) => void;
+  // Closes the issue panel entirely (selection -> null) — called when this
+  // project's header is clicked to collapse it while its own issues are the
+  // ones currently showing.
+  onCloseIssues: () => void;
 }
 
 interface ProjectHeaderProps {
@@ -47,6 +51,7 @@ interface ProjectHeaderProps {
   selected: boolean;
   onToggle: () => void;
   onOpenAllIssues: () => void;
+  onCloseIssues: () => void;
 }
 
 function getCycleIds(milestone: Milestone): Set<string> {
@@ -106,6 +111,7 @@ export function ProjectRow({
   onToggle,
   selection,
   onCycleSelect,
+  onCloseIssues,
 }: ProjectRowProps) {
   const chainedMilestones = withCycleIds(
     withPlaceholder(milestones, projectName),
@@ -135,6 +141,7 @@ export function ProjectRow({
             cycleKey: null,
           })
         }
+        onCloseIssues={isThisProjectSelected ? onCloseIssues : () => {}}
       />
 
       {expanded &&
@@ -195,13 +202,22 @@ function ProjectHeader({
   selected,
   onToggle,
   onOpenAllIssues,
+  onCloseIssues,
 }: ProjectHeaderProps) {
   return (
     <button
       type="button"
       onClick={() => {
         onToggle();
-        onOpenAllIssues();
+        // Opening the row selects the project (fetch + show all its
+        // issues). Collapsing it back closes the issue panel too, but only
+        // when it's this project's own issues on screen — collapsing
+        // shouldn't touch an unrelated panel left open from elsewhere.
+        if (!expanded) {
+          onOpenAllIssues();
+        } else {
+          onCloseIssues();
+        }
       }}
       className={cn(
         "flex w-full items-center justify-between gap-2 rounded-lg border bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75",

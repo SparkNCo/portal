@@ -9,19 +9,8 @@ import {
   Mail,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getIssueCode } from "@/lib/utils";
 import { type Issue, priorityColors, statusColors } from "./issues.types";
-
-// `branchName` is Linear's auto-generated git branch suggestion (e.g.
-// "santiago/spa-247-fix-login-bug"), not the clean ticket code — the actual
-// TEAM-123 identifier is embedded in it as a letters-dash-digits run, with
-// the digits stopping at the first non-digit character. Falls back to a
-// blind slice for the rare branch name that doesn't match the pattern at
-// all (e.g. one with no team-key prefix).
-function getIssueCode(branchName: string): string {
-  const match = branchName.match(/[a-zA-Z]+-\d+/);
-  return (match?.[0] ?? branchName.slice(0, 7)).toUpperCase();
-}
 
 function EstimateBadge({ estimate }: { readonly estimate: number }) {
   return (

@@ -181,12 +181,10 @@ query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
 }
 `;
 
-// Fetched when a project header is clicked directly (no cycle selected) —
-// every issue in the project across every cycle, same field shape as
-// CYCLE_ISSUES_QUERY so the results panel doesn't need to branch on where
-// they came from. Carries `projectMilestone { id }` so the frontend can
-// filter this same fetched set down to one milestone client-side, instead of
-// re-querying Linear every time a milestone is clicked.
+// Fetched when a project header is clicked directly (no cycle or milestone
+// selected) — every issue in the project across every cycle, same field
+// shape as CYCLE_ISSUES_QUERY/MILESTONE_ISSUES_QUERY so the results panel
+// doesn't need to branch on where they came from.
 export const PROJECT_ISSUES_QUERY = `
 query ProjectIssues($projectId: String!, $after: String) {
   project(id: $projectId) {

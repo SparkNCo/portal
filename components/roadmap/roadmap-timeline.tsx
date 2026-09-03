@@ -237,37 +237,28 @@ export function RoadmapTimeline({
   );
 
   // Builds the query for GET /roadmap: a specific cycle when one was
-  // clicked, or — when the project itself was clicked directly — every
+  // clicked, or — when a project/milestone was clicked directly — every
   // issue under it with no cycle restriction at all (the edge function
-  // branches on cycleId's absence to fetch that way). Milestone is
-  // deliberately never sent here on its own: a milestone click reuses
-  // whatever the project fetch already returned and filters it client-side
-  // (see `milestoneScopedIssues` below), so clicking through milestones
-  // under the same project never re-triggers a fetch or loses the "project
-  // selected" state. It's only forwarded when a specific cycle was also
-  // clicked, to scope that one Linear call to that cycle+milestone pair.
+  // branches on cycleId's absence to fetch that way, and milestoneId takes
+  // priority over projectId there since a milestone already implies one
+  // project). Milestone is always forwarded to the network — it used to be a
+  // client-side filter over the project's own (paginated, first: 25) fetch,
+  // but that silently showed "no issues" for any milestone whose issues
+  // hadn't happened to load onto that first page yet. A dedicated
+  // milestone-scoped Linear query doesn't have that gap.
   function buildIssuesParams(sel: CycleSelection, after?: string | null) {
     const params = new URLSearchParams();
-    if (sel.cycleKey) {
-      params.set("cycleId", sel.cycleKey);
-      if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
-    }
+    if (sel.cycleKey) params.set("cycleId", sel.cycleKey);
+    if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
     if (sel.projectId) params.set("projectId", sel.projectId);
     if (after) params.set("after", after);
     return params;
   }
 
-  // A cycle-scoped fetch does depend on the milestone (it's forwarded as a
-  // server-side filter above), but a project/milestone-level fetch doesn't —
-  // this is `null` whenever milestoneId shouldn't trigger a re-fetch, so it
-  // can be used directly as an effect dependency below.
-  const cycleScopedMilestoneId = selection?.cycleKey ? (selection?.milestoneId ?? null) : null;
-
-  // Fetches the real, complete set of issues in the clicked cycle (or, with
-  // no cycle selected, the whole project) directly from Linear (team-wide)
-  // rather than pooling whatever happened to already be loaded via project
-  // milestones. Switching between milestones within the same project reuses
-  // this same fetch and only changes the client-side filter.
+  // Fetches the real, complete set of issues in the clicked cycle/milestone
+  // (or, with neither selected, the whole project) directly from Linear
+  // (team-wide) rather than pooling whatever happened to already be loaded
+  // via project milestones.
   useEffect(() => {
     if (!selection) {
       setCycleIssues([]);
@@ -312,7 +303,7 @@ export function RoadmapTimeline({
     return () => {
       cancelled = true;
     };
-  }, [selection?.cycleKey, selection?.projectId, cycleScopedMilestoneId]);
+  }, [selection?.cycleKey, selection?.projectId, selection?.milestoneId]);
 
   async function handleLoadMoreCycleIssues() {
     if (!selection || loadingMoreCycleIssues) return;
@@ -335,36 +326,24 @@ export function RoadmapTimeline({
     }
   }
 
-  // When a milestone is selected without a specific cycle, `cycleIssues`
-  // still holds every issue in the whole project (see buildIssuesParams
-  // above) — narrow it down to just that milestone here, client-side,
-  // instead of firing a separate fetch per milestone click. A cycle-scoped
-  // selection is already narrowed server-side, so it passes through as-is.
-  const milestoneScopedIssues = useMemo(() => {
-    if (!selection?.milestoneId || selection.cycleKey) return cycleIssues;
-    return cycleIssues.filter(
-      (issue) => issue.projectMilestone?.id === selection.milestoneId,
-    );
-  }, [cycleIssues, selection?.milestoneId, selection?.cycleKey]);
-
   const availableStatuses = useMemo(
     () =>
       sortByFixedOrder(
-        Array.from(new Set(milestoneScopedIssues.map((i) => i.state?.name).filter(Boolean))),
+        Array.from(new Set(cycleIssues.map((i) => i.state?.name).filter(Boolean))),
         stateOrder,
       ),
-    [milestoneScopedIssues],
+    [cycleIssues],
   );
   const availablePriorities = useMemo(
     () =>
       sortByFixedOrder(
-        Array.from(new Set(milestoneScopedIssues.map((i) => i.priorityLabel).filter(Boolean))),
+        Array.from(new Set(cycleIssues.map((i) => i.priorityLabel).filter(Boolean))),
         priorityOrder,
       ),
-    [milestoneScopedIssues],
+    [cycleIssues],
   );
 
-  const visibleIssues = milestoneScopedIssues.filter((issue) => {
+  const visibleIssues = cycleIssues.filter((issue) => {
     if (statusFilter && issue.state?.name !== statusFilter) return false;
     if (priorityFilter && issue.priorityLabel !== priorityFilter) return false;
     if (issueSearch.trim()) {
@@ -416,6 +395,7 @@ export function RoadmapTimeline({
                     }
                     selection={selection}
                     onCycleSelect={(next) => setSelection(next)}
+                    onCloseIssues={() => setSelection(null)}
                   />
                 ))}
 
@@ -514,7 +494,7 @@ export function RoadmapTimeline({
 
             {cycleIssuesLoading ? (
               <p className="smalltext text-muted-foreground">Loading issues...</p>
-            ) : milestoneScopedIssues.length === 0 ? (
+            ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
                 {selectedBucket
                   ? "No issues in this cycle."

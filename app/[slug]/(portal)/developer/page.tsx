@@ -8,6 +8,10 @@ import { CreateIssue } from "@/components/shared/create-issue";
 import { LoadingDataPanel } from "@/components/loader";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
+import { LogHoursModal } from "@/components/developer/log-hours-modal";
+import { MyHoursModal } from "@/components/developer/my-hours-modal";
+import { Button } from "@/components/components/ui/button";
+import { Clock, History } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useState, useEffect } from "react";
@@ -26,6 +30,8 @@ export default function DeveloperDashboard() {
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [showLogHours, setShowLogHours] = useState(false);
+  const [showMyHours, setShowMyHours] = useState(false);
 
   // 🔹 Policies approval query
   const { data: policiesStatus } = useQuery<{ approved: boolean }, Error>({
@@ -45,12 +51,14 @@ export default function DeveloperDashboard() {
     ? (profile.assignment_id as any[])
     : [];
 
-  // Each project: { clientName, linear_slug }
+  // Each project: { clientName, linear_slug, allocation (weekly hours, for the
+  // Log Hours vs. allocation comparison chart) }
   const projects = assignments
     .filter((a) => a.clientName)
     .map((a) => ({
       clientName: a.clientName as string,
       slug: (a.linear_slug ?? a.clientName) as string,
+      allocation: (a.allocation ?? null) as number | null,
     }));
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
@@ -144,7 +152,28 @@ export default function DeveloperDashboard() {
         notionUrl={notionUrl}
         onApproved={() => setShowPoliciesModal(false)}
       />
-      <Header title="Developer Dashboard" subtitle="Good morning, Developer" subtitleClassName="smalltext" />
+      <Header
+        title="Developer Dashboard"
+        subtitle="Good morning, Developer"
+        subtitleClassName="smalltext"
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="smalltext"
+              onClick={() => setShowMyHours(true)}
+            >
+              <History className="h-4 w-4" />
+              My Hours
+            </Button>
+            <Button size="sm" className="smalltext" onClick={() => setShowLogHours(true)}>
+              <Clock className="h-4 w-4" />
+              Log Hours
+            </Button>
+          </>
+        }
+      />
 
       <div className="p-4 md:p-6 space-y-6">
         {profile?.developerType !== "internal" && (
@@ -158,7 +187,7 @@ export default function DeveloperDashboard() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setSelectedProject(null)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
                 selectedProject === null
                   ? "bg-accent text-accent-foreground border-accent/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -170,7 +199,7 @@ export default function DeveloperDashboard() {
               <button
                 key={p.clientName}
                 onClick={() => setSelectedProject(p.clientName)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
                   selectedProject === p.clientName
                     ? "bg-accent text-accent-foreground border-accent/40"
                     : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -183,12 +212,12 @@ export default function DeveloperDashboard() {
         )}
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Sort by:</span>
+          <span className="smalltext text-muted-foreground">Sort by:</span>
           {(["updated", "priority"] as const).map((opt) => (
             <button
               key={opt}
               onClick={() => setSortBy(opt)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
                 sortBy === opt
                   ? "bg-accent text-accent-foreground border-accent/40"
                   : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -229,6 +258,29 @@ export default function DeveloperDashboard() {
               queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
             })
           }
+        />
+      )}
+
+      {showLogHours && profile?.id && profile?.email && (
+        <LogHoursModal
+          projects={projects}
+          issues={allIssues}
+          developerId={profile.id}
+          developerEmail={profile.email}
+          onClose={() => setShowLogHours(false)}
+          onChanged={() =>
+            queryClient.invalidateQueries({ queryKey: ["hours-logged", profile.id] })
+          }
+        />
+      )}
+
+      {showMyHours && profile?.id && profile?.email && (
+        <MyHoursModal
+          projects={projects}
+          issues={allIssues}
+          developerId={profile.id}
+          developerEmail={profile.email}
+          onClose={() => setShowMyHours(false)}
         />
       )}
     </div>
