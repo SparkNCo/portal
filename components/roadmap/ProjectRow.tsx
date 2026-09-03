@@ -223,23 +223,15 @@ function ProjectHeader({
     <button
       type="button"
       onClick={() => {
-        if (isExpandable) {
-          onToggle();
-          // Opening the row selects the project (fetch + show all its
-          // issues). Collapsing it back closes the issue panel too, but only
-          // when it's this project's own issues on screen — collapsing
-          // shouldn't touch an unrelated panel left open from elsewhere.
-          if (!expanded) {
-            onOpenAllIssues();
-          } else {
-            onCloseIssues();
-          }
-        } else if (selected) {
-          // No expand/collapse state to touch — just toggle whether this
-          // project's issues are the ones showing in the panel.
-          onCloseIssues();
-        } else {
+        onToggle();
+        // Opening the row selects the project (fetch + show all its
+        // issues). Collapsing it back closes the issue panel too, but only
+        // when it's this project's own issues on screen — collapsing
+        // shouldn't touch an unrelated panel left open from elsewhere.
+        if (!expanded) {
           onOpenAllIssues();
+        } else {
+          onCloseIssues();
         }
       }}
       className={cn(
