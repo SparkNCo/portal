@@ -165,7 +165,7 @@ export default function DeveloperDashboard() {
       />
       <Header
         title="Developer Dashboard"
-        subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "Developer")}`}
+        subtitle="Good morning, Developer"
         subtitleClassName="smalltext"
         actions={
           <>
@@ -194,6 +194,50 @@ export default function DeveloperDashboard() {
           </div>
         )}
 
+        {projects.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedProject(null)}
+              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
+                selectedProject === null
+                  ? "bg-accent text-accent-foreground border-accent/40"
+                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              All Projects
+            </button>
+            {projects.map((p) => (
+              <button
+                key={p.clientName}
+                onClick={() => setSelectedProject(p.clientName)}
+                className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
+                  selectedProject === p.clientName
+                    ? "bg-accent text-accent-foreground border-accent/40"
+                    : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                {p.clientName}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <span className="smalltext text-muted-foreground">Sort by:</span>
+          {(["updated", "priority"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setSortBy(opt)}
+              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
+                sortBy === opt
+                  ? "bg-accent text-accent-foreground border-accent/40"
+                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {opt === "updated" ? "Last Updated" : "Priority"}
+            </button>
+          ))}
+        </div>
         <div className="w-full max-w-full overflow-x-hidden">
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/40 p-10 text-center">
