@@ -12,8 +12,30 @@ export const POPOVER_ANIMATION_CLASSES =
 // currently hovered/keyboard-active in menu-like primitives (DropdownMenu,
 // Select, ContextMenu, ...) — shared here so every dropdown built on these
 // primitives gets the same orange-on-hover treatment for free.
+//
+// text-popover-foreground is the important part for the *unhighlighted*
+// state: every one of these primitives' *Content wrapper already sets that
+// same color, so relying on inheritance looks redundant — but items land in
+// a Radix portal appended straight to <body>, and this app's <body> sets its
+// own `color` (the cream --foreground, meant for the dark page background)
+// directly on the body tag. Depending on paint/hydration timing that can
+// still win over the ancestor Content's color for an item's own text node,
+// leaving every unhovered option effectively invisible (cream-on-cream)
+// until data-highlighted's text-primary kicks in on hover. Setting it here
+// too removes the dependency on inheritance entirely.
 export const MENU_ITEM_BASE_CLASSES =
-  'relative flex cursor-default select-none items-center rounded-sm py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:text-primary'
+  'relative flex cursor-default select-none items-center rounded-sm py-1.5 text-sm text-popover-foreground outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:text-primary'
+
+// `branchName` is Linear's auto-generated git branch suggestion (e.g.
+// "santiago/spa-247-fix-login-bug"), not the clean ticket code — the actual
+// TEAM-123 identifier is embedded in it as a letters-dash-digits run, with
+// the digits stopping at the first non-digit character. Falls back to a
+// blind slice for the rare branch name that doesn't match the pattern at
+// all (e.g. one with no team-key prefix).
+export function getIssueCode(branchName: string): string {
+  const match = branchName.match(/[a-zA-Z]+-\d+/);
+  return (match?.[0] ?? branchName.slice(0, 7)).toUpperCase();
+}
 
 // Route params read via useParams() aren't reliably decoded in this app, so a
 // value like a customer's clientName can arrive still percent-encoded (or,

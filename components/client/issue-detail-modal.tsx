@@ -194,7 +194,8 @@ function DescriptionTab({
       {currentStateName === "Business Review" && reviewComplete && (
         <Button
           size="sm"
-          className="w-full smalltext bg-green-600 hover:bg-green-700 text-white"
+          variant="success"
+          className="w-full smalltext"
           disabled={advancing}
           onClick={() => onAdvanceState("Development")}
         >
@@ -207,7 +208,8 @@ function DescriptionTab({
         <div className="flex gap-2">
           <Button
             size="sm"
-            className="flex-1 smalltext bg-green-600 hover:bg-green-700 text-white"
+            variant="success"
+            className="flex-1 smalltext"
             disabled={advancing}
             onClick={() => onAdvanceState("Done")}
           >
@@ -389,9 +391,9 @@ function DecisionsTab({
                   </Button>
                   <Button
                     size="sm"
+                    variant="success"
                     disabled={!answerText.trim() || submitting}
                     onClick={() => handleSubmitAnswer(d.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     {submitting ? "Submitting…" : "Submit decision"}
                   </Button>
@@ -400,7 +402,8 @@ function DecisionsTab({
             ) : (
               <Button
                 size="sm"
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                variant="success"
+                className="w-full"
                 onClick={() => {
                   setActiveAnswerForm(d.id);
                   setAnswerText("");
@@ -1370,13 +1373,9 @@ function TestsTab({
               e.results?.some((entry) => entry.kind === "uat")) && (
               <Button
                 size="sm"
-                variant={e.status === "passed" ? "outline" : "default"}
+                variant={e.status === "passed" ? "outline" : "success"}
                 disabled={submitting}
-                className={
-                  e.status === "passed"
-                    ? "w-full"
-                    : "w-full bg-green-600 hover:bg-green-700 text-white"
-                }
+                className="w-full"
                 onClick={() => handleTogglePassed(e)}
               >
                 {e.status === "passed"

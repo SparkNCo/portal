@@ -13,7 +13,7 @@ import { LoadingDataPanel } from "../loader";
 import { useAuth } from "../AuthContext";
 import { supabase } from "@/lib/supabase-client";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { CreditCard, ChevronUp, ChevronDown, Pencil } from "lucide-react";
+import { CreditCard, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NumberStepper } from "@/components/shared/number-stepper";
 
 export async function fetchBillingData({ user }: { user: any }) {
   const customerId = user?.stripe_customer_id ?? user?.customer_id;
@@ -176,66 +177,6 @@ function describeInvoiceSchedule(
   return `$${amount.toFixed(2)} ${cadence}`;
 }
 
-function NumberStepper({
-  value,
-  onChange,
-  onBump,
-  step,
-  min,
-  autoFocus,
-  placeholder,
-  className,
-  leadingSlot,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onBump: (delta: number) => void;
-  step: number;
-  min: number;
-  autoFocus?: boolean;
-  placeholder?: string;
-  className?: string;
-  leadingSlot?: React.ReactNode;
-}) {
-  return (
-    <div
-      className={
-        "flex h-9 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring" +
-        (className ? ` ${className}` : "")
-      }
-    >
-      {leadingSlot}
-      <input
-        autoFocus={autoFocus}
-        type="number"
-        min={min}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full min-w-0 bg-transparent pl-2 smalltext focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-      />
-      <div className="flex flex-col border-l border-input">
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => onBump(step)}
-          className="flex flex-1 items-center justify-center px-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
-        >
-          <ChevronUp className="h-3 w-3" />
-        </button>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => onBump(-step)}
-          className="flex flex-1 items-center justify-center border-t border-input px-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
-        >
-          <ChevronDown className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function InvoiceSettingsFields({
   customerId,

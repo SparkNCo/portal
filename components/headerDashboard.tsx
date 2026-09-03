@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react";
 import { Menu } from "lucide-react"
 import { useSidebar } from "@/lib/sidebar-context";
 
@@ -8,9 +9,11 @@ interface HeaderProps {
   subtitle?: string
   /** Override the subtitle's default text-sm sizing for a specific page — e.g. "smalltext" for 16px. */
   subtitleClassName?: string
+  /** Optional right-aligned slot for page-specific buttons (e.g. "Log Hours"). */
+  actions?: ReactNode
 }
 
-export function Header({ title, subtitle, subtitleClassName }: HeaderProps) {
+export function Header({ title, subtitle, subtitleClassName, actions }: HeaderProps) {
   const { open } = useSidebar();
 
   return (
@@ -30,6 +33,7 @@ export function Header({ title, subtitle, subtitleClassName }: HeaderProps) {
           )}
         </div>
       </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </header>
   )
 }

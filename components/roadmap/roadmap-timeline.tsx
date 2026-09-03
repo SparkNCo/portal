@@ -237,20 +237,26 @@ export function RoadmapTimeline({
   );
 
   // Builds the query for GET /roadmap: a specific cycle when one was
-  // clicked, or — when the project/milestone itself was clicked directly —
-  // every issue under it with no cycle restriction at all (the edge
-  // function branches on cycleId's absence to fetch that way).
+  // clicked, or — when a project/milestone was clicked directly — every
+  // issue under it with no cycle restriction at all (the edge function
+  // branches on cycleId's absence to fetch that way, and milestoneId takes
+  // priority over projectId there since a milestone already implies one
+  // project). Milestone is always forwarded to the network — it used to be a
+  // client-side filter over the project's own (paginated, first: 25) fetch,
+  // but that silently showed "no issues" for any milestone whose issues
+  // hadn't happened to load onto that first page yet. A dedicated
+  // milestone-scoped Linear query doesn't have that gap.
   function buildIssuesParams(sel: CycleSelection, after?: string | null) {
     const params = new URLSearchParams();
     if (sel.cycleKey) params.set("cycleId", sel.cycleKey);
-    if (sel.projectId) params.set("projectId", sel.projectId);
     if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
+    if (sel.projectId) params.set("projectId", sel.projectId);
     if (after) params.set("after", after);
     return params;
   }
 
-  // Fetches the real, complete set of issues in the clicked cycle (or, with
-  // no cycle selected, the whole project/milestone) directly from Linear
+  // Fetches the real, complete set of issues in the clicked cycle/milestone
+  // (or, with neither selected, the whole project) directly from Linear
   // (team-wide) rather than pooling whatever happened to already be loaded
   // via project milestones.
   useEffect(() => {
@@ -388,16 +394,8 @@ export function RoadmapTimeline({
                       }))
                     }
                     selection={selection}
-                    onCycleSelect={(next) =>
-                      setSelection((prev) =>
-                        prev &&
-                        prev.projectName === next.projectName &&
-                        prev.milestoneName === next.milestoneName &&
-                        prev.cycleKey === next.cycleKey
-                          ? null
-                          : next,
-                      )
-                    }
+                    onCycleSelect={(next) => setSelection(next)}
+                    onCloseIssues={() => setSelection(null)}
                   />
                 ))}
 
@@ -498,7 +496,11 @@ export function RoadmapTimeline({
               <p className="smalltext text-muted-foreground">Loading issues...</p>
             ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
-                {selectedBucket ? "No issues in this cycle." : "No issues found."}
+                {selectedBucket
+                  ? "No issues in this cycle."
+                  : selection.milestoneName
+                    ? "No issues in this milestone."
+                    : "No issues found."}
               </p>
             ) : (
               <>
