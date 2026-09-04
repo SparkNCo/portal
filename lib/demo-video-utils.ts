@@ -1,5 +1,5 @@
 import { fetchIssues } from "@/app/[slug]/(portal)/dashboard/page";
-import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
 
 // Shared between the per-ticket Demo tab (components/client/demo-tab.tsx)
@@ -27,18 +27,7 @@ export type Demo = {
   created_at: string;
   updated_at?: string;
   uploader?: DemoUser | null;
-  // User-entered when the demo was first created; propagated onto every row
-  // that later shares its content (see createDemoVideo.ts) so every ticket
-  // it's attached to, and the Demos dashboard, show the same name for it.
-  title: string;
-  // Human-friendly sequential id, shown as "demo-<n>" — auto-assigned by the
-  // backend (DB column default), never entered by hand.
-  demo_number: number;
 };
-
-export function demoLabel(demo: Pick<Demo, "demo_number">): string {
-  return `demo-${demo.demo_number}`;
-}
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
 
@@ -75,7 +64,7 @@ export type DemoGroup = {
   // playback and as the `source_demo_id` when attaching this same content
   // elsewhere.
   representative: Demo;
-  issues: { id: string; title: string; code: string }[];
+  issues: { id: string; title: string }[];
 };
 
 // Collapses per-issue demo_videos rows down to one entry per distinct piece
@@ -84,17 +73,15 @@ export type DemoGroup = {
 // demo" picker so the same upload/link doesn't show up once per ticket.
 export function groupDemosByContent(
   demos: Demo[],
-  issueInfoById: Map<string, { title: string; code: string }>,
+  issueTitleById: Map<string, string>,
 ): DemoGroup[] {
   const groups = new Map<string, DemoGroup>();
 
   for (const demo of demos) {
     const key = demoContentKey(demo);
-    const info = issueInfoById.get(demo.issue_id);
     const issueEntry = {
       id: demo.issue_id,
-      title: info?.title ?? demo.issue_id,
-      code: info?.code ?? "",
+      title: issueTitleById.get(demo.issue_id) ?? demo.issue_id,
     };
     const existing = groups.get(key);
 
@@ -124,54 +111,6 @@ export function groupDemosByContent(
 // column of its own, so this resolves the project's issues from Linear
 // first (same `fetchIssues` every other developer page uses) and asks the
 // demo-videos function for just those issue ids.
-export type PreviewLink = { url: string; text: string };
-
-// Admin/developer-managed links (e.g. "Test Environment" → a customer's
-// staging URL), shown at the top of every Demo tab for that customer — set
-// from app/admin/users/EditClientModal.tsx or inline from PreviewLinksBanner
-// itself, stored on `customers.preview_links`. `customerId` rides along so
-// an admin/developer viewer can save straight back via
-// `PATCH /users?type=customer` without a second lookup just to find it.
-export async function fetchPreviewLinks(
-  slug: string,
-): Promise<{ customerId: string | null; links: PreviewLink[] }> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer-preview-links&slug=${encodeURIComponent(slug)}`,
-    { headers: API_HEADERS },
-  );
-  if (!res.ok) return { customerId: null, links: [] };
-  const data = await res.json().catch(() => null);
-  return {
-    customerId: data?.customer_id ?? null,
-    links: Array.isArray(data?.preview_links) ? data.preview_links : [],
-  };
-}
-
-// Attaches a demo already uploaded elsewhere in the project to another
-// issue as a new version — no re-upload, the new row just points at the
-// same underlying file/link via `source_demo_id`. Shared by the Demos
-// page's multi-ticket upload flow and the per-ticket Demo tab's "Select
-// Existing" picker (components/developer/demo-picker.tsx).
-export async function attachDemoToIssue(
-  issueId: string,
-  email: string,
-  sourceDemoId: string,
-): Promise<Demo> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
-    {
-      method: "POST",
-      headers: API_JSON_HEADERS,
-      body: JSON.stringify({ issue_id: issueId, email, source_demo_id: sourceDemoId }),
-    },
-  );
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error ?? "Failed to attach demo video");
-  }
-  return (await res.json()) as Demo;
-}
-
 export async function fetchProjectDemos(slug: string): Promise<{
   demos: Demo[];
   issues: Issue[];
