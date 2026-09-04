@@ -14,7 +14,7 @@ import { Button } from "@/components/components/ui/button";
 import { Clock, History } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
-import { useSearchParams } from "next/navigation";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
@@ -26,7 +26,7 @@ function capitalize(value: string) {
 export default function DeveloperDashboard() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
-  const searchParams = useSearchParams();
+  const { selectedProject: selectedProjectFromSidebar } = useSelectedProject();
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -67,11 +67,10 @@ export default function DeveloperDashboard() {
     }));
 
   // Which project to work on is picked from the sidebar dropdown (see
-  // components/sidebar.tsx) and lives in the `project` query param, rather
-  // than local state, so it's shared with the rest of the /dev/* nav. Falls
-  // back to the first assignment so a project is always selected.
-  const selectedProject =
-    searchParams.get("project") ?? projects[0]?.clientName ?? null;
+  // components/sidebar.tsx) and lives in SelectedProjectContext, rather than
+  // local state, so it's shared with the rest of the /dev/* nav. Falls back
+  // to the first assignment so a project is always selected.
+  const selectedProject = selectedProjectFromSidebar ?? projects[0]?.clientName ?? null;
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
