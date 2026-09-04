@@ -88,7 +88,6 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={initialModalTab}
     />
   );
   if (compact) {

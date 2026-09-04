@@ -178,7 +178,7 @@ export function IssueCard({
             <span
               className={cn(
                 "smalltext truncate",
-                lightCard ? "light-card-muted" : "text-muted-foreground",
+                lightCard ? "light-card-muted" : "text-muted-foreground/70",
               )}
               title={issue._project}
             >
@@ -192,20 +192,11 @@ export function IssueCard({
             )}
           >
             {issue.priorityLabel}
-          </Badge>
-          {issue._project && (
-            <Badge
-              variant="outline"
-              className="smalltext border-border text-muted-foreground truncate max-w-[9rem]"
-              title={issue._project}
-            >
-              {issue._project}
-            </Badge>
-          )}
+          </span>
         </div>
         <p
           className={cn(
-            "text-base font-semibold leading-snug mb-2.5 line-clamp-2",
+            "text-sm font-semibold leading-snug mb-2.5 line-clamp-2",
             lightCard ? "light-card-text" : "text-foreground",
           )}
         >
