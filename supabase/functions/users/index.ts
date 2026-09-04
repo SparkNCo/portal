@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import { createCustomerFlow } from "./createCustomerFlow.ts";
 import { createUser } from "./createUser.ts";
 import { resendAccountEmail } from "./resendAccountEmail.ts";
@@ -56,7 +57,7 @@ const handleGet = async (url: URL, schema: string) => {
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
     const { data: clients, error: clientsError } = await supabase.schema(schema)
       .from("customers")
-      .select("customer_id, clientName, linear_slug, stripe_customer_id")
+      .select("customer_id, clientName, linear_slug, stripe_customer_id, preview_links")
       .in("customer_id", clientIds);
     if (clientsError) throw new Error(clientsError.message);
 
@@ -69,9 +70,31 @@ const handleGet = async (url: URL, schema: string) => {
       clientName: clientMap.get(u.customer_id)?.clientName ?? null,
       linear_slug: clientMap.get(u.customer_id)?.linear_slug ?? null,
       stripe_customer_id: clientMap.get(u.customer_id)?.stripe_customer_id ?? null,
+      preview_links: clientMap.get(u.customer_id)?.preview_links ?? [],
     }));
 
     return jsonResponse(data);
+  }
+
+  // Scoped, read-only lookup by clientName — powers the Preview Links shown
+  // at the top of every Demo tab (see components/client/demo-tab.tsx and
+  // app/dev/demos/page.tsx). Deliberately narrower than `type=customers`
+  // above (which returns every customer, Stripe id included, and is only
+  // ever called from the admin Users page) — any role viewing a ticket
+  // already knows its customer's slug, so this just resolves that one
+  // customer's links without exposing anyone else's data.
+  if (type === "customer-preview-links") {
+    const slug = url.searchParams.get("slug");
+    if (!slug) return jsonResponse({ error: "slug is required" }, 400);
+
+    const { data, error } = await supabase.schema(schema)
+      .from("customers")
+      .select("preview_links")
+      .ilike("clientName", escapeIlike(slug))
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+
+    return jsonResponse({ preview_links: data?.preview_links ?? [] });
   }
 
   if (type === "developer-profile") {

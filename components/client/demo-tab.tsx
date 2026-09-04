@@ -19,6 +19,7 @@ import { useUser } from "context/UserContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { type Demo, type DemoUser, isImageFile, getEmbedIframeSrc, displayName } from "@/lib/demo-video-utils";
 import { DemoPicker } from "@/components/developer/demo-picker";
+import { PreviewLinksBanner } from "./preview-links-banner";
 import type { Issue } from "./issues.types";
 
 type DemoComment = {
@@ -419,6 +420,8 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           Upload or embed demo videos and images for this issue and gather feedback
         </p>
       </div>
+
+      <PreviewLinksBanner slug={slug} />
 
       {/* Add or update a version */}
       <div className="flex flex-wrap items-end gap-3">

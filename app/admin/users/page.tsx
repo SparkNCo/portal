@@ -10,6 +10,8 @@ import AddStakeholderModal from "./AddStakeholderModal";
 import AssignCustomerModal from "./AssignCustomerModal";
 import EditDeveloperProfileModal from "./EditDeveloperProfileModal";
 import ViewDeveloperProfileModal from "./ViewDeveloperProfileModal";
+import EditClientModal from "./EditClientModal";
+import EditStakeholderModal from "./EditStakeholderModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +42,13 @@ type User = {
   email: string;
   userName?: string;
   role: "admin" | "developer" | "customer" | "stakeholder";
+  firstName?: string | null;
+  lastName?: string | null;
+  phoneNumber?: string | null;
+  customer_id?: string | null;
 };
+
+type PreviewLink = { url: string; text: string };
 
 type Assignment = {
   id: string;
@@ -78,6 +86,11 @@ export default function AdminUsersPage() {
   const [editingProfileUser, setEditingProfileUser] = useState<User | null>(
     null,
   );
+  const [editingClientUser, setEditingClientUser] = useState<User | null>(
+    null,
+  );
+  const [editingStakeholderUser, setEditingStakeholderUser] =
+    useState<User | null>(null);
   const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(
     null,
   );
@@ -107,9 +120,18 @@ export default function AdminUsersPage() {
   const customerIds = customers.map((c) => c.id);
 
   // `/functions/v1/users` (plain) doesn't join `clientName` — only
-  // `?type=customers` does. Needed for the Projects view's group titles.
+  // `?type=customers` does. Needed for the Projects view's group titles,
+  // and for the customer Profile modal (customer_id, linear_slug,
+  // stripe_customer_id, preview_links).
   const { data: customerDetails = [] } = useQuery<
-    { id: string; clientName: string | null }[]
+    {
+      id: string;
+      clientName: string | null;
+      customer_id: string | null;
+      linear_slug: string | null;
+      stripe_customer_id: string | null;
+      preview_links: PreviewLink[];
+    }[]
   >({
     queryKey: ["customers"],
     queryFn: async () => {
@@ -125,6 +147,9 @@ export default function AdminUsersPage() {
 
   const initiativeNameByCustomerId = new Map(
     customerDetails.map((c) => [c.id, c.clientName]),
+  );
+  const customerRecordByUserId = new Map(
+    customerDetails.map((c) => [c.id, c]),
   );
 
   const customersWithInitiativeNames = customers.map((c) => ({
@@ -345,6 +370,36 @@ export default function AdminUsersPage() {
           }}
         />
       )}
+      {editingClientUser && (
+        <EditClientModal
+          userId={editingClientUser.id}
+          customerId={
+            customerRecordByUserId.get(editingClientUser.id)?.customer_id ?? ""
+          }
+          userEmail={editingClientUser.email}
+          firstName={editingClientUser.firstName}
+          lastName={editingClientUser.lastName}
+          phoneNumber={editingClientUser.phoneNumber}
+          clientName={initiativeNameByCustomerId.get(editingClientUser.id)}
+          linearSlug={customerRecordByUserId.get(editingClientUser.id)?.linear_slug}
+          previewLinks={
+            customerRecordByUserId.get(editingClientUser.id)?.preview_links ??
+            []
+          }
+          onClose={() => setEditingClientUser(null)}
+        />
+      )}
+      {editingStakeholderUser && (
+        <EditStakeholderModal
+          userId={editingStakeholderUser.id}
+          userEmail={editingStakeholderUser.email}
+          firstName={editingStakeholderUser.firstName}
+          lastName={editingStakeholderUser.lastName}
+          userName={editingStakeholderUser.userName}
+          phoneNumber={editingStakeholderUser.phoneNumber}
+          onClose={() => setEditingStakeholderUser(null)}
+        />
+      )}
 
       {/* ── View toggle ── */}
       <div className="flex items-center">
@@ -440,6 +495,28 @@ export default function AdminUsersPage() {
                                       size="sm"
                                       className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingProfileUser(u)}
+                                    >
+                                      <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">Profile</span>
+                                    </Button>
+                                  )}
+                                  {u.role === "customer" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      onClick={() => setEditingClientUser(u)}
+                                    >
+                                      <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">Profile</span>
+                                    </Button>
+                                  )}
+                                  {u.role === "stakeholder" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      onClick={() => setEditingStakeholderUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       <span className="hidden sm:inline">Profile</span>
