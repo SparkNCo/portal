@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Check,
   RotateCcw,
@@ -20,6 +21,7 @@ import {
   Pencil,
   Paperclip,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
@@ -147,19 +149,7 @@ function TabButton({
 
 // ── Tab components ──────────────────────────────────────────────────────────
 
-function DescriptionTab({
-  issue,
-  reviewComplete,
-  currentStateName,
-  advancing,
-  onAdvanceState,
-}: {
-  issue: Issue;
-  reviewComplete: boolean;
-  currentStateName: string | undefined;
-  advancing: boolean;
-  onAdvanceState: (targetState: string) => void;
-}) {
+function DescriptionTab({ issue }: { issue: Issue }) {
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
@@ -189,57 +179,6 @@ function DescriptionTab({
         <p className="smalltext text-muted-foreground italic">
           No description yet.
         </p>
-      )}
-
-      {currentStateName === "Business Review" && reviewComplete && (
-        <Button
-          size="sm"
-          variant="success"
-          className="w-full smalltext"
-          disabled={advancing}
-          onClick={() => onAdvanceState("Development")}
-        >
-          <Check className="h-3.5 w-3.5 mr-1.5" />
-          {advancing ? "Updating…" : "Complete Review"}
-        </Button>
-      )}
-
-      {currentStateName === "UAT" && (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="success"
-            className="flex-1 smalltext"
-            disabled={advancing}
-            onClick={() => onAdvanceState("Done")}
-          >
-            <Check className="h-3.5 w-3.5 mr-1.5" />
-            {advancing ? "Updating…" : "Approved"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 smalltext"
-            disabled={advancing}
-            onClick={() => onAdvanceState("QA")}
-          >
-            <RotateCcw className="h-3 w-3 mr-1.5" />
-            {advancing ? "Updating…" : "Fixes Required"}
-          </Button>
-        </div>
-      )}
-
-      {currentStateName === "Done" && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full smalltext"
-          disabled={advancing}
-          onClick={() => onAdvanceState("Development")}
-        >
-          <RotateCcw className="h-3 w-3 mr-1" />
-          {advancing ? "Updating…" : "Move back to Development"}
-        </Button>
       )}
     </div>
   );
@@ -1564,6 +1503,37 @@ function TestsTab({
   );
 }
 
+// ── Priority / status quick-change menus ────────────────────────────────────
+
+const PRIORITY_MENU_OPTIONS: { value: string; label: Issue["priorityLabel"] }[] = [
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: "none", label: "No priority" },
+];
+
+// Every real Linear workflow state name this app knows about (see the
+// `Issue["state"]["name"]` union in issues.types.ts), minus "needs-input"
+// and "waiting" — those two are synthetic client-side buckets, not settable
+// Linear states, so offering them here would just fail the PATCH.
+const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
+  "Backlog",
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Todo",
+  "In Progress",
+  "In Review",
+  "Blocked",
+  "Not Started",
+  "Canceled",
+  "Done",
+  "Completed",
+];
+
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 export function IssueDetailModal({
@@ -1584,11 +1554,19 @@ export function IssueDetailModal({
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
   const canRecordUatResult = role === "customer" || role === "stakeholder";
+  // Freely changing priority/status from the header plates is a
+  // developer/admin power-tool — customers and stakeholders only move
+  // tickets through the guided flow in the Description tab.
+  const canEditTicketMeta = role === "developer" || role === "admin";
 
   const [visible, setVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [changingPriority, setChangingPriority] = useState(false);
+  const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
+  const [currentPriorityLabel, setCurrentPriorityLabel] = useState(issue.priorityLabel);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(true);
   const [executions, setExecutions] = useState<TestExecution[]>([]);
@@ -1687,6 +1665,19 @@ export function IssueDetailModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [handleClose]);
 
+  // Refetch every issue list this ticket could appear in — otherwise closing
+  // and reopening the modal re-mounts it with the stale `issue` prop from the
+  // cached list, showing the old value again and letting the same change be
+  // triggered a second time.
+  function invalidateIssueLists() {
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        ["linear-issues", "linear-issues-developer", "roadmap"].includes(
+          query.queryKey[0] as string,
+        ),
+    });
+  }
+
   async function handleAdvanceState(targetState: string) {
     if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
@@ -1702,19 +1693,45 @@ export function IssueDetailModal({
       const data = await res.json();
       if (data.success) {
         setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
-        // Refetch every issue list this ticket could appear in — otherwise
-        // closing and reopening the modal re-mounts it with the stale
-        // `issue` prop from the cached list, showing the old state again
-        // and letting the same transition be triggered a second time.
-        queryClient.invalidateQueries({
-          predicate: (query) =>
-            ["linear-issues", "linear-issues-developer", "roadmap"].includes(
-              query.queryKey[0] as string,
-            ),
-        });
+        invalidateIssueLists();
+      } else {
+        toast.error(`Failed to move ticket to "${targetState}".`);
       }
+    } catch {
+      toast.error(`Failed to move ticket to "${targetState}".`);
     } finally {
       setAdvancing(false);
+    }
+  }
+
+  async function handleChangePriority(value: string, label: Issue["priorityLabel"]) {
+    if (label === currentPriorityLabel || changingPriority) return;
+    setChangingPriority(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/edit`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            issueId: issue.id,
+            priority: value,
+            slug,
+            ...(profile?.email ? { actorEmail: profile.email } : {}),
+          }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        setCurrentPriorityLabel(label);
+        invalidateIssueLists();
+      } else {
+        toast.error("Failed to update priority.");
+      }
+    } catch {
+      toast.error("Failed to update priority.");
+    } finally {
+      setChangingPriority(false);
     }
   }
 
@@ -1750,24 +1767,126 @@ export function IssueDetailModal({
               <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
               </span>
-              <Badge
-                variant="outline"
-                className={`smalltext ${
-                  priorityColors[
-                    issue.priorityLabel as keyof typeof priorityColors
-                  ]
-                }`}
-              >
-                {issue.priorityLabel}
-              </Badge>
-              <Badge
-                variant="secondary"
-                className={`smalltext ${
-                  statusColors[currentStateName as keyof typeof statusColors]
-                }`}
-              >
-                {currentStateName}
-              </Badge>
+              {canEditTicketMeta ? (
+                <Popover open={priorityMenuOpen} onOpenChange={setPriorityMenuOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={changingPriority}
+                      className="focus:outline-none disabled:cursor-wait"
+                    >
+                      <Badge
+                        variant="outline"
+                        className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
+                          changingPriority ? "opacity-70" : ""
+                        } ${
+                          priorityColors[
+                            currentPriorityLabel as keyof typeof priorityColors
+                          ]
+                        }`}
+                      >
+                        {changingPriority && (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        )}
+                        {currentPriorityLabel}
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-44 p-1.5 bg-background border-border"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      {PRIORITY_MENU_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={changingPriority}
+                          onClick={() => {
+                            setPriorityMenuOpen(false);
+                            handleChangePriority(opt.value, opt.label);
+                          }}
+                          className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
+                            opt.label === currentPriorityLabel
+                              ? priorityColors[opt.label]
+                              : "text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className={`smalltext ${
+                    priorityColors[
+                      currentPriorityLabel as keyof typeof priorityColors
+                    ]
+                  }`}
+                >
+                  {currentPriorityLabel}
+                </Badge>
+              )}
+              {canEditTicketMeta ? (
+                <Popover open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={advancing}
+                      className="focus:outline-none disabled:cursor-wait"
+                    >
+                      <Badge
+                        variant="secondary"
+                        className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
+                          advancing ? "opacity-70" : ""
+                        } ${
+                          statusColors[currentStateName as keyof typeof statusColors]
+                        }`}
+                      >
+                        {advancing && <Loader2 className="h-3 w-3 animate-spin" />}
+                        {currentStateName}
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-56 p-1.5 bg-background border-border max-h-72 overflow-y-auto"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      {ALL_STATUS_OPTIONS.map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          disabled={advancing}
+                          onClick={() => {
+                            setStatusMenuOpen(false);
+                            handleAdvanceState(status);
+                          }}
+                          className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
+                            status === currentStateName
+                              ? statusColors[status as keyof typeof statusColors]
+                              : "text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className={`smalltext ${
+                    statusColors[currentStateName as keyof typeof statusColors]
+                  }`}
+                >
+                  {currentStateName}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {issue.labels?.nodes?.map((l) => (
@@ -1777,6 +1896,50 @@ export function IssueDetailModal({
                 {issue.title}
               </h2>
             </div>
+
+            {/* Guided stage transitions — visible on every tab (not just
+                Description) and to every role, since anyone reviewing the
+                ticket may need to act on it. Hidden entirely outside
+                Business Review/UAT, per the two states this covers. */}
+            {currentStateName === "Business Review" && reviewComplete && (
+              <div className="pt-3">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("Development")}
+                >
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  {advancing ? "Updating…" : "Complete Review"}
+                </Button>
+              </div>
+            )}
+
+            {currentStateName === "UAT" && (
+              <div className="flex gap-2 pt-3">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("Done")}
+                >
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  {advancing ? "Updating…" : "Approved"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("QA")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1.5" />
+                  {advancing ? "Updating…" : "Fixes Required"}
+                </Button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
             <button
@@ -1848,15 +2011,7 @@ export function IssueDetailModal({
           )}
         </div>
 
-        {activeTab === "description" && (
-          <DescriptionTab
-            issue={issue}
-            reviewComplete={reviewComplete}
-            currentStateName={currentStateName}
-            advancing={advancing}
-            onAdvanceState={handleAdvanceState}
-          />
-        )}
+        {activeTab === "description" && <DescriptionTab issue={issue} />}
 
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
