@@ -192,57 +192,6 @@ function DescriptionTab({ issue }: { issue: Issue }) {
           No description yet.
         </p>
       )}
-
-      {currentStateName === "Business Review" && reviewComplete && (
-        <Button
-          size="sm"
-          variant="success"
-          className="w-full smalltext"
-          disabled={advancing}
-          onClick={() => onAdvanceState("Development")}
-        >
-          <Check className="h-3.5 w-3.5 mr-1.5" />
-          {advancing ? "Updating…" : "Complete Review"}
-        </Button>
-      )}
-
-      {currentStateName === "UAT" && (
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="success"
-            className="flex-1 smalltext"
-            disabled={advancing}
-            onClick={() => onAdvanceState("Done")}
-          >
-            <Check className="h-3.5 w-3.5 mr-1.5" />
-            {advancing ? "Updating…" : "Approved"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 smalltext"
-            disabled={advancing}
-            onClick={() => onAdvanceState("QA")}
-          >
-            <RotateCcw className="h-3 w-3 mr-1.5" />
-            {advancing ? "Updating…" : "Fixes Required"}
-          </Button>
-        </div>
-      )}
-
-      {currentStateName === "Done" && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full smalltext"
-          disabled={advancing}
-          onClick={() => onAdvanceState("Development")}
-        >
-          <RotateCcw className="h-3 w-3 mr-1" />
-          {advancing ? "Updating…" : "Move back to Development"}
-        </Button>
-      )}
     </div>
   );
 }
@@ -1570,6 +1519,37 @@ function TestsTab({
   );
 }
 
+// ── Priority / status quick-change menus ────────────────────────────────────
+
+const PRIORITY_MENU_OPTIONS: { value: string; label: Issue["priorityLabel"] }[] = [
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: "none", label: "No priority" },
+];
+
+// Every real Linear workflow state name this app knows about (see the
+// `Issue["state"]["name"]` union in issues.types.ts), minus "needs-input"
+// and "waiting" — those two are synthetic client-side buckets, not settable
+// Linear states, so offering them here would just fail the PATCH.
+const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
+  "Backlog",
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Todo",
+  "In Progress",
+  "In Review",
+  "Blocked",
+  "Not Started",
+  "Canceled",
+  "Done",
+  "Completed",
+];
+
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 export function IssueDetailModal({
@@ -1689,6 +1669,19 @@ export function IssueDetailModal({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.id, profile?.id]);
+
+  // Refetch every issue list this ticket could appear in — otherwise closing
+  // and reopening the modal re-mounts it with the stale `issue` prop from the
+  // cached list, showing the old value again and letting the same change be
+  // triggered a second time.
+  function invalidateIssueLists() {
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        ["linear-issues", "linear-issues-developer", "roadmap"].includes(
+          query.queryKey[0] as string,
+        ),
+    });
+  }
 
   // Refetch every issue list this ticket could appear in — otherwise closing
   // and reopening the modal re-mounts it with the stale `issue` prop from the
@@ -1922,6 +1915,73 @@ export function IssueDetailModal({
                 {issue.title}
               </DialogTitle>
             </div>
+
+            {/* Guided stage transitions — visible on every tab (not just
+                Description) and to every role, since anyone reviewing the
+                ticket may need to act on it. Hidden entirely outside
+                Business Review/UAT, per the two states this covers. */}
+            {currentStateName === "Business Review" && reviewComplete && (
+              <div className="pt-3">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("Development")}
+                >
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  {advancing ? "Updating…" : "Complete Review"}
+                </Button>
+              </div>
+            )}
+
+            {currentStateName === "UAT" && (
+              <div className="flex gap-2 pt-3">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("Done")}
+                >
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  {advancing ? "Updating…" : "Approved"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="smalltext"
+                  disabled={advancing}
+                  onClick={() => handleAdvanceState("QA")}
+                >
+                  <RotateCcw className="h-3 w-3 mr-1.5" />
+                  {advancing ? "Updating…" : "Fixes Required"}
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+            <button
+              onClick={() => setIsExpanded((e) => !e)}
+              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
+              title={isExpanded ? "Shrink" : "Expand"}
+            >
+              {isExpanded ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              onClick={handleClose}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
             {/* Guided stage transitions — visible on every tab (not just
                 Description) and to every role, since anyone reviewing the
