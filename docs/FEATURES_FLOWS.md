@@ -327,9 +327,9 @@ Either call fails cleanly with "Someone else just added a new version — please
 
 ### 7c. Attaching an existing demo (no re-upload)
 
-Both **"Create Version"** and **"Update Version"** also offer a third entry point, **"Select Existing"** (`components/developer/demo-picker.tsx` → `DemoPicker`) — a type-to-search combobox listing every demo already uploaded anywhere in the same project (fetched via `fetchProjectDemos`, see `lib/demo-video-utils.ts`), deduplicated by actual content (`groupDemosByContent`) so a video attached to five tickets shows up once, labeled with every ticket it's already on (ticket code included, e.g. "SPA-123 — Fix login redirect") — search matches on either the title or the code.
+Both **"Create Version"** and **"Update Version"** also offer a third entry point, **"Select Existing"** (`components/developer/demo-picker.tsx` → `DemoPicker`) — a type-to-search combobox listing every demo already uploaded anywhere in the same project (fetched via `fetchProjectDemos`, see `lib/demo-video-utils.ts`), deduplicated by actual content (`groupDemosByContent`) so a video attached to five tickets shows up once, labeled with every ticket it's already on.
 
-Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) with `source_demo_id` instead of `file`/`embed_url`, attaching it to **this** ticket only. The backend (`createDemoVideoFromExisting` / `updateDemoVideoWithExisting`) copies the source row's `source_type`/`file_name`/`storage_path`/`embed_url`/`embed_provider` onto the new/updated row — **no re-upload**, just another row pointing at the same storage object or embed link. Linking one uploaded video to *several* features/bugs at once is a separate, deliberately page-level flow — see the **Demos** sidebar page (`app/dev/demos/page.tsx`, `app/docs/DEMOS_FLOWS.md`), which uploads/selects a video once and lets you check off every ticket it should apply to; the per-ticket picker here stays scoped to the ticket it was opened from.
+Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) with `source_demo_id` instead of `file`/`embed_url`. The backend (`createDemoVideoFromExisting` / `updateDemoVideoWithExisting`) copies the source row's `source_type`/`file_name`/`storage_path`/`embed_url`/`embed_provider` onto the new/updated row — **no re-upload**, just another row pointing at the same storage object or embed link. This is also how the **Demos** sidebar page (`app/dev/demos/page.tsx`, see `app/docs/DEMOS_FLOWS.md`) links one uploaded video to several features/bugs from a single upload.
 
 > **Shared storage safety:** since several `demo_videos` rows can now point at the same `storage_path`, replacing or re-uploading a version no longer blindly deletes the old file — `isStoragePathInUseElsewhere` checks whether any other row still references it first (`removeOldStorageObjectIfUnused`). Without this, replacing one ticket's version could silently break playback on every other ticket sharing that same video.
 
@@ -363,48 +363,6 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 
 ---
 
-## 8. Similar Issues — Duplicate Detection
-
-Shown as a non-blocking "Similar existing tickets" hint under the title field while filling out **Request a Feature** (`components/build/feature-request-panel.tsx`) or **Report a Bug** (`components/bugs/bug-report-panel.tsx`) — both render `TitleContinueRow` (`components/shared/issue-form-fields.tsx`), which renders `SimilarIssuesHint` (`components/shared/similar-issues-hint.tsx`) below the Title input whenever a `slug` is available.
-
-### Frontend behavior
-
-1. Nothing happens until the typed title reaches `MIN_QUERY_LENGTH` (7 characters) — too little text isn't meaningful to embed.
-2. After a **3 second debounce** (`DEBOUNCE_MS`) with no further typing, `GET /issues/similar?slug={slug}&q={title}&kind={bug|feature}` fires.
-3. Results are filtered client-side to `score >= 0.7` (`SIMILARITY_THRESHOLD`) — calibrated against the live index back when every issue had a single title+description vector, where an exact-duplicate title scored ~0.858 (diluted by the description) and close paraphrases landed ~0.74-0.76. Scores run higher for the title-only vector path (see below) since there's no long description to dilute the comparison, so 0.7 still clears real matches there without needing a separate threshold. A project with few tickets of that `kind` will still return Upstash's "closest available" top-3 even when none are truly similar — the threshold is what suppresses that noise, not the query itself.
-4. Up to 3 matches render as `IssueCard`s (fetching each match's full issue via `GET /issues/by-id` for ticket code/labels). Clicking one opens `EditIssueModal` instead of continuing to create a new ticket.
-5. `kind` scopes matches to the same panel — a Bug Report never surfaces a Feature Request as "similar" or vice versa.
-
-### Backend — `supabase/functions/issues/similar` (routed inside `issues/index.ts`)
-
-`handleGetSimilarIssues` (`supabase/functions/issues/updateIsste.ts`) calls `queryTopIssueMatches(slug, q, 3, kind)` (`supabase/functions/lib/vector.ts`), which queries Upstash Vector with `filter: "type = '<issue|issue-title>' AND kind = '<kind>'"` in the namespace `slug` resolves to.
-
-### Two vectors per issue — short vs. long queries
-
-A single combined title+description vector meant short, generic queries (e.g. "roadmap") almost never matched, even against tickets whose *description* discussed that topic at length — a short query's embedding sits far closer to another short title than to a long document's averaged-out embedding, so the comparison was effectively diluted to noise. `upsertIssueVector` now writes **two** vectors per issue into the same namespace:
-
-- `id = <issueId>`, `metadata.type = "issue"` — the original title+description vector.
-- `id = <issueId>::title`, `metadata.type = "issue-title"` — a title-only vector, both tagged with `metadata.ticket_id = <issueId>` so callers can resolve either back to the real issue.
-
-`queryTopIssueMatches` picks which one to search based on the query's length: **under 15 characters** ("roadmap") queries the `issue-title` vectors, so it's compared against other titles instead of being drowned out by long descriptions; **15 characters or more** queries the combined `issue` vectors as before, since a longer query is assumed to carry actual descriptive detail worth matching against. Either way, the function normalizes each result's `id` back to `metadata.ticket_id` before returning, so the "::title" suffix never leaks past `lib/vector.ts` — `GET /issues/by-id` and everything downstream is unaffected.
-
-### Keeping the index in sync
-
-Vectors are written to the same Upstash index (one issue = two vectors — see above — id = the Linear issue id, or that id + `::title`) from three places:
-
-- **On create** — `handleCreateIssue` (`supabase/functions/issues/createIssue.ts`) calls `upsertIssueVector` right after a successful `issueCreate`, so a brand-new ticket is searchable immediately.
-- **On edit** — `handleUpdateIssue` (`supabase/functions/issues/updateIsste.ts`) re-upserts on save, so a title/description change is reflected without waiting for the hourly sync below.
-- **`linear-vector-sync` (hourly cron)** — catches edits made *directly in Linear* (bypassing this app entirely), which the two paths above can never see. Per customer, it tracks a `last_synced_at` checkpoint in `portal.vector_sync_state` and:
-  1. Fetches issues **updated** since that checkpoint and upserts them (`upsertIssueVector`).
-  2. Fetches issues **trashed** (deleted) since that checkpoint — Linear soft-deletes, so a deleted ticket still exists and is queryable via `includeArchived: true` + `filter: { trashed: { eq: true } }`, it just silently drops out of normal (non-archived) query results. Without this step, a deleted ticket's vectors would never be cleaned up and could keep surfacing as a "similar" match forever. Deletion uses `deleteIssueVectors(namespace, ids)`, which expands each id to both its variants (`id` and `id::title`) and calls Upstash's `DELETE /delete/{namespace}` with `{ ids }`.
-  3. Advances the checkpoint to when the run started (not when it finished), so an issue edited mid-run is simply picked up again next hour rather than risking a gap.
-
-  Worst-case staleness for a deletion is ~1 hour (the cron interval) — accepted as a low-stakes tradeoff for this feature rather than adding a Linear webhook for near-instant cleanup.
-
-- **Namespace casing**: a customer's `clientName` is stored inconsistently cased across the app (raw vs. slugified at onboarding — see `components/chat/CometChat/useCometChat.ts`'s own note on the same issue). Every namespace passed into `lib/vector.ts` (upsert, query, *and* delete) is lowercased centrally there, so an upsert and a later query/delete for the same customer can never land in two different, disconnected Upstash namespaces just because the caller's casing didn't match.
-
----
-
 ## File Map
 
 | File | Responsibility |
@@ -434,7 +392,6 @@ Vectors are written to the same Upstash index (one issue = two vectors — see a
 | `context/CustomerSlugContext.tsx` | Source of `project_slug` for the Design tab — same slug used across the portal, role-independent |
 | `components/client/demo-tab.tsx` | Demo tab — version picker, upload/embed/select-existing forms (new version + replace-in-place), player, per-version feedback thread |
 | `components/developer/demo-picker.tsx` | `DemoPicker` — search combobox for "Select Existing", shared by the Demo tab and (indirectly) the Demos sidebar page |
-| `components/client/preview-links-banner.tsx` | Renders a customer's admin-set Preview Links at the top of the Demo tab / Demos page — see `app/docs/ADMIN_FLOWS.md` |
 | `lib/demo-video-utils.ts` | Shared `Demo`/`DemoUser` types, `groupDemosByContent` (dedupe by actual content across issues), `fetchProjectDemos` (issues + demos for a whole project) |
 | `supabase/functions/demo-videos/index.ts` | Router — `GET`/`POST`/`PUT` for demo videos and their comments; routes on `source_demo_id` (attach-existing) vs. `embed_url` (new link) for POST/PUT, and `issue_ids` vs. `issue_id` for GET |
 | `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version from an upload, an embed link, or an existing demo (`createDemoVideoFromExisting`, no re-upload) — `getNextVersion` = max + 1 |
@@ -443,8 +400,3 @@ Vectors are written to the same Upstash index (one issue = two vectors — see a
 | `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD |
 | `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `getDemoSourceFields`/`isStoragePathInUseElsewhere` (existing-demo attach + shared-storage safety), `SCHEMA`/`BUCKET` constants |
 | `app/dev/demos/page.tsx` | Demos sidebar page — see `app/docs/DEMOS_FLOWS.md` |
-| `components/shared/similar-issues-hint.tsx` | `SimilarIssuesHint` — debounced semantic search under the Title field on Request a Feature / Report a Bug |
-| `components/build/feature-request-panel.tsx` / `components/bugs/bug-report-panel.tsx` | Render `TitleContinueRow`, which renders `SimilarIssuesHint` |
-| `supabase/functions/lib/vector.ts` | `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`queryTopTestMatches` (tests) — shared Upstash Vector client, namespace lowercasing, best-effort error handling |
-| `supabase/functions/linear-vector-sync/index.ts` | Hourly cron — upserts issues updated directly in Linear since each customer's checkpoint, and deletes vectors for issues trashed since that same checkpoint |
-| `supabase/migrations/20260812130000_create_vector_sync_state.sql` | `portal.vector_sync_state` — one row per customer, tracks `last_synced_at` for the cron above |

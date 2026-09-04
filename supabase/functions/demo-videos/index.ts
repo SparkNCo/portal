@@ -111,7 +111,7 @@ const handlePostVideo = async (req: Request) => {
     );
   }
 
-  const { issue_id, email, embed_url, source_demo_id, title } = await req.json();
+  const { issue_id, email, embed_url, source_demo_id } = await req.json();
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
