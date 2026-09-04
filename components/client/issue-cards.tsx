@@ -218,7 +218,16 @@ export function IssueCard({
             )}
           >
             {issue.priorityLabel}
-          </span>
+          </Badge>
+          {issue._project && (
+            <Badge
+              variant="outline"
+              className="smalltext border-border text-muted-foreground truncate max-w-[9rem]"
+              title={issue._project}
+            >
+              {issue._project}
+            </Badge>
+          )}
         </div>
         <p
           className={cn(

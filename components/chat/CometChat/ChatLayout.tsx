@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -58,6 +58,7 @@ export default function ChatLayout({
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const customerSlug = useCustomerSlug();
   const { selectedProject } = useSelectedProject();
   // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
@@ -112,11 +113,11 @@ export default function ChatLayout({
   const isDeveloper = profile?.role === "developer";
 
   // Developer-only: which project is selected in the sidebar dropdown (see
-  // components/sidebar.tsx), defaulting to the first assignment the same
-  // way that dropdown does. Used below to filter the group list down to
-  // that one customer's chats.
+  // components/sidebar.tsx) — lives in the `project` query param, defaulting
+  // to the first assignment the same way that dropdown does. Used below to
+  // filter the group list down to that one customer's chats.
   const selectedProjectClientName = isDeveloper
-    ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    ? (searchParams.get("project") ?? profile?.assignment_id?.[0]?.clientName ?? null)
     : null;
   const selectedProjectCustomerId = selectedProjectClientName
     ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)
