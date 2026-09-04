@@ -3,14 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/headerDashboard";
 import { DocumentsList } from "@/components/documents/documents-list";
-import {
-  UploadDocument,
-  type UploadInitiative,
-} from "@/components/documents/upload-document";
+import { UploadDocument } from "@/components/documents/upload-document";
 import { DeveloperDocumentRequests } from "@/components/documents/developer-document-requests";
 import { RequestDocumentDialog } from "@/components/documents/request-document-dialog";
 import { DocumentRequestsList } from "@/components/documents/document-requests-list";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
@@ -19,16 +16,33 @@ import { safeDecodeURIComponent } from "@/lib/utils";
 export default function DocumentsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const searchParams = useSearchParams();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
+  // Which assigned project to scope this page to — picked from the sidebar
+  // dropdown (see components/sidebar.tsx), which lives in the `project`
+  // query param. Mirrors that dropdown's own default (first assignment) for
+  // the moment before the developer has ever touched it, since the param
+  // itself isn't written to the URL until they do.
+  const selectedDeveloperProject =
+    profile?.role === "developer"
+      ? (searchParams.get("project") ?? profile?.assignment_id?.[0]?.clientName ?? null)
+      : null;
+  const selectedAssignment = selectedDeveloperProject
+    ? profile?.assignment_id?.find(
+        (a) => a.clientName === selectedDeveloperProject,
+      )
+    : undefined;
   // Developers have no `linear_slug` of their own (that's a customer-account
   // field) and, under `/dev/documents`, no `[slug]` route segment either —
-  // fall back to their first assignment, same customer this page would have
-  // resolved to via the old `/{assignedClientName}/documents` URL.
+  // fall back to the sidebar-selected assignment, then the first one, same
+  // customer this page would have resolved to via the old
+  // `/{assignedClientName}/documents` URL.
   const slug =
     customerSlug ??
     urlSlug ??
     profile?.linear_slug ??
+    selectedAssignment?.clientName ??
     profile?.assignment_id?.[0]?.clientName ??
     profile?.assignment_id?.[0]?.linear_slug ??
     "";
@@ -76,37 +90,11 @@ export default function DocumentsPage() {
   // fetch every document the admin can see.
   const projectSlugPending = isAdmin && !projectSlug;
 
-  // A developer assigned to more than one initiative shouldn't be locked to
-  // whichever one this page happens to be scoped to (`slug`/`projectSlug`
-  // above) — let them pick the target initiative in the upload panel.
-  // Deduped by `linear_slug` since the same initiative can appear more than
-  // once in `assignment_id` (e.g. multiple roles on the same project).
-  const developerInitiatives: UploadInitiative[] =
-    profile?.role === "developer"
-      ? Array.from(
-          new Map(
-            (profile?.assignment_id ?? [])
-              .filter((a): a is typeof a & { linear_slug: string } => !!a.linear_slug)
-              .map((a) => [
-                a.linear_slug,
-                { clientName: a.clientName ?? a.linear_slug, linear_slug: a.linear_slug },
-              ]),
-          ).values(),
-        )
-      : [];
-
-  // A developer's uploads can now land under any of their assigned
-  // initiatives (the picker above, or a fulfilled request's actual
-  // requesting customer) — not just whichever one `projectSlug` happens to
-  // resolve to for this page. Locking Project Documents to that single
-  // value made anything uploaded under a different initiative invisible.
-  // For a multi-initiative developer, fetch unscoped (every document they
-  // have permission for, across every initiative) — DocumentsList already
-  // groups results into a folder per project_slug when more than one is
-  // present.
-  const isMultiInitiativeDeveloper =
-    profile?.role === "developer" && developerInitiatives.length > 1;
-  const listProjectSlug = isMultiInitiativeDeveloper ? undefined : projectSlug;
+  // A developer assigned to more than one initiative now scopes Project
+  // Documents to whichever one is selected in the sidebar dropdown (via
+  // `projectSlug`, resolved above from `selectedDeveloperProject`) — same
+  // control the developer dashboard's issue panel uses.
+  const listProjectSlug = projectSlug;
 
   return (
     <div className="min-h-screen">
@@ -119,7 +107,7 @@ export default function DocumentsPage() {
               <RequestDocumentDialog customerSlug={slug} requestedBy={profile?.email} />
             </div>
 
-            {/* Admins get the same "Document Requests"/"Documents Received"
+            {/* Admins get the same "Document Requests"/"Requests Fulfilled"
                 panels below from DeveloperDocumentRequests already — with
                 canManage on top, so it's a strict superset. Rendering this
                 plain (non-manage) copy too would just duplicate them. */}
@@ -134,15 +122,12 @@ export default function DocumentsPage() {
             {projectSlugPending ? (
               <p className="smalltext text-muted-foreground">Loading documents…</p>
             ) : (
-              <DocumentsList projectSlug={listProjectSlug} customers={customers} />
+              <DocumentsList projectSlug={listProjectSlug} />
             )}
           </div>
           {canUpload && (
             <div>
-              <UploadDocument
-                projectSlug={projectSlug}
-                initiatives={developerInitiatives}
-              />
+              <UploadDocument projectSlug={projectSlug} />
             </div>
           )}
         </div>

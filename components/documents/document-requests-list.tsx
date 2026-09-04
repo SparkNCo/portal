@@ -353,7 +353,7 @@ export function DocumentRequestsList({
         requestsById={requestsById}
       />
       <RequestPanel
-        title="Documents Received"
+        title="Requests Fulfilled"
         icon={<FileCheck2 className="h-4 w-4 text-success" />}
         requests={doneRequests}
         canManage={canManage}

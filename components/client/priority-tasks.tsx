@@ -3,15 +3,22 @@
 import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ArrowRight, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { type Issue, type PriorityTasksProps } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
-import { TaskFilterPanel } from "./task-filter-panel";
+import { TaskFilterPanel, ActiveFilterChips } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
   return issue.state?.name !== "Done";
@@ -30,6 +37,8 @@ export function PriorityTasks({
   lightCard = false,
   headerAction,
   slug,
+  sortBy,
+  onSortByChange,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -133,6 +142,28 @@ export function PriorityTasks({
               className="h-7 bg-secondary/30 border-border smalltext"
             />
           </div>
+          {sortBy && onSortByChange && (
+            <Select
+              value={sortBy}
+              onValueChange={(v) => onSortByChange(v as "updated" | "priority")}
+            >
+              <SelectTrigger
+                className="h-7 w-[130px] shrink-0 gap-1.5 rounded-md border border-input bg-background px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="updated" className="smalltext">
+                  Last Updated
+                </SelectItem>
+                <SelectItem value="priority" className="smalltext">
+                  Priority
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -152,7 +183,7 @@ export function PriorityTasks({
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-64 p-4 bg-background border-border text-foreground"
+              className="w-96 p-4 bg-background border-border text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
@@ -171,6 +202,11 @@ export function PriorityTasks({
           </Button>
         </div>
       </CardHeader>
+      {activeFilters > 0 && (
+        <div className="px-6 pb-3 -mt-1 flex-shrink-0">
+          <ActiveFilterChips filterState={filterState} />
+        </div>
+      )}
       <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
         {visibleIssues.length === 0 ? (
           <p className="smalltext text-muted-foreground italic p-2">

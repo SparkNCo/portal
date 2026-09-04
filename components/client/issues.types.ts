@@ -156,6 +156,10 @@ export type Issue = {
   estimate?: number | null;
   createdAt?: string;
   project?: { id: string; name: string; slugId?: string };
+  // Client-side tag (not from the API) added by pages that merge issues
+  // across multiple customers, e.g. the developer dashboard — holds the
+  // owning customer's `clientName`.
+  _project?: string;
 };
 
 export type FilterState = {
@@ -190,6 +194,10 @@ export type PriorityTasksProps = {
   // panel rather than a global IssueListRow change.
   lightCard?: boolean;
   headerAction?: ReactNode;
+  // Optional sort control rendered next to the Filter button — omit both to
+  // leave sorting out of the toolbar entirely (pages that sort elsewhere).
+  sortBy?: "updated" | "priority";
+  onSortByChange?: (value: "updated" | "priority") => void;
   // Which customer these issues belong to — passed through to the issue
   // detail modal's Chat tab so a brand-new chat group gets tagged with the
   // right customer even when a developer/admin (not the customer) sends the

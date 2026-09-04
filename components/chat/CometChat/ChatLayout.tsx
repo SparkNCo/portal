@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -32,6 +32,7 @@ export default function ChatLayout({
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const customerSlug = useCustomerSlug();
   // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
   // to the caller's own id when no customer is being viewed) — appropriate
@@ -72,6 +73,18 @@ export default function ChatLayout({
   }, [allUsers]);
 
   const isDeveloper = profile?.role === "developer";
+
+  // Developer-only: which project is selected in the sidebar dropdown (see
+  // components/sidebar.tsx) — lives in the `project` query param, defaulting
+  // to the first assignment the same way that dropdown does. Used below to
+  // filter the group list down to that one customer's chats.
+  const selectedProjectClientName = isDeveloper
+    ? (searchParams.get("project") ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    : null;
+  const selectedProjectCustomerId = selectedProjectClientName
+    ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)
+        ?.customer_id ?? null)
+    : null;
 
   // Developer-only: which initiatives they're assigned to, for the "New
   // Chat" initiative picker (admins reuse customerOptions above instead,
@@ -162,10 +175,15 @@ export default function ChatLayout({
   // history are untouched for everyone else, including admins, who list
   // all public groups regardless of membership).
   const canLeaveChats = profile?.role !== "admin";
-  const visibleGroups = isAdmin && selectedCustomerId
+  const groupCustomerFilter = isAdmin
+    ? selectedCustomerId
+    : isDeveloper
+      ? selectedProjectCustomerId
+      : null;
+  const visibleGroups = groupCustomerFilter
     ? groups.filter((g) => {
         const groupCustomerId = (g.getMetadata() as { customerId?: string } | undefined)?.customerId;
-        return groupCustomerId === selectedCustomerId;
+        return groupCustomerId === groupCustomerFilter;
       })
     : groups;
   const hasNoChats = visibleGroups.length === 0 && directChats.length === 0;

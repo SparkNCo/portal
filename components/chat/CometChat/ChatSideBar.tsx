@@ -70,7 +70,11 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
 function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   return (
     <div
-      className="group/item flex items-center gap-3 px-3 py-2.5 border-b bg-black"
+      className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
+        isSelected
+          ? "bg-accent/10 border-l-2 border-l-accent"
+          : "hover:bg-secondary/40 border-l-2 border-l-transparent"
+      }`}
     >
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <GroupAvatar name={group.getName()} />
@@ -100,7 +104,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
     <div>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         {slug || "Other"}

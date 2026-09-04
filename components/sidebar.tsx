@@ -18,10 +18,18 @@ import {
   Hammer,
   Bug,
   X,
+  FolderKanban,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const clientNavItems = [
   { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -107,6 +115,31 @@ export function Sidebar() {
   const portalType = profile?.role ?? "developer";
   const navItems = roleNavMap[portalType] ?? developerNavItems;
 
+  // Developers can be assigned to several customers at once — this lets
+  // them pick which one to work on. Selection lives in the `project` query
+  // param (rather than component state) so it survives navigating between
+  // /dev/developer, /dev/chat, etc. (the nav links above already carry the
+  // current search params along) and the developer dashboard's issue panel
+  // can read it directly.
+  const assignments: any[] = Array.isArray(profile?.assignment_id)
+    ? (profile.assignment_id as any[])
+    : [];
+  const developerProjects = [
+    ...new Set(
+      assignments.map((a) => a.clientName as string).filter(Boolean),
+    ),
+  ];
+  // Falls back to the first assignment when no `project` param is set yet,
+  // so a project is always selected rather than an "all projects" state.
+  const selectedDeveloperProject =
+    searchParams.get("project") ?? developerProjects[0] ?? "";
+
+  const handleDeveloperProjectChange = (value: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("project", value);
+    router.push(`${pathname}?${next.toString()}`);
+  };
+
   /* -------------------------
      Logout
   --------------------------*/
@@ -140,6 +173,38 @@ export function Sidebar() {
           <X className="h-4 w-4" />
         </button>
       </div>
+      {portalType === "developer" && developerProjects.length > 1 && (
+        <div className="px-4 py-3 border-b border-sidebar-border">
+          <label className="mb-1.5 block px-0.5 smalltext font-medium text-sidebar-foreground/50">
+            Working on
+          </label>
+          <Select
+            value={selectedDeveloperProject}
+            onValueChange={handleDeveloperProjectChange}
+          >
+            <SelectTrigger
+              className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate"
+            >
+              <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-lg">
+              {developerProjects.map((clientName) => (
+                <SelectItem
+                  key={clientName}
+                  value={clientName}
+                  // Hide the default checkmark indicator for the selected
+                  // project — the trigger above already shows it, so
+                  // repeating it in every row here is just noise.
+                  className="smalltext pr-2 [&>span:first-child]:hidden"
+                >
+                  {clientName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <nav className="flex-1 space-y-1 px-3 py-2">
         {isViewingCustomer ? (
           <>

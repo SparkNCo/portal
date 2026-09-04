@@ -156,15 +156,17 @@ test.describe('Developer — panels', () => {
     await page.getByRole('link', { name: 'Documents' }).click();
     await page.waitForURL('**/documents', { timeout: 10_000 });
 
-    const emptyState  = page.getByText('No documents found');
-    const anyFolder   = page.locator('[data-testid^="document-folder-"]').first();
+    const emptyState   = page.getByText('No documents found');
+    // Documents render as a flat list (no per-project folder wrapper) — an
+    // "Open <name>" button on a row is a reliable signal one rendered.
+    const anyDocument  = page.locator('button[aria-label^="Open "]').first();
 
     // Wait until either state resolves
-    await expect(emptyState.or(anyFolder)).toBeVisible({ timeout: 25_000 });
+    await expect(emptyState.or(anyDocument)).toBeVisible({ timeout: 25_000 });
 
-    // Explicitly assert the empty-state message or a project folder
-    if (await anyFolder.isVisible()) {
-      await expect(anyFolder).toBeVisible();
+    // Explicitly assert the empty-state message or a rendered document row
+    if (await anyDocument.isVisible()) {
+      await expect(anyDocument).toBeVisible();
     } else {
       await expect(emptyState).toBeVisible();
     }
