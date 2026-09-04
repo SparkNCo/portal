@@ -117,6 +117,52 @@ export const detectEmbedProvider = (embedUrl: string): string => {
   return parsed.hostname.replace(/^www\./, "");
 };
 
+// Fields that define a demo version's actual playable content, as opposed
+// to bookkeeping (id/issue_id/version/uploaded_by/timestamps). Copying just
+// these onto a new/updated row is what lets one uploaded file or embed link
+// be attached to several issues at once ("select an existing demo video")
+// without re-uploading it.
+export const getDemoSourceFields = async (supabase: any, demoId: string) => {
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("demo_videos")
+    .select("source_type, file_name, storage_path, embed_url, embed_provider")
+    .eq("id", demoId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Source demo video not found");
+
+  return data as {
+    source_type: "upload" | "embed";
+    file_name: string | null;
+    storage_path: string | null;
+    embed_url: string | null;
+    embed_provider: string | null;
+  };
+};
+
+// Several issues' demo_videos rows can share the same storage_path (that's
+// how "attach this same video to another ticket" works) — so a storage
+// object is only safe to delete once no *other* row still points at it.
+export const isStoragePathInUseElsewhere = async (
+  supabase: any,
+  storagePath: string,
+  excludingDemoId: string,
+): Promise<boolean> => {
+  const { data, error } = await supabase
+    .schema(SCHEMA)
+    .from("demo_videos")
+    .select("id")
+    .eq("storage_path", storagePath)
+    .neq("id", excludingDemoId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return !!data;
+};
+
 export const getUserIdByEmail = async (
   supabase: any,
   email: string,

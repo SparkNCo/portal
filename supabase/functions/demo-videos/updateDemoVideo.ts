@@ -4,8 +4,10 @@ import {
   BUCKET,
   SCHEMA,
   detectEmbedProvider,
+  getDemoSourceFields,
   getFileExtension,
   getUserIdByEmail,
+  isStoragePathInUseElsewhere,
   signStorageUrl,
   validateEmbedUrl,
   validateMediaFile,
@@ -37,6 +39,24 @@ const removeOldStorageObject = async (storagePath: string | null) => {
       error,
     );
   }
+};
+
+// Same as above, but first checks no *other* demo_videos row still points
+// at this storage path — "select an existing demo video" lets several
+// issues' rows share one uploaded file, so blindly deleting it here would
+// silently break playback on every other ticket that video was attached to.
+const removeOldStorageObjectIfUnused = async (
+  storagePath: string | null,
+  currentDemoId: string,
+) => {
+  if (!storagePath) return;
+  const stillReferenced = await isStoragePathInUseElsewhere(
+    supabase,
+    storagePath,
+    currentDemoId,
+  );
+  if (stillReferenced) return;
+  await removeOldStorageObject(storagePath);
 };
 
 /*
@@ -90,7 +110,7 @@ export const updateDemoVideoWithUpload = async (
   }
 
   if (existing.source_type === "upload") {
-    await removeOldStorageObject(existing.storage_path);
+    await removeOldStorageObjectIfUnused(existing.storage_path, demoId);
   }
 
   return { ...updated, file_url: await signStorageUrl(supabase, newStoragePath) };
@@ -129,8 +149,53 @@ export const updateDemoVideoWithEmbed = async (
   if (updateError) throw new Error(updateError.message);
 
   if (existing.source_type === "upload") {
-    await removeOldStorageObject(existing.storage_path);
+    await removeOldStorageObjectIfUnused(existing.storage_path, demoId);
   }
 
   return updated;
+};
+
+/*
+ * Replace an EXISTING version's content with another already-uploaded demo
+ * (from this issue or another one) — no re-upload, just repoint this row at
+ * the same storage object / embed link.
+ */
+export const updateDemoVideoWithExisting = async (
+  demoId: string,
+  email: string,
+  sourceDemoId: string,
+) => {
+  const uploadedBy = await getUserIdByEmail(supabase, email);
+  const existing = await loadDemoVideo(demoId);
+  const source = await getDemoSourceFields(supabase, sourceDemoId);
+
+  const { data: updated, error: updateError } = await supabase
+    .schema(SCHEMA)
+    .from("demo_videos")
+    .update({
+      source_type: source.source_type,
+      file_name: source.file_name,
+      storage_path: source.storage_path,
+      embed_url: source.embed_url,
+      embed_provider: source.embed_provider,
+      uploaded_by: uploadedBy,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", demoId)
+    .select("*, uploader:users!uploaded_by(id, email, userName)")
+    .single();
+
+  if (updateError) throw new Error(updateError.message);
+
+  if (existing.source_type === "upload") {
+    await removeOldStorageObjectIfUnused(existing.storage_path, demoId);
+  }
+
+  return {
+    ...updated,
+    file_url:
+      updated.source_type === "upload"
+        ? await signStorageUrl(supabase, updated.storage_path)
+        : null,
+  };
 };

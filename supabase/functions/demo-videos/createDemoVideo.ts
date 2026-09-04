@@ -5,6 +5,7 @@ import {
   BUCKET,
   SCHEMA,
   detectEmbedProvider,
+  getDemoSourceFields,
   getFileExtension,
   getUserIdByEmail,
   signStorageUrl,
@@ -86,6 +87,60 @@ export const createDemoVideoFromUpload = async (
   await markIssueUpdated(issueId, email);
 
   return { ...demo, file_url: await signStorageUrl(supabase, storagePath) };
+};
+
+/*
+ * Attach an already-uploaded demo (from another issue, or another version
+ * of this one) as a brand-new version here — no re-upload, just a new row
+ * pointing at the same storage object / embed link. This is how "Demos"
+ * (see app/dev/demos/page.tsx) links one uploaded video to several
+ * features/bugs at once, and how a ticket's own Demo tab can attach a demo
+ * already uploaded elsewhere in the project.
+ */
+export const createDemoVideoFromExisting = async (
+  issueId: string,
+  email: string,
+  sourceDemoId: string,
+) => {
+  const uploadedBy = await getUserIdByEmail(supabase, email);
+  const source = await getDemoSourceFields(supabase, sourceDemoId);
+  const nextVersion = await getNextVersion(issueId);
+
+  const { data: demo, error: insertError } = await supabase
+    .schema(SCHEMA)
+    .from("demo_videos")
+    .insert({
+      issue_id: issueId,
+      version: nextVersion,
+      source_type: source.source_type,
+      file_name: source.file_name,
+      storage_path: source.storage_path,
+      embed_url: source.embed_url,
+      embed_provider: source.embed_provider,
+      uploaded_by: uploadedBy,
+    })
+    .select("*, uploader:users!uploaded_by(id, email, userName)")
+    .single();
+
+  if (insertError) {
+    if (isVersionConflict(insertError)) {
+      throw new Error(
+        "Someone else just added a new version — please try again.",
+      );
+    }
+
+    throw new Error(insertError.message);
+  }
+
+  await markIssueUpdated(issueId, email);
+
+  return {
+    ...demo,
+    file_url:
+      demo.source_type === "upload"
+        ? await signStorageUrl(supabase, demo.storage_path)
+        : null,
+  };
 };
 
 export const createDemoVideoFromEmbed = async (

@@ -40,6 +40,7 @@ export function PriorityTasks({
   slug,
   sortBy,
   onSortByChange,
+  initialModalTab,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -88,6 +89,7 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
+      initialTab={initialModalTab}
     />
   );
   if (compact) {

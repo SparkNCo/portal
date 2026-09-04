@@ -139,7 +139,7 @@ The card title changes dynamically:
 - `"All Tasks"` when no project filter is active
 - The customer's `clientName` when a specific project is selected
 
-Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design and Demo are hidden for Bug issues). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 > **Note:** The `CreateIssue` button is currently commented out at the bottom of the page. It would allow developers to create new issues directly from their dashboard.
 
@@ -152,7 +152,7 @@ User lands on /dev/developer
           │
           ├── AuthGate checks Supabase session → if invalid, redirect to /
           │
-          ├── Sidebar renders with developer nav (Developer, Chat, Documents)
+          ├── Sidebar renders with developer nav (Developer, Build, Bugs, Demos, Chat, Documents)
           │
           ├── profile.assignment_id[] resolved
           │     → projects list built [ { clientName, slug }, ... ]
@@ -215,3 +215,5 @@ allIssues (merged, Done removed, sorted by question count)
 | `components/client/issue-cards.tsx` | Individual issue card and list row rendering |
 | `components/ui/PolicyApprovalModal.tsx` | Blocking policy agreement modal shown on first access |
 | `context/UserContext.tsx` | Provides `profile` including `assignment_id[]` |
+
+> The developer sidebar also has **Build**, **Bugs**, and **Demos** tabs (`app/dev/build`, `app/dev/bugs`, `app/dev/demos`) — each scoped to whichever project is selected in the sidebar dropdown (`lib/selected-project-context.tsx`), not to `assignment_id[]` merged across all of them like this dashboard. See `app/docs/BUILD_AND_BUGS_FLOWS.md` and `app/docs/DEMOS_FLOWS.md`.

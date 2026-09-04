@@ -2,13 +2,15 @@
 
 import { corsHeaders } from "../utils/headers.ts";
 import { jsonResponse } from "./helpers.ts";
-import { listDemoVideos } from "./listDemoVideos.ts";
+import { listDemoVideos, listDemoVideosByIssueIds } from "./listDemoVideos.ts";
 import {
   createDemoVideoFromEmbed,
+  createDemoVideoFromExisting,
   createDemoVideoFromUpload,
 } from "./createDemoVideo.ts";
 import {
   updateDemoVideoWithEmbed,
+  updateDemoVideoWithExisting,
   updateDemoVideoWithUpload,
 } from "./updateDemoVideo.ts";
 import { listComments } from "./listComments.ts";
@@ -59,10 +61,21 @@ Deno.serve(async (req) => {
 // ============================================================
 
 const handleGetVideos = async (url: URL) => {
+  const issueIdsParam = url.searchParams.get("issue_ids");
+
+  if (issueIdsParam) {
+    const issueIds = issueIdsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    return jsonResponse(await listDemoVideosByIssueIds(issueIds));
+  }
+
   const issueId = url.searchParams.get("issue_id");
 
   if (!issueId) {
-    return jsonResponse({ error: "issue_id is required" }, 400);
+    return jsonResponse({ error: "issue_id or issue_ids is required" }, 400);
   }
 
   return jsonResponse(await listDemoVideos(issueId));
@@ -94,10 +107,18 @@ const handlePostVideo = async (req: Request) => {
     );
   }
 
-  const { issue_id, email, embed_url } = await req.json();
+  const { issue_id, email, embed_url, source_demo_id } = await req.json();
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+
+  if (source_demo_id) {
+    return jsonResponse(
+      await createDemoVideoFromExisting(issue_id, email, source_demo_id),
+      201,
+    );
+  }
+
   if (!embed_url) return jsonResponse({ error: "embed_url is required" }, 400);
 
   return jsonResponse(
@@ -129,10 +150,17 @@ const handlePutVideo = async (req: Request) => {
     return jsonResponse(await updateDemoVideoWithUpload(demoId, email, file));
   }
 
-  const { demo_id, email, embed_url } = await req.json();
+  const { demo_id, email, embed_url, source_demo_id } = await req.json();
 
   if (!demo_id) return jsonResponse({ error: "demo_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+
+  if (source_demo_id) {
+    return jsonResponse(
+      await updateDemoVideoWithExisting(demo_id, email, source_demo_id),
+    );
+  }
+
   if (!embed_url) return jsonResponse({ error: "embed_url is required" }, 400);
 
   return jsonResponse(

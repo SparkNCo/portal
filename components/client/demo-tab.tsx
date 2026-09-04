@@ -17,29 +17,9 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { type Demo, type DemoUser, isImageFile, getEmbedIframeSrc, displayName } from "@/lib/demo-video-utils";
+import { DemoPicker } from "@/components/developer/demo-picker";
 import type { Issue } from "./issues.types";
-
-type DemoUser = {
-  id: string;
-  email: string;
-  userName?: string | null;
-  role?: string;
-};
-
-type Demo = {
-  id: string;
-  issue_id: string;
-  version: number;
-  source_type: "upload" | "embed";
-  file_name: string | null;
-  file_url: string | null;
-  storage_path: string | null;
-  embed_url: string | null;
-  embed_provider: string | null;
-  created_at: string;
-  updated_at?: string;
-  uploader?: DemoUser | null;
-};
 
 type DemoComment = {
   id: string;
@@ -49,26 +29,7 @@ type DemoComment = {
   author?: DemoUser | null;
 };
 
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
-
-function isImageFile(fileName?: string | null) {
-  return !!fileName && IMAGE_EXTENSIONS.test(fileName);
-}
-
-function getEmbedIframeSrc(embedUrl: string, provider?: string | null) {
-  if (provider === "loom") {
-    const match = embedUrl.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
-    if (match) return `https://www.loom.com/embed/${match[1]}`;
-  }
-  return embedUrl;
-}
-
-function displayName(user?: DemoUser | null) {
-  if (!user) return "Someone";
-  return user.userName || user.email;
-}
-
-export function DemoTab({ issue }: { issue: Issue }) {
+export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
 
@@ -210,6 +171,46 @@ export function DemoTab({ issue }: { issue: Issue }) {
   });
 
   /*
+   * Add a completely new version by pointing at a demo already uploaded
+   * elsewhere in the project — no re-upload, just a new row on this issue
+   * sharing that same file/link.
+   */
+  const attachExistingMutation = useMutation({
+    mutationFn: async (sourceDemoId: string) => {
+      if (!profile?.email) {
+        throw new Error("Could not identify the current user");
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            issue_id: issue.id,
+            email: profile.email,
+            source_demo_id: sourceDemoId,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to attach demo video");
+      }
+
+      return (await res.json()) as Demo;
+    },
+    onSuccess: (demo) => {
+      queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
+      setSelectedVersion(demo.version);
+      setCreateOpen(false);
+      toast.success(`Demo attached (v${demo.version})`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  /*
    * Replace the currently selected version's file. Version number
    * stays the same — v3 updated is still v3, not v4.
    */
@@ -285,6 +286,49 @@ export function DemoTab({ issue }: { issue: Issue }) {
       setSelectedVersion(demo.version);
       setShowReplaceEmbedForm(false);
       setReplaceEmbedUrl("");
+      setUpdateOpen(false);
+      toast.success(`Version v${demo.version} updated`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  /*
+   * Replace the currently selected version's content with a demo already
+   * uploaded elsewhere in the project — no re-upload, just repoints this
+   * version at that same file/link.
+   */
+  const replaceWithExistingMutation = useMutation({
+    mutationFn: async (sourceDemoId: string) => {
+      if (!profile?.email) {
+        throw new Error("Could not identify the current user");
+      }
+      if (!currentDemo) {
+        throw new Error("Select a demo version before updating it");
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
+        {
+          method: "PUT",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            demo_id: currentDemo.id,
+            email: profile.email,
+            source_demo_id: sourceDemoId,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to attach demo video");
+      }
+
+      return (await res.json()) as Demo;
+    },
+    onSuccess: (demo) => {
+      queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
+      setSelectedVersion(demo.version);
       setUpdateOpen(false);
       toast.success(`Version v${demo.version} updated`);
     },
@@ -482,6 +526,13 @@ export function DemoTab({ issue }: { issue: Issue }) {
             )}
             Upload Media
           </Button>
+          {slug && (
+            <DemoPicker
+              slug={slug}
+              disabled={attachExistingMutation.isPending}
+              onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
+            />
+          )}
         </div>
       )}
 
@@ -511,6 +562,13 @@ export function DemoTab({ issue }: { issue: Issue }) {
             )}
             Upload Media
           </Button>
+          {slug && (
+            <DemoPicker
+              slug={slug}
+              disabled={replaceWithExistingMutation.isPending}
+              onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
+            />
+          )}
         </div>
       )}
 

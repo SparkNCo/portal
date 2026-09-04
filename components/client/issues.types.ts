@@ -182,6 +182,14 @@ export type FilterState = {
   onDateToChange?: (date: string) => void;
 };
 
+export type IssueDetailTab =
+  | "description"
+  | "chat"
+  | "decisions"
+  | "tests"
+  | "design"
+  | "demo";
+
 export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
@@ -205,4 +213,8 @@ export type PriorityTasksProps = {
   // developer dashboard) — each issue there already carries its own
   // `_project` (clientName), which the modal falls back to per-issue.
   slug?: string;
+  // Opens each ticket's detail modal straight on this tab instead of
+  // Description — e.g. the Demos page, since that's the whole reason it
+  // linked to the ticket in the first place.
+  initialModalTab?: IssueDetailTab;
 };

@@ -53,6 +53,7 @@ import {
   type Test,
   type TestExecution,
   type Issue,
+  type IssueDetailTab,
   priorityColors,
   statusColors,
 } from "./issues.types";
@@ -1541,6 +1542,7 @@ export function IssueDetailModal({
   slug,
   onClose,
   onEdit,
+  initialTab,
 }: {
   issue: Issue;
   // Which customer this issue belongs to — passed through to the Chat tab.
@@ -1552,6 +1554,10 @@ export function IssueDetailModal({
   // on every card. Omitted entirely (button hidden) where editing isn't
   // allowed, e.g. a Done ticket.
   onEdit?: () => void;
+  // Opens the modal straight on a specific tab instead of Description —
+  // e.g. the Demos page opens tickets directly on "demo" since that's the
+  // whole reason it linked to them.
+  initialTab?: IssueDetailTab;
 }) {
   const { profile } = useUser();
   const role = profile?.role;
@@ -1577,9 +1583,9 @@ export function IssueDetailModal({
   const [loadingDecisions, setLoadingDecisions] = useState(true);
   const [executions, setExecutions] = useState<TestExecution[]>([]);
   const [loadingExecutions, setLoadingExecutions] = useState(true);
-  const [activeTab, setActiveTab] = useState<
-    "description" | "chat" | "decisions" | "tests" | "design" | "demo"
-  >("description");
+  const [activeTab, setActiveTab] = useState<IssueDetailTab>(
+    initialTab ?? "description",
+  );
 
   // "Business Review" is complete once every question raised has an answer
   // (or none were raised at all) — that's what unlocks "Complete Review".
@@ -1963,14 +1969,12 @@ export function IssueDetailModal({
               onClick={() => setActiveTab("design")}
             />
           )}
-          {!isBugIssue && (
-            <TabButton
-              label="Demo"
-              tab="demo"
-              activeTab={activeTab}
-              onClick={() => setActiveTab("demo")}
-            />
-          )}
+          <TabButton
+            label="Demo"
+            tab="demo"
+            activeTab={activeTab}
+            onClick={() => setActiveTab("demo")}
+          />
         </div>
 
         {activeTab === "description" && <DescriptionTab issue={issue} />}
@@ -2011,7 +2015,9 @@ export function IssueDetailModal({
 
         {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
 
-        {activeTab === "demo" && !isBugIssue && <DemoTab issue={issue} />}
+        {activeTab === "demo" && (
+          <DemoTab issue={issue} slug={slug ?? (issue as any)._project} />
+        )}
         </div>
       </DialogContent>
     </Dialog>

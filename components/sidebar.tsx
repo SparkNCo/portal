@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Hammer,
   Bug,
+  Video,
   X,
   FolderKanban,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const developerNavItems = [
   { href: "developer", label: "Developer", icon: Code2 },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
+  { href: "demos", label: "Demos", icon: Video },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "documents", label: "Documents", icon: FileText },
 ];
