@@ -11,6 +11,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PriorityTasks } from "@/components/client/priority-tasks";
+import { PreviewLinksBanner } from "@/components/client/preview-links-banner";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -369,6 +370,8 @@ export default function DevDemosPage() {
           </div>
         ) : (
           <>
+            <PreviewLinksBanner slug={slug} />
+
             <div className="flex items-center justify-end">
               {!showUpload && (
                 <Button size="sm" className="gap-1.5 smalltext" onClick={() => setShowUpload(true)}>
