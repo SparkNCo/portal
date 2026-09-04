@@ -111,6 +111,21 @@ export function groupDemosByContent(
 // column of its own, so this resolves the project's issues from Linear
 // first (same `fetchIssues` every other developer page uses) and asks the
 // demo-videos function for just those issue ids.
+export type PreviewLink = { url: string; text: string };
+
+// Admin-managed links (e.g. "Test Environment" → a customer's staging URL),
+// shown at the top of every Demo tab for that customer — set from
+// app/admin/users/EditClientModal.tsx, stored on `customers.preview_links`.
+export async function fetchPreviewLinks(slug: string): Promise<PreviewLink[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer-preview-links&slug=${encodeURIComponent(slug)}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => null);
+  return Array.isArray(data?.preview_links) ? data.preview_links : [];
+}
+
 export async function fetchProjectDemos(slug: string): Promise<{
   demos: Demo[];
   issues: Issue[];
