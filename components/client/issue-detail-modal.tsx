@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, titleCase } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -1557,7 +1557,6 @@ export function IssueDetailModal({
   slug,
   onClose,
   onEdit,
-  initialTab,
 }: {
   issue: Issue;
   // Which customer this issue belongs to — passed through to the Chat tab.
@@ -1569,10 +1568,6 @@ export function IssueDetailModal({
   // on every card. Omitted entirely (button hidden) where editing isn't
   // allowed, e.g. a Done ticket.
   onEdit?: () => void;
-  // Opens the modal straight on a specific tab instead of Description —
-  // e.g. the Demos page opens tickets directly on "demo" since that's the
-  // whole reason it linked to them.
-  initialTab?: IssueDetailTab;
 }) {
   const { profile } = useUser();
   const role = profile?.role;
@@ -1669,19 +1664,6 @@ export function IssueDetailModal({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.id, profile?.id]);
-
-  // Refetch every issue list this ticket could appear in — otherwise closing
-  // and reopening the modal re-mounts it with the stale `issue` prop from the
-  // cached list, showing the old value again and letting the same change be
-  // triggered a second time.
-  function invalidateIssueLists() {
-    queryClient.invalidateQueries({
-      predicate: (query) =>
-        ["linear-issues", "linear-issues-developer", "roadmap"].includes(
-          query.queryKey[0] as string,
-        ),
-    });
-  }
 
   // Refetch every issue list this ticket could appear in — otherwise closing
   // and reopening the modal re-mounts it with the stale `issue` prop from the
@@ -1960,76 +1942,6 @@ export function IssueDetailModal({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-            <button
-              onClick={() => setIsExpanded((e) => !e)}
-              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-              title={isExpanded ? "Shrink" : "Expand"}
-            >
-              {isExpanded ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              onClick={handleClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-            {/* Guided stage transitions — visible on every tab (not just
-                Description) and to every role, since anyone reviewing the
-                ticket may need to act on it. Hidden entirely outside
-                Business Review/UAT, per the two states this covers. The
-                button stays available even with open questions — the
-                unanswered-question warning lives on the Decisions tab
-                itself now (see the orange X next to its label below). */}
-            {currentStateName === "Business Review" && (
-              <div className="pt-3">
-                <Button
-                  size="sm"
-                  variant="success"
-                  className="smalltext"
-                  disabled={advancing}
-                  onClick={() => handleAdvanceState("Development")}
-                >
-                  <Check className="h-3.5 w-3.5 mr-1.5" />
-                  {advancing ? "Updating…" : "Complete Review"}
-                </Button>
-              </div>
-            )}
-
-            {currentStateName === "UAT" && (
-              <div className="flex gap-2 pt-3">
-                <Button
-                  size="sm"
-                  variant="success"
-                  className="smalltext"
-                  disabled={advancing}
-                  onClick={() => handleAdvanceState("Done")}
-                >
-                  <Check className="h-3.5 w-3.5 mr-1.5" />
-                  {advancing ? "Updating…" : "Approved"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="smalltext"
-                  disabled={advancing}
-                  onClick={() => handleAdvanceState("QA")}
-                >
-                  <RotateCcw className="h-3 w-3 mr-1.5" />
-                  {advancing ? "Updating…" : "Fixes Required"}
-                </Button>
-              </div>
-            )}
-          </div>
         </DialogHeader>
 
         {/* Tab bar + panels bleed past DialogContent's own padding to sit
@@ -2124,9 +2036,7 @@ export function IssueDetailModal({
           <DesignTab issue={issue} slug={slug ?? (issue as any)._project} />
         )}
 
-        {activeTab === "demo" && (
-          <DemoTab issue={issue} slug={slug ?? (issue as any)._project} />
-        )}
+        {activeTab === "demo" && !isBugIssue && <DemoTab issue={issue} />}
         </div>
       </DialogContent>
     </Dialog>
