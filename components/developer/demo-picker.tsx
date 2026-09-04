@@ -13,11 +13,10 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/components/ui/button";
-import { cn, getIssueCode } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   type Demo,
   type DemoGroup,
-  demoLabel,
   fetchProjectDemos,
   groupDemosByContent,
 } from "@/lib/demo-video-utils";
@@ -25,9 +24,7 @@ import {
 // Type-to-search picker for "select an existing demo video" — used by the
 // per-ticket Demo tab (create a version, or replace one, by pointing at a
 // video already uploaded somewhere else in the project) and could be reused
-// anywhere else that needs to attach an already-uploaded demo. Picking one
-// attaches it to the ticket the picker was opened from — no re-upload,
-// just a new row pointing at the same file/link.
+// anywhere else that needs to attach an already-uploaded demo.
 export function DemoPicker({
   slug,
   onSelect,
@@ -47,10 +44,8 @@ export function DemoPicker({
 
   const groups: DemoGroup[] = useMemo(() => {
     if (!data) return [];
-    const issueInfoById = new Map(
-      data.issues.map((i) => [i.id, { title: i.title, code: getIssueCode(i.branchName) }]),
-    );
-    return groupDemosByContent(data.demos, issueInfoById);
+    const issueTitleById = new Map(data.issues.map((i) => [i.id, i.title]));
+    return groupDemosByContent(data.demos, issueTitleById);
   }, [data]);
 
   return (
@@ -67,9 +62,9 @@ export function DemoPicker({
           Select Existing
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[28rem] p-0" align="start">
+      <PopoverContent className="w-80 p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search by demo id or title…" />
+          <CommandInput placeholder="Search demo videos…" />
           <CommandList>
             {isLoading && (
               <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
@@ -83,32 +78,33 @@ export function DemoPicker({
               </CommandEmpty>
             )}
             <CommandGroup>
-              {groups.map((group) => {
-                const label = demoLabel(group.representative);
-                const searchValue = `${label} ${group.representative.title}`;
-
-                return (
+              {groups.map((group) => (
                 <CommandItem
                   key={group.key}
-                  value={searchValue}
+                  value={`${group.representative.file_name ?? group.representative.embed_url ?? group.key} ${group.issues.map((i) => i.title).join(" ")}`}
                   onSelect={() => {
                     onSelect(group.representative);
                     setOpen(false);
                   }}
-                  className={cn("flex items-center gap-2 smalltext py-2")}
+                  className={cn("flex items-start gap-2 smalltext")}
                 >
                   {group.representative.source_type === "upload" ? (
-                    <Film className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    <Film className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   ) : (
-                    <LinkIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    <LinkIcon className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate">{group.representative.title}</p>
-                    <p className="text-popover-foreground/70 font-mono">{label}</p>
+                    <p className="truncate text-foreground">
+                      {group.representative.source_type === "upload"
+                        ? group.representative.file_name
+                        : (group.representative.embed_provider ?? "Embedded link")}
+                    </p>
+                    <p className="truncate text-muted-foreground">
+                      Attached to {group.issues.map((i) => i.title).join(", ")}
+                    </p>
                   </div>
                 </CommandItem>
-                );
-              })}
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

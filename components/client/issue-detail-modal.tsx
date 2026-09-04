@@ -1557,6 +1557,7 @@ export function IssueDetailModal({
   slug,
   onClose,
   onEdit,
+  initialTab,
 }: {
   issue: Issue;
   // Which customer this issue belongs to — passed through to the Chat tab.
@@ -1568,6 +1569,10 @@ export function IssueDetailModal({
   // on every card. Omitted entirely (button hidden) where editing isn't
   // allowed, e.g. a Done ticket.
   onEdit?: () => void;
+  // Opens the modal straight on a specific tab instead of Description —
+  // e.g. the Demos page opens tickets directly on "demo" since that's the
+  // whole reason it linked to them.
+  initialTab?: IssueDetailTab;
 }) {
   const { profile } = useUser();
   const role = profile?.role;
@@ -2036,7 +2041,9 @@ export function IssueDetailModal({
           <DesignTab issue={issue} slug={slug ?? (issue as any)._project} />
         )}
 
-        {activeTab === "demo" && !isBugIssue && <DemoTab issue={issue} />}
+        {activeTab === "demo" && (
+          <DemoTab issue={issue} slug={slug ?? (issue as any)._project} />
+        )}
         </div>
       </DialogContent>
     </Dialog>
