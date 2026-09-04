@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
@@ -32,8 +33,8 @@ export default function ChatLayout({
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const customerSlug = useCustomerSlug();
+  const { selectedProject } = useSelectedProject();
   // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
   // to the caller's own id when no customer is being viewed) — appropriate
   // for pinned panels, but wrong here: an unscoped inbox (own /chat, not
@@ -75,11 +76,11 @@ export default function ChatLayout({
   const isDeveloper = profile?.role === "developer";
 
   // Developer-only: which project is selected in the sidebar dropdown (see
-  // components/sidebar.tsx) — lives in the `project` query param, defaulting
-  // to the first assignment the same way that dropdown does. Used below to
-  // filter the group list down to that one customer's chats.
+  // components/sidebar.tsx), defaulting to the first assignment the same
+  // way that dropdown does. Used below to filter the group list down to
+  // that one customer's chats.
   const selectedProjectClientName = isDeveloper
-    ? (searchParams.get("project") ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
     : null;
   const selectedProjectCustomerId = selectedProjectClientName
     ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)

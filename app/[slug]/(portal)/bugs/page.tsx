@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
@@ -18,9 +19,20 @@ import { safeDecodeURIComponent } from "@/lib/utils";
 export default function BugsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  // Aliased — this page already has its own `selectedProject` state below
+  // for the Linear sub-project filter buttons, a different concept.
+  const { selectedProject: selectedSidebarProject } = useSelectedProject();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+  // Developers have no `[slug]` route segment under `/dev/bugs` — fall back
+  // to whichever project is selected in the sidebar dropdown (see
+  // components/sidebar.tsx), defaulting to their first assignment the same
+  // way that dropdown does.
+  const developerProject =
+    profile?.role === "developer"
+      ? (selectedSidebarProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+      : null;
+  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? developerProject ?? "";
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);

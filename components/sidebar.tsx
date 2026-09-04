@@ -23,6 +23,7 @@ import {
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,8 @@ const clientNavItems = [
 const developerNavItems = [
   /* { href: "dashboards", label: "Assignments", icon: LayoutGrid }, */
   { href: "developer", label: "Developer", icon: Code2 },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "documents", label: "Documents", icon: FileText },
 ];
@@ -116,11 +119,10 @@ export function Sidebar() {
   const navItems = roleNavMap[portalType] ?? developerNavItems;
 
   // Developers can be assigned to several customers at once — this lets
-  // them pick which one to work on. Selection lives in the `project` query
-  // param (rather than component state) so it survives navigating between
-  // /dev/developer, /dev/chat, etc. (the nav links above already carry the
-  // current search params along) and the developer dashboard's issue panel
-  // can read it directly.
+  // them pick which one to work on. Selection lives in SelectedProjectContext
+  // (localStorage-backed, see lib/selected-project-context.tsx) rather than
+  // the URL, so the customer's name never ends up in the address bar,
+  // browser history, or a copied/shared link.
   const assignments: any[] = Array.isArray(profile?.assignment_id)
     ? (profile.assignment_id as any[])
     : [];
@@ -129,16 +131,10 @@ export function Sidebar() {
       assignments.map((a) => a.clientName as string).filter(Boolean),
     ),
   ];
-  // Falls back to the first assignment when no `project` param is set yet,
-  // so a project is always selected rather than an "all projects" state.
-  const selectedDeveloperProject =
-    searchParams.get("project") ?? developerProjects[0] ?? "";
-
-  const handleDeveloperProjectChange = (value: string) => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("project", value);
-    router.push(`${pathname}?${next.toString()}`);
-  };
+  const { selectedProject, setSelectedProject } = useSelectedProject();
+  // Falls back to the first assignment when nothing's been picked yet, so a
+  // project is always selected rather than an "all projects" state.
+  const selectedDeveloperProject = selectedProject ?? developerProjects[0] ?? "";
 
   /* -------------------------
      Logout
@@ -180,7 +176,7 @@ export function Sidebar() {
           </label>
           <Select
             value={selectedDeveloperProject}
-            onValueChange={handleDeveloperProjectChange}
+            onValueChange={setSelectedProject}
           >
             <SelectTrigger
               className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate"

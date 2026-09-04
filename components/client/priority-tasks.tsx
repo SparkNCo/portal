@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
+import { getIssueCode } from "@/lib/utils";
 import { type Issue, type PriorityTasksProps } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
@@ -66,9 +67,13 @@ export function PriorityTasks({
     (onlyActive ? 1 : 0);
 
   const visibleIssues = titleFilter.trim()
-    ? issuesData.filter((i) =>
-        i.title.toLowerCase().includes(titleFilter.toLowerCase()),
-      )
+    ? issuesData.filter((i) => {
+        const query = titleFilter.toLowerCase();
+        return (
+          i.title.toLowerCase().includes(query) ||
+          getIssueCode(i.branchName).toLowerCase().includes(query)
+        );
+      })
     : issuesData;
 
   // Pages spanning multiple customers (the developer dashboard) don't pass a
@@ -135,8 +140,8 @@ export function PriorityTasks({
           <div className="flex-1 min-w-[120px] sm:flex-none sm:w-36">
             <Input
               type="text"
-              aria-label="Search by title"
-              placeholder="Search by title..."
+              aria-label="Search by title or issue code"
+              placeholder="Search by title or code..."
               value={titleFilter}
               onChange={(e) => setTitleFilter(e.target.value)}
               className="h-7 bg-secondary/30 border-border smalltext"

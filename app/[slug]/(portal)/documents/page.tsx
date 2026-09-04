@@ -7,26 +7,26 @@ import { UploadDocument } from "@/components/documents/upload-document";
 import { DeveloperDocumentRequests } from "@/components/documents/developer-document-requests";
 import { RequestDocumentDialog } from "@/components/documents/request-document-dialog";
 import { DocumentRequestsList } from "@/components/documents/document-requests-list";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function DocumentsPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const searchParams = useSearchParams();
+  const { selectedProject } = useSelectedProject();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   // Which assigned project to scope this page to — picked from the sidebar
-  // dropdown (see components/sidebar.tsx), which lives in the `project`
-  // query param. Mirrors that dropdown's own default (first assignment) for
-  // the moment before the developer has ever touched it, since the param
-  // itself isn't written to the URL until they do.
+  // dropdown (see components/sidebar.tsx). Mirrors that dropdown's own
+  // default (first assignment) for the moment before the developer has ever
+  // touched it, since nothing's stored yet at that point.
   const selectedDeveloperProject =
     profile?.role === "developer"
-      ? (searchParams.get("project") ?? profile?.assignment_id?.[0]?.clientName ?? null)
+      ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
       : null;
   const selectedAssignment = selectedDeveloperProject
     ? profile?.assignment_id?.find(
