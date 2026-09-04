@@ -14,7 +14,7 @@ import { Button } from "@/components/components/ui/button";
 import { Clock, History } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
-import { useSelectedProject } from "@/lib/selected-project-context";
+import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
@@ -26,7 +26,7 @@ function capitalize(value: string) {
 export default function DeveloperDashboard() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
-  const { selectedProject: selectedProjectFromSidebar } = useSelectedProject();
+  const searchParams = useSearchParams();
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -67,10 +67,11 @@ export default function DeveloperDashboard() {
     }));
 
   // Which project to work on is picked from the sidebar dropdown (see
-  // components/sidebar.tsx) and lives in SelectedProjectContext, rather than
-  // local state, so it's shared with the rest of the /dev/* nav. Falls back
-  // to the first assignment so a project is always selected.
-  const selectedProject = selectedProjectFromSidebar ?? projects[0]?.clientName ?? null;
+  // components/sidebar.tsx) and lives in the `project` query param, rather
+  // than local state, so it's shared with the rest of the /dev/* nav. Falls
+  // back to the first assignment so a project is always selected.
+  const selectedProject =
+    searchParams.get("project") ?? projects[0]?.clientName ?? null;
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
@@ -165,7 +166,7 @@ export default function DeveloperDashboard() {
       />
       <Header
         title="Developer Dashboard"
-        subtitle="Good morning, Developer"
+        subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "Developer")}`}
         subtitleClassName="smalltext"
         actions={
           <>
@@ -194,50 +195,6 @@ export default function DeveloperDashboard() {
           </div>
         )}
 
-        {projects.length > 1 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedProject(null)}
-              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
-                selectedProject === null
-                  ? "bg-accent text-accent-foreground border-accent/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              All Projects
-            </button>
-            {projects.map((p) => (
-              <button
-                key={p.clientName}
-                onClick={() => setSelectedProject(p.clientName)}
-                className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
-                  selectedProject === p.clientName
-                    ? "bg-accent text-accent-foreground border-accent/40"
-                    : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                }`}
-              >
-                {p.clientName}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <span className="smalltext text-muted-foreground">Sort by:</span>
-          {(["updated", "priority"] as const).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setSortBy(opt)}
-              className={`smalltext px-3 py-1.5 rounded-md font-medium border transition-colors ${
-                sortBy === opt
-                  ? "bg-accent text-accent-foreground border-accent/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              {opt === "updated" ? "Last Updated" : "Priority"}
-            </button>
-          ))}
-        </div>
         <div className="w-full max-w-full overflow-x-hidden">
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/40 p-10 text-center">
