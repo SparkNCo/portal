@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Pencil } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
@@ -24,7 +25,8 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import type { Issue } from "@/components/client/issues.types";
+import { getIssueCode } from "@/lib/utils";
+import { type Issue, priorityColors, statusColors } from "@/components/client/issues.types";
 
 async function patchIssue(payload: {
   issueId: string;
@@ -44,6 +46,14 @@ async function patchIssue(payload: {
 }
 
 const PRIORITY_OPTIONS = ["urgent", "high", "medium", "low", "none"] as const;
+
+const PRIORITY_LABELS: Record<(typeof PRIORITY_OPTIONS)[number], Issue["priorityLabel"]> = {
+  urgent: "Urgent",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+  none: "No priority",
+};
 
 export function EditIssueModal({
   issue,
@@ -95,10 +105,10 @@ export function EditIssueModal({
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto overflow-x-hidden transition-all duration-200 ${
+        className={`max-h-[90vh] overflow-y-auto overflow-x-hidden transition-all duration-200 ${
           isExpanded
-            ? "sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
-            : "sm:max-w-lg md:max-w-xl lg:max-w-2xl"
+            ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl"
+            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl"
         }`}
         aria-describedby={undefined}
       >
@@ -107,20 +117,32 @@ export function EditIssueModal({
           onToggleExpanded={() => setIsExpanded((e) => !e)}
         />
 
-        <DialogHeader className="pt-4">
-          <div className="flex min-w-0 items-center gap-3.5 pr-12">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-2 ring-primary/30">
-              <Pencil className="h-6 w-6" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <DialogTitle className="truncate text-primary">Edit Ticket</DialogTitle>
-              {issue.branchName && (
-                <p className="smalltext text-muted-foreground truncate font-mono">
-                  {issue.branchName}
-                </p>
-              )}
-            </div>
+        {/* Mirrors the ticket detail modal's header (code + priority +
+            status, then the title) so this quick-edit form still reads as
+            the same ticket rather than a generic form. Priority reflects
+            the pending edit below (live preview); status is read-only here
+            — this form doesn't change it. */}
+        <DialogHeader className="pt-4 pr-12">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="smalltext font-mono text-muted-foreground">
+              {getIssueCode(issue.branchName)}
+            </span>
+            <Badge
+              variant="outline"
+              className={`smalltext ${priorityColors[PRIORITY_LABELS[priority as (typeof PRIORITY_OPTIONS)[number]] ?? "No priority"]}`}
+            >
+              {PRIORITY_LABELS[priority as (typeof PRIORITY_OPTIONS)[number]] ?? "No priority"}
+            </Badge>
+            {issue.state?.name && (
+              <Badge
+                variant="secondary"
+                className={`smalltext ${statusColors[issue.state.name as keyof typeof statusColors]}`}
+              >
+                {issue.state.name}
+              </Badge>
+            )}
           </div>
+          <DialogTitle className="text-primary">Edit Ticket</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 pt-4 mt-1 border-t border-border">
@@ -130,7 +152,7 @@ export function EditIssueModal({
               id="edit-issue-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-secondary border-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
+              className="bg-muted/40 border-0 smalltext text-foreground placeholder:text-muted-foreground"
               placeholder="Brief summary..."
               autoFocus
             />
@@ -141,7 +163,7 @@ export function EditIssueModal({
             <RichTextEditor
               value={description}
               onChange={setDescription}
-              className="border-0"
+              className="border-0 bg-muted/40 [&_.ProseMirror]:text-foreground"
               minHeight="140px"
               ariaLabel="Description"
             />
@@ -156,9 +178,7 @@ export function EditIssueModal({
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
                   <SelectItem key={p} value={p} className="smalltext">
-                    {p === "none"
-                      ? "No priority"
-                      : p.charAt(0).toUpperCase() + p.slice(1)}
+                    {PRIORITY_LABELS[p]}
                   </SelectItem>
                 ))}
               </SelectContent>

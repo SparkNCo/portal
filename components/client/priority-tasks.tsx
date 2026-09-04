@@ -83,6 +83,11 @@ export function PriorityTasks({
       issue={selectedIssue}
       slug={slug ?? (selectedIssue as any)._project}
       onClose={() => setSelectedIssue(null)}
+      onEdit={
+        onEditIssue && canEditIssue(selectedIssue)
+          ? () => onEditIssue(selectedIssue)
+          : undefined
+      }
     />
   );
   if (compact) {
@@ -106,17 +111,12 @@ export function PriorityTasks({
           {visibleIssues.length === 0 ? (
             <p className="smalltext text-muted-foreground italic px-1">No issues.</p>
           ) : (
-            <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               {visibleIssues.map((issue) => (
                 <IssueListRow
                   key={issue.id}
                   issue={issue}
                   onOpen={() => setSelectedIssue(issue)}
-                  onEdit={
-                    onEditIssue && canEditIssue(issue)
-                      ? () => onEditIssue(issue)
-                      : undefined
-                  }
                   hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                   lightCard={lightCard}
                 />
@@ -223,7 +223,7 @@ export function PriorityTasks({
             className={`
               grid gap-2 grid-flow-row auto-rows-auto pt-3
               grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
-              scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent
+              custom-scrollbar
               overflow-x-hidden
               ${
                 expanded
@@ -237,11 +237,6 @@ export function PriorityTasks({
                 key={issue.id}
                 issue={issue}
                 onOpen={() => setSelectedIssue(issue)}
-                onEdit={
-                  onEditIssue && canEditIssue(issue)
-                    ? () => onEditIssue(issue)
-                    : undefined
-                }
                 hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                 lightCard={lightCard}
               />

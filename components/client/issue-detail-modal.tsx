@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +15,6 @@ import {
   RotateCcw,
   MessageSquare,
   X,
-  Maximize2,
-  Minimize2,
   GripVertical,
   Pencil,
   Paperclip,
@@ -26,6 +24,8 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
 import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
@@ -1540,11 +1540,18 @@ export function IssueDetailModal({
   issue,
   slug,
   onClose,
+  onEdit,
 }: {
   issue: Issue;
   // Which customer this issue belongs to — passed through to the Chat tab.
   slug?: string;
   onClose: () => void;
+  // Opens the quick-edit modal (title/description/priority) for this ticket
+  // — lives here instead of on the card so it's available once you're
+  // already looking at the ticket, rather than a separate hover affordance
+  // on every card. Omitted entirely (button hidden) where editing isn't
+  // allowed, e.g. a Done ticket.
+  onEdit?: () => void;
 }) {
   const { profile } = useUser();
   const role = profile?.role;
@@ -1559,7 +1566,6 @@ export function IssueDetailModal({
   // tickets through the guided flow in the Description tab.
   const canEditTicketMeta = role === "developer" || role === "admin";
 
-  const [visible, setVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
@@ -1583,19 +1589,6 @@ export function IssueDetailModal({
   // Bug tickets don't go through design — the Design tab isn't relevant for them.
   const isBugIssue =
     issue.labels?.nodes?.some((l) => l.name?.toLowerCase() === "bug") ?? false;
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setVisible(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
 
   useEffect(() => {
     setLoadingDecisions(true);
@@ -1651,19 +1644,6 @@ export function IssueDetailModal({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issue.id, profile?.id]);
-
-  const handleClose = useCallback(() => {
-    setVisible(false);
-    setTimeout(onClose, 180);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [handleClose]);
 
   // Refetch every issue list this ticket could appear in — otherwise closing
   // and reopening the modal re-mounts it with the stale `issue` prop from the
@@ -1736,33 +1716,34 @@ export function IssueDetailModal({
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-        visible
-          ? "bg-black/60 backdrop-blur-sm"
-          : "bg-transparent backdrop-blur-none"
-      }`}
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        onClick={handleClose}
-        aria-label="Close modal"
-      />
-      <div
-        className={`relative z-10 bg-background border border-border rounded-2xl shadow-2xl w-[95vw] sm:w-full mx-auto sm:mx-6 flex flex-col max-h-[90vh] transition-all duration-200 ${
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent
+        className={cn(
+          "flex flex-col overflow-hidden max-h-[90vh] transition-all duration-200",
           isExpanded
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
-            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]"
-        } ${
-          visible
-            ? "opacity-100 scale-100 translate-y-0"
-            : "opacity-0 scale-95 translate-y-2"
-        }`}
+            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]",
+        )}
+        aria-describedby={undefined}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
-          <div className="flex-1 min-w-0">
+        <ExpandableDialogChrome
+          isExpanded={isExpanded}
+          onToggleExpanded={() => setIsExpanded((e) => !e)}
+        />
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="absolute right-10 top-4 lg:right-16 text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Edit ticket"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
+
+        <DialogHeader className="pt-4 pr-20 flex-shrink-0">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
@@ -1892,9 +1873,9 @@ export function IssueDetailModal({
               {issue.labels?.nodes?.map((l) => (
                 <LabelPill key={l.id} label={l} iconOnly />
               ))}
-              <h2 className="text-base font-semibold leading-snug">
+              <DialogTitle className="text-base font-semibold leading-snug">
                 {issue.title}
-              </h2>
+              </DialogTitle>
             </div>
 
             {/* Guided stage transitions — visible on every tab (not just
@@ -1941,32 +1922,13 @@ export function IssueDetailModal({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-            <button
-              onClick={() => setIsExpanded((e) => !e)}
-              className="hidden lg:inline-flex text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={isExpanded ? "Shrink modal" : "Expand modal"}
-              title={isExpanded ? "Shrink" : "Expand"}
-            >
-              {isExpanded ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              onClick={handleClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        </DialogHeader>
 
-        {/* Tab bar — wraps to a second row on narrow screens instead of
-            overflowing/scrolling horizontally. */}
-        <div className="flex flex-wrap gap-x-5 gap-y-0.5 border-b border-border px-5 flex-shrink-0">
+        {/* Tab bar + panels bleed past DialogContent's own padding to sit
+            flush with the dialog's edges, wraps to a second row on narrow
+            screens instead of overflowing/scrolling horizontally. */}
+        <div className="-mx-6 -mb-6 mt-4 flex flex-1 flex-col overflow-hidden border-t border-border">
+        <div className="flex flex-wrap gap-x-5 gap-y-0.5 border-b border-border px-5 pt-3 flex-shrink-0">
           <TabButton
             label="Description"
             tab="description"
@@ -2050,7 +2012,8 @@ export function IssueDetailModal({
         {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
 
         {activeTab === "demo" && !isBugIssue && <DemoTab issue={issue} />}
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

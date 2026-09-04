@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import {
-  Pencil,
   Gauge,
   Bug,
   Lightbulb,
@@ -87,16 +86,35 @@ export function LabelPill({
   );
 }
 
+// Left-edge accent stripe so priority reads at a glance without having to
+// parse the badge text — same hue family as `priorityColors` above, just the
+// solid fill instead of the translucent badge treatment.
+const PRIORITY_STRIPE_COLORS: Record<Issue["priorityLabel"], string> = {
+  Urgent: "bg-destructive",
+  High: "bg-chart-1",
+  Medium: "bg-primary",
+  Low: "bg-chart-5",
+  "No priority": "bg-muted-foreground/25",
+};
+
+// Text-only counterpart, for the priority label once it's just a plain word
+// next to the stripe rather than its own filled badge.
+const PRIORITY_TEXT_COLORS: Record<Issue["priorityLabel"], string> = {
+  Urgent: "text-destructive",
+  High: "text-chart-1",
+  Medium: "text-primary",
+  Low: "text-chart-5",
+  "No priority": "text-muted-foreground",
+};
+
 export function IssueCard({
   issue,
   onOpen,
-  onEdit,
   hasUpdate,
   lightCard = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
   readonly lightCard?: boolean;
 }) {
@@ -113,12 +131,19 @@ export function IssueCard({
   return (
     <div
       className={cn(
-        "group relative rounded-lg border border-border hover:shadow-md transition-all duration-150",
+        "group relative rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
         lightCard
           ? "light-card"
           : "bg-background hover:bg-muted text-foreground",
       )}
     >
+      <span
+        className={cn(
+          "absolute inset-y-0 left-0 w-1 rounded-l-lg",
+          PRIORITY_STRIPE_COLORS[issue.priorityLabel],
+        )}
+        aria-hidden="true"
+      />
       <button
         type="button"
         className="absolute inset-0 rounded-lg cursor-pointer"
@@ -127,32 +152,14 @@ export function IssueCard({
       />
       {hasUpdate && (
         <span
-          className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
+          className="absolute top-2 right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
           title="Recently updated"
         >
           <Mail className="h-2.5 w-2.5 text-white" />
         </span>
       )}
-      {onEdit && (
-        <button
-          type="button"
-          className={cn(
-            "absolute top-2 right-2 z-10 p-1.5 rounded-md flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
-            lightCard
-              ? "light-card-chip"
-              : "text-muted-foreground hover:text-primary hover:bg-background",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          aria-label="Edit ticket"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-      )}
-      <div className="p-4 ">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="p-4 pl-5">
+        <div className="flex items-center gap-1.5 mb-2">
           {typeIcon && (
             <typeIcon.Icon
               className={`h-3.5 w-3.5 shrink-0 ${typeIcon.className}`}
@@ -161,31 +168,35 @@ export function IssueCard({
           )}
           <span
             className={cn(
-              "smalltext font-mono",
+              "smalltext font-mono shrink-0",
               lightCard ? "light-card-muted" : "text-muted-foreground",
             )}
           >
             {getIssueCode(issue.branchName)}
           </span>
-          <Badge
-            variant="outline"
-            className={`smalltext ${priorityColors[issue.priorityLabel]}`}
-          >
-            {issue.priorityLabel}
-          </Badge>
           {issue._project && (
-            <Badge
-              variant="outline"
-              className="smalltext border-border text-muted-foreground truncate max-w-[9rem]"
+            <span
+              className={cn(
+                "smalltext truncate",
+                lightCard ? "light-card-muted" : "text-muted-foreground/70",
+              )}
               title={issue._project}
             >
-              {issue._project}
-            </Badge>
+              · {issue._project}
+            </span>
           )}
+          <span
+            className={cn(
+              "smalltext ml-auto shrink-0 font-semibold",
+              PRIORITY_TEXT_COLORS[issue.priorityLabel],
+            )}
+          >
+            {issue.priorityLabel}
+          </span>
         </div>
         <p
           className={cn(
-            "smalltext font-medium mb-3 line-clamp-2",
+            "text-sm font-semibold leading-snug mb-2.5 line-clamp-2",
             lightCard ? "light-card-text" : "text-foreground",
           )}
         >
@@ -222,13 +233,11 @@ export function IssueCard({
 export function IssueListRow({
   issue,
   onOpen,
-  onEdit,
   hasUpdate,
   lightCard = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
-  readonly onEdit?: () => void;
   readonly hasUpdate?: boolean;
   readonly lightCard?: boolean;
 }) {
@@ -299,24 +308,6 @@ export function IssueListRow({
       {issue.labels?.nodes?.map((l) => (
         <LabelPill key={l.id} label={l} iconOnly />
       ))}
-      {onEdit && (
-        <button
-          type="button"
-          className={cn(
-            "relative z-10 p-1 rounded-md flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
-            lightCard
-              ? "light-card-chip"
-              : "text-muted-foreground hover:text-primary hover:bg-background",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          aria-label="Edit ticket"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 }
