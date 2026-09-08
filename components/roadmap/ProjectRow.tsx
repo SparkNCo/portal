@@ -206,22 +206,13 @@ function ProjectHeader({
 }: ProjectHeaderProps) {
   // A project with zero (real, cycle-having) milestones has nothing to
   // expand into — no rows would render below it either way — so the row
-  // never shows a chevron or toggles open. It's still fully clickable
-  // though: clicking it selects the project so its tickets populate the
-  // filter/issue panel, same as clicking an expandable project's header.
+  // stays as a static summary instead of a dead-looking toggle.
   const isExpandable = milestoneCount > 0;
-  let ariaLabel: string;
-  if (isExpandable) {
-    const verb = expanded ? "Collapse" : "Expand";
-    ariaLabel = `${verb} ${projectName}`;
-  } else {
-    const verb = selected ? "Hide" : "Show";
-    ariaLabel = `${verb} ${projectName} tickets`;
-  }
 
   return (
     <button
       type="button"
+      disabled={!isExpandable}
       onClick={() => {
         onToggle();
         // Opening the row selects the project (fetch + show all its
@@ -235,11 +226,18 @@ function ProjectHeader({
         }
       }}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-lg border bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75",
+        "flex w-full items-center justify-between gap-2 rounded-lg border bg-card/90 px-3 py-2.5 text-left transition-colors",
+        isExpandable ? "hover:bg-card/75" : "cursor-default",
         selected ? "border-primary" : "border-border",
       )}
       aria-expanded={isExpandable ? expanded : undefined}
-      aria-label={ariaLabel}
+      aria-label={
+        isExpandable
+          ? expanded
+            ? `Collapse ${projectName}`
+            : `Expand ${projectName}`
+          : `${projectName} — no milestones`
+      }
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <div
@@ -247,7 +245,12 @@ function ProjectHeader({
           style={projectColor ? { backgroundColor: projectColor } : undefined}
           aria-hidden="true"
         />
-        <h3 className="truncate smalltext font-semibold text-card-foreground">
+        <h3
+          className={cn(
+            "truncate smalltext font-semibold",
+            isExpandable ? "text-card-foreground" : "text-card-foreground/60",
+          )}
+        >
           {projectName}
         </h3>
         <span className="shrink-0 rounded-md bg-muted/90 px-2 py-0.5 smalltext text-primary">
