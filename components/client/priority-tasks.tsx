@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ArrowRight, ArrowUpDown, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpDown, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
