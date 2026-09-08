@@ -35,7 +35,7 @@ Each user row shows an initials avatar (from the email) and their email — **no
 
 - **View Profile** (developers only) — opens `ViewDeveloperProfileModal`, to the left of Edit Profile.
 - **Edit Profile** (developers only) — opens `EditDeveloperProfileModal`.
-- **Profile** (customers and stakeholders) — opens `EditClientModal`/`EditStakeholderModal` respectively. Unlike the developer's separate View/Edit pair, this is a single modal: it opens read-only, with its own pencil icon (top-right of the dialog) to switch into editing — see "Customer Profile" and "Stakeholder Profile" below.
+- **Profile** (customers and stakeholders) — opens `EditClientModal`/`EditStakeholderModal` respectively. Unlike the developer's separate View/Edit pair, this is a single modal: it opens read-only, with an **Edit** button in the header (same outline/orange treatment as the developer profile modal's own Edit button) to switch into editing — see "Customer Profile" and "Stakeholder Profile" below.
 - **Assign** (developers and stakeholders only) — opens `AssignCustomerModal`.
 - **Resend account email** (📧 icon, every role) — a dropdown with **"Resend invite"** and **"Send password reset"**. See below.
 - **Expand arrow** (developers only) — see "Expanding a user" below. Customers and stakeholders have no expand affordance in this view at all (a customer's assignees are only visible via the Projects view instead).
@@ -206,7 +206,7 @@ On success, the `developer-profile` and `assignments` queries are invalidated so
 
 **Opened by:** The **Profile** button on any `customer` row.
 
-The only editable place for a customer's own contact/identity fields and Linear routing — previously customer rows had no edit affordance at all (Add Customer was the only touch point). Opens **read-only** by default (`ProfileField` rows: First/Last Name, Client Name, Email, Phone, Linear Slug, Preview Links) with a pencil icon top-right (next to the expand icon) to switch into editing; **Cancel** while editing discards the draft and drops back to the read-only view rather than closing the dialog. The dialog also widens automatically the moment editing starts (same breakpoints as the expand toggle), since the edit form has more fields than comfortably fit at the read-only width.
+The only editable place for a customer's own contact/identity fields and Linear routing — previously customer rows had no edit affordance at all (Add Customer was the only touch point). Opens **read-only** by default (`ProfileField` rows: First/Last Name, Client Name, Email, Phone, Linear Slug, Preview Links) with an **Edit** button in the header (outline, orange border/text, `Pencil` icon — matching the developer profile modal's own Edit button) to switch into editing; **Cancel** while editing discards the draft and drops back to the read-only view rather than closing the dialog. The dialog also widens automatically the moment editing starts (same breakpoints as the expand toggle), since the edit form has more fields than comfortably fit at the read-only width.
 
 ### Editing
 
