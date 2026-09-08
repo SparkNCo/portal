@@ -16,7 +16,7 @@ type SimilarIssueMatch = {
 
 // Don't bother querying on very short/partial titles — too little text for the
 // embedding to be meaningful, and it'd just be noise while the user is still typing.
-const MIN_QUERY_LENGTH = 12;
+const MIN_QUERY_LENGTH = 7;
 // Long on purpose — every firing is an Upstash query, so this waits for the user to
 // actually pause typing rather than re-querying on every short break in typing.
 const DEBOUNCE_MS = 3000;

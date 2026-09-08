@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ArrowRight, ArrowUpDown, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpDown, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -133,20 +133,22 @@ export function PriorityTasks({
 
   return (
     <Card className="bg-background border-border text-foreground flex flex-col w-full">
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0 pt-[14px] pb-3">
+      <CardHeader className="flex flex-col gap-2 flex-shrink-0 pt-[14px] pb-3">
         <CardTitle className="body font-semibold flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[120px] sm:flex-none sm:w-36">
+          {headerAction}
+          <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52">
+            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               type="text"
               aria-label="Search by title or issue code"
               placeholder="Search by title or code..."
               value={titleFilter}
               onChange={(e) => setTitleFilter(e.target.value)}
-              className="h-7 bg-secondary/30 border-border smalltext"
+              className="h-7 pl-8 bg-secondary/30 border-border smalltext"
             />
           </div>
           {sortBy && onSortByChange && (

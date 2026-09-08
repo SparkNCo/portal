@@ -451,7 +451,11 @@ export default function AdminUsersPage() {
               (u: User) => u.role === role,
             );
             return (
-              <Card key={role} className="bg-background border-border">
+              <Card
+                key={role}
+                data-testid={`role-section-${role}`}
+                className="bg-background border-border"
+              >
                 <CardHeader>
                   <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize text-foreground">
                     <Users className="h-4 w-4 text-primary" />

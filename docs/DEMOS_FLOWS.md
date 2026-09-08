@@ -62,6 +62,12 @@ On success, the `["project-demos", slug]` query is invalidated so both the uploa
 
 ---
 
+## Preview Links banner
+
+Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-banner.tsx`) shows the selected project's admin-set Preview Links — the same banner that appears at the top of every one of that project's tickets' Demo tab (see `app/docs/FEATURES_FLOWS.md` §7 and `app/docs/ADMIN_FLOWS.md` → Customer Profile). Set by an admin from Admin → Users → that customer's **Profile**; renders nothing when there are none.
+
+---
+
 ## Empty states
 
 | Condition | What's shown |
@@ -77,7 +83,8 @@ On success, the `["project-demos", slug]` query is invalidated so both the uploa
 | File | Responsibility |
 |---|---|
 | `app/dev/demos/page.tsx` | The page itself — fetches project issues + demos, filters to `issuesWithDemos`, renders `PriorityTasks`, and owns the `UploadDemoForm` |
-| `lib/demo-video-utils.ts` | `fetchProjectDemos` (issues + demos for a project), `groupDemosByContent`/`DemoGroup` (dedupe by actual content, used by `DemoPicker`), shared `Demo`/`DemoUser` types and display helpers |
+| `lib/demo-video-utils.ts` | `fetchProjectDemos` (issues + demos for a project), `fetchPreviewLinks`, `groupDemosByContent`/`DemoGroup` (dedupe by actual content, used by `DemoPicker`), shared `Demo`/`DemoUser` types and display helpers |
+| `components/client/preview-links-banner.tsx` | `PreviewLinksBanner` — the customer's admin-set Preview Links, shown at the top of this page |
 | `components/client/priority-tasks.tsx` | Issue list — search, filter, sort, and the `initialModalTab` passthrough to `IssueDetailModal` |
 | `components/client/issue-cards.tsx` | `IssueCard`/`IssueListRow` — same cards as every other issue list in the app |
 | `components/client/issue-detail-modal.tsx` | `IssueDetailModal` — accepts `initialTab` to open straight on a given tab (here, `"demo"`) |

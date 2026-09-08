@@ -35,11 +35,12 @@ Each user row shows an initials avatar (from the email) and their email — **no
 
 - **View Profile** (developers only) — opens `ViewDeveloperProfileModal`, to the left of Edit Profile.
 - **Edit Profile** (developers only) — opens `EditDeveloperProfileModal`.
+- **Profile** (customers and stakeholders) — opens `EditClientModal`/`EditStakeholderModal` respectively. Unlike the developer's separate View/Edit pair, this is a single modal: it opens read-only, with its own pencil icon (top-right of the dialog) to switch into editing — see "Customer Profile" and "Stakeholder Profile" below.
 - **Assign** (developers and stakeholders only) — opens `AssignCustomerModal`.
 - **Resend account email** (📧 icon, every role) — a dropdown with **"Resend invite"** and **"Send password reset"**. See below.
 - **Expand arrow** (developers only) — see "Expanding a user" below. Customers and stakeholders have no expand affordance in this view at all (a customer's assignees are only visible via the Projects view instead).
 
-On screens `sm` and up, View Profile/Edit Profile/Assign only appear on row hover; the Resend-email and Expand buttons are always visible.
+On screens `sm` and up, View Profile/Edit Profile/Profile/Assign only appear on row hover; the Resend-email and Expand buttons are always visible.
 
 ### Resend Account Email
 
@@ -201,6 +202,52 @@ On success, the `developer-profile` and `assignments` queries are invalidated so
 
 ---
 
+## Customer Profile — `EditClientModal`
+
+**Opened by:** The **Profile** button on any `customer` row.
+
+The only editable place for a customer's own contact/identity fields and Linear routing — previously customer rows had no edit affordance at all (Add Customer was the only touch point). Opens **read-only** by default (`ProfileField` rows: First/Last Name, Client Name, Email, Phone, Linear Slug, Preview Links) with a pencil icon top-right (next to the expand icon) to switch into editing; **Cancel** while editing discards the draft and drops back to the read-only view rather than closing the dialog. The dialog also widens automatically the moment editing starts (same breakpoints as the expand toggle), since the edit form has more fields than comfortably fit at the read-only width.
+
+### Editing
+
+- **First/Last Name, Phone** — `portal.users` fields.
+- **Client Name, Linear Slug** — `portal.customers` fields; both required, non-empty.
+- **Email** — changes the user's actual login email (Supabase Auth), not just a display field.
+- **Preview Links** — see below.
+
+**Stripe Customer ID is deliberately not here** — it has its own dedicated flow (`components/settings/billing-section.tsx`, which also makes real Stripe API calls via `stripe-edit`), so it isn't duplicated into this generic profile form.
+
+### Saving
+
+Two sequential `PATCH` calls, both with the admin's real session token attached (`supabase.auth.getSession()` — the anon key API_JSON_HEADERS ships by default isn't a real session, and the backend needs to verify the caller is actually an admin):
+
+1. `PATCH /users?type=customer` — `{ customer_id, clientName, linear_slug, preview_links }`.
+2. `PATCH /users` (generic) — `{ id, email, firstName, lastName, phoneNumber }`.
+
+On success both `users` and `customers` queries are invalidated and the modal closes.
+
+### Preview Links
+
+An array of `{ url, text }` pairs stored on `portal.customers.preview_links` (jsonb) — e.g. a link to the customer's test environment. Shown at the top of **every one of that customer's issues' Demo tab** (`components/client/preview-links-banner.tsx` → `PreviewLinksBanner`, fetched via `GET /users?type=customer-preview-links&slug={clientName}`), for **every role** (customer, stakeholder, developer, admin) — not just here. Also shown at the top of the developer-only Demos sidebar page (`app/dev/demos/page.tsx`; see `app/docs/DEMOS_FLOWS.md`).
+
+- **Admin-only to set** — `updateCustomer.ts` rejects a `preview_links` write from anyone whose resolved caller role isn't `admin`, even though a customer is otherwise allowed to touch their own record (clientName) through this same endpoint.
+- **Validated server-side**: each entry needs both a non-empty `text` and a `url` that parses as an actual `http(s)` URL; a row left completely blank in the UI is silently dropped rather than blocking the save, but a half-filled one (only `text` or only `url`) is rejected with a clear error.
+- Rendered as `{text}: {url}`, clickable, opening in a new tab.
+
+---
+
+## Stakeholder Profile — `EditStakeholderModal`
+
+**Opened by:** The **Profile** button on any `stakeholder` row.
+
+Simpler than the customer one — no read-only/edit toggle, no expand, opens straight into an editable form (First/Last Name, Username, Email, Phone — all `portal.users` fields). Which initiative a stakeholder is assigned to stays out of this modal; that's still the separate **Assign** button/`AssignCustomerModal` flow.
+
+### Saving
+
+`PATCH /users` (generic) with `{ id, email, firstName, lastName, userName, phoneNumber }` — also needs the admin's real session token (not just the anon key) since changing `email` triggers the same login-email-change check `updateUser.ts` applies everywhere.
+
+---
+
 ## Receiving a Spark & Co FDE Developer Request
 
 Customers can request a Spark & Co FDE developer for their own initiative from the Staffing tab of their Settings page (see `SETTINGS_FLOWS.md` → Add Developer button → Spark & Co FDE). That flow does **not** create a user or assignment — it's a notification only.
@@ -254,6 +301,9 @@ Recommended order when bringing a new customer into the system:
 | Create assignment | POST | `/assignments` |
 | Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
 | Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
+| Update a customer's clientName/linear_slug/preview_links (admin session required for preview_links) | PATCH | `/users?type=customer` |
+| Get a customer's Preview Links by slug (any role) | GET | `/users?type=customer-preview-links&slug={clientName}` |
+| Update any user's name/username/phone/email (admin session required if changing email) | PATCH | `/users` |
 | Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |
 | Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
@@ -270,8 +320,14 @@ Recommended order when bringing a new customer into the system:
 | `app/admin/users/AssignCustomerModal.tsx` | Modal to assign a developer/stakeholder to a customer |
 | `app/admin/users/EditDeveloperProfileModal.tsx` | Modal to edit a developer's bio and tech stack |
 | `app/admin/users/ViewDeveloperProfileModal.tsx` | Fetches a developer's bio/tech stack and renders the same popup shown on the Staffing tab |
+| `app/admin/users/EditClientModal.tsx` | Customer Profile — read-only view + edit toggle, contact/identity fields, and the Preview Links manager |
+| `app/admin/users/EditStakeholderModal.tsx` | Stakeholder Profile — straight-to-edit contact fields |
 | `components/settings/developer-details-modal.tsx` | Shared popup component — used from both Staffing (customer view) and here (admin preview) |
 | `components/shared/tech-stack-picker.tsx` | Shared drag-to-reorder tech stack chip editor — used by Edit Developer Profile and the customer-facing Add Developer modal |
+| `components/shared/expandable-dialog-chrome.tsx` | Shared accent-bar + expand/shrink toggle — used by Customer Profile among others |
+| `components/client/preview-links-banner.tsx` | Renders a customer's Preview Links — used by the Demo tab and the Demos sidebar page |
+| `lib/demo-video-utils.ts` | `fetchPreviewLinks` and other Demo-tab/Demos-page data helpers |
+| `supabase/functions/users/updateCustomer.ts` | Validates and writes `clientName`/`linear_slug`/`preview_links` onto `portal.customers` |
 | `supabase/functions/users/resendAccountEmail.ts` | Resends a user's invite or password-reset email without touching `users`/`customers` |
 | `supabase/functions/developer-requests/` | Edge function — emails all admins when a customer requests a Spark & Co FDE developer |
 | `context/UserContext.tsx` | Provides `profile.role` for access control |

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Group } from "@cometchat/chat-sdk-javascript";
 import { Plus, MessageSquare, Bot, X, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -123,13 +123,32 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
   );
 }
 
-function groupBySlug(groups: Group[]): Map<string, Group[]> {
+// Buckets primarily by `projectSlug` metadata (lets a single customer's own
+// chats still split out by initiative when they have more than one). But a
+// group created from a flow with no project route in scope — e.g. any chat
+// started from /admin/chats, which has no customer slug to tag it with —
+// never gets a `projectSlug` at all, and used to fall into a catch-all
+// "Other" bucket even though its `customerId` metadata (the same field the
+// customer filter above matches on) makes perfectly clear which customer it
+// belongs to. Resolving that customerId to a name before giving up keeps
+// every chat under the customer it actually belongs to instead of a bucket
+// that shouldn't exist.
+function groupByProject(
+  groups: Group[],
+  customerNameById: Map<string, string>,
+): Map<string, Group[]> {
   const map = new Map<string, Group[]>();
   for (const g of groups) {
-    const slug: string = (g.getMetadata() as any)?.projectSlug ?? "";
-    const bucket = map.get(slug) ?? [];
+    const metadata = g.getMetadata() as
+      | { customerId?: string; projectSlug?: string }
+      | undefined;
+    const key =
+      metadata?.projectSlug ||
+      (metadata?.customerId && customerNameById.get(metadata.customerId)) ||
+      "";
+    const bucket = map.get(key) ?? [];
     bucket.push(g);
-    map.set(slug, bucket);
+    map.set(key, bucket);
   }
   return map;
 }
@@ -152,7 +171,11 @@ export default function ChatSideBar({
   onSelectedCustomerIdChange,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
-  const groupedBySlug = groupBySlug(groups);
+  const customerNameById = useMemo(
+    () => new Map(customerOptions.map((c) => [c.id, c.userName])),
+    [customerOptions],
+  );
+  const groupedBySlug = groupByProject(groups, customerNameById);
   const showGrouped = groupedBySlug.size > 1;
 
   return (

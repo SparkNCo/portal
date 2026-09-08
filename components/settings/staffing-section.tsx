@@ -150,7 +150,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
                       {member.name}
                     </p>
                     <Badge variant="secondary" className={`shrink-0 ${statusColors["active"]}`}>
-                      active
+                      Active
                     </Badge>
                   </div>
                   <p title={member.email} className="smalltext text-card-foreground/60 truncate">

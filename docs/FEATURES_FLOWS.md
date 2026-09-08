@@ -307,9 +307,11 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 
 A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_id, version)`) — v1, v2, v3, … A version's content is either an **uploaded media file** (video or image) or an **embed link** (e.g. Loom), tracked via `source_type: "upload" | "embed"`. Uploaded images vs. videos aren't a separate DB field — the preview picks `<img>` vs `<video>` client-side by checking `file_name`'s extension (`isImageFile`). Every version also has its own **feedback thread** (`portal.demo_video_comments`) that customers, stakeholders, and developers/admins all read and post to.
 
+**Preview Links banner:** above all of that, `PreviewLinksBanner` (`components/client/preview-links-banner.tsx`) shows the customer's admin-set Preview Links (e.g. a link to their test environment) — set from Admin → Users → a customer's **Profile** → Preview Links (see `app/docs/ADMIN_FLOWS.md`). Fetched by `slug` (`GET /users?type=customer-preview-links&slug={clientName}`), visible to every role, and renders nothing at all when the customer has none set.
+
 ### 7a. Adding a brand-new version
 
-**"Create Version"** reveals two entry points, both create version **N+1** (`getNextVersion` = current max + 1 for that issue):
+**"Create Version"** reveals three entry points, in this order — **Upload Media**, **Add Link**, **Select Existing** (7c below) — the first two create version **N+1** (`getNextVersion` = current max + 1 for that issue):
 
 - **"Upload Media"** — opens a file picker (`accept="video/*,image/*"`), then `POST /demo-videos` as `multipart/form-data` with `file`, `issue_id`, `email`. Backend validates the file (whitelisted video/image MIME types, non-empty, ≤500 MB — `validateMediaFile`), stores it at `{issueId}/v{n}/{uuid}{ext}` in the private `demo-videos` Storage bucket, and inserts the row.
 - **"Add Link"** — reveals a URL input; submitting calls `POST /demo-videos` as JSON with `issue_id`, `email`, `embed_url`. Backend validates the URL is `https` and stores it directly (no file involved).
@@ -325,9 +327,9 @@ Either call fails cleanly with "Someone else just added a new version — please
 
 ### 7c. Attaching an existing demo (no re-upload)
 
-Both **"Create Version"** and **"Update Version"** also offer a third entry point, **"Select Existing"** (`components/developer/demo-picker.tsx` → `DemoPicker`) — a type-to-search combobox listing every demo already uploaded anywhere in the same project (fetched via `fetchProjectDemos`, see `lib/demo-video-utils.ts`), deduplicated by actual content (`groupDemosByContent`) so a video attached to five tickets shows up once, labeled with every ticket it's already on.
+Both **"Create Version"** and **"Update Version"** also offer a third entry point, **"Select Existing"** (`components/developer/demo-picker.tsx` → `DemoPicker`) — a type-to-search combobox listing every demo already uploaded anywhere in the same project (fetched via `fetchProjectDemos`, see `lib/demo-video-utils.ts`), deduplicated by actual content (`groupDemosByContent`) so a video attached to five tickets shows up once, labeled with every ticket it's already on (ticket code included, e.g. "SPA-123 — Fix login redirect") — search matches on either the title or the code.
 
-Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) with `source_demo_id` instead of `file`/`embed_url`. The backend (`createDemoVideoFromExisting` / `updateDemoVideoWithExisting`) copies the source row's `source_type`/`file_name`/`storage_path`/`embed_url`/`embed_provider` onto the new/updated row — **no re-upload**, just another row pointing at the same storage object or embed link. This is also how the **Demos** sidebar page (`app/dev/demos/page.tsx`, see `app/docs/DEMOS_FLOWS.md`) links one uploaded video to several features/bugs from a single upload.
+Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) with `source_demo_id` instead of `file`/`embed_url`, attaching it to **this** ticket only. The backend (`createDemoVideoFromExisting` / `updateDemoVideoWithExisting`) copies the source row's `source_type`/`file_name`/`storage_path`/`embed_url`/`embed_provider` onto the new/updated row — **no re-upload**, just another row pointing at the same storage object or embed link. Linking one uploaded video to *several* features/bugs at once is a separate, deliberately page-level flow — see the **Demos** sidebar page (`app/dev/demos/page.tsx`, `app/docs/DEMOS_FLOWS.md`), which uploads/selects a video once and lets you check off every ticket it should apply to; the per-ticket picker here stays scoped to the ticket it was opened from.
 
 > **Shared storage safety:** since several `demo_videos` rows can now point at the same `storage_path`, replacing or re-uploading a version no longer blindly deletes the old file — `isStoragePathInUseElsewhere` checks whether any other row still references it first (`removeOldStorageObjectIfUnused`). Without this, replacing one ticket's version could silently break playback on every other ticket sharing that same video.
 
@@ -390,6 +392,7 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 | `context/CustomerSlugContext.tsx` | Source of `project_slug` for the Design tab — same slug used across the portal, role-independent |
 | `components/client/demo-tab.tsx` | Demo tab — version picker, upload/embed/select-existing forms (new version + replace-in-place), player, per-version feedback thread |
 | `components/developer/demo-picker.tsx` | `DemoPicker` — search combobox for "Select Existing", shared by the Demo tab and (indirectly) the Demos sidebar page |
+| `components/client/preview-links-banner.tsx` | Renders a customer's admin-set Preview Links at the top of the Demo tab / Demos page — see `app/docs/ADMIN_FLOWS.md` |
 | `lib/demo-video-utils.ts` | Shared `Demo`/`DemoUser` types, `groupDemosByContent` (dedupe by actual content across issues), `fetchProjectDemos` (issues + demos for a whole project) |
 | `supabase/functions/demo-videos/index.ts` | Router — `GET`/`POST`/`PUT` for demo videos and their comments; routes on `source_demo_id` (attach-existing) vs. `embed_url` (new link) for POST/PUT, and `issue_ids` vs. `issue_id` for GET |
 | `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version from an upload, an embed link, or an existing demo (`createDemoVideoFromExisting`, no re-upload) — `getNextVersion` = max + 1 |

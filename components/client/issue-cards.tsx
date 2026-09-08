@@ -178,7 +178,7 @@ export function IssueCard({
             <span
               className={cn(
                 "smalltext truncate",
-                lightCard ? "light-card-muted" : "text-muted-foreground/70",
+                lightCard ? "light-card-muted" : "text-muted-foreground",
               )}
               title={issue._project}
             >
@@ -196,7 +196,7 @@ export function IssueCard({
         </div>
         <p
           className={cn(
-            "text-sm font-semibold leading-snug mb-2.5 line-clamp-2",
+            "text-base font-semibold leading-snug mb-2.5 line-clamp-2",
             lightCard ? "light-card-text" : "text-foreground",
           )}
         >

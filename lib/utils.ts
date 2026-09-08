@@ -5,6 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Our own app-level enums (milestone status, developer type, etc.) are
+// stored lowercase/kebab-or-snake-case (e.g. "in-progress", "spark_fde") —
+// fine as data, but never meant to be shown to a user verbatim. Unlike
+// CSS's `capitalize` (which only uppercases the first letter of each
+// existing word and leaves "in-progress" as "In-progress"), this also
+// splits on `-`/`_` so every word gets its own capital and the separator
+// becomes a normal space: "in-progress" -> "In Progress".
+export function titleCase(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export const POPOVER_ANIMATION_CLASSES =
   'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2'
 

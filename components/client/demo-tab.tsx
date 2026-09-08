@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { type Demo, type DemoUser, isImageFile, getEmbedIframeSrc, displayName } from "@/lib/demo-video-utils";
+import {
+  type Demo,
+  type DemoUser,
+  attachDemoToIssue,
+  isImageFile,
+  getEmbedIframeSrc,
+  displayName,
+} from "@/lib/demo-video-utils";
 import { DemoPicker } from "@/components/developer/demo-picker";
 import { PreviewLinksBanner } from "./preview-links-banner";
 import type { Issue } from "./issues.types";
@@ -178,29 +185,12 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
    */
   const attachExistingMutation = useMutation({
     mutationFn: async (sourceDemoId: string) => {
-      if (!profile?.email) {
+      const email = profile?.email;
+      if (!email) {
         throw new Error("Could not identify the current user");
       }
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
-        {
-          method: "POST",
-          headers: API_JSON_HEADERS,
-          body: JSON.stringify({
-            issue_id: issue.id,
-            email: profile.email,
-            source_demo_id: sourceDemoId,
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "Failed to attach demo video");
-      }
-
-      return (await res.json()) as Demo;
+      return attachDemoToIssue(issue.id, email, sourceDemoId);
     },
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
@@ -503,18 +493,9 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         />
       </div>
 
-      {/* Create Version: choose Add Link or Upload Media */}
+      {/* Create Version: choose Upload Media, Add Link, or Select Existing */}
       {createOpen && (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowAddEmbedForm((v) => !v)}
-          >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Add Link
-          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -529,6 +510,15 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             )}
             Upload Media
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => setShowAddEmbedForm((v) => !v)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
+          </Button>
           {slug && (
             <DemoPicker
               slug={slug}
@@ -539,18 +529,9 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         </div>
       )}
 
-      {/* Update Version: choose Add Link or Upload Media */}
+      {/* Update Version: choose Upload Media, Add Link, or Select Existing */}
       {updateOpen && currentDemo && (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowReplaceEmbedForm((v) => !v)}
-          >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Add Link
-          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -564,6 +545,15 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               <Upload className="h-3.5 w-3.5" />
             )}
             Upload Media
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => setShowReplaceEmbedForm((v) => !v)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
           </Button>
           {slug && (
             <DemoPicker

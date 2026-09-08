@@ -5,6 +5,13 @@ import { PriorityTasks } from "@/components/client/priority-tasks";
 import { BugReportPanel } from "@/components/bugs/bug-report-panel";
 import { LoadingDataPanel } from "@/components/loader";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -145,38 +152,36 @@ export default function BugsPage() {
     },
   };
 
+  const ALL_PROJECTS_VALUE = "__all__";
+  const projectFilterDropdown = projects.length > 0 && (
+    <Select
+      value={selectedProject ?? ALL_PROJECTS_VALUE}
+      onValueChange={(value) =>
+        setSelectedProject(value === ALL_PROJECTS_VALUE ? null : value)
+      }
+    >
+      <SelectTrigger className="h-7 w-[160px] shrink-0 gap-1.5 rounded-md border border-input bg-background px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate">
+        <SelectValue placeholder="All Projects" />
+      </SelectTrigger>
+      <SelectContent align="start">
+        <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext">
+          All Projects
+        </SelectItem>
+        {projects.map((p) => (
+          <SelectItem key={p.id} value={p.id} className="smalltext">
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="min-h-screen">
       <Header title="Bugs" subtitle="Issues discovered in production" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
         <BugReportPanel slug={slug} />
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setSelectedProject(null)}
-            className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
-              selectedProject === null
-                ? "bg-primary text-primary-foreground border-primary/40"
-                : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-            }`}
-          >
-            All Projects
-          </button>
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProject(p.id)}
-              className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
-                selectedProject === p.id
-                  ? "bg-primary text-primary-foreground border-primary/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
 
         <div className="relative w-full max-w-full overflow-x-hidden">
           {issuesLoading ? (
@@ -192,6 +197,7 @@ export default function BugsPage() {
                   onEditIssue={(issue) => setEditingIssue(issue)}
                   title="Bugs"
                   slug={slug}
+                  headerAction={projectFilterDropdown}
                   lightCard
                 />
               </div>

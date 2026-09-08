@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn, titleCase } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -1140,7 +1140,7 @@ function TestsTab({
                         : "bg-muted text-muted-foreground"
                 }`}
               >
-                {e.status}
+                {titleCase(e.status)}
               </span>
             </div>
           </div>

@@ -17,7 +17,7 @@ import { useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { getIssueCode } from "@/lib/utils";
-import { type Demo, fetchProjectDemos } from "@/lib/demo-video-utils";
+import { type Demo, attachDemoToIssue, fetchProjectDemos } from "@/lib/demo-video-utils";
 import type { Issue } from "@/components/client/issues.types";
 
 async function createDemoFromUpload(issueId: string, email: string, file: File) {
@@ -49,22 +49,6 @@ async function createDemoFromEmbed(issueId: string, email: string, embedUrl: str
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.error ?? "Failed to add video link");
-  }
-  return (await res.json()) as Demo;
-}
-
-async function attachDemoToIssue(issueId: string, email: string, sourceDemoId: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
-    {
-      method: "POST",
-      headers: API_JSON_HEADERS,
-      body: JSON.stringify({ issue_id: issueId, email, source_demo_id: sourceDemoId }),
-    },
-  );
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error ?? "Failed to attach demo video");
   }
   return (await res.json()) as Demo;
 }

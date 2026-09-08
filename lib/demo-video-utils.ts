@@ -1,5 +1,5 @@
 import { fetchIssues } from "@/app/[slug]/(portal)/dashboard/page";
-import { API_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
 
 // Shared between the per-ticket Demo tab (components/client/demo-tab.tsx)
@@ -64,7 +64,7 @@ export type DemoGroup = {
   // playback and as the `source_demo_id` when attaching this same content
   // elsewhere.
   representative: Demo;
-  issues: { id: string; title: string }[];
+  issues: { id: string; title: string; code: string }[];
 };
 
 // Collapses per-issue demo_videos rows down to one entry per distinct piece
@@ -73,15 +73,17 @@ export type DemoGroup = {
 // demo" picker so the same upload/link doesn't show up once per ticket.
 export function groupDemosByContent(
   demos: Demo[],
-  issueTitleById: Map<string, string>,
+  issueInfoById: Map<string, { title: string; code: string }>,
 ): DemoGroup[] {
   const groups = new Map<string, DemoGroup>();
 
   for (const demo of demos) {
     const key = demoContentKey(demo);
+    const info = issueInfoById.get(demo.issue_id);
     const issueEntry = {
       id: demo.issue_id,
-      title: issueTitleById.get(demo.issue_id) ?? demo.issue_id,
+      title: info?.title ?? demo.issue_id,
+      code: info?.code ?? "",
     };
     const existing = groups.get(key);
 
@@ -124,6 +126,31 @@ export async function fetchPreviewLinks(slug: string): Promise<PreviewLink[]> {
   if (!res.ok) return [];
   const data = await res.json().catch(() => null);
   return Array.isArray(data?.preview_links) ? data.preview_links : [];
+}
+
+// Attaches a demo already uploaded elsewhere in the project to another
+// issue as a new version — no re-upload, the new row just points at the
+// same underlying file/link via `source_demo_id`. Shared by the Demos
+// page's multi-ticket upload flow and the per-ticket Demo tab's "Select
+// Existing" picker (components/developer/demo-picker.tsx).
+export async function attachDemoToIssue(
+  issueId: string,
+  email: string,
+  sourceDemoId: string,
+): Promise<Demo> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
+    {
+      method: "POST",
+      headers: API_JSON_HEADERS,
+      body: JSON.stringify({ issue_id: issueId, email, source_demo_id: sourceDemoId }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? "Failed to attach demo video");
+  }
+  return (await res.json()) as Demo;
 }
 
 export async function fetchProjectDemos(slug: string): Promise<{

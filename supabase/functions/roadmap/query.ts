@@ -1,8 +1,26 @@
+// Kept deliberately lean: this is the query the "Projects Timeline" pulls
+// on every load, and it's the most expensive one in this function since
+// `first: N` at three nested levels (projects → milestones → issues)
+// multiplies together — every extra field on an issue here gets paid for
+// up to projects×milestones×issues times over. The timeline only ever
+// derives two things from a milestone's issues (see getCycleIds in
+// ProjectRow.tsx): whether it has one, and which cycle it's in. Everything
+// else previously fetched per issue (title, assignee, labels, dates,
+// estimate, etc.) — and per project (description, dates, progress, lead,
+// etc., none of which components/roadmap reads) — was dead weight that
+// existed only because CYCLE_ISSUES_QUERY/PROJECT_ISSUES_QUERY below
+// (fetched separately, on demand, when a cycle/milestone/project is
+// actually clicked) need those fields and this query didn't need its own
+// copy. Trimming it is what makes room to raise `projects(first: ...)`
+// above the 5 it was previously capped at without tripping Linear's query
+// complexity limit — if that number ever needs to go higher still, cutting
+// `issues(first: 25)` per milestone is the next biggest lever, at the cost
+// of possibly missing a cycle a milestone's 26th+ issue belongs to.
 export const PROJECTS_QUERY = `
 query Projects($initiativeId: String!, $after: String) {
   initiative(id: $initiativeId) {
     id
-    projects(first: 5, after: $after) {
+    projects(first: 10, after: $after) {
       pageInfo {
         hasNextPage
         endCursor
@@ -10,80 +28,22 @@ query Projects($initiativeId: String!, $after: String) {
       nodes {
         id
         name
-        targetDate
-        createdAt
-        currentProgress
-        description
-        startDate
-        startedAt
-        progress
-        progressHistory
-        priorityLabel
-        prioritySortOrder
-        content
         projectMilestones(first: 5) {
           nodes {
             id
-            description
+            name
+            status
             issues(first: 25) {
               nodes {
                 cycle {
-                  endsAt
-                  startsAt
-                  isActive
-                  isPast
-                  isFuture
                   id
-                  name
-                  number
                 }
-                assignee {
-                  displayName
-                }
-                createdAt
-                completedAt
-                canceledAt
-                creator {
-                  displayName
-                }
-                dueDate
-                estimate
-                priorityLabel
-                labels(last: 4) {
-                  nodes {
-                    name
-                  }
-                }
-                state {
-                  name
-                }
-                id
-                title
-                identifier
-                description
-              }
-              pageInfo {
-                hasNextPage
-                endCursor
               }
             }
-            status
-            targetDate
-            currentProgress
-            createdAt
-            name
-            progress
-            progressHistory
           }
         }
         status {
-          name
-          position
           color
-          type
-        }
-        lead {
-          displayName
         }
       }
     }
@@ -162,6 +122,7 @@ query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
         }
         assignee {
           displayName
+          email
         }
         creator {
           displayName
@@ -209,6 +170,7 @@ query ProjectIssues($projectId: String!, $after: String) {
         }
         assignee {
           displayName
+          email
         }
         creator {
           displayName
@@ -251,6 +213,7 @@ query MilestoneIssues($milestoneId: String!, $after: String) {
         }
         assignee {
           displayName
+          email
         }
         creator {
           displayName

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getIssueCode } from "@/lib/utils";
 import {
   type Demo,
   type DemoGroup,
@@ -24,7 +24,9 @@ import {
 // Type-to-search picker for "select an existing demo video" — used by the
 // per-ticket Demo tab (create a version, or replace one, by pointing at a
 // video already uploaded somewhere else in the project) and could be reused
-// anywhere else that needs to attach an already-uploaded demo.
+// anywhere else that needs to attach an already-uploaded demo. Picking one
+// attaches it to the ticket the picker was opened from — no re-upload,
+// just a new row pointing at the same file/link.
 export function DemoPicker({
   slug,
   onSelect,
@@ -44,8 +46,10 @@ export function DemoPicker({
 
   const groups: DemoGroup[] = useMemo(() => {
     if (!data) return [];
-    const issueTitleById = new Map(data.issues.map((i) => [i.id, i.title]));
-    return groupDemosByContent(data.demos, issueTitleById);
+    const issueInfoById = new Map(
+      data.issues.map((i) => [i.id, { title: i.title, code: getIssueCode(i.branchName) }]),
+    );
+    return groupDemosByContent(data.demos, issueInfoById);
   }, [data]);
 
   return (
@@ -62,9 +66,9 @@ export function DemoPicker({
           Select Existing
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
+      <PopoverContent className="w-[28rem] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search demo videos…" />
+          <CommandInput placeholder="Search by title or ticket code…" />
           <CommandList>
             {isLoading && (
               <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
@@ -78,20 +82,31 @@ export function DemoPicker({
               </CommandEmpty>
             )}
             <CommandGroup>
-              {groups.map((group) => (
+              {groups.map((group) => {
+                const issueSearchTerms = group.issues
+                  .map((i) => i.code + " " + i.title)
+                  .join(" ");
+                const searchValue =
+                  (group.representative.file_name ??
+                    group.representative.embed_url ??
+                    group.key) +
+                  " " +
+                  issueSearchTerms;
+
+                return (
                 <CommandItem
                   key={group.key}
-                  value={`${group.representative.file_name ?? group.representative.embed_url ?? group.key} ${group.issues.map((i) => i.title).join(" ")}`}
+                  value={searchValue}
                   onSelect={() => {
                     onSelect(group.representative);
                     setOpen(false);
                   }}
-                  className={cn("flex items-start gap-2 smalltext")}
+                  className={cn("flex items-center gap-2 smalltext py-2")}
                 >
                   {group.representative.source_type === "upload" ? (
-                    <Film className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                    <Film className="h-3.5 w-3.5 shrink-0 text-primary" />
                   ) : (
-                    <LinkIcon className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                    <LinkIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
                   )}
                   <div className="min-w-0">
                     <p className="truncate text-foreground">
@@ -99,12 +114,16 @@ export function DemoPicker({
                         ? group.representative.file_name
                         : (group.representative.embed_provider ?? "Embedded link")}
                     </p>
-                    <p className="truncate text-muted-foreground">
-                      Attached to {group.issues.map((i) => i.title).join(", ")}
+                    <p className="text-muted-foreground">
+                      Demo from{" "}
+                      {group.issues
+                        .map((i) => (i.code ? `${i.code} — ${i.title}` : i.title))
+                        .join(", ")}
                     </p>
                   </div>
                 </CommandItem>
-              ))}
+                );
+              })}
             </CommandGroup>
           </CommandList>
         </Command>
