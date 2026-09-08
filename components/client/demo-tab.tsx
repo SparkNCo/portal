@@ -405,8 +405,8 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
     <div className="flex-1 overflow-y-auto p-5 space-y-6 min-h-[320px]">
       {/* Header */}
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold">Demo</h3>
-        <p className="text-xs text-muted-foreground">
+        <h3 className="smalltext font-semibold">Demo</h3>
+        <p className="smalltext text-muted-foreground">
           Upload or embed demo videos and images for this issue and gather feedback
         </p>
       </div>

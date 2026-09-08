@@ -145,7 +145,7 @@ test.describe('Admin — panels', () => {
     await expect(dialog.getByText('Stripe Customer ID')).not.toBeVisible();
 
     // Switch into edit mode.
-    await dialog.getByRole('button', { name: 'Edit customer' }).click();
+    await dialog.getByRole('button', { name: 'Edit' }).click();
     await expect(dialog.getByLabel('Client Name')).toBeVisible();
     await expect(dialog.getByLabel('Email', { exact: true })).toBeVisible();
     await expect(dialog.getByLabel('Linear Slug')).toBeVisible();

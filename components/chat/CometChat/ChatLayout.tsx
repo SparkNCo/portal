@@ -48,7 +48,6 @@ export default function ChatLayout({
     useCometChat(customerId);
 
   const isAdmin = profile?.role === "admin";
-  // Empty string = no filter (show every customer's chats).
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
 
   // Admin-only: lets the unscoped inbox be filtered down to one customer at
@@ -72,6 +71,16 @@ export default function ChatLayout({
       .map((u) => ({ id: u.id, userName: u.userName! }))
       .sort((a, b) => a.userName.localeCompare(b.userName));
   }, [allUsers]);
+
+  // There's no "All customers" option anymore — the filter always scopes to
+  // one customer, so default to the first one alphabetically as soon as the
+  // list loads (same "default to first" pattern the developer sidebar
+  // project dropdown uses) rather than leaving it unset.
+  useEffect(() => {
+    if (!selectedCustomerId && customerOptions.length > 0) {
+      setSelectedCustomerId(customerOptions[0]!.id);
+    }
+  }, [customerOptions, selectedCustomerId]);
 
   const isDeveloper = profile?.role === "developer";
 

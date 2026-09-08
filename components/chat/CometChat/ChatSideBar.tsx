@@ -10,10 +10,6 @@ import {
 } from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
 
-// Radix Select reserves the empty string for "no value" internally, so "no
-// customer selected" (show every chat) needs its own sentinel instead.
-const ALL_CUSTOMERS_VALUE = "__all__";
-
 type CustomerOption = { id: string; userName: string };
 
 type Props = Readonly<{
@@ -183,18 +179,13 @@ export default function ChatSideBar({
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
           <Select
-            value={selectedCustomerId?.trim() ? selectedCustomerId : ALL_CUSTOMERS_VALUE}
-            onValueChange={(value) =>
-              onSelectedCustomerIdChange?.(value === ALL_CUSTOMERS_VALUE ? "" : value)
-            }
+            value={selectedCustomerId}
+            onValueChange={(value) => onSelectedCustomerIdChange?.(value)}
           >
             <SelectTrigger className="h-8 text-xs md:smalltext">
-              <SelectValue placeholder="All customers" />
+              <SelectValue placeholder="Select a customer" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CUSTOMERS_VALUE}>
-                All customers
-              </SelectItem>
               {customerOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.userName}

@@ -109,12 +109,12 @@ export function DemoPicker({
                     <LinkIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate text-foreground">
+                    <p className="truncate">
                       {group.representative.source_type === "upload"
                         ? group.representative.file_name
                         : (group.representative.embed_provider ?? "Embedded link")}
                     </p>
-                    <p className="text-muted-foreground">
+                    <p className="text-popover-foreground/70">
                       Demo from{" "}
                       {group.issues
                         .map((i) => (i.code ? `${i.code} — ${i.title}` : i.title))
