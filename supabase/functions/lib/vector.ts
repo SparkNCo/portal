@@ -55,6 +55,19 @@ function vectorIndex() {
   };
 }
 
+// The namespace is usually a customer's `clientName`, which is stored
+// inconsistently cased across the app depending on which flow created it
+// (raw vs. slugified at onboarding — same drift already noted in
+// components/chat/CometChat/useCometChat.ts). Upstash namespaces are exact
+// strings with no case-insensitive matching, so without this every caller
+// has to coincidentally agree on casing or an upsert and a later query land
+// in two different, disconnected namespaces for the same customer.
+// Normalizing here, at the one place every namespace passes through, means
+// callers never have to think about it.
+function normalizeNamespace(namespace: string): string {
+  return namespace.trim().toLowerCase();
+}
+
 // Derives the bug/feature distinction from an issue's Linear labels — an exact
 // (not substring) match on the label name, same as the frontend's LABEL_ICONS
 // lookup in issue-cards.tsx, so a vector's `kind` metadata always agrees with
@@ -83,7 +96,7 @@ export async function upsertIssueVector(
   try {
     const { url, token } = vectorIndex();
     const data = [issue.title, issue.description].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${namespace}`, {
+    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
       id: issue.id,
       data,
       metadata: {
@@ -106,7 +119,7 @@ export async function upsertTestVector(
     const { url, token } = vectorIndex();
     const stepsText = (test.steps ?? []).map((s) => s.description).join("\n");
     const data = [test.title, stepsText].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${namespace}`, {
+    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
       id: test.id,
       data,
       // Spec only calls for `{ name }`, but a bare name with no id can't be resolved
@@ -130,7 +143,7 @@ export async function queryTopIssueMatches(
   try {
     const { url, token } = vectorIndex();
     const filter = kind ? `type = 'issue' AND kind = '${kind}'` : "type = 'issue'";
-    const result = await upstashRequest(url, token, `/query-data/${namespace}`, {
+    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
       data: queryText,
       topK,
       includeMetadata: true,
@@ -150,7 +163,7 @@ export async function queryTopTestMatches(
 ): Promise<VectorMatch[]> {
   try {
     const { url, token } = vectorIndex();
-    const result = await upstashRequest(url, token, `/query-data/${namespace}`, {
+    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
       data: queryText,
       topK,
       includeMetadata: true,
