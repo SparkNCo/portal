@@ -131,27 +131,8 @@ export async function upsertIssueVector(
 ): Promise<boolean> {
   try {
     const { url, token } = vectorIndex();
-    const ns = normalizeNamespace(namespace);
-    const combinedData = [issue.title, issue.description].filter(Boolean).join("\n\n");
-    const baseMetadata = {
-      ticket_id: issue.id,
-      title: issue.title,
-      ...(issue.kind ? { kind: issue.kind } : {}),
-    };
-
-    // Two vectors per issue: the existing title+description one (for queries
-    // with real descriptive detail) and a title-only one, id-suffixed
-    // "::title" to avoid colliding with the combined vector's own id — see
-    // queryTopIssueMatches for why a second vector exists at all. Sequential,
-    // not Promise.all — linear-vector-sync's bulk catch-up runs (re-scanning
-    // a whole lookback window, times up to 3 customers concurrently, see
-    // runWithConcurrency there) already push a lot of simultaneous requests
-    // at Upstash; doubling that further per issue is what was tipping it
-    // into "vector store backend is currently unavailable" (a rate/
-    // concurrency ceiling, not an actual outage). Twice the wall-clock time
-    // per issue, but issues upsert one at a time in that caller anyway, so
-    // this just trades a bit of latency for not getting throttled.
-    await upstashRequest(url, token, `/upsert-data/${ns}`, {
+    const data = [issue.title, issue.description].filter(Boolean).join("\n\n");
+    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
       id: issue.id,
       data: combinedData,
       metadata: { type: "issue", ...baseMetadata },
@@ -209,8 +190,7 @@ export async function queryTopIssueMatches(
 ): Promise<VectorMatch[]> {
   try {
     const { url, token } = vectorIndex();
-    const type = queryText.trim().length < TITLE_ONLY_QUERY_MAX_LENGTH ? "issue-title" : "issue";
-    const filter = kind ? `type = '${type}' AND kind = '${kind}'` : `type = '${type}'`;
+    const filter = kind ? `type = 'issue' AND kind = '${kind}'` : "type = 'issue'";
     const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
       data: queryText,
       topK,
