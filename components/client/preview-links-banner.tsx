@@ -19,23 +19,25 @@ export function PreviewLinksBanner({ slug }: { readonly slug?: string }) {
   if (links.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="smalltext font-semibold text-muted-foreground uppercase tracking-wide">
+    <div className="space-y-1">
+      <span className="smalltext font-semibold text-foreground">
         Test Environment
       </span>
-      {links.map((link, i) => (
-        <a
-          key={`${link.url}-${i}`}
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={link.url}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 smalltext font-medium text-primary hover:bg-primary/20 transition-colors max-w-full"
-        >
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{link.text}</span>
-        </a>
-      ))}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {links.map((link, i) => (
+          <a
+            key={`${link.url}-${i}`}
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={link.url}
+            className="inline-flex items-center gap-1 smalltext font-medium text-primary underline underline-offset-2 hover:text-primary/80 transition-colors max-w-full"
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{link.text}</span>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

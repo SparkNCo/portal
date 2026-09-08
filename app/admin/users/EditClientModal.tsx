@@ -195,29 +195,30 @@ export default function EditClientModal({
           onToggleExpanded={() => setIsExpanded((e) => !e)}
         />
 
-        {!isEditing && (
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            className="absolute right-10 top-4 lg:right-16 text-muted-foreground hover:text-primary transition-colors"
-            aria-label="Edit customer"
-            title="Edit"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-        )}
-
         <DialogHeader className="pt-4">
-          <div className="flex min-w-0 items-center gap-3.5 pr-6">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary ring-2 ring-primary/30">
-              {userEmail.slice(0, 2).toUpperCase()}
+          <div className="flex flex-col gap-3 pr-12 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary ring-2 ring-primary/30">
+                {userEmail.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="truncate text-primary">
+                  {initialClientName || userEmail}
+                </DialogTitle>
+                <p className="smalltext text-muted-foreground truncate">Customer Profile</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <DialogTitle className="truncate text-primary">
-                {initialClientName || userEmail}
-              </DialogTitle>
-              <p className="smalltext text-muted-foreground truncate">Customer Profile</p>
-            </div>
+            {!isEditing && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 self-start sm:shrink-0 smalltext border-primary/30 text-primary hover:bg-background hover:text-primary"
+                onClick={() => setIsEditing(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            )}
           </div>
         </DialogHeader>
 
