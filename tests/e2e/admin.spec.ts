@@ -118,6 +118,69 @@ test.describe('Admin — panels', () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  // ── Customer / Stakeholder Profile (Preview Links) ────────────────────────
+  //
+  // Both tests only open the modal, switch to edit mode, and Cancel back out
+  // — never Save — so they don't mutate a real customer/stakeholder record
+  // in whatever environment these run against. Same reasoning as the "Add
+  // ..." modal tests above (open, inspect, Cancel, never submit).
+
+  test('Customer Profile opens read-only, Edit reveals contact fields and Preview Links, Cancel discards', async ({ page }) => {
+    const customerSection = page.getByTestId('role-section-customer');
+    const profileButton = customerSection.getByRole('button', { name: /Profile/i }).first();
+
+    if ((await profileButton.count()) === 0) {
+      test.skip(true, 'No customer rows in this environment');
+    }
+
+    await profileButton.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Customer Profile')).toBeVisible();
+
+    // Read-only view first — no editable inputs yet.
+    await expect(dialog.getByLabel('Client Name')).not.toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Save' })).not.toBeVisible();
+    // Removed on request — Stripe Customer ID has its own dedicated
+    // Settings/Billing flow, not duplicated into this profile form.
+    await expect(dialog.getByText('Stripe Customer ID')).not.toBeVisible();
+
+    // Switch into edit mode.
+    await dialog.getByRole('button', { name: 'Edit customer' }).click();
+    await expect(dialog.getByLabel('Client Name')).toBeVisible();
+    await expect(dialog.getByLabel('Email', { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel('Linear Slug')).toBeVisible();
+    await expect(dialog.getByLabel('Stripe Customer ID')).toHaveCount(0);
+
+    await expect(dialog.getByText('Preview Links')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add Preview Link' }).click();
+    await expect(dialog.getByPlaceholder('Description, e.g. Test Environment')).toBeVisible();
+    await expect(dialog.getByPlaceholder('https://...')).toBeVisible();
+
+    // Cancel discards the draft (including the blank link row just added)
+    // and drops back to the read-only view instead of closing the dialog.
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog.getByLabel('Client Name')).not.toBeVisible();
+    await expect(dialog).toBeVisible();
+  });
+
+  test('Stakeholder Profile opens with editable contact fields', async ({ page }) => {
+    const stakeholderSection = page.getByTestId('role-section-stakeholder');
+    const profileButton = stakeholderSection.getByRole('button', { name: /Profile/i }).first();
+
+    if ((await profileButton.count()) === 0) {
+      test.skip(true, 'No stakeholder rows in this environment');
+    }
+
+    await profileButton.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Stakeholder Profile')).toBeVisible();
+    await expect(dialog.getByLabel('Email', { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel('Username')).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   // ── Chat panel ─────────────────────────────────────────────────────────────
 
   test('Chat panel loads and shows the sidebar', async ({ page }) => {

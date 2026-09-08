@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { statusColors, type FilterState } from "./issues.types";
+import { priorityColors, statusColors, type FilterState } from "./issues.types";
 import { Input } from "@/components/ui/input";
 
 export function TaskFilterPanel({
@@ -107,7 +107,7 @@ export function TaskFilterPanel({
                     onClick={() => onTogglePriority(priority)}
                     className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
                       active
-                        ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
+                        ? `${priorityColors[priority as keyof typeof priorityColors] ?? "bg-primary/20 text-primary border-primary/30"} opacity-100`
                         : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
                     }`}
                   >
@@ -205,24 +205,40 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
     onDateToChange,
   } = filterState;
 
-  const chips: { key: string; label: string; onRemove: () => void }[] = [
+  // Colored per filter type instead of one flat gray — status/priority chips
+  // reuse the exact same colors as their toggle buttons in the panel above
+  // (statusColors/priorityColors), so a chip reads as "the same Status/
+  // Priority you picked," not a generic tag. Labels and dates have no
+  // per-value color of their own, so they get one consistent accent each
+  // instead, still distinct from status/priority chips.
+  const chips: { key: string; label: string; onRemove: () => void; className: string }[] = [
     ...(onlyActive
-      ? [{ key: "cycle", label: "Active cycle", onRemove: onToggleActive }]
+      ? [
+          {
+            key: "cycle",
+            label: "Active cycle",
+            onRemove: onToggleActive,
+            className: "bg-primary/15 text-primary border-primary/30",
+          },
+        ]
       : []),
     ...selectedStatuses.map((s) => ({
       key: `status:${s}`,
       label: s,
       onRemove: () => onToggleStatus(s),
+      className: `${statusColors[s as keyof typeof statusColors] ?? "bg-muted/40 text-muted-foreground"} border-current/30`,
     })),
     ...selectedPriorities.map((p) => ({
       key: `priority:${p}`,
       label: p,
       onRemove: () => onTogglePriority?.(p),
+      className: priorityColors[p as keyof typeof priorityColors] ?? "bg-primary/20 text-primary border-primary/30",
     })),
     ...selectedLabels.map((l) => ({
       key: `label:${l}`,
       label: l,
       onRemove: () => onToggleLabel?.(l),
+      className: "bg-secondary/60 text-secondary-foreground border-border",
     })),
     ...(dateFrom
       ? [
@@ -230,6 +246,7 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
             key: "dateFrom",
             label: `From ${dateFrom}`,
             onRemove: () => onDateFromChange?.(""),
+            className: "bg-accent/10 text-accent border-accent/30",
           },
         ]
       : []),
@@ -239,6 +256,7 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
             key: "dateTo",
             label: `To ${dateTo}`,
             onRemove: () => onDateToChange?.(""),
+            className: "bg-accent/10 text-accent border-accent/30",
           },
         ]
       : []),
@@ -252,7 +270,7 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
         <button
           key={chip.key}
           onClick={chip.onRemove}
-          className="smalltext flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full border border-border/40 bg-muted/40 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+          className={`smalltext flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-md border font-medium transition-all hover:brightness-110 hover:shadow-sm ${chip.className}`}
         >
           {chip.label}
           <X className="h-3 w-3" />
