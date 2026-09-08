@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,28 @@ type RoadmapTimelineProps = {
   onLoadMoreProjects?: () => void;
 };
 
+type AssigneeLookup = { firstName?: string | null; lastName?: string | null; userName?: string | null };
+
+// Linear's own assignee.displayName is whatever that person set as their
+// Linear username, which often doesn't match how they're known in the
+// portal. Prefer the portal's own First+Last name (resolved by email, since
+// that's the one identifier both systems share), then the portal's
+// `userName` field — labeled "Github Handle" in Add Developer — then fall
+// back to the email itself, and only to Linear's displayName if there's no
+// email at all to key off of.
+function resolveAssigneeName(
+  assignee: { displayName?: string | null; email?: string | null } | null | undefined,
+  usersByEmail: Map<string, AssigneeLookup>,
+): string | null {
+  if (!assignee) return null;
+
+  const match = assignee.email ? usersByEmail.get(assignee.email.toLowerCase()) : undefined;
+  if (match?.firstName && match?.lastName) return `${match.firstName} ${match.lastName}`;
+  if (match?.userName) return match.userName;
+  if (assignee.email) return assignee.email;
+  return assignee.displayName ?? null;
+}
+
 function toIssue(issue: any): Issue {
   return {
     id: issue.id,
@@ -156,6 +178,38 @@ export function RoadmapTimeline({
   const queryClient = useQueryClient();
   const { profile } = useUser();
   const { hasUnseenUpdate } = useIssueUpdateBadge();
+
+  // Resolves a Linear assignee to how they're known in the portal (see
+  // resolveAssigneeName above) — keyed by email since that's the only
+  // identifier Linear and the portal's own users table share. `GET /users`
+  // with no filters returns every user in the system with no role scoping
+  // of its own, so this stays admin-only (same gating ChatLayout.tsx uses
+  // for the same endpoint) — this component is also reachable by
+  // customers/stakeholders viewing their own project's roadmap, who must
+  // not receive every other customer's user directory just to see one
+  // assignee's name. Non-admins simply fall through resolveAssigneeName's
+  // next tier (the assignee's own email, already fetched from Linear).
+  const isAdminViewer = profile?.role === "admin";
+  const { data: portalUsers } = useQuery({
+    queryKey: ["all-users-for-assignee-names"],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users`, {
+        headers: API_JSON_HEADERS,
+      });
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json() as Promise<
+        { email?: string; firstName?: string; lastName?: string; userName?: string }[]
+      >;
+    },
+    enabled: isAdminViewer,
+  });
+  const usersByEmail = useMemo(() => {
+    const map = new Map<string, AssigneeLookup>();
+    for (const u of portalUsers ?? []) {
+      if (u.email) map.set(u.email.toLowerCase(), u);
+    }
+    return map;
+  }, [portalUsers]);
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
@@ -253,28 +307,15 @@ export function RoadmapTimeline({
               ),
             ] as [string, Milestone[]],
         )
-        // Soonest deadline first among projects that actually have milestones
-        // showing — a project with 0 (every one filtered out above, or none
-        // to begin with) has nothing to be urgent about, so those always
-        // sink to the bottom regardless of their own targetDate. Within each
-        // group, projects with no targetDate set sort last, and equal/missing
-        // dates fall back to name for a stable order.
+        // Most milestones first — projects with more going on surface above
+        // the quieter ones instead of alphabetically, which said nothing
+        // about how active a project actually is. Same milestone count
+        // falls back to name so the order stays stable.
         .sort(([nameA, milestonesA], [nameB, milestonesB]) => {
-          const emptyA = milestonesA.length === 0;
-          const emptyB = milestonesB.length === 0;
-          if (emptyA !== emptyB) return emptyA ? 1 : -1;
-
-          const dateA = projectTargetDateByName[nameA];
-          const dateB = projectTargetDateByName[nameB];
-          if (dateA && dateB) {
-            const diff = new Date(dateA).getTime() - new Date(dateB).getTime();
-            if (diff !== 0) return diff;
-          } else if (dateA || dateB) {
-            return dateA ? -1 : 1;
-          }
-          return nameA.localeCompare(nameB);
+          const countDiff = milestonesB.length - milestonesA.length;
+          return countDiff !== 0 ? countDiff : nameA.localeCompare(nameB);
         }),
-    [groupedMilestones, projectTargetDateByName],
+    [groupedMilestones],
   );
 
   const selectedBucket = useMemo(
@@ -390,8 +431,8 @@ export function RoadmapTimeline({
   );
 
   const visibleIssues = cycleIssues.filter((issue) => {
-    if (statusFilter && issue.state?.name !== statusFilter) return false;
-    if (priorityFilter && issue.priorityLabel !== priorityFilter) return false;
+    if (statusFilters.length > 0 && !statusFilters.includes(issue.state?.name)) return false;
+    if (priorityFilters.length > 0 && !priorityFilters.includes(issue.priorityLabel)) return false;
     if (issueSearch.trim()) {
       const q = issueSearch.toLowerCase();
       const matchesTitle = issue.title?.toLowerCase().includes(q);
@@ -730,6 +771,17 @@ export function RoadmapTimeline({
                     )}
 
                     <div className="space-y-0.5">
+                      {(() => {
+                        const assigneeName = resolveAssigneeName(issue.assignee, usersByEmail);
+                        return (
+                          assigneeName && (
+                            <p className="smalltext light-card-muted">
+                              Assignee:{" "}
+                              <span className="light-card-text">{assigneeName}</span>
+                            </p>
+                          )
+                        );
+                      })()}
                       {issue.dueDate && (
                         <p className="smalltext light-card-muted">
                           Due:{" "}
