@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Contact } from "lucide-react";
@@ -8,24 +7,6 @@ import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { useResolvedCustomerId } from "@/hooks/use-resolved-customer-id";
 import { AddStakeholderModal } from "./add-stakeholder-modal";
-// Reused straight from Admin → Users rather than duplicating a second "all
-// their data" profile modal — same View/Edit pair, same admin-session-gated
-// PATCH on the backend regardless of where it's opened from. ViewStakeholderModal
-// already hides its own Edit button whenever `onEdit` is omitted, which is
-// exactly the "admins only" gate this card view needs.
-import ViewStakeholderModal from "@/app/admin/users/ViewStakeholderModal";
-import EditStakeholderModal from "@/app/admin/users/EditStakeholderModal";
-
-type StakeholderAssignment = {
-  assignment_id: string;
-  user_id: string;
-  email: string;
-  userName?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  phoneNumber?: string | null;
-  joined?: string | null;
-};
 
 // Reuses the exact same `["assignments", resolvedId]` query StaffingSection
 // already fetches (same endpoint, same cache key) — this just filters the
@@ -35,9 +16,6 @@ export function StakeholdersSection({ customerId }: { readonly customerId?: stri
   const { profile, loading } = useUser();
   const resolvedId = useResolvedCustomerId(customerId);
   const canAdd = profile?.role === "customer" || profile?.role === "stakeholder";
-  const isAdmin = profile?.role === "admin";
-  const [viewingStakeholder, setViewingStakeholder] = useState<StakeholderAssignment | null>(null);
-  const [editingStakeholder, setEditingStakeholder] = useState<StakeholderAssignment | null>(null);
 
   const {
     data: assignments = [],
@@ -89,76 +67,51 @@ export function StakeholdersSection({ customerId }: { readonly customerId?: stri
             No stakeholders yet.
           </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="space-y-3">
             {stakeholders.map((s: any) => {
               const name = s.firstName
                 ? `${s.firstName} ${s.lastName ?? ""}`.trim()
                 : s.userName || s.email || "Unknown";
-              // Dark circle + orange initials — same avatar treatment as
-              // StaffingSection's team cards.
-              const avatar = s.firstName
-                ? `${s.firstName[0]}${s.lastName?.[0] ?? ""}`.toUpperCase()
-                : (s.userName?.[0] ?? s.email?.[0] ?? "U").toUpperCase();
+              const avatar = (
+                s.firstName?.[0] ??
+                s.userName?.[0] ??
+                s.email?.[0] ??
+                "U"
+              ).toUpperCase();
 
               return (
-                <button
+                <div
                   key={s.assignment_id}
-                  type="button"
-                  onClick={() => setViewingStakeholder(s)}
-                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center hover:border-primary/40 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-card/90 p-4"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-card-foreground text-lg font-semibold text-primary">
-                    {avatar}
+                  <div className="flex flex-1 items-center gap-3 min-w-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
+                      {avatar}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p title={name} className="smalltext font-medium text-card-foreground truncate">
+                        {name}
+                      </p>
+                      <p title={s.email} className="smalltext text-card-foreground/60 truncate">
+                        {s.email}
+                      </p>
+                    </div>
                   </div>
-                  <p title={name} className="smalltext font-medium text-card-foreground truncate max-w-full">
-                    {name}
-                  </p>
-                  <p title={s.email} className="smalltext text-card-foreground/60 truncate max-w-full">
-                    {s.email}
-                  </p>
+
                   {s.joined && (
-                    <p className="smalltext text-card-foreground/60">
-                      Joined {new Date(s.joined).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-2 sm:shrink-0">
+                      <p className="smalltext text-card-foreground/60">Joined</p>
+                      <p className="smalltext text-card-foreground">
+                        {new Date(s.joined).toLocaleDateString()}
+                      </p>
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
         )}
       </CardContent>
-
-      {viewingStakeholder && (
-        <ViewStakeholderModal
-          userId={viewingStakeholder.user_id}
-          userEmail={viewingStakeholder.email}
-          firstName={viewingStakeholder.firstName}
-          lastName={viewingStakeholder.lastName}
-          userName={viewingStakeholder.userName}
-          phoneNumber={viewingStakeholder.phoneNumber}
-          onClose={() => setViewingStakeholder(null)}
-          onEdit={
-            isAdmin
-              ? () => {
-                  setEditingStakeholder(viewingStakeholder);
-                  setViewingStakeholder(null);
-                }
-              : undefined
-          }
-        />
-      )}
-
-      {editingStakeholder && (
-        <EditStakeholderModal
-          userId={editingStakeholder.user_id}
-          userEmail={editingStakeholder.email}
-          firstName={editingStakeholder.firstName}
-          lastName={editingStakeholder.lastName}
-          userName={editingStakeholder.userName}
-          phoneNumber={editingStakeholder.phoneNumber}
-          onClose={() => setEditingStakeholder(null)}
-        />
-      )}
     </Card>
   );
 }

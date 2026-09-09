@@ -58,9 +58,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   const teamMembers = assignments
     .filter((item: any) => item.role !== "stakeholder")
     .map((item: any) => ({
-    name: item.firstName
-      ? `${item.firstName} ${item.lastName ?? ""}`.trim()
-      : item.userName || item?.email || "Unknown",
+    name: item.firstName || item.userName || item?.email || "Unknown",
     email: item.email || "",
     role: item.role,
     hours: item.allocation,
