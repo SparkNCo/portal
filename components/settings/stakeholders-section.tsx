@@ -67,44 +67,35 @@ export function StakeholdersSection({ customerId }: { readonly customerId?: stri
             No stakeholders yet.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {stakeholders.map((s: any) => {
               const name = s.firstName
                 ? `${s.firstName} ${s.lastName ?? ""}`.trim()
                 : s.userName || s.email || "Unknown";
-              const avatar = (
-                s.firstName?.[0] ??
-                s.userName?.[0] ??
-                s.email?.[0] ??
-                "U"
-              ).toUpperCase();
+              // Dark circle + orange initials — same avatar treatment as
+              // StaffingSection's team cards.
+              const avatar = s.firstName
+                ? `${s.firstName[0]}${s.lastName?.[0] ?? ""}`.toUpperCase()
+                : (s.userName?.[0] ?? s.email?.[0] ?? "U").toUpperCase();
 
               return (
                 <div
                   key={s.assignment_id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-card/90 p-4"
+                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center"
                 >
-                  <div className="flex flex-1 items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
-                      {avatar}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p title={name} className="smalltext font-medium text-card-foreground truncate">
-                        {name}
-                      </p>
-                      <p title={s.email} className="smalltext text-card-foreground/60 truncate">
-                        {s.email}
-                      </p>
-                    </div>
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-card-foreground text-lg font-semibold text-primary">
+                    {avatar}
                   </div>
-
+                  <p title={name} className="smalltext font-medium text-card-foreground truncate max-w-full">
+                    {name}
+                  </p>
+                  <p title={s.email} className="smalltext text-card-foreground/60 truncate max-w-full">
+                    {s.email}
+                  </p>
                   {s.joined && (
-                    <div className="flex items-center gap-2 sm:shrink-0">
-                      <p className="smalltext text-card-foreground/60">Joined</p>
-                      <p className="smalltext text-card-foreground">
-                        {new Date(s.joined).toLocaleDateString()}
-                      </p>
-                    </div>
+                    <p className="smalltext text-card-foreground/60">
+                      Joined {new Date(s.joined).toLocaleDateString()}
+                    </p>
                   )}
                 </div>
               );

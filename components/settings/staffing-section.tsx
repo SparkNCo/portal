@@ -58,7 +58,9 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   const teamMembers = assignments
     .filter((item: any) => item.role !== "stakeholder")
     .map((item: any) => ({
-    name: item.firstName || item.userName || item?.email || "Unknown",
+    name: item.firstName
+      ? `${item.firstName} ${item.lastName ?? ""}`.trim()
+      : item.userName || item?.email || "Unknown",
     email: item.email || "",
     role: item.role,
     hours: item.allocation,
@@ -141,46 +143,11 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
               onClick={() => setSelectedDeveloper(member)}
               className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center transition-colors hover:bg-card/80"
             >
-              <div className="flex flex-1 items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
-                  {member.avatar}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <p title={member.name} className="smalltext font-medium text-card-foreground truncate">
-                      {member.name}
-                    </p>
-                    <Badge variant="secondary" className={`shrink-0 ${statusColors["active"]}`}>
-                      Active
-                    </Badge>
-                  </div>
-                  <p title={member.email} className="smalltext text-card-foreground/60 truncate">
-                    {member.email}
-                  </p>
-                  <p className="smalltext text-card-foreground/60 capitalize">
-                    {member.role === "developer"
-                      ? member.developerType === "internal"
-                        ? "Internal Dev"
-                        : "Spark & Co Dev"
-                      : member.role}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 sm:shrink-0">
-                {member.joined && (
-                  <div className="flex items-center gap-2">
-                    <p className="smalltext text-card-foreground/60">Joined</p>
-                    <p className="smalltext text-card-foreground">
-                      {new Date(member.joined).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                <div className="flex items-center gap-1 smalltext text-card-foreground">
-                  <Clock className="h-3 w-3" />
-                  {member.hours}h/week
-                </div>
-                <ChevronRight className="h-4 w-4 text-card-foreground/40" />
+              {/* Dark circle + orange initials, sized to swap for a real
+                  photo later — everything else (email, joined date, bio,
+                  skills) lives in the profile modal this opens, not here. */}
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-card-foreground text-lg font-semibold text-primary">
+                {member.avatar}
               </div>
               <p title={member.name} className="smalltext font-medium text-card-foreground truncate max-w-full">
                 {member.name}
