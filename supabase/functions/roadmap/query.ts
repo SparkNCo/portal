@@ -6,8 +6,9 @@
 // derives two things from a milestone's issues (see getCycleIds in
 // ProjectRow.tsx): whether it has one, and which cycle it's in. Everything
 // else previously fetched per issue (title, assignee, labels, dates,
-// estimate, etc.) — and per project (description, dates, progress, lead,
-// etc., none of which components/roadmap reads) — was dead weight that
+// estimate, etc.) — and per project (description, progress, lead, etc.,
+// none of which components/roadmap reads; `targetDate` is the one project
+// field actually used, for sorting) — was dead weight that
 // existed only because CYCLE_ISSUES_QUERY/PROJECT_ISSUES_QUERY below
 // (fetched separately, on demand, when a cycle/milestone/project is
 // actually clicked) need those fields and this query didn't need its own
@@ -28,6 +29,7 @@ query Projects($initiativeId: String!, $after: String) {
       nodes {
         id
         name
+        targetDate
         projectMilestones(first: 5) {
           nodes {
             id

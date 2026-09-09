@@ -72,6 +72,10 @@ type RoadmapTimelineProps = {
   // status (Project.status.color) — colors the little circle on each
   // project row instead of a generic icon.
   projectColorByName?: Record<string, string>;
+  // Maps project name -> the project's own Linear targetDate (ISO string, or
+  // null if unset) — sorts the project list, replacing the old "most
+  // milestones first" order.
+  projectTargetDateByName?: Record<string, string | null>;
   cycles?: RawCycle[];
   slug?: string;
   hasMoreProjects?: boolean;
@@ -165,6 +169,7 @@ export function RoadmapTimeline({
   projectIdsByName = {},
   cycles: rawCycles = [],
   projectColorByName = {},
+  projectTargetDateByName = {},
   slug = "",
   hasMoreProjects = false,
   loadingMoreProjects = false,
@@ -302,15 +307,28 @@ export function RoadmapTimeline({
               ),
             ] as [string, Milestone[]],
         )
-        // Most milestones first — projects with more going on surface above
-        // the quieter ones instead of alphabetically, which said nothing
-        // about how active a project actually is. Same milestone count
-        // falls back to name so the order stays stable.
+        // Soonest deadline first among projects that actually have milestones
+        // showing — a project with 0 (every one filtered out above, or none
+        // to begin with) has nothing to be urgent about, so those always
+        // sink to the bottom regardless of their own targetDate. Within each
+        // group, projects with no targetDate set sort last, and equal/missing
+        // dates fall back to name for a stable order.
         .sort(([nameA, milestonesA], [nameB, milestonesB]) => {
-          const countDiff = milestonesB.length - milestonesA.length;
-          return countDiff !== 0 ? countDiff : nameA.localeCompare(nameB);
+          const emptyA = milestonesA.length === 0;
+          const emptyB = milestonesB.length === 0;
+          if (emptyA !== emptyB) return emptyA ? 1 : -1;
+
+          const dateA = projectTargetDateByName[nameA];
+          const dateB = projectTargetDateByName[nameB];
+          if (dateA && dateB) {
+            const diff = new Date(dateA).getTime() - new Date(dateB).getTime();
+            if (diff !== 0) return diff;
+          } else if (dateA || dateB) {
+            return dateA ? -1 : 1;
+          }
+          return nameA.localeCompare(nameB);
         }),
-    [groupedMilestones],
+    [groupedMilestones, projectTargetDateByName],
   );
 
   const selectedBucket = useMemo(

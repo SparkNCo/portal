@@ -386,10 +386,10 @@ function StripeIdPanel({
         </div>
         <div>
           <p className="smalltext font-medium text-foreground">
-            No Stripe Customer ID on file
+            Custom Billing
           </p>
           <p className="smalltext text-foreground/70">
-            Contact your administrator to set up billing information.
+            Billing is handled out of system.
           </p>
         </div>
       </CardContent>
