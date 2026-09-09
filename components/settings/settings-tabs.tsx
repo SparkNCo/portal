@@ -2,20 +2,25 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { CreditCard, Users } from "lucide-react";
+import { CreditCard, Users, Contact } from "lucide-react";
 import { DocumentsDirectory } from "@/components/settings/documents-directory";
 import {
   BillingSection,
   fetchBillingData,
 } from "@/components/settings/billing-section";
 import { StaffingSection } from "@/components/settings/staffing-section";
+import { StakeholdersSection } from "@/components/settings/stakeholders-section";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
+// Stakeholders sits in the middle rather than after Billing (the ticket's
+// literal "third option") — Billing reads as the more consequential/less
+// frequently touched tab, so it stays last.
 const tabs = [
   { id: "staffing", label: "Staffing", icon: Users },
+  { id: "stakeholders", label: "Stakeholders", icon: Contact },
   { id: "billing", label: "Billing", icon: CreditCard },
 ];
 
@@ -47,6 +52,12 @@ export function SettingsTabs() {
 
   // Resolve the IDs to use — customer's when admin is viewing, own profile otherwise
   const effectiveUserId = targetCustomer?.id ?? profile?.id;
+  // Only forced as an override when an admin picked a specific customer to
+  // view — otherwise Staffing/Stakeholders resolve the viewer's own
+  // customer_id themselves (useResolvedCustomerId), which correctly handles
+  // a stakeholder viewer too (their own profile.id is NOT their customer_id,
+  // unlike a customer's).
+  const staffingCustomerIdOverride = isAdminViewingCustomer ? effectiveUserId : undefined;
   const effectiveStripeId = targetCustomer?.stripe_customer_id ?? profile?.stripe_customer_id;
   const effectiveCustomerId = targetCustomer?.customer_id ?? profile?.customer_id;
   const isAdmin = profile?.role === "admin";
@@ -154,7 +165,10 @@ export function SettingsTabs() {
           />
         )}
         {activeTab === "staffing" && (
-          <StaffingSection customerId={effectiveUserId} />
+          <StaffingSection customerId={staffingCustomerIdOverride} />
+        )}
+        {activeTab === "stakeholders" && (
+          <StakeholdersSection customerId={staffingCustomerIdOverride} />
         )}
       </div>
     </div>

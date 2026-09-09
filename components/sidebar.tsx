@@ -66,6 +66,10 @@ const stakeholderNavItems = [
   { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
+  // Previously missing entirely — a stakeholder had no way to reach
+  // /settings at all, which is where the Stakeholders tab (add/view other
+  // stakeholders on this initiative) lives.
+  { href: "settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {

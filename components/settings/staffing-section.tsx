@@ -8,6 +8,7 @@ import { Users, Plus, Clock, ChevronRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { useResolvedCustomerId } from "@/hooks/use-resolved-customer-id";
 import {
   DeveloperDetailsModal,
   type DeveloperDetails,
@@ -26,7 +27,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   const [selectedDeveloper, setSelectedDeveloper] = useState<DeveloperDetails | null>(null);
   const [editingDeveloper, setEditingDeveloper] = useState<DeveloperDetails | null>(null);
 
-  const resolvedId = customerId ?? profile?.id;
+  const resolvedId = useResolvedCustomerId(customerId);
 
   const {
     data: assignments = [],
@@ -59,7 +60,11 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
     return <div className="p-4 smalltext text-red-500">Error loading team</div>;
   }
 
-  const teamMembers = assignments.map((item: any) => ({
+  // Stakeholders now have their own dedicated tab (StakeholdersSection) —
+  // showing them here too would just duplicate that list.
+  const teamMembers = assignments
+    .filter((item: any) => item.role !== "stakeholder")
+    .map((item: any) => ({
     name: item.firstName || item.userName || item?.email || "Unknown",
     email: item.email || "",
     role: item.role,
