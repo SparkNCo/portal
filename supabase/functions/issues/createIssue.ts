@@ -10,7 +10,10 @@ const GET_FIRST_TEAM_QUERY = `
   }
 `;
 
-const CREATE_ISSUE_MUTATION = `
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
+// builds its own IssueCreateInput (needs stateId + an explicit cycleId the regular
+// Feature Request/Bug Report flow never sets) but reuses this same mutation.
+export const CREATE_ISSUE_MUTATION = `
   mutation IssueCreate($input: IssueCreateInput!) {
     issueCreate(input: $input) {
       success
@@ -136,7 +139,8 @@ async function resolveTeamId(slug: string, schema: string): Promise<string> {
   return teamId;
 }
 
-const PRIORITY_MAP: Record<string, number> = {
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts.
+export const PRIORITY_MAP: Record<string, number> = {
   urgent: 1,
   high: 2,
   medium: 3,

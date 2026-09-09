@@ -12,7 +12,9 @@ const GET_ISSUE_TEAM_QUERY = `
   }
 `;
 
-const GET_STATE_ID_QUERY = `
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
+// needs to resolve "Backlog"'s stateId the same way handleUpdateState does here.
+export const GET_STATE_ID_QUERY = `
   query GetStateId($teamId: ID!, $stateName: String!) {
     workflowStates(filter: {
       team: { id: { eq: $teamId } },
