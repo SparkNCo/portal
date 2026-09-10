@@ -8,6 +8,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
@@ -19,7 +20,13 @@ import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-ch
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { getIssueCode } from "@/lib/utils";
-import { type Issue, priorityColors, statusColors } from "@/components/client/issues.types";
+import {
+  type Issue,
+  priorityColors,
+  statusColors,
+  PRIORITY_MENU_OPTIONS,
+  ALL_STATUS_OPTIONS,
+} from "@/components/client/issues.types";
 
 async function patchIssue(payload: {
   issueId: string;
@@ -58,14 +65,6 @@ async function patchPriority(payload: { issueId: string; priority: string; slug:
   });
   return res.json();
 }
-
-const PRIORITY_LABELS: Record<(typeof PRIORITY_OPTIONS)[number], Issue["priorityLabel"]> = {
-  urgent: "Urgent",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  none: "No priority",
-};
 
 export function EditIssueModal({
   issue,
@@ -191,27 +190,119 @@ export function EditIssueModal({
 
         {/* Mirrors the ticket detail modal's header (code + priority +
             status, then the title) so this quick-edit form still reads as
-            the same ticket rather than a generic form. Priority reflects
-            the pending edit below (live preview); status is read-only here
-            — this form doesn't change it. */}
+            the same ticket rather than a generic form. For admins/developers
+            both badges are directly editable here too — same click-a-badge,
+            pick-a-value, save-immediately pattern as issue-detail-modal.tsx
+            (a separate PATCH per change, not batched with title/description). */}
         <DialogHeader className="pt-4 pr-12">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="smalltext font-mono text-muted-foreground">
               {getIssueCode(issue.branchName)}
             </span>
-            <Badge
-              variant="outline"
-              className={`smalltext ${priorityColors[PRIORITY_LABELS[priority as (typeof PRIORITY_OPTIONS)[number]] ?? "No priority"]}`}
-            >
-              {PRIORITY_LABELS[priority as (typeof PRIORITY_OPTIONS)[number]] ?? "No priority"}
-            </Badge>
-            {issue.state?.name && (
+            {canEditTicketMeta ? (
+              <Popover open={priorityMenuOpen} onOpenChange={setPriorityMenuOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={changingPriority}
+                    className="focus:outline-none disabled:cursor-wait"
+                  >
+                    <Badge
+                      variant="outline"
+                      className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
+                        changingPriority ? "opacity-70" : ""
+                      } ${priorityColors[currentPriorityLabel as keyof typeof priorityColors]}`}
+                    >
+                      {changingPriority && <Loader2 className="h-3 w-3 animate-spin" />}
+                      {currentPriorityLabel}
+                    </Badge>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-44 p-1.5 bg-background border-border">
+                  <div className="flex flex-col gap-0.5">
+                    {PRIORITY_MENU_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={changingPriority}
+                        onClick={() => {
+                          setPriorityMenuOpen(false);
+                          handleChangePriority(opt.value, opt.label);
+                        }}
+                        className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
+                          opt.label === currentPriorityLabel
+                            ? priorityColors[opt.label]
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
               <Badge
-                variant="secondary"
-                className={`smalltext ${statusColors[issue.state.name as keyof typeof statusColors]}`}
+                variant="outline"
+                className={`smalltext ${priorityColors[currentPriorityLabel as keyof typeof priorityColors]}`}
               >
-                {issue.state.name}
+                {currentPriorityLabel}
               </Badge>
+            )}
+            {canEditTicketMeta ? (
+              <Popover open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={advancing}
+                    className="focus:outline-none disabled:cursor-wait"
+                  >
+                    <Badge
+                      variant="secondary"
+                      className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
+                        advancing ? "opacity-70" : ""
+                      } ${statusColors[currentStateName as keyof typeof statusColors]}`}
+                    >
+                      {advancing && <Loader2 className="h-3 w-3 animate-spin" />}
+                      {currentStateName}
+                    </Badge>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-56 p-1.5 bg-background border-border max-h-72 overflow-y-auto"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    {ALL_STATUS_OPTIONS.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        disabled={advancing}
+                        onClick={() => {
+                          setStatusMenuOpen(false);
+                          handleAdvanceState(status);
+                        }}
+                        className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
+                          status === currentStateName
+                            ? statusColors[status as keyof typeof statusColors]
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              currentStateName && (
+                <Badge
+                  variant="secondary"
+                  className={`smalltext ${statusColors[currentStateName as keyof typeof statusColors]}`}
+                >
+                  {currentStateName}
+                </Badge>
+              )
             )}
           </div>
           <DialogTitle className="text-primary">Edit Ticket</DialogTitle>
@@ -239,22 +330,6 @@ export function EditIssueModal({
               minHeight="140px"
               ariaLabel="Description"
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-issue-priority" className="smalltext">Priority</Label>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger id="edit-issue-priority" className="smalltext">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITY_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p} className="smalltext">
-                    {PRIORITY_LABELS[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="flex gap-2 pt-1">

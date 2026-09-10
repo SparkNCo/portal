@@ -88,15 +88,10 @@ export function deriveIssueKind(
 // Removes one or more issue vectors by id from a namespace — used by
 // linear-vector-sync to clean up after a ticket is deleted ("trashed") in
 // Linear, since nothing else would ever tell Upstash to stop returning it as
-// a "similar issue" match. Still best-effort (never throws — a cleanup
-// hiccup must never fail the actual write it's attached to elsewhere), but
-// returns whether it actually succeeded so linear-vector-sync specifically
-// can decide not to advance its checkpoint on failure — a call that fails
-// silently while the caller still marks that window as "done" means the
-// trashed issue's `updatedAt` ages out of the next run's `since` filter and
-// its stale vector never gets retried, ever.
-export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<boolean> {
-  if (ids.length === 0) return true;
+// a "similar issue" match. Same best-effort convention as upsertIssueVector:
+// a cleanup hiccup must never fail the sync run it's attached to.
+export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
   try {
     const { url, token } = vectorIndex();
     // Each issue is stored as two vectors (see upsertIssueVector's own
@@ -110,10 +105,8 @@ export async function deleteIssueVectors(namespace: string, ids: string[]): Prom
       { ids: allIds },
       "DELETE",
     );
-    return true;
   } catch (err) {
     console.error("[deleteIssueVectors] failed (non-fatal):", err);
-    return false;
   }
 }
 
@@ -131,18 +124,30 @@ export async function upsertIssueVector(
 ): Promise<boolean> {
   try {
     const { url, token } = vectorIndex();
-    const data = [issue.title, issue.description].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
-      id: issue.id,
-      data: combinedData,
-      metadata: { type: "issue", ...baseMetadata },
-    });
-    await upstashRequest(url, token, `/upsert-data/${ns}`, {
-      id: `${issue.id}::title`,
-      data: issue.title,
-      metadata: { type: "issue-title", ...baseMetadata },
-    });
-    return true;
+    const ns = normalizeNamespace(namespace);
+    const combinedData = [issue.title, issue.description].filter(Boolean).join("\n\n");
+    const baseMetadata = {
+      ticket_id: issue.id,
+      title: issue.title,
+      ...(issue.kind ? { kind: issue.kind } : {}),
+    };
+
+    // Two vectors per issue: the existing title+description one (for queries
+    // with real descriptive detail) and a title-only one, id-suffixed
+    // "::title" to avoid colliding with the combined vector's own id — see
+    // queryTopIssueMatches for why a second vector exists at all.
+    await Promise.all([
+      upstashRequest(url, token, `/upsert-data/${ns}`, {
+        id: issue.id,
+        data: combinedData,
+        metadata: { type: "issue", ...baseMetadata },
+      }),
+      upstashRequest(url, token, `/upsert-data/${ns}`, {
+        id: `${issue.id}::title`,
+        data: issue.title,
+        metadata: { type: "issue-title", ...baseMetadata },
+      }),
+    ]);
   } catch (err) {
     console.error("[upsertIssueVector] failed (non-fatal):", err);
     return false;
@@ -190,7 +195,8 @@ export async function queryTopIssueMatches(
 ): Promise<VectorMatch[]> {
   try {
     const { url, token } = vectorIndex();
-    const filter = kind ? `type = 'issue' AND kind = '${kind}'` : "type = 'issue'";
+    const type = queryText.trim().length < TITLE_ONLY_QUERY_MAX_LENGTH ? "issue-title" : "issue";
+    const filter = kind ? `type = '${type}' AND kind = '${kind}'` : `type = '${type}'`;
     const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
       data: queryText,
       topK,
