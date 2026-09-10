@@ -122,7 +122,7 @@ function TabButton({
   activeTab,
   onClick,
   badge,
-  // Turns the badge itself orange — e.g. Decisions' unanswered-question
+  // Small orange "X" after the badge — e.g. Decisions' unanswered-question
   // count — a lightweight "something here needs attention" flag without
   // needing its own separate warning banner elsewhere in the modal.
   warning,
@@ -155,6 +155,7 @@ function TabButton({
           {badge}
         </span>
       )}
+      {warning && <X className="h-3.5 w-3.5 text-warning" aria-label="Unanswered question" />}
     </button>
   );
 }
@@ -1864,8 +1865,11 @@ export function IssueDetailModal({
             {/* Guided stage transitions — visible on every tab (not just
                 Description) and to every role, since anyone reviewing the
                 ticket may need to act on it. Hidden entirely outside
-                Business Review/UAT, per the two states this covers. */}
-            {currentStateName === "Business Review" && reviewComplete && (
+                Business Review/UAT, per the two states this covers. The
+                button stays available even with open questions — the
+                unanswered-question warning lives on the Decisions tab
+                itself now (see the orange X next to its label below). */}
+            {currentStateName === "Business Review" && (
               <div className="pt-3">
                 <Button
                   size="sm"
