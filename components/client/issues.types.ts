@@ -162,6 +162,40 @@ export type Issue = {
   _project?: string;
 };
 
+// ── Priority / status quick-change menus ────────────────────────────────────
+// Shared by issue-detail-modal.tsx and build/edit-issue-modal.tsx's own
+// header priority/status "plates" (click a badge, pick a value, saves
+// immediately) — one definition so the two editors can't drift apart.
+
+export const PRIORITY_MENU_OPTIONS: { value: string; label: Issue["priorityLabel"] }[] = [
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: "none", label: "No priority" },
+];
+
+// Every real Linear workflow state name this app knows about (see
+// `Issue["state"]["name"]` above), minus "needs-input" and "waiting" —
+// those two are synthetic client-side buckets, not settable Linear states,
+// so offering them here would just fail the PATCH.
+export const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
+  "Backlog",
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Todo",
+  "In Progress",
+  "In Review",
+  "Blocked",
+  "Not Started",
+  "Canceled",
+  "Done",
+  "Completed",
+];
+
 export type FilterState = {
   selectedStatuses: string[];
   onlyActive: boolean;

@@ -32,9 +32,13 @@ async function upstashRequest(
   token: string,
   path: string,
   body: unknown,
+  // Every existing call is a POST — deleteIssueVectors below is the first
+  // caller to need DELETE (Upstash's own delete-vectors endpoint), so this
+  // stays optional and every other call site is unaffected.
+  method: string = "POST",
 ): Promise<any> {
   const res = await fetch(`${baseUrl}${path}`, {
-    method: "POST",
+    method,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -81,6 +85,31 @@ export function deriveIssueKind(
   return null;
 }
 
+// Removes one or more issue vectors by id from a namespace — used by
+// linear-vector-sync to clean up after a ticket is deleted ("trashed") in
+// Linear, since nothing else would ever tell Upstash to stop returning it as
+// a "similar issue" match. Same best-effort convention as upsertIssueVector:
+// a cleanup hiccup must never fail the sync run it's attached to.
+export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const { url, token } = vectorIndex();
+    // Each issue is stored as two vectors (see upsertIssueVector's own
+    // ":title" comment) — both need removing, or the title-only one keeps
+    // surfacing a trashed ticket on short similar-issues queries.
+    const allIds = ids.flatMap((id) => [id, `${id}::title`]);
+    await upstashRequest(
+      url,
+      token,
+      `/delete/${normalizeNamespace(namespace)}`,
+      { ids: allIds },
+      "DELETE",
+    );
+  } catch (err) {
+    console.error("[deleteIssueVectors] failed (non-fatal):", err);
+  }
+}
+
 export async function upsertIssueVector(
   namespace: string,
   issue: {
@@ -95,17 +124,30 @@ export async function upsertIssueVector(
 ): Promise<void> {
   try {
     const { url, token } = vectorIndex();
-    const data = [issue.title, issue.description].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
-      id: issue.id,
-      data,
-      metadata: {
-        type: "issue",
-        ticket_id: issue.id,
-        title: issue.title,
-        ...(issue.kind ? { kind: issue.kind } : {}),
-      },
-    });
+    const ns = normalizeNamespace(namespace);
+    const combinedData = [issue.title, issue.description].filter(Boolean).join("\n\n");
+    const baseMetadata = {
+      ticket_id: issue.id,
+      title: issue.title,
+      ...(issue.kind ? { kind: issue.kind } : {}),
+    };
+
+    // Two vectors per issue: the existing title+description one (for queries
+    // with real descriptive detail) and a title-only one, id-suffixed
+    // "::title" to avoid colliding with the combined vector's own id — see
+    // queryTopIssueMatches for why a second vector exists at all.
+    await Promise.all([
+      upstashRequest(url, token, `/upsert-data/${ns}`, {
+        id: issue.id,
+        data: combinedData,
+        metadata: { type: "issue", ...baseMetadata },
+      }),
+      upstashRequest(url, token, `/upsert-data/${ns}`, {
+        id: `${issue.id}::title`,
+        data: issue.title,
+        metadata: { type: "issue-title", ...baseMetadata },
+      }),
+    ]);
   } catch (err) {
     console.error("[upsertIssueVector] failed (non-fatal):", err);
   }
@@ -131,6 +173,16 @@ export async function upsertTestVector(
   }
 }
 
+// Below this length, a query reads as a short/generic term (e.g. "roadmap")
+// rather than an actual description — its embedding sits much closer to
+// another short title than to a long title+description document's averaged-
+// out embedding, so matching it against the combined vector was starving
+// short queries of real hits (a ticket whose *description* talks about
+// "roadmap" at length wouldn't clear the similarity threshold). At or above
+// this length the query is assumed to carry real descriptive detail, so it's
+// matched against the fuller combined vector instead, same as before.
+const TITLE_ONLY_QUERY_MAX_LENGTH = 15;
+
 export async function queryTopIssueMatches(
   namespace: string,
   queryText: string,
@@ -142,14 +194,21 @@ export async function queryTopIssueMatches(
 ): Promise<VectorMatch[]> {
   try {
     const { url, token } = vectorIndex();
-    const filter = kind ? `type = 'issue' AND kind = '${kind}'` : "type = 'issue'";
+    const type = queryText.trim().length < TITLE_ONLY_QUERY_MAX_LENGTH ? "issue-title" : "issue";
+    const filter = kind ? `type = '${type}' AND kind = '${kind}'` : `type = '${type}'`;
     const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
       data: queryText,
       topK,
       includeMetadata: true,
       filter,
     });
-    return Array.isArray(result) ? result : [];
+    // Normalize back to the underlying issue id regardless of which vector
+    // variant matched — the title-only vector's own id carries the "::title"
+    // suffix from upsertIssueVector, which callers (e.g. GET /issues/by-id)
+    // wouldn't know how to resolve.
+    return Array.isArray(result)
+      ? result.map((m: VectorMatch) => ({ ...m, id: (m.metadata?.ticket_id as string) ?? m.id }))
+      : [];
   } catch (err) {
     console.error("[queryTopIssueMatches] failed:", err);
     return [];

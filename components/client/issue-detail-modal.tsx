@@ -56,6 +56,8 @@ import {
   type IssueDetailTab,
   priorityColors,
   statusColors,
+  PRIORITY_MENU_OPTIONS,
+  ALL_STATUS_OPTIONS,
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 import { TestPicker } from "@/components/shared/test-picker";
@@ -1503,37 +1505,6 @@ function TestsTab({
     </div>
   );
 }
-
-// ── Priority / status quick-change menus ────────────────────────────────────
-
-const PRIORITY_MENU_OPTIONS: { value: string; label: Issue["priorityLabel"] }[] = [
-  { value: "urgent", label: "Urgent" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
-  { value: "none", label: "No priority" },
-];
-
-// Every real Linear workflow state name this app knows about (see the
-// `Issue["state"]["name"]` union in issues.types.ts), minus "needs-input"
-// and "waiting" — those two are synthetic client-side buckets, not settable
-// Linear states, so offering them here would just fail the PATCH.
-const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
-  "Backlog",
-  "Planning",
-  "Business Review",
-  "Development",
-  "QA",
-  "UAT",
-  "Todo",
-  "In Progress",
-  "In Review",
-  "Blocked",
-  "Not Started",
-  "Canceled",
-  "Done",
-  "Completed",
-];
 
 // ── Modal ───────────────────────────────────────────────────────────────────
 
