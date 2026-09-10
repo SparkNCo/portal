@@ -115,17 +115,25 @@ export function groupDemosByContent(
 // demo-videos function for just those issue ids.
 export type PreviewLink = { url: string; text: string };
 
-// Admin-managed links (e.g. "Test Environment" → a customer's staging URL),
-// shown at the top of every Demo tab for that customer — set from
-// app/admin/users/EditClientModal.tsx, stored on `customers.preview_links`.
-export async function fetchPreviewLinks(slug: string): Promise<PreviewLink[]> {
+// Admin/developer-managed links (e.g. "Test Environment" → a customer's
+// staging URL), shown at the top of every Demo tab for that customer — set
+// from app/admin/users/EditClientModal.tsx or inline from PreviewLinksBanner
+// itself, stored on `customers.preview_links`. `customerId` rides along so
+// an admin/developer viewer can save straight back via
+// `PATCH /users?type=customer` without a second lookup just to find it.
+export async function fetchPreviewLinks(
+  slug: string,
+): Promise<{ customerId: string | null; links: PreviewLink[] }> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customer-preview-links&slug=${encodeURIComponent(slug)}`,
     { headers: API_HEADERS },
   );
-  if (!res.ok) return [];
+  if (!res.ok) return { customerId: null, links: [] };
   const data = await res.json().catch(() => null);
-  return Array.isArray(data?.preview_links) ? data.preview_links : [];
+  return {
+    customerId: data?.customer_id ?? null,
+    links: Array.isArray(data?.preview_links) ? data.preview_links : [],
+  };
 }
 
 // Attaches a demo already uploaded elsewhere in the project to another
