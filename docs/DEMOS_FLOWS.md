@@ -64,7 +64,7 @@ On success, the `["project-demos", slug]` query is invalidated so both the uploa
 
 ## Preview Links banner
 
-Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-banner.tsx`) shows the selected project's admin-set Preview Links — the same banner that appears at the top of every one of that project's tickets' Demo tab (see `app/docs/FEATURES_FLOWS.md` §7 and `app/docs/ADMIN_FLOWS.md` → Customer Profile). Set by an admin from Admin → Users → that customer's **Profile**; renders nothing when there are none.
+Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-banner.tsx`) shows the selected project's Preview Links ("Test Environments") — the same banner that appears at the top of every one of that project's tickets' Demo tab (see `app/docs/FEATURES_FLOWS.md` §7 and `app/docs/ADMIN_FLOWS.md` → Customer Profile). Each link renders as `{text}: {url}`, both parts clickable. Still settable from Admin → Users → that customer's **Profile**, but admins and developers can also add/edit/remove links inline from this banner itself (a small "Edit"/"Add" affordance next to the list) — saves through the same `PATCH /users?type=customer` endpoint. Customers/stakeholders only ever see the read-only list; the banner renders nothing for them when there are none.
 
 ---
 
