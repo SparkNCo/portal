@@ -363,6 +363,48 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 
 ---
 
+## 8. Similar Issues — Duplicate Detection
+
+Shown as a non-blocking "Similar existing tickets" hint under the title field while filling out **Request a Feature** (`components/build/feature-request-panel.tsx`) or **Report a Bug** (`components/bugs/bug-report-panel.tsx`) — both render `TitleContinueRow` (`components/shared/issue-form-fields.tsx`), which renders `SimilarIssuesHint` (`components/shared/similar-issues-hint.tsx`) below the Title input whenever a `slug` is available.
+
+### Frontend behavior
+
+1. Nothing happens until the typed title reaches `MIN_QUERY_LENGTH` (7 characters) — too little text isn't meaningful to embed.
+2. After a **3 second debounce** (`DEBOUNCE_MS`) with no further typing, `GET /issues/similar?slug={slug}&q={title}&kind={bug|feature}` fires.
+3. Results are filtered client-side to `score >= 0.7` (`SIMILARITY_THRESHOLD`) — calibrated against the live index back when every issue had a single title+description vector, where an exact-duplicate title scored ~0.858 (diluted by the description) and close paraphrases landed ~0.74-0.76. Scores run higher for the title-only vector path (see below) since there's no long description to dilute the comparison, so 0.7 still clears real matches there without needing a separate threshold. A project with few tickets of that `kind` will still return Upstash's "closest available" top-3 even when none are truly similar — the threshold is what suppresses that noise, not the query itself.
+4. Up to 3 matches render as `IssueCard`s (fetching each match's full issue via `GET /issues/by-id` for ticket code/labels). Clicking one opens `EditIssueModal` instead of continuing to create a new ticket.
+5. `kind` scopes matches to the same panel — a Bug Report never surfaces a Feature Request as "similar" or vice versa.
+
+### Backend — `supabase/functions/issues/similar` (routed inside `issues/index.ts`)
+
+`handleGetSimilarIssues` (`supabase/functions/issues/updateIsste.ts`) calls `queryTopIssueMatches(slug, q, 3, kind)` (`supabase/functions/lib/vector.ts`), which queries Upstash Vector with `filter: "type = '<issue|issue-title>' AND kind = '<kind>'"` in the namespace `slug` resolves to.
+
+### Two vectors per issue — short vs. long queries
+
+A single combined title+description vector meant short, generic queries (e.g. "roadmap") almost never matched, even against tickets whose *description* discussed that topic at length — a short query's embedding sits far closer to another short title than to a long document's averaged-out embedding, so the comparison was effectively diluted to noise. `upsertIssueVector` now writes **two** vectors per issue into the same namespace:
+
+- `id = <issueId>`, `metadata.type = "issue"` — the original title+description vector.
+- `id = <issueId>::title`, `metadata.type = "issue-title"` — a title-only vector, both tagged with `metadata.ticket_id = <issueId>` so callers can resolve either back to the real issue.
+
+`queryTopIssueMatches` picks which one to search based on the query's length: **under 15 characters** ("roadmap") queries the `issue-title` vectors, so it's compared against other titles instead of being drowned out by long descriptions; **15 characters or more** queries the combined `issue` vectors as before, since a longer query is assumed to carry actual descriptive detail worth matching against. Either way, the function normalizes each result's `id` back to `metadata.ticket_id` before returning, so the "::title" suffix never leaks past `lib/vector.ts` — `GET /issues/by-id` and everything downstream is unaffected.
+
+### Keeping the index in sync
+
+Vectors are written to the same Upstash index (one issue = two vectors — see above — id = the Linear issue id, or that id + `::title`) from three places:
+
+- **On create** — `handleCreateIssue` (`supabase/functions/issues/createIssue.ts`) calls `upsertIssueVector` right after a successful `issueCreate`, so a brand-new ticket is searchable immediately.
+- **On edit** — `handleUpdateIssue` (`supabase/functions/issues/updateIsste.ts`) re-upserts on save, so a title/description change is reflected without waiting for the hourly sync below.
+- **`linear-vector-sync` (hourly cron)** — catches edits made *directly in Linear* (bypassing this app entirely), which the two paths above can never see. Per customer, it tracks a `last_synced_at` checkpoint in `portal.vector_sync_state` and:
+  1. Fetches issues **updated** since that checkpoint and upserts them (`upsertIssueVector`).
+  2. Fetches issues **trashed** (deleted) since that checkpoint — Linear soft-deletes, so a deleted ticket still exists and is queryable via `includeArchived: true` + `filter: { trashed: { eq: true } }`, it just silently drops out of normal (non-archived) query results. Without this step, a deleted ticket's vectors would never be cleaned up and could keep surfacing as a "similar" match forever. Deletion uses `deleteIssueVectors(namespace, ids)`, which expands each id to both its variants (`id` and `id::title`) and calls Upstash's `DELETE /delete/{namespace}` with `{ ids }`.
+  3. Advances the checkpoint to when the run started (not when it finished), so an issue edited mid-run is simply picked up again next hour rather than risking a gap.
+
+  Worst-case staleness for a deletion is ~1 hour (the cron interval) — accepted as a low-stakes tradeoff for this feature rather than adding a Linear webhook for near-instant cleanup.
+
+- **Namespace casing**: a customer's `clientName` is stored inconsistently cased across the app (raw vs. slugified at onboarding — see `components/chat/CometChat/useCometChat.ts`'s own note on the same issue). Every namespace passed into `lib/vector.ts` (upsert, query, *and* delete) is lowercased centrally there, so an upsert and a later query/delete for the same customer can never land in two different, disconnected Upstash namespaces just because the caller's casing didn't match.
+
+---
+
 ## File Map
 
 | File | Responsibility |
@@ -401,3 +443,8 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 | `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD |
 | `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `getDemoSourceFields`/`isStoragePathInUseElsewhere` (existing-demo attach + shared-storage safety), `SCHEMA`/`BUCKET` constants |
 | `app/dev/demos/page.tsx` | Demos sidebar page — see `app/docs/DEMOS_FLOWS.md` |
+| `components/shared/similar-issues-hint.tsx` | `SimilarIssuesHint` — debounced semantic search under the Title field on Request a Feature / Report a Bug |
+| `components/build/feature-request-panel.tsx` / `components/bugs/bug-report-panel.tsx` | Render `TitleContinueRow`, which renders `SimilarIssuesHint` |
+| `supabase/functions/lib/vector.ts` | `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`queryTopTestMatches` (tests) — shared Upstash Vector client, namespace lowercasing, best-effort error handling |
+| `supabase/functions/linear-vector-sync/index.ts` | Hourly cron — upserts issues updated directly in Linear since each customer's checkpoint, and deletes vectors for issues trashed since that same checkpoint |
+| `supabase/migrations/20260812130000_create_vector_sync_state.sql` | `portal.vector_sync_state` — one row per customer, tracks `last_synced_at` for the cron above |
