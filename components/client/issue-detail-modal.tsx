@@ -122,6 +122,10 @@ function TabButton({
   activeTab,
   onClick,
   badge,
+  // Small orange "X" after the badge — e.g. Decisions' unanswered-question
+  // count — a lightweight "something here needs attention" flag without
+  // needing its own separate warning banner elsewhere in the modal.
+  warning,
   className,
 }: {
   label: string;
@@ -129,6 +133,7 @@ function TabButton({
   activeTab: string;
   onClick: () => void;
   badge?: number;
+  warning?: boolean;
   className?: string;
 }) {
   return (
@@ -146,6 +151,7 @@ function TabButton({
           {badge}
         </span>
       )}
+      {warning && <X className="h-3.5 w-3.5 text-warning" aria-label="Unanswered question" />}
     </button>
   );
 }
@@ -1558,10 +1564,13 @@ export function IssueDetailModal({
     initialTab ?? "description",
   );
 
-  // "Business Review" is complete once every question raised has an answer
-  // (or none were raised at all) — that's what unlocks "Complete Review".
-  const reviewComplete =
-    !loadingDecisions && decisions.every((d) => d.decision != null);
+  // "Complete Review" stays available even with open questions (blocking it
+  // entirely was confusing — adding a question made the button vanish with
+  // no explanation). The count instead flags the Decisions tab itself with
+  // an orange X (see the "warning" prop on its TabButton below).
+  const unansweredDecisionsCount = loadingDecisions
+    ? 0
+    : decisions.filter((d) => d.decision == null).length;
 
   // Bug tickets don't go through design — the Design tab isn't relevant for them.
   const isBugIssue =
@@ -1858,8 +1867,11 @@ export function IssueDetailModal({
             {/* Guided stage transitions — visible on every tab (not just
                 Description) and to every role, since anyone reviewing the
                 ticket may need to act on it. Hidden entirely outside
-                Business Review/UAT, per the two states this covers. */}
-            {currentStateName === "Business Review" && reviewComplete && (
+                Business Review/UAT, per the two states this covers. The
+                button stays available even with open questions — the
+                unanswered-question warning lives on the Decisions tab
+                itself now (see the orange X next to its label below). */}
+            {currentStateName === "Business Review" && (
               <div className="pt-3">
                 <Button
                   size="sm"
@@ -1931,6 +1943,7 @@ export function IssueDetailModal({
             activeTab={activeTab}
             onClick={() => setActiveTab("decisions")}
             badge={decisions.length}
+            warning={unansweredDecisionsCount > 0}
           />
           {!isBugIssue && (
             <TabButton

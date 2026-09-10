@@ -12,8 +12,9 @@ import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
-import CreateChatModal from "./CreateChatModal";
+import CreateChatModal, { type ChatIssueOption } from "./CreateChatModal";
 import { useCometChat } from "./useCometChat";
+import { getOrCreateIssueGroup } from "./getOrCreateIssueGroup";
 
 type Group = ReturnType<typeof useCometChat>["groups"][number];
 
@@ -155,10 +156,28 @@ export default function ChatLayout({
   // the customer's (see dashboards/[customer]/[panel]/page.tsx).
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
-  const handleCreate = async (title: string, initiativeId?: string) => {
+  const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title, initiativeId ?? customerId, projectSlug);
+      // A chat tied to a ticket must be the *same* chat that ticket's own
+      // Chat tab uses (IssueCometChat.tsx → getOrCreateIssueGroup) — that
+      // tab looks up one specific, deterministic group id derived from the
+      // issue id, not "any group whose metadata happens to mention this
+      // issue." Creating a separate ad-hoc group here (even if tagged with
+      // issueId in its metadata) would just be invisible from the ticket
+      // itself. The initiative picked in the modal resolves this issue's
+      // customer/slug the same way projectSlug otherwise would.
+      const issueSlug = initiativeId
+        ? initiativeOptions.find((o) => o.id === initiativeId)?.label
+        : undefined;
+      const created = issue
+        ? await getOrCreateIssueGroup(issue.id, issue.title, profile, issueSlug ?? projectSlug).catch(
+            (err) => {
+              console.error("Create issue chat error:", err);
+              return null;
+            },
+          )
+        : await createSupportGroup(title, initiativeId ?? customerId, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
@@ -259,8 +278,10 @@ export default function ChatLayout({
           initialTitle={initialTitle}
           onCreate={handleCreate}
           onClose={() => setShowCreateModal(false)}
-          requireInitiative={isAdmin || isDeveloper}
+          requireInitiative={isAdmin || isDeveloper || isCustomer}
           initiativeOptions={initiativeOptions}
+          lockedInitiativeId={isDeveloper ? (selectedProjectCustomerId ?? undefined) : undefined}
+          fixedSlug={isCustomer ? projectSlug : undefined}
         />
       )}
     </div>

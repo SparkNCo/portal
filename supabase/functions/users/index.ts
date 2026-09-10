@@ -87,14 +87,21 @@ const handleGet = async (url: URL, schema: string) => {
     const slug = url.searchParams.get("slug");
     if (!slug) return jsonResponse({ error: "slug is required" }, 400);
 
+    // customer_id rides along so an admin/developer viewer can save straight
+    // back to PATCH /users?type=customer from wherever this banner renders
+    // (Demo tab, Demos dashboard) without a second round-trip just to look
+    // it up — see PreviewLinksBanner's inline editor.
     const { data, error } = await supabase.schema(schema)
       .from("customers")
-      .select("preview_links")
+      .select("customer_id, preview_links")
       .ilike("clientName", escapeIlike(slug))
       .maybeSingle();
     if (error) throw new Error(error.message);
 
-    return jsonResponse({ preview_links: data?.preview_links ?? [] });
+    return jsonResponse({
+      customer_id: data?.customer_id ?? null,
+      preview_links: data?.preview_links ?? [],
+    });
   }
 
   if (type === "developer-profile") {

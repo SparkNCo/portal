@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileQuestion, FileCheck2, Lock, Loader2 } from "lucide-react";
+import { Upload, FileQuestion, FileCheck2, Lock, Loader2, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -158,8 +158,20 @@ function RequestRow({
     },
   });
 
+  // Frees up a claim — either automatically when the claimer backs out of
+  // their own upload (see handleCancelFulfill below), or explicitly via the
+  // admin-only "Unassign" button on a request claimed by someone else, for
+  // when a developer claims a request and then goes quiet on it.
+  const releaseMutation = useMutation({
+    mutationFn: () =>
+      patchDocumentRequest({ action: "release", id: request.id, releasedBy: profile?.email }),
+    onSuccess: invalidate,
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const claimedByMe = request.claimed_by === profile?.email;
   const claimedBySomeoneElse = !!request.claimed_by && !claimedByMe;
+  const isAdmin = profile?.role === "admin";
 
   function handleFulfillClick() {
     if (claimedByMe) {
@@ -171,6 +183,7 @@ function RequestRow({
 
   function handleCancelFulfill() {
     setShowFulfill(false);
+    if (claimedByMe) releaseMutation.mutate();
   }
 
   return (
@@ -213,7 +226,7 @@ function RequestRow({
             variant="outline"
             disabled={claimMutation.isPending}
             onClick={handleFulfillClick}
-            className="flex-shrink-0"
+            className="flex-shrink-0 smalltext"
           >
             {claimMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -221,6 +234,28 @@ function RequestRow({
               <>
                 <Upload className="h-3.5 w-3.5 mr-1.5" />
                 Upload & Share
+              </>
+            )}
+          </Button>
+        )}
+
+        {/* Admin-only escape hatch for a request stuck claimed by someone
+            who never followed through — everyone else releases their own
+            claim automatically by cancelling the upload modal instead. */}
+        {isAdmin && request.status === "pending" && claimedBySomeoneElse && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={releaseMutation.isPending}
+            onClick={() => releaseMutation.mutate()}
+            className="flex-shrink-0 smalltext text-muted-foreground"
+          >
+            {releaseMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <>
+                <UserMinus className="h-3.5 w-3.5 mr-1.5" />
+                Unassign
               </>
             )}
           </Button>
