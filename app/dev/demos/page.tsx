@@ -354,11 +354,10 @@ export default function DevDemosPage() {
           </div>
         ) : (
           <>
-            <PreviewLinksBanner slug={slug} />
-
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <PreviewLinksBanner slug={slug} />
               {!showUpload && (
-                <Button size="sm" className="gap-1.5 smalltext" onClick={() => setShowUpload(true)}>
+                <Button size="sm" className="gap-1.5 smalltext shrink-0" onClick={() => setShowUpload(true)}>
                   <Plus className="h-3.5 w-3.5" />
                   Upload Demo
                 </Button>

@@ -230,7 +230,8 @@ On success both `users` and `customers` queries are invalidated and the modal cl
 
 An array of `{ url, text }` pairs stored on `portal.customers.preview_links` (jsonb) — e.g. a link to the customer's test environment. Shown at the top of **every one of that customer's issues' Demo tab** (`components/client/preview-links-banner.tsx` → `PreviewLinksBanner`, fetched via `GET /users?type=customer-preview-links&slug={clientName}`), for **every role** (customer, stakeholder, developer, admin) — not just here. Also shown at the top of the developer-only Demos sidebar page (`app/dev/demos/page.tsx`; see `app/docs/DEMOS_FLOWS.md`).
 
-- **Admin-only to set** — `updateCustomer.ts` rejects a `preview_links` write from anyone whose resolved caller role isn't `admin`, even though a customer is otherwise allowed to touch their own record (clientName) through this same endpoint.
+- **Admin/developer-only to set** — `updateCustomer.ts` rejects a `preview_links` write from anyone whose resolved caller role isn't `admin` or `developer`, even though a customer is otherwise allowed to touch their own record (clientName) through this same endpoint. A developer's write is additionally scoped to a preview-links-only body (no `clientName`/`linear_slug`/`stripe_customer_id` alongside it) — developers have no `customerId` of their own to check ownership against, so widening the bypass to the whole endpoint would let one edit an unrelated customer's identity fields too.
+- **Inline editor** — `PreviewLinksBanner` itself now renders a small "Edit"/"Add" affordance for admin/developer viewers (Demo tab, Demos dashboard), not just `EditClientModal` — same validation, same `PATCH /users?type=customer` call, just saved from wherever they're already looking at the customer's tickets instead of navigating to Admin → Users.
 - **Validated server-side**: each entry needs both a non-empty `text` and a `url` that parses as an actual `http(s)` URL; a row left completely blank in the UI is silently dropped rather than blocking the save, but a half-filled one (only `text` or only `url`) is rejected with a clear error.
 - Rendered as `{text}: {url}`, clickable, opening in a new tab.
 
@@ -301,7 +302,7 @@ Recommended order when bringing a new customer into the system:
 | Create assignment | POST | `/assignments` |
 | Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
 | Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
-| Update a customer's clientName/linear_slug/preview_links (admin session required for preview_links) | PATCH | `/users?type=customer` |
+| Update a customer's clientName/linear_slug/preview_links (admin session required for clientName/linear_slug/stripe; admin or developer for a preview_links-only save) | PATCH | `/users?type=customer` |
 | Get a customer's Preview Links by slug (any role) | GET | `/users?type=customer-preview-links&slug={clientName}` |
 | Update any user's name/username/phone/email (admin session required if changing email) | PATCH | `/users` |
 | Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |

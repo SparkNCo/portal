@@ -69,9 +69,10 @@ function resolvePreviewLinks(previewLinks: unknown): { url: string; text: string
 // Updates fields on the `customers` record itself (as opposed to `updateUser`,
 // which only touches the `users` table) — Stripe Customer ID (Settings/Billing),
 // clientName (set-password, so a customer's display name can be fixed up the
-// first time they log in), and Preview Links (admin-managed, Demo tab). Only
-// touches fields actually present in the body, so e.g. a clientName-only call
-// never wipes out an existing Stripe ID.
+// first time they log in), and Preview Links (admin/developer-managed, shown
+// on the Demo tab and Demos dashboard). Only touches fields actually present
+// in the body, so e.g. a clientName-only call never wipes out an existing
+// Stripe ID.
 //
 // `caller` is the requester's own identity, resolved server-side from their
 // bearer token by index.ts — never trust body.customer_id for authorization.
@@ -115,11 +116,11 @@ export const updateCustomer = async (
     throw new Error("Not authorized to update this customer");
   }
 
-  // Preview Links are an admin-only setting — a customer editing their own
+  // Preview Links are admin/developer-managed — a customer editing their own
   // record (clientName, Stripe id) shouldn't also be able to set the links
   // shown on their own Demo tabs.
-  if (preview_links !== undefined && caller.role !== "admin") {
-    throw new Error("Only an admin can set preview links");
+  if (preview_links !== undefined && !canManagePreviewLinks) {
+    throw new Error("Only an admin or developer can set preview links");
   }
 
   const updateFields: Record<string, unknown> = {};
