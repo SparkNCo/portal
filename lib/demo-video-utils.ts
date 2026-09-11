@@ -27,7 +27,18 @@ export type Demo = {
   created_at: string;
   updated_at?: string;
   uploader?: DemoUser | null;
+  // User-entered when the demo was first created; propagated onto every row
+  // that later shares its content (see createDemoVideo.ts) so every ticket
+  // it's attached to, and the Demos dashboard, show the same name for it.
+  title: string;
+  // Human-friendly sequential id, shown as "demo-<n>" — auto-assigned by the
+  // backend (DB column default), never entered by hand.
+  demo_number: number;
 };
+
+export function demoLabel(demo: Pick<Demo, "demo_number">): string {
+  return `demo-${demo.demo_number}`;
+}
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
 

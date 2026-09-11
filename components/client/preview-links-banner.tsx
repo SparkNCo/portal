@@ -241,12 +241,11 @@ export function PreviewLinksBanner({ slug }: { readonly slug?: string }) {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
+              title={link.url}
               className="flex min-w-0 items-center gap-1.5 smalltext font-medium text-primary rounded-md border border-border/60 bg-muted/20 px-2.5 py-1.5 hover:text-primary/80 hover:border-primary/40 transition-colors"
             >
               <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {link.text}: {link.url}
-              </span>
+              <span className="truncate">{link.text}</span>
             </a>
           ))}
         </div>

@@ -126,7 +126,7 @@ export const getDemoSourceFields = async (supabase: any, demoId: string) => {
   const { data, error } = await supabase
     .schema(SCHEMA)
     .from("demo_videos")
-    .select("source_type, file_name, storage_path, embed_url, embed_provider")
+    .select("source_type, file_name, storage_path, embed_url, embed_provider, title, demo_number")
     .eq("id", demoId)
     .maybeSingle();
 
@@ -139,6 +139,12 @@ export const getDemoSourceFields = async (supabase: any, demoId: string) => {
     storage_path: string | null;
     embed_url: string | null;
     embed_provider: string | null;
+    // Carried along so "attach existing" (see createDemoVideoFromExisting/
+    // updateDemoVideoWithExisting) makes the new/repointed row adopt the
+    // same identity as the demo it's now sharing content with, instead of
+    // getting its own fresh demo_number and no title.
+    title: string;
+    demo_number: number;
   };
 };
 

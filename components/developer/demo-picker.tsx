@@ -17,6 +17,7 @@ import { cn, getIssueCode } from "@/lib/utils";
 import {
   type Demo,
   type DemoGroup,
+  demoLabel,
   fetchProjectDemos,
   groupDemosByContent,
 } from "@/lib/demo-video-utils";
@@ -68,7 +69,7 @@ export function DemoPicker({
       </PopoverTrigger>
       <PopoverContent className="w-[28rem] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search by title or ticket code…" />
+          <CommandInput placeholder="Search by demo id or title…" />
           <CommandList>
             {isLoading && (
               <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
@@ -83,15 +84,8 @@ export function DemoPicker({
             )}
             <CommandGroup>
               {groups.map((group) => {
-                const issueSearchTerms = group.issues
-                  .map((i) => i.code + " " + i.title)
-                  .join(" ");
-                const searchValue =
-                  (group.representative.file_name ??
-                    group.representative.embed_url ??
-                    group.key) +
-                  " " +
-                  issueSearchTerms;
+                const label = demoLabel(group.representative);
+                const searchValue = `${label} ${group.representative.title}`;
 
                 return (
                 <CommandItem
@@ -109,17 +103,8 @@ export function DemoPicker({
                     <LinkIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate">
-                      {group.representative.source_type === "upload"
-                        ? group.representative.file_name
-                        : (group.representative.embed_provider ?? "Embedded link")}
-                    </p>
-                    <p className="text-popover-foreground/70">
-                      Demo from{" "}
-                      {group.issues
-                        .map((i) => (i.code ? `${i.code} — ${i.title}` : i.title))
-                        .join(", ")}
-                    </p>
+                    <p className="truncate">{group.representative.title}</p>
+                    <p className="text-popover-foreground/70 font-mono">{label}</p>
                   </div>
                 </CommandItem>
                 );

@@ -39,6 +39,7 @@ export const createDemoVideoFromUpload = async (
   issueId: string,
   email: string,
   file: File,
+  title: string,
 ) => {
   validateMediaFile(file);
 
@@ -68,6 +69,10 @@ export const createDemoVideoFromUpload = async (
       file_name: file.name,
       storage_path: storagePath,
       uploaded_by: uploadedBy,
+      title,
+      // demo_number omitted deliberately — the column default
+      // (nextval on portal.demo_videos_demo_number_seq) assigns it, since
+      // this is a genuinely new demo, not one sharing an existing identity.
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
     .single();
@@ -118,6 +123,10 @@ export const createDemoVideoFromExisting = async (
       embed_url: source.embed_url,
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
+      // Adopts the source demo's own identity rather than getting a fresh
+      // one — this row is the *same* demo, just attached to another ticket.
+      title: source.title,
+      demo_number: source.demo_number,
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
     .single();
@@ -147,6 +156,7 @@ export const createDemoVideoFromEmbed = async (
   issueId: string,
   email: string,
   embedUrl: string,
+  title: string,
 ) => {
   validateEmbedUrl(embedUrl);
 
@@ -163,6 +173,8 @@ export const createDemoVideoFromEmbed = async (
       embed_url: embedUrl,
       embed_provider: detectEmbedProvider(embedUrl),
       uploaded_by: uploadedBy,
+      title,
+      // demo_number omitted — see createDemoVideoFromUpload's own note.
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
     .single();
