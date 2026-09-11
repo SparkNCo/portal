@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { CalendarRange, History, Pencil, X } from "lucide-react";
+import { Calendar, CalendarRange, History, Pencil, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -41,8 +42,11 @@ import { LogHoursModal } from "@/components/developer/log-hours-modal";
 type Project = { clientName: string; slug: string; allocation?: number | null };
 
 const ALL_PROJECTS = "__all__";
-const ALL_WEEKS = "__all_weeks__";
 const DAYS_SHOWN = 30;
+// Upper bound on a custom date range (below) — without this, picking two
+// dates years apart would zero-fill a day-point for every single day in
+// between, which is both a needless amount of work and an unreadable chart.
+const MAX_RANGE_DAYS = 366;
 const LINE_COLOR = "oklch(0.75 0.16 55)";
 
 // One line per project when "All Projects" is selected — cycled by index so
@@ -93,12 +97,25 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function weekRangeLabel(monday: string) {
-  const start = new Date(`${monday}T00:00:00`);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+// Inclusive day count between two ISO dates — e.g. the same day both ways
+// counts as 1 day, not 0.
+function daysBetweenInclusive(fromIso: string, toIso: string): number {
+  const from = new Date(`${fromIso}T00:00:00`).getTime();
+  const to = new Date(`${toIso}T00:00:00`).getTime();
+  return Math.round((to - from) / (24 * 60 * 60 * 1000)) + 1;
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Default range shown on open — "last 2 weeks" through today, rather than
+// starting with no range picked (which used to fall back to a plain
+// unfiltered 30-day view with no explicit dates shown anywhere).
+function twoWeeksAgoIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 14);
+  return d.toISOString().slice(0, 10);
 }
 
 // "A single ratio against a limit" — a meter, not a line/bar chart: the fill
@@ -147,10 +164,10 @@ type DayPoint = {
   projectHours: Record<string, number>;
 };
 
-// Shared by both dailyData and focusedWeekDays below — was duplicated
-// inline in each, which had already drifted slightly (only one of the two
-// tracked ticketCodes correctly). One definition means both view modes
-// build a DayPoint the exact same way, all-projects breakdown included.
+// Shared by both dailyData and rangeDays below — was duplicated inline in
+// each, which had already drifted slightly (only one of the two tracked
+// ticketCodes correctly). One definition means both view modes build a
+// DayPoint the exact same way, all-projects breakdown included.
 function buildDayPoint(
   date: string,
   list: HoursLogEntry[],
@@ -178,10 +195,15 @@ function buildDayPoint(
 // (see `onClick` on LineChart below), since a real 4px dot is much too small
 // a hit target to click reliably. A plain <circle> (rather than recharts'
 // built-in Dot) keeps this in sync with the chart's own click handling
-// instead of adding a second, redundant, imprecise click target.
+// instead of adding a second, redundant, imprecise click target. Skips
+// rendering entirely on a zero-hours day — the zero-filled days (see
+// buildDayPoint) exist so the line still dips to the floor between real
+// entries, but a dot on every single day made it look like something was
+// logged even on days with nothing at all.
 function ChartDot(props: any) {
-  const { cx, cy, fill } = props;
+  const { cx, cy, fill, value } = props;
   if (cx == null || cy == null) return null;
+  if (!value) return null;
   return (
     <circle
       cx={cx}
@@ -262,7 +284,8 @@ export function MyHoursModal({
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingEntry, setEditingEntry] = useState<HoursLogEntry | null>(null);
   const [projectFilter, setProjectFilter] = useState(ALL_PROJECTS);
-  const [weekFilter, setWeekFilter] = useState(ALL_WEEKS);
+  const [dateFrom, setDateFrom] = useState(twoWeeksAgoIso);
+  const [dateTo, setDateTo] = useState(todayIso);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const { data: entries, isLoading } = useQuery({
@@ -312,27 +335,6 @@ export function MyHoursModal({
   }, [filteredEntries, projectFilter]);
   const isMultiProject = activeProjectNames.length > 0;
 
-  // First day of each month present — marked with a labeled divider.
-  const monthBoundaries = useMemo(() => {
-    const seen = new Set<string>();
-    return dailyData.filter((d) => {
-      if (seen.has(d.monthKey)) return false;
-      seen.add(d.monthKey);
-      return true;
-    });
-  }, [dailyData]);
-
-  // First logged day of each week present — a lighter, unlabeled divider so
-  // the daily points still read as grouped into weeks.
-  const weekBoundaries = useMemo(() => {
-    const seen = new Set<string>();
-    return dailyData.filter((d) => {
-      if (seen.has(d.weekStart)) return false;
-      seen.add(d.weekStart);
-      return true;
-    });
-  }, [dailyData]);
-
   const weeklyAllocation = useMemo(() => {
     if (projectFilter === ALL_PROJECTS) {
       return projects.reduce((sum, p) => sum + (p.allocation ?? 0), 0);
@@ -340,44 +342,62 @@ export function MyHoursModal({
     return projects.find((p) => p.clientName === projectFilter)?.allocation ?? 0;
   }, [projects, projectFilter]);
 
-  // Every week that has at least one entry (not capped to the last 30 days
-  // like `dailyData` — the picker should still reach further back), most
-  // recent first, for the "focus on one week" selector.
-  const availableWeeks = useMemo(() => {
-    const seen = new Set<string>();
-    const weeks: string[] = [];
-    for (const e of filteredEntries) {
-      const monday = mondayOf(e.worked_on);
-      if (!seen.has(monday)) {
-        seen.add(monday);
-        weeks.push(monday);
-      }
-    }
-    return weeks.sort((a, b) => b.localeCompare(a));
-  }, [filteredEntries]);
+  const isRangeSelected = !!dateFrom && !!dateTo;
+  const isRangeInvalid = isRangeSelected && dateFrom > dateTo;
+  const isRangeTooLong =
+    isRangeSelected && !isRangeInvalid && daysBetweenInclusive(dateFrom, dateTo) > MAX_RANGE_DAYS;
+  const isRangeFocused = isRangeSelected && !isRangeInvalid && !isRangeTooLong;
 
-  // The focused week's full Mon-Sun span, zero-filled for days with nothing
-  // logged — built straight from `filteredEntries` rather than `dailyData`,
-  // which is capped to the last 30 days and would silently drop an older
-  // week's real entries as if nothing was logged those days.
-  const focusedWeekDays = useMemo<DayPoint[]>(() => {
-    if (weekFilter === ALL_WEEKS) return [];
+  // A zero-filled day-by-day span between the two picked dates (inclusive)
+  // — same idea the old single-week view used, just for an arbitrary range.
+  // Built straight from `filteredEntries` (not `dailyData`, which is capped
+  // to the last 30 days) so a range reaching further back still shows its
+  // real entries instead of nothing.
+  const rangeDays = useMemo<DayPoint[]>(() => {
+    if (!isRangeFocused) return [];
+    const dayCount = daysBetweenInclusive(dateFrom, dateTo);
     const byDate = new Map<string, HoursLogEntry[]>();
     for (const e of filteredEntries) {
-      if (mondayOf(e.worked_on) !== weekFilter) continue;
+      if (e.worked_on < dateFrom || e.worked_on > dateTo) continue;
       const list = byDate.get(e.worked_on) ?? [];
       list.push(e);
       byDate.set(e.worked_on, list);
     }
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = addDays(weekFilter, i);
+    return Array.from({ length: dayCount }, (_, i) => {
+      const date = addDays(dateFrom, i);
       return buildDayPoint(date, byDate.get(date) ?? [], resolveTicketCode);
     });
-  }, [weekFilter, filteredEntries]);
+  }, [isRangeFocused, dateFrom, dateTo, filteredEntries]);
 
-  const focusedWeekTotal = focusedWeekDays.reduce((sum, d) => sum + d.hours, 0);
-  const isWeekFocused = weekFilter !== ALL_WEEKS;
-  const chartData = isWeekFocused ? focusedWeekDays : dailyData;
+  const rangeTotal = rangeDays.reduce((sum, d) => sum + d.hours, 0);
+  // Prorates the weekly allocation to the size of the picked range (e.g. a
+  // 14-day range against a 20h/week allocation reads as "40h allocated"),
+  // rather than always comparing against one week's worth regardless of
+  // how many days are actually selected.
+  const rangeAllocation = (weeklyAllocation * rangeDays.length) / 7;
+
+  const chartData = isRangeFocused ? rangeDays : dailyData;
+
+  // First day of each month present — marked with a labeled divider.
+  const monthBoundaries = useMemo(() => {
+    const seen = new Set<string>();
+    return chartData.filter((d) => {
+      if (seen.has(d.monthKey)) return false;
+      seen.add(d.monthKey);
+      return true;
+    });
+  }, [chartData]);
+
+  // First day of each week present — a lighter, unlabeled divider so the
+  // daily points still read as grouped into weeks.
+  const weekBoundaries = useMemo(() => {
+    const seen = new Set<string>();
+    return chartData.filter((d) => {
+      if (seen.has(d.weekStart)) return false;
+      seen.add(d.weekStart);
+      return true;
+    });
+  }, [chartData]);
 
   const selectedDayData = chartData.find((d) => d.date === selectedDay) ?? null;
 
@@ -392,7 +412,7 @@ export function MyHoursModal({
           className={`w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto overflow-x-hidden transition-all duration-200 ${
             isExpanded
               ? "sm:max-w-2xl md:max-w-4xl lg:max-w-5xl"
-              : "sm:max-w-lg md:max-w-xl lg:max-w-2xl"
+              : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl"
           }`}
           aria-describedby={undefined}
         >
@@ -417,16 +437,15 @@ export function MyHoursModal({
               </p>
             ) : (
               <>
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <Select
                     value={projectFilter}
                     onValueChange={(v) => {
                       setProjectFilter(v);
-                      setWeekFilter(ALL_WEEKS);
                       setSelectedDay(null);
                     }}
                   >
-                    <SelectTrigger className="smalltext bg-secondary border-0 flex-1">
+                    <SelectTrigger className="smalltext bg-secondary border-0 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -441,42 +460,82 @@ export function MyHoursModal({
                     </SelectContent>
                   </Select>
 
-                  {availableWeeks.length > 0 && (
-                    <Select
-                      value={weekFilter}
-                      onValueChange={(v) => {
-                        setWeekFilter(v);
-                        setSelectedDay(null);
-                      }}
-                    >
-                      <SelectTrigger className="smalltext bg-secondary border-0 flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL_WEEKS} className="smalltext">
-                          All Weeks
-                        </SelectItem>
-                        {availableWeeks.map((monday) => (
-                          <SelectItem key={monday} value={monday} className="smalltext">
-                            Week of {weekRangeLabel(monday)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1 min-w-0">
+                      <Input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => {
+                          setDateFrom(e.target.value);
+                          setSelectedDay(null);
+                        }}
+                        className="smalltext bg-secondary border-0 pr-8 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0"
+                        aria-label="Start date"
+                      />
+                      <Calendar className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
+                    </div>
+                    <span className="smalltext text-muted-foreground shrink-0">to</span>
+                    <div className="relative flex-1 min-w-0">
+                      <Input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => {
+                          setDateTo(e.target.value);
+                          setSelectedDay(null);
+                        }}
+                        className="smalltext bg-secondary border-0 pr-8 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0"
+                        aria-label="End date"
+                      />
+                      <Calendar className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
+                    </div>
+                    {(dateFrom || dateTo) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setDateFrom("");
+                          setDateTo("");
+                          setSelectedDay(null);
+                        }}
+                        aria-label="Clear date range"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                {chartData.length === 0 ? (
-                  <p className="smalltext text-muted-foreground py-6 text-center">
-                    No hours logged for this project.
+                {isRangeInvalid && (
+                  <p className="smalltext text-destructive">
+                    End date must be on or after the start date.
                   </p>
+                )}
+                {isRangeTooLong && (
+                  <p className="smalltext text-destructive">
+                    Pick a range of {MAX_RANGE_DAYS} days or fewer.
+                  </p>
+                )}
+
+                {chartData.length === 0 ? (
+                  // Same Card, same min-height as the chart below — otherwise
+                  // the modal visibly shrinks/jumps every time a project or
+                  // date range with no data is picked.
+                  <Card className="bg-background border-border">
+                    <CardContent className="flex min-h-[300px] items-center justify-center py-6">
+                      <p className="smalltext text-muted-foreground text-center">
+                        No hours logged for this project.
+                      </p>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <Card className="bg-background border-border">
                     <CardHeader>
                       <CardTitle className="smalltext font-semibold flex items-center gap-2">
                         <CalendarRange className="h-4 w-4 text-primary" />
-                        {isWeekFocused ? `Week of ${weekRangeLabel(weekFilter)}` : "Hours Over Time"}
-                        {!isWeekFocused && weeklyAllocation > 0 && (
+                        {isRangeFocused ? `${formatDate(dateFrom)} – ${formatDate(dateTo)}` : "Hours Over Time"}
+                        {!isRangeFocused && weeklyAllocation > 0 && (
                           <span className="ml-auto smalltext font-normal text-muted-foreground">
                             Allocation: {weeklyAllocation}h/wk
                           </span>
@@ -484,7 +543,7 @@ export function MyHoursModal({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {isWeekFocused && <AllocationMeter hours={focusedWeekTotal} allocation={weeklyAllocation} />}
+                      {isRangeFocused && <AllocationMeter hours={rangeTotal} allocation={rangeAllocation} />}
                       <div className="h-56 cursor-pointer [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
                         <ResponsiveContainer width="100%" height={224}>
                           <LineChart
@@ -503,7 +562,7 @@ export function MyHoursModal({
                               tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
                               axisLine={false}
                               tickLine={false}
-                              interval={isWeekFocused ? 0 : "preserveStartEnd"}
+                              interval={isRangeFocused && chartData.length <= 14 ? 0 : "preserveStartEnd"}
                             />
                             <YAxis
                               tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
@@ -521,14 +580,14 @@ export function MyHoursModal({
                                 )}
                               />
                             )}
-                            {!isWeekFocused && weekBoundaries.map((d) => (
+                            {weekBoundaries.map((d) => (
                               <ReferenceLine
                                 key={`week-${d.weekStart}`}
                                 x={d.label}
                                 stroke="oklch(0.3 0 0)"
                               />
                             ))}
-                            {!isWeekFocused && monthBoundaries.map((d) => (
+                            {monthBoundaries.map((d) => (
                               <ReferenceLine
                                 key={`month-${d.monthKey}`}
                                 x={d.label}

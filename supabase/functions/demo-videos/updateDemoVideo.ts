@@ -180,6 +180,10 @@ export const updateDemoVideoWithExisting = async (
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
       updated_at: new Date().toISOString(),
+      // This row now points at the source demo's content, so it adopts its
+      // identity too — same reasoning as createDemoVideoFromExisting.
+      title: source.title,
+      demo_number: source.demo_number,
     })
     .eq("id", demoId)
     .select("*, uploader:users!uploaded_by(id, email, userName)")
