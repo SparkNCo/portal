@@ -12,6 +12,7 @@ import EditDeveloperProfileModal from "./EditDeveloperProfileModal";
 import ViewDeveloperProfileModal from "./ViewDeveloperProfileModal";
 import EditClientModal from "./EditClientModal";
 import EditStakeholderModal from "./EditStakeholderModal";
+import ViewStakeholderModal from "./ViewStakeholderModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -402,6 +403,21 @@ export default function AdminUsersPage() {
           onClose={() => setEditingStakeholderUser(null)}
         />
       )}
+      {viewingStakeholderUser && (
+        <ViewStakeholderModal
+          userId={viewingStakeholderUser.id}
+          userEmail={viewingStakeholderUser.email}
+          firstName={viewingStakeholderUser.firstName}
+          lastName={viewingStakeholderUser.lastName}
+          userName={viewingStakeholderUser.userName}
+          phoneNumber={viewingStakeholderUser.phoneNumber}
+          onClose={() => setViewingStakeholderUser(null)}
+          onEdit={() => {
+            setEditingStakeholderUser(viewingStakeholderUser);
+            setViewingStakeholderUser(null);
+          }}
+        />
+      )}
 
       {/* ── View toggle ── */}
       <div className="flex items-center">
@@ -522,7 +538,7 @@ export default function AdminUsersPage() {
                                       variant="ghost"
                                       size="sm"
                                       className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
-                                      onClick={() => setEditingStakeholderUser(u)}
+                                      onClick={() => setViewingStakeholderUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       <span className="hidden sm:inline">Profile</span>
