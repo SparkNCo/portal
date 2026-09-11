@@ -85,6 +85,11 @@ export default function EditStakeholderModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      // Also refreshes StakeholdersSection's card grid (components/settings/
+      // stakeholders-section.tsx), which reads this same name/email off its
+      // own ["assignments", customerId] query rather than ["users"] — this
+      // modal is reused there too (opened from a stakeholder card's "Edit").
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "assignments" });
       onClose();
     },
   });
