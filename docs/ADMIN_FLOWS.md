@@ -35,7 +35,8 @@ Each user row shows an initials avatar (from the email) and their email — **no
 
 - **View Profile** (developers only) — opens `ViewDeveloperProfileModal`, to the left of Edit Profile.
 - **Edit Profile** (developers only) — opens `EditDeveloperProfileModal`.
-- **Profile** (customers and stakeholders) — opens `EditClientModal`/`EditStakeholderModal` respectively. Unlike the developer's separate View/Edit pair, this is a single modal: it opens read-only, with an **Edit** button in the header (same outline/orange treatment as the developer profile modal's own Edit button) to switch into editing — see "Customer Profile" and "Stakeholder Profile" below.
+- **Profile** (customers) — opens `EditClientModal`. Unlike the developer's separate View/Edit pair, this is a single modal: it opens read-only, with an **Edit** button in the header (same outline/orange treatment as the developer profile modal's own Edit button) to switch into editing — see "Customer Profile" below.
+- **Profile** (stakeholders) — opens `ViewStakeholderModal` / `EditStakeholderModal`, the same separate View/Edit pair as the developer profile — see "Stakeholder Profile" below.
 - **Assign** (developers and stakeholders only) — opens `AssignCustomerModal`.
 - **Resend account email** (📧 icon, every role) — a dropdown with **"Resend invite"** and **"Send password reset"**. See below.
 - **Expand arrow** (developers only) — see "Expanding a user" below. Customers and stakeholders have no expand affordance in this view at all (a customer's assignees are only visible via the Projects view instead).
@@ -237,11 +238,9 @@ An array of `{ url, text }` pairs stored on `portal.customers.preview_links` (js
 
 ---
 
-## Stakeholder Profile — `EditStakeholderModal`
+## Stakeholder Profile — `ViewStakeholderModal` / `EditStakeholderModal`
 
-**Opened by:** The **Profile** button on any `stakeholder` row.
-
-Simpler than the customer one — no read-only/edit toggle, no expand, opens straight into an editable form (First/Last Name, Username, Email, Phone — all `portal.users` fields). Which initiative a stakeholder is assigned to stays out of this modal; that's still the separate **Assign** button/`AssignCustomerModal` flow.
+**Opened by:** The **Profile** button on any `stakeholder` row — opens `ViewStakeholderModal` (read-only), same separate View/Edit pair as the developer profile (not the customer's single-modal toggle). Its **Edit** button (header, outline/orange, same treatment as `DeveloperDetailsModal`'s) swaps to `EditStakeholderModal` for the actual form (First/Last Name, Username, Email, Phone — all `portal.users` fields). Which initiative a stakeholder is assigned to stays out of both modals; that's still the separate **Assign** button/`AssignCustomerModal` flow.
 
 ### Saving
 
@@ -322,7 +321,8 @@ Recommended order when bringing a new customer into the system:
 | `app/admin/users/EditDeveloperProfileModal.tsx` | Modal to edit a developer's bio and tech stack |
 | `app/admin/users/ViewDeveloperProfileModal.tsx` | Fetches a developer's bio/tech stack and renders the same popup shown on the Staffing tab |
 | `app/admin/users/EditClientModal.tsx` | Customer Profile — read-only view + edit toggle, contact/identity fields, and the Preview Links manager |
-| `app/admin/users/EditStakeholderModal.tsx` | Stakeholder Profile — straight-to-edit contact fields |
+| `app/admin/users/ViewStakeholderModal.tsx` | Read-only Stakeholder Profile view — Edit button hands off to EditStakeholderModal, same pair pattern as the developer profile |
+| `app/admin/users/EditStakeholderModal.tsx` | Stakeholder Profile edit form — contact fields (First/Last Name, Username, Email, Phone) |
 | `components/settings/developer-details-modal.tsx` | Shared popup component — used from both Staffing (customer view) and here (admin preview) |
 | `components/shared/tech-stack-picker.tsx` | Shared drag-to-reorder tech stack chip editor — used by Edit Developer Profile and the customer-facing Add Developer modal |
 | `components/shared/expandable-dialog-chrome.tsx` | Shared accent-bar + expand/shrink toggle — used by Customer Profile among others |

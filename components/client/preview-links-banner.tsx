@@ -137,8 +137,11 @@ export function PreviewLinksBanner({ slug }: { readonly slug?: string }) {
         {/* Each environment gets its own card (rather than every field just
             stacking into one long list) so adding another one reads as a
             new, distinct entry instead of two more inputs tacked onto the
-            existing ones. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            existing ones. auto-fill/minmax rather than a fixed column count
+            so this fills whatever width it's given (the Demo dashboard's
+            full-width row, or a narrower Demo tab) with as many columns as
+            fit, wrapping instead of ever overflowing sideways. */}
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
           {draftLinks.map((link, i) => {
             const error = linkErrors[i];
             return (
@@ -209,40 +212,45 @@ export function PreviewLinksBanner({ slug }: { readonly slug?: string }) {
   }
 
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        {links.map((link, i) => (
-          <a
-            key={`${link.url}-${i}`}
-            href={link.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 smalltext font-medium text-primary underline underline-offset-2 hover:text-primary/80 transition-colors max-w-full"
-          >
-            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
-              {link.text}: {link.url}
-            </span>
-          </a>
-        ))}
-        {links.length === 0 && (
-          <span className="smalltext text-muted-foreground italic">
-            No test environments yet.
-          </span>
-        )}
-        {canManage && (
+    <div className="space-y-2">
+      {canManage && (
+        <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-6 gap-1 smalltext text-muted-foreground"
+            className="h-7 gap-1.5 smalltext text-muted-foreground hover:text-foreground"
             onClick={startEditing}
           >
-            <Pencil className="h-3 w-3" />
-            {links.length === 0 ? "Add" : "Edit"}
+            <Pencil className="h-3.5 w-3.5" />
+            {links.length === 0 ? "Add test environment" : "Edit test environments"}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {links.length === 0 ? (
+        <p className="smalltext text-muted-foreground italic">No test environments yet.</p>
+      ) : (
+        // auto-fill/minmax: as many 220px+ columns as fit the available
+        // width (the full-width Demo dashboard row, or a narrower Demo tab),
+        // wrapping to more rows instead of ever overflowing sideways.
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
+          {links.map((link, i) => (
+            <a
+              key={`${link.url}-${i}`}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-w-0 items-center gap-1.5 smalltext font-medium text-primary rounded-md border border-border/60 bg-muted/20 px-2.5 py-1.5 hover:text-primary/80 hover:border-primary/40 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {link.text}: {link.url}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

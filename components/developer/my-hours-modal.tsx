@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -43,6 +44,24 @@ const ALL_PROJECTS = "__all__";
 const ALL_WEEKS = "__all_weeks__";
 const DAYS_SHOWN = 30;
 const LINE_COLOR = "oklch(0.75 0.16 55)";
+
+// One line per project when "All Projects" is selected — cycled by index so
+// any number of projects still gets a (repeating, eventually) distinct color
+// rather than erroring out past a fixed palette size.
+const PROJECT_LINE_COLORS = [
+  "oklch(0.75 0.16 55)", // orange (same as the single-project line)
+  "oklch(0.7 0.18 250)", // blue
+  "oklch(0.75 0.15 145)", // green
+  "oklch(0.72 0.2 330)", // pink
+  "oklch(0.8 0.17 95)", // yellow
+  "oklch(0.7 0.15 200)", // teal
+  "oklch(0.68 0.22 25)", // red
+  "oklch(0.72 0.16 300)", // purple
+];
+
+function projectColor(index: number): string {
+  return PROJECT_LINE_COLORS[index % PROJECT_LINE_COLORS.length]!;
+}
 
 function formatDate(iso: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
@@ -119,7 +138,41 @@ type DayPoint = {
   hours: number;
   entries: HoursLogEntry[];
   ticketCodes: string[];
+  // Per-project breakdown for that day — only populated/used when "All
+  // Projects" is selected, so the chart can plot one Line per project
+  // instead of one combined total. Read via a dataKey *function* (see the
+  // per-project <Line> below) rather than spread onto the object as flat
+  // keys, so this type doesn't need an index signature for arbitrary
+  // project names.
+  projectHours: Record<string, number>;
 };
+
+// Shared by both dailyData and focusedWeekDays below — was duplicated
+// inline in each, which had already drifted slightly (only one of the two
+// tracked ticketCodes correctly). One definition means both view modes
+// build a DayPoint the exact same way, all-projects breakdown included.
+function buildDayPoint(
+  date: string,
+  list: HoursLogEntry[],
+  resolveTicketCode: (id: string) => string,
+): DayPoint {
+  const d = new Date(`${date}T00:00:00`);
+  const projectHours: Record<string, number> = {};
+  for (const e of list) {
+    projectHours[e.project_name] = (projectHours[e.project_name] ?? 0) + e.hours;
+  }
+  return {
+    date,
+    label: dayLabel(date),
+    weekStart: mondayOf(date),
+    monthKey: `${d.getFullYear()}-${d.getMonth()}`,
+    monthLabel: d.toLocaleDateString(undefined, { month: "short" }),
+    hours: list.reduce((sum, e) => sum + e.hours, 0),
+    entries: list,
+    ticketCodes: Array.from(new Set(list.flatMap((e) => e.issue_ids))).map(resolveTicketCode),
+    projectHours,
+  };
+}
 
 // Purely visual now — the actual click handling lives on the chart itself
 // (see `onClick` on LineChart below), since a real 4px dot is much too small
@@ -127,21 +180,29 @@ type DayPoint = {
 // built-in Dot) keeps this in sync with the chart's own click handling
 // instead of adding a second, redundant, imprecise click target.
 function ChartDot(props: any) {
-  const { cx, cy } = props;
+  const { cx, cy, fill } = props;
   if (cx == null || cy == null) return null;
   return (
     <circle
       cx={cx}
       cy={cy}
       r={4}
-      fill={LINE_COLOR}
+      fill={fill ?? LINE_COLOR}
       stroke="oklch(0.13 0 0)"
       strokeWidth={1}
     />
   );
 }
 
-function DayTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
+function DayTooltip({
+  active,
+  payload,
+  isMultiProject,
+}: {
+  active?: boolean;
+  payload?: any[];
+  isMultiProject?: boolean;
+}) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload as DayPoint | undefined;
   if (!point) return null;
@@ -155,7 +216,21 @@ function DayTooltip({ active, payload }: { active?: boolean; payload?: any[] }) 
         color: "oklch(0.95 0 0)",
       }}
     >
-      <div className="font-medium">{formatDate(point.date)} · {point.hours}h</div>
+      <div className="font-medium">{formatDate(point.date)}{!isMultiProject && ` · ${point.hours}h`}</div>
+      {isMultiProject && (
+        <ul className="mt-1 space-y-0.5">
+          {payload
+            .filter((p) => (p.value ?? 0) > 0)
+            .map((p) => (
+              <li key={p.name} style={{ color: p.color }}>
+                {p.name}: {p.value}h
+              </li>
+            ))}
+          {payload.every((p) => (p.value ?? 0) === 0) && (
+            <li style={{ color: "oklch(0.6 0 0)" }}>No hours logged</li>
+          )}
+        </ul>
+      )}
       {point.ticketCodes.length > 0 ? (
         <ul className="mt-1 space-y-0.5" style={{ color: "oklch(0.75 0 0)" }}>
           {point.ticketCodes.map((code) => (
@@ -221,22 +296,21 @@ export function MyHoursModal({
       list.push(e);
       buckets.set(e.worked_on, list);
     }
-    return Array.from(buckets, ([date, list]) => {
-      const d = new Date(`${date}T00:00:00`);
-      return {
-        date,
-        label: dayLabel(date),
-        weekStart: mondayOf(date),
-        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
-        monthLabel: d.toLocaleDateString(undefined, { month: "short" }),
-        hours: list.reduce((sum, e) => sum + e.hours, 0),
-        entries: list,
-        ticketCodes: Array.from(new Set(list.flatMap((e) => e.issue_ids))).map(resolveTicketCode),
-      };
-    })
+    return Array.from(buckets, ([date, list]) => buildDayPoint(date, list, resolveTicketCode))
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-DAYS_SHOWN);
   }, [filteredEntries, issueById]);
+
+  // Which projects to draw a separate line for — only when "All Projects" is
+  // selected (a single-project filter already shows just that one project's
+  // combined line, no breakdown needed), and only projects that actually
+  // have at least one hour logged rather than every project the developer is
+  // assigned to.
+  const activeProjectNames = useMemo(() => {
+    if (projectFilter !== ALL_PROJECTS) return [];
+    return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort();
+  }, [filteredEntries, projectFilter]);
+  const isMultiProject = activeProjectNames.length > 0;
 
   // First day of each month present — marked with a labeled divider.
   const monthBoundaries = useMemo(() => {
@@ -297,18 +371,7 @@ export function MyHoursModal({
     }
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekFilter, i);
-      const list = byDate.get(date) ?? [];
-      const d = new Date(`${date}T00:00:00`);
-      return {
-        date,
-        label: dayLabel(date),
-        weekStart: weekFilter,
-        monthKey: `${d.getFullYear()}-${d.getMonth()}`,
-        monthLabel: d.toLocaleDateString(undefined, { month: "short" }),
-        hours: list.reduce((sum, e) => sum + e.hours, 0),
-        entries: list,
-        ticketCodes: Array.from(new Set(list.flatMap((e) => e.issue_ids))).map(resolveTicketCode),
-      };
+      return buildDayPoint(date, byDate.get(date) ?? [], resolveTicketCode);
     });
   }, [weekFilter, filteredEntries]);
 
@@ -449,7 +512,15 @@ export function MyHoursModal({
                               width={30}
                               allowDecimals={false}
                             />
-                            <Tooltip content={<DayTooltip />} />
+                            <Tooltip content={<DayTooltip isMultiProject={isMultiProject} />} />
+                            {isMultiProject && (
+                              <Legend
+                                wrapperStyle={{ fontSize: 11 }}
+                                formatter={(value) => (
+                                  <span style={{ color: "oklch(0.75 0 0)" }}>{value}</span>
+                                )}
+                              />
+                            )}
                             {!isWeekFocused && weekBoundaries.map((d) => (
                               <ReferenceLine
                                 key={`week-${d.weekStart}`}
@@ -471,14 +542,32 @@ export function MyHoursModal({
                                 }}
                               />
                             ))}
-                            <Line
-                              type="monotone"
-                              dataKey="hours"
-                              stroke={LINE_COLOR}
-                              strokeWidth={2}
-                              dot={<ChartDot />}
-                              activeDot={{ r: 6, fill: LINE_COLOR, stroke: "oklch(0.13 0 0)", strokeWidth: 1 }}
-                            />
+                            {isMultiProject ? (
+                              activeProjectNames.map((name, i) => {
+                                const color = projectColor(i);
+                                return (
+                                  <Line
+                                    key={name}
+                                    type="monotone"
+                                    name={name}
+                                    dataKey={(d: DayPoint) => d.projectHours[name] ?? 0}
+                                    stroke={color}
+                                    strokeWidth={2}
+                                    dot={<ChartDot fill={color} />}
+                                    activeDot={{ r: 6, fill: color, stroke: "oklch(0.13 0 0)", strokeWidth: 1 }}
+                                  />
+                                );
+                              })
+                            ) : (
+                              <Line
+                                type="monotone"
+                                dataKey="hours"
+                                stroke={LINE_COLOR}
+                                strokeWidth={2}
+                                dot={<ChartDot />}
+                                activeDot={{ r: 6, fill: LINE_COLOR, stroke: "oklch(0.13 0 0)", strokeWidth: 1 }}
+                              />
+                            )}
                           </LineChart>
                         </ResponsiveContainer>
                       </div>

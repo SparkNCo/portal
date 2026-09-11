@@ -88,10 +88,15 @@ export function deriveIssueKind(
 // Removes one or more issue vectors by id from a namespace — used by
 // linear-vector-sync to clean up after a ticket is deleted ("trashed") in
 // Linear, since nothing else would ever tell Upstash to stop returning it as
-// a "similar issue" match. Same best-effort convention as upsertIssueVector:
-// a cleanup hiccup must never fail the sync run it's attached to.
-export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
+// a "similar issue" match. Still best-effort (never throws — a cleanup
+// hiccup must never fail the actual write it's attached to elsewhere), but
+// returns whether it actually succeeded so linear-vector-sync specifically
+// can decide not to advance its checkpoint on failure — a call that fails
+// silently while the caller still marks that window as "done" means the
+// trashed issue's `updatedAt` ages out of the next run's `since` filter and
+// its stale vector never gets retried, ever.
+export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
   try {
     const { url, token } = vectorIndex();
     // Each issue is stored as two vectors (see upsertIssueVector's own
@@ -105,8 +110,10 @@ export async function deleteIssueVectors(namespace: string, ids: string[]): Prom
       { ids: allIds },
       "DELETE",
     );
+    return true;
   } catch (err) {
     console.error("[deleteIssueVectors] failed (non-fatal):", err);
+    return false;
   }
 }
 
@@ -121,7 +128,7 @@ export async function upsertIssueVector(
     // fetch of the full issue just to read its labels.
     kind?: "bug" | "feature" | null;
   },
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { url, token } = vectorIndex();
     const ns = normalizeNamespace(namespace);
@@ -135,21 +142,29 @@ export async function upsertIssueVector(
     // Two vectors per issue: the existing title+description one (for queries
     // with real descriptive detail) and a title-only one, id-suffixed
     // "::title" to avoid colliding with the combined vector's own id — see
-    // queryTopIssueMatches for why a second vector exists at all.
-    await Promise.all([
-      upstashRequest(url, token, `/upsert-data/${ns}`, {
-        id: issue.id,
-        data: combinedData,
-        metadata: { type: "issue", ...baseMetadata },
-      }),
-      upstashRequest(url, token, `/upsert-data/${ns}`, {
-        id: `${issue.id}::title`,
-        data: issue.title,
-        metadata: { type: "issue-title", ...baseMetadata },
-      }),
-    ]);
+    // queryTopIssueMatches for why a second vector exists at all. Sequential,
+    // not Promise.all — linear-vector-sync's bulk catch-up runs (re-scanning
+    // a whole lookback window, times up to 3 customers concurrently, see
+    // runWithConcurrency there) already push a lot of simultaneous requests
+    // at Upstash; doubling that further per issue is what was tipping it
+    // into "vector store backend is currently unavailable" (a rate/
+    // concurrency ceiling, not an actual outage). Twice the wall-clock time
+    // per issue, but issues upsert one at a time in that caller anyway, so
+    // this just trades a bit of latency for not getting throttled.
+    await upstashRequest(url, token, `/upsert-data/${ns}`, {
+      id: issue.id,
+      data: combinedData,
+      metadata: { type: "issue", ...baseMetadata },
+    });
+    await upstashRequest(url, token, `/upsert-data/${ns}`, {
+      id: `${issue.id}::title`,
+      data: issue.title,
+      metadata: { type: "issue-title", ...baseMetadata },
+    });
+    return true;
   } catch (err) {
     console.error("[upsertIssueVector] failed (non-fatal):", err);
+    return false;
   }
 }
 
