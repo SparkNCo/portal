@@ -123,6 +123,10 @@ export const createDemoVideoFromExisting = async (
       embed_url: source.embed_url,
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
+      // Adopts the source demo's own identity rather than getting a fresh
+      // one — this row is the *same* demo, just attached to another ticket.
+      title: source.title,
+      demo_number: source.demo_number,
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
     .single();

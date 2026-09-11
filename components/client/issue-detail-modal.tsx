@@ -122,7 +122,7 @@ function TabButton({
   activeTab,
   onClick,
   badge,
-  // Small orange "X" after the badge — e.g. Decisions' unanswered-question
+  // Turns the badge itself orange — e.g. Decisions' unanswered-question
   // count — a lightweight "something here needs attention" flag without
   // needing its own separate warning banner elsewhere in the modal.
   warning,
@@ -155,7 +155,6 @@ function TabButton({
           {badge}
         </span>
       )}
-      {warning && <X className="h-3.5 w-3.5 text-warning" aria-label="Unanswered question" />}
     </button>
   );
 }
