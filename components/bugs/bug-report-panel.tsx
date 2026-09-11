@@ -220,7 +220,13 @@ export function BugReportPanel({ slug }: { slug: string }) {
                       )}
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addStep}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="ml-6"
+                    onClick={addStep}
+                  >
                     <Plus className="h-3.5 w-3.5 mr-1.5" />
                     Add step
                   </Button>

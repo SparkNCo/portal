@@ -10,7 +10,10 @@ const GET_FIRST_TEAM_QUERY = `
   }
 `;
 
-const CREATE_ISSUE_MUTATION = `
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
+// builds its own IssueCreateInput (needs stateId + an explicit cycleId the regular
+// Feature Request/Bug Report flow never sets) but reuses this same mutation.
+export const CREATE_ISSUE_MUTATION = `
   mutation IssueCreate($input: IssueCreateInput!) {
     issueCreate(input: $input) {
       success
@@ -131,12 +134,9 @@ async function resolveCustomer(slug: string, schema: string): Promise<{ teamId: 
   return { teamId, linearSlug: data?.linear_slug ?? null };
 }
 
-async function resolveTeamId(slug: string, schema: string): Promise<string> {
-  const { teamId } = await resolveCustomer(slug, schema);
-  return teamId;
-}
 
-const PRIORITY_MAP: Record<string, number> = {
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts.
+export const PRIORITY_MAP: Record<string, number> = {
   urgent: 1,
   high: 2,
   medium: 3,
@@ -287,14 +287,27 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   }
 
   let teamId = bodyTeamId;
-  if (!teamId) {
-    if (!slug) {
-      return Response.json(
-        { error: "Missing teamId or slug" },
-        { status: 400 },
-      );
-    }
-    teamId = await resolveTeamId(slug, schema);
+  // Resolved whenever `slug` is present, regardless of whether `bodyTeamId`
+  // was already given — this is the customer's stable Linear Initiative id
+  // (`customers.linear_slug`), used below as the Upstash namespace instead
+  // of the raw `slug`. `slug` is the frontend's clientName-based routing
+  // slug (see app/[slug]/... and useCustomerSlug()) — editable by an admin
+  // (Admin → Users → Customer Profile) and inconsistently cased across the
+  // app, so it's not a safe permanent index key. `linear_slug` never
+  // changes once a customer's Linear initiative is set, and it's already
+  // what linear-vector-sync's hourly cron namespaces by — using the same
+  // value here keeps the two in sync instead of writing to two disconnected
+  // Upstash namespaces for the same customer.
+  let linearSlug: string | null = null;
+  if (slug) {
+    const resolved = await resolveCustomer(slug, schema);
+    linearSlug = resolved.linearSlug;
+    if (!teamId) teamId = resolved.teamId;
+  } else if (!teamId) {
+    return Response.json(
+      { error: "Missing teamId or slug" },
+      { status: 400 },
+    );
   }
 
   const input = buildIssueInput(body, teamId);
@@ -310,8 +323,8 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   // Best-effort — keeps a brand-new ticket searchable for the similar-issues hint
   // right away, instead of waiting for someone to edit it (or the hourly cron) before
   // it becomes findable.
-  if (slug && createdIssue) {
-    await upsertIssueVector(slug, {
+  if (linearSlug && createdIssue) {
+    await upsertIssueVector(linearSlug, {
       id: createdIssue.id,
       title: input.title,
       description: input.description,

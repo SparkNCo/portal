@@ -5,14 +5,16 @@ import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
-import CreateChatModal from "./CreateChatModal";
+import CreateChatModal, { type ChatIssueOption } from "./CreateChatModal";
 import { useCometChat } from "./useCometChat";
+import { getOrCreateIssueGroup } from "./getOrCreateIssueGroup";
 
 type Group = ReturnType<typeof useCometChat>["groups"][number];
 
@@ -33,6 +35,7 @@ export default function ChatLayout({
   const router = useRouter();
   const pathname = usePathname();
   const customerSlug = useCustomerSlug();
+  const { selectedProject } = useSelectedProject();
   // usePinnedPanelsOwnerId() always resolves to *some* user id (falling back
   // to the caller's own id when no customer is being viewed) — appropriate
   // for pinned panels, but wrong here: an unscoped inbox (own /chat, not
@@ -46,7 +49,6 @@ export default function ChatLayout({
     useCometChat(customerId);
 
   const isAdmin = profile?.role === "admin";
-  // Empty string = no filter (show every customer's chats).
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
 
   // Admin-only: lets the unscoped inbox be filtered down to one customer at
@@ -71,7 +73,29 @@ export default function ChatLayout({
       .sort((a, b) => a.userName.localeCompare(b.userName));
   }, [allUsers]);
 
+  // There's no "All customers" option anymore — the filter always scopes to
+  // one customer, so default to the first one alphabetically as soon as the
+  // list loads (same "default to first" pattern the developer sidebar
+  // project dropdown uses) rather than leaving it unset.
+  useEffect(() => {
+    if (!selectedCustomerId && customerOptions.length > 0) {
+      setSelectedCustomerId(customerOptions[0]!.id);
+    }
+  }, [customerOptions, selectedCustomerId]);
+
   const isDeveloper = profile?.role === "developer";
+
+  // Developer-only: which project is selected in the sidebar dropdown (see
+  // components/sidebar.tsx), defaulting to the first assignment the same
+  // way that dropdown does. Used below to filter the group list down to
+  // that one customer's chats.
+  const selectedProjectClientName = isDeveloper
+    ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    : null;
+  const selectedProjectCustomerId = selectedProjectClientName
+    ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)
+        ?.customer_id ?? null)
+    : null;
 
   // Developer-only: which initiatives they're assigned to, for the "New
   // Chat" initiative picker (admins reuse customerOptions above instead,
@@ -132,10 +156,28 @@ export default function ChatLayout({
   // the customer's (see dashboards/[customer]/[panel]/page.tsx).
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
-  const handleCreate = async (title: string, initiativeId?: string) => {
+  const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {
     setCreating(true);
     try {
-      const created = await createSupportGroup(title, initiativeId ?? customerId, projectSlug);
+      // A chat tied to a ticket must be the *same* chat that ticket's own
+      // Chat tab uses (IssueCometChat.tsx → getOrCreateIssueGroup) — that
+      // tab looks up one specific, deterministic group id derived from the
+      // issue id, not "any group whose metadata happens to mention this
+      // issue." Creating a separate ad-hoc group here (even if tagged with
+      // issueId in its metadata) would just be invisible from the ticket
+      // itself. The initiative picked in the modal resolves this issue's
+      // customer/slug the same way projectSlug otherwise would.
+      const issueSlug = initiativeId
+        ? initiativeOptions.find((o) => o.id === initiativeId)?.label
+        : undefined;
+      const created = issue
+        ? await getOrCreateIssueGroup(issue.id, issue.title, profile, issueSlug ?? projectSlug).catch(
+            (err) => {
+              console.error("Create issue chat error:", err);
+              return null;
+            },
+          )
+        : await createSupportGroup(title, initiativeId ?? customerId, projectSlug);
       if (created) {
         const list = await refreshGroups();
         setSelectedGroup(list.find((g) => g.getGuid() === created.getGuid()) ?? created);
@@ -162,10 +204,15 @@ export default function ChatLayout({
   // history are untouched for everyone else, including admins, who list
   // all public groups regardless of membership).
   const canLeaveChats = profile?.role !== "admin";
-  const visibleGroups = isAdmin && selectedCustomerId
+  const groupCustomerFilter = isAdmin
+    ? selectedCustomerId
+    : isDeveloper
+      ? selectedProjectCustomerId
+      : null;
+  const visibleGroups = groupCustomerFilter
     ? groups.filter((g) => {
         const groupCustomerId = (g.getMetadata() as { customerId?: string } | undefined)?.customerId;
-        return groupCustomerId === selectedCustomerId;
+        return groupCustomerId === groupCustomerFilter;
       })
     : groups;
   const hasNoChats = visibleGroups.length === 0 && directChats.length === 0;
@@ -231,8 +278,10 @@ export default function ChatLayout({
           initialTitle={initialTitle}
           onCreate={handleCreate}
           onClose={() => setShowCreateModal(false)}
-          requireInitiative={isAdmin || isDeveloper}
+          requireInitiative={isAdmin || isDeveloper || isCustomer}
           initiativeOptions={initiativeOptions}
+          lockedInitiativeId={isDeveloper ? (selectedProjectCustomerId ?? undefined) : undefined}
+          fixedSlug={isCustomer ? projectSlug : undefined}
         />
       )}
     </div>

@@ -37,6 +37,10 @@ interface ProjectRowProps {
   onToggle: () => void;
   selection: CycleSelection | null;
   onCycleSelect: (selection: CycleSelection) => void;
+  // Closes the issue panel entirely (selection -> null) — called when this
+  // project's header is clicked to collapse it while its own issues are the
+  // ones currently showing.
+  onCloseIssues: () => void;
 }
 
 interface ProjectHeaderProps {
@@ -47,6 +51,7 @@ interface ProjectHeaderProps {
   selected: boolean;
   onToggle: () => void;
   onOpenAllIssues: () => void;
+  onCloseIssues: () => void;
 }
 
 function getCycleIds(milestone: Milestone): Set<string> {
@@ -106,16 +111,17 @@ export function ProjectRow({
   onToggle,
   selection,
   onCycleSelect,
+  onCloseIssues,
 }: ProjectRowProps) {
   const chainedMilestones = withCycleIds(
     withPlaceholder(milestones, projectName),
   );
 
+  // The project stays highlighted as the active selection even while a
+  // milestone/cycle under it is what's actually filtering the issue panel —
+  // it's still the project whose issues are loaded, milestone/cycle just
+  // narrows the view.
   const isThisProjectSelected = selection?.projectName === projectName;
-  // Highlights the project header only when it's the whole-project view —
-  // not when a specific milestone/cycle under it is selected instead.
-  const isWholeProjectSelected =
-    isThisProjectSelected && !selection?.milestoneName && !selection?.cycleKey;
 
   return (
     <div className={cn(expanded ? "space-y-3 mb-6" : "mb-1")}>
@@ -124,7 +130,7 @@ export function ProjectRow({
         projectColor={projectColor}
         milestoneCount={milestones.length}
         expanded={expanded}
-        selected={isWholeProjectSelected}
+        selected={isThisProjectSelected}
         onToggle={onToggle}
         onOpenAllIssues={() =>
           onCycleSelect({
@@ -135,6 +141,7 @@ export function ProjectRow({
             cycleKey: null,
           })
         }
+        onCloseIssues={isThisProjectSelected ? onCloseIssues : () => {}}
       />
 
       {expanded &&
@@ -195,22 +202,52 @@ function ProjectHeader({
   selected,
   onToggle,
   onOpenAllIssues,
+  onCloseIssues,
 }: ProjectHeaderProps) {
+  // A project with zero (real, cycle-having) milestones has nothing to
+  // expand into — no rows would render below it either way — so the row
+  // never shows a chevron or toggles open. It's still fully clickable
+  // though: clicking it selects the project so its tickets populate the
+  // filter/issue panel, same as clicking an expandable project's header.
+  const isExpandable = milestoneCount > 0;
+  let ariaLabel: string;
+  if (isExpandable) {
+    const verb = expanded ? "Collapse" : "Expand";
+    ariaLabel = `${verb} ${projectName}`;
+  } else {
+    const verb = selected ? "Hide" : "Show";
+    ariaLabel = `${verb} ${projectName} tickets`;
+  }
+
   return (
     <button
       type="button"
       onClick={() => {
-        onToggle();
-        onOpenAllIssues();
+        if (isExpandable) {
+          onToggle();
+          // Opening the row selects the project (fetch + show all its
+          // issues). Collapsing it back closes the issue panel too, but only
+          // when it's this project's own issues on screen — collapsing
+          // shouldn't touch an unrelated panel left open from elsewhere.
+          if (!expanded) {
+            onOpenAllIssues();
+          } else {
+            onCloseIssues();
+          }
+        } else if (selected) {
+          // No expand/collapse state to touch — just toggle whether this
+          // project's issues are the ones showing in the panel.
+          onCloseIssues();
+        } else {
+          onOpenAllIssues();
+        }
       }}
       className={cn(
         "flex w-full items-center justify-between gap-2 rounded-lg border bg-card/90 px-3 py-2.5 text-left transition-colors hover:bg-card/75",
         selected ? "border-primary" : "border-border",
       )}
-      aria-expanded={expanded}
-      aria-label={
-        expanded ? `Collapse ${projectName}` : `Expand ${projectName}`
-      }
+      aria-expanded={isExpandable ? expanded : undefined}
+      aria-label={ariaLabel}
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <div
@@ -218,18 +255,19 @@ function ProjectHeader({
           style={projectColor ? { backgroundColor: projectColor } : undefined}
           aria-hidden="true"
         />
-        <h3 className="truncate smalltext  text-card-foreground font-semibold">
+        <h3 className="truncate smalltext font-semibold text-card-foreground">
           {projectName}
         </h3>
         <span className="shrink-0 rounded-md bg-muted/90 px-2 py-0.5 smalltext text-primary">
           {milestoneCount} milestone{milestoneCount === 1 ? "" : "s"}
         </span>
       </div>
-      {expanded ? (
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-      )}
+      {isExpandable &&
+        (expanded ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ))}
     </button>
   );
 }

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, ChevronDown, FolderOpen } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
@@ -39,26 +39,13 @@ async function fetchDocuments(id: string, projectSlug?: string) {
   return res.json();
 }
 
-type CustomerSummary = { clientName: string; linear_slug: string | null };
-
 export function DocumentsList({
   projectSlug,
-  customers,
 }: {
   readonly projectSlug?: string;
-  readonly customers?: CustomerSummary[];
 }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  function toggleGroup(slug: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      next.has(slug) ? next.delete(slug) : next.add(slug);
-      return next;
-    });
-  }
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
   const { user, profile, loading } = useUser();
@@ -99,41 +86,6 @@ export function DocumentsList({
       activeCategory === "All" || doc.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const groupedDocs = useMemo(() => {
-    const groups = new Map<string, any[]>();
-    for (const doc of filteredDocs) {
-      const key = doc.project_slug ?? "Other";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(doc);
-    }
-    return groups;
-  }, [filteredDocs]);
-
-  // `project_slug` is the customer's Linear initiative slug, not a display
-  // name. Developers/stakeholders resolve it via their `assignment_id` list
-  // (one entry per assigned customer); a customer isn't in their own
-  // assignment_id, so fall back to their own profile's clientName/linear_slug.
-  // Neither source has anything for an admin (admins aren't assigned to
-  // customers) — that's why an admin viewing a customer's Documents panel
-  // used to see the raw slug as the group header instead of a name; the
-  // `customers` list (passed down when available) covers that case too.
-  const slugToInitiativeName = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of profile?.assignment_id ?? []) {
-      if (a.linear_slug && a.clientName) map.set(a.linear_slug.toLowerCase(), a.clientName);
-    }
-    if (profile?.linear_slug && profile?.clientName) {
-      map.set(profile.linear_slug.toLowerCase(), profile.clientName);
-    }
-    for (const c of customers ?? []) {
-      if (c.linear_slug && c.clientName) map.set(c.linear_slug.toLowerCase(), c.clientName);
-    }
-    for (const c of customers ?? []) {
-      if (c.linear_slug && c.clientName) map.set(c.linear_slug, c.clientName);
-    }
-    return map;
-  }, [profile?.assignment_id, profile?.linear_slug, profile?.clientName, customers]);
 
   return (
     <Card className="bg-background border-border text-foreground">
@@ -195,43 +147,9 @@ export function DocumentsList({
           </div>
         )}
 
-        {Array.from(groupedDocs.entries()).map(([slug, docs]) => {
-          const isCollapsed = !expandedGroups.has(slug);
-
-          return (
-            <div key={slug} data-testid={`document-folder-${slug}`} className="mb-4">
-              <button
-                onClick={() => toggleGroup(slug)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-background hover:bg-muted transition-colors mb-2 group"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                  <span className="body font-medium text-foreground capitalize truncate">
-                    {slugToInitiativeName.get(slug.toLowerCase()) ?? slug}
-                  </span>
-                  <span className="smalltext text-muted-foreground bg-background/60 rounded-full px-2 py-0.5 shrink-0">
-                    {docs.length} {docs.length === 1 ? "file" : "files"}
-                  </span>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
-                    isCollapsed && "-rotate-90",
-                  )}
-                />
-              </button>
-
-              <div
-                className={cn(
-                  "overflow-hidden transition-all duration-200",
-                  isCollapsed ? "max-h-0" : "max-h-[9999px]",
-                )}
-              >
-                <DocumentRow filteredDocs={docs} userId={profile?.id} />
-              </div>
-            </div>
-          );
-        })}
+        {filteredDocs.length > 0 && (
+          <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
+        )}
       </CardContent>
     </Card>
   );

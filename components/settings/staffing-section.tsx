@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Clock, ChevronRight } from "lucide-react";
+import { Users, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { useResolvedCustomerId } from "@/hooks/use-resolved-customer-id";
 import {
   DeveloperDetailsModal,
   type DeveloperDetails,
@@ -15,18 +15,12 @@ import {
 import { AddDeveloperModal } from "./add-developer-modal";
 import { EditInternalDeveloperModal } from "./edit-internal-developer-modal";
 
-const statusColors = {
-  active: "border-transparent bg-muted text-primary",
-  pending: "bg-warning/20 text-warning",
-  inactive: "bg-muted text-muted-foreground",
-};
-
 export function StaffingSection({ customerId }: { readonly customerId?: string }) {
   const { user, profile, loading } = useUser();
   const [selectedDeveloper, setSelectedDeveloper] = useState<DeveloperDetails | null>(null);
   const [editingDeveloper, setEditingDeveloper] = useState<DeveloperDetails | null>(null);
 
-  const resolvedId = customerId ?? profile?.id;
+  const resolvedId = useResolvedCustomerId(customerId);
 
   const {
     data: assignments = [],
@@ -59,17 +53,26 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
     return <div className="p-4 smalltext text-red-500">Error loading team</div>;
   }
 
-  const teamMembers = assignments.map((item: any) => ({
-    name: item.firstName || item.userName || item?.email || "Unknown",
+  // Stakeholders now have their own dedicated tab (StakeholdersSection) —
+  // showing them here too would just duplicate that list.
+  const teamMembers = assignments
+    .filter((item: any) => item.role !== "stakeholder")
+    .map((item: any) => ({
+    name: item.firstName
+      ? `${item.firstName} ${item.lastName ?? ""}`.trim()
+      : item.userName || item?.email || "Unknown",
     email: item.email || "",
     role: item.role,
     hours: item.allocation,
     joined: item.joined,
     status: "active",
-    avatar:
-      item.users?.userName?.[0]?.toUpperCase() ??
-      item.users?.email?.[0]?.toUpperCase() ??
-      "U",
+    // Fields come flat on the assignment row (getAssignmentsByCustomer.ts
+    // spreads the user directly onto it), not nested under `.users` — that
+    // nested shape doesn't exist here, so it was always falling through to
+    // "U".
+    avatar: item.firstName
+      ? `${item.firstName[0]}${item.lastName?.[0] ?? ""}`.toUpperCase()
+      : (item.userName?.[0] ?? item.email?.[0] ?? "U").toUpperCase(),
     bio: item.bio ?? null,
     techStack: Array.isArray(item.tech_stack) ? item.tech_stack : [],
     userId: item.user_id,
@@ -132,55 +135,33 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
       </CardHeader>
 
       <CardContent>
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {teamMembers.map((member: any, i: number) => (
             <button
               key={i}
               type="button"
               onClick={() => setSelectedDeveloper(member)}
-              className="flex w-full flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-transparent bg-card/90 p-4 text-left cursor-pointer transition-colors hover:bg-card"
+              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-center transition-colors hover:bg-card/80"
             >
-              <div className="flex flex-1 items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
-                  {member.avatar}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <p title={member.name} className="smalltext font-medium text-card-foreground truncate">
-                      {member.name}
-                    </p>
-                    <Badge variant="secondary" className={`shrink-0 ${statusColors["active"]}`}>
-                      active
-                    </Badge>
-                  </div>
-                  <p title={member.email} className="smalltext text-card-foreground/60 truncate">
-                    {member.email}
-                  </p>
-                  <p className="smalltext text-card-foreground/60 capitalize">
-                    {member.role === "developer"
-                      ? member.developerType === "internal"
-                        ? "Internal Dev"
-                        : "Spark & Co Dev"
-                      : member.role}
-                  </p>
-                </div>
+              {/* Dark circle + orange initials, sized to swap for a real
+                  photo later — everything else (email, joined date, bio,
+                  skills) lives in the profile modal this opens, not here. */}
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-card-foreground text-lg font-semibold text-primary">
+                {member.avatar}
               </div>
-
-              <div className="flex items-center gap-4 sm:shrink-0">
-                {member.joined && (
-                  <div className="flex items-center gap-2">
-                    <p className="smalltext text-card-foreground/60">Joined</p>
-                    <p className="smalltext text-card-foreground">
-                      {new Date(member.joined).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                <div className="flex items-center gap-1 smalltext text-card-foreground">
-                  <Clock className="h-3 w-3" />
-                  {member.hours}h/week
-                </div>
-                <ChevronRight className="h-4 w-4 text-card-foreground/40" />
-              </div>
+              <p title={member.name} className="smalltext font-medium text-card-foreground truncate max-w-full">
+                {member.name}
+              </p>
+              <p className="smalltext text-card-foreground/60">
+                {member.role === "developer"
+                  ? member.developerType === "internal"
+                    ? "Internal Developer"
+                    : "Spark & Co Developer"
+                  : member.role}
+              </p>
+              {member.hours ? (
+                <p className="smalltext text-card-foreground/60">{member.hours}h/week</p>
+              ) : null}
             </button>
           ))}
         </div>

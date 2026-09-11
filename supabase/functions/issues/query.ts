@@ -14,6 +14,7 @@ query Issues($filter: IssueFilter) {
       title
       url
       id
+      identifier
       updatedAt
       description
       activitySummary

@@ -6,13 +6,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
@@ -23,11 +16,6 @@ interface UploadedFile {
   name: string;
   size: string;
   status: "uploading" | "complete" | "error";
-}
-
-export interface UploadInitiative {
-  clientName: string;
-  linear_slug: string;
 }
 
 function useUploadFile() {
@@ -79,29 +67,20 @@ function useUploadFile() {
 
 export function UploadDocument({
   projectSlug,
-  initiatives,
 }: {
+  // Which project the upload is filed under — resolved by the page from
+  // whichever project is currently selected (e.g. the sidebar dropdown for
+  // a developer with multiple assignments, see components/sidebar.tsx).
   readonly projectSlug?: string;
-  // When a developer is assigned to more than one initiative, lets them
-  // pick which one the upload should be filed under instead of always
-  // going to whichever initiative the page happens to be scoped to.
-  readonly initiatives?: UploadInitiative[];
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [selectedProjectSlug, setSelectedProjectSlug] = useState(
-    projectSlug ?? "",
-  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const uploadMutation = useUploadFile();
 
-  const hasMultipleInitiatives = (initiatives?.length ?? 0) > 1;
-  const targetProjectSlug = hasMultipleInitiatives
-    ? selectedProjectSlug
-    : (projectSlug ?? "");
-
-  const canUploadNow = !hasMultipleInitiatives || !!selectedProjectSlug;
+  const targetProjectSlug = projectSlug ?? "";
+  const canUploadNow = !!targetProjectSlug;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -178,29 +157,6 @@ export function UploadDocument({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {hasMultipleInitiatives && (
-          <div className="space-y-1.5">
-            <p className="smalltext font-medium text-muted-foreground">
-              Upload to initiative
-            </p>
-            <Select
-              value={selectedProjectSlug}
-              onValueChange={setSelectedProjectSlug}
-            >
-              <SelectTrigger className="bg-secondary border-0 text-card-foreground smalltext">
-                <SelectValue placeholder="Select an initiative…" />
-              </SelectTrigger>
-              <SelectContent>
-                {initiatives!.map((i) => (
-                  <SelectItem key={i.linear_slug} value={i.linear_slug}>
-                    {i.clientName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -223,7 +179,7 @@ export function UploadDocument({
           <p className="smalltext font-medium text-foreground text-center">
             {canUploadNow
               ? "Drag and drop files here, or click to browse"
-              : "Select an initiative above to upload"}
+              : "No project selected to upload to"}
           </p>
           <p className="smalltext text-muted-foreground mt-1">
             PDF, DOCX, XLSX, PNG, JPG up to 50MB

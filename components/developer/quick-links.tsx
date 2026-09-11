@@ -53,7 +53,7 @@ export function QuickLinks() {
   return (
     <Card className="bg-background border-border">
       <CardHeader>
-        <CardTitle className="text-base font-semibold flex items-center gap-2 text-white">
+        <CardTitle className="smalltext font-semibold flex items-center gap-2 text-white">
           <ExternalLink className="h-4 w-4 text-primary" />
           Quick Links
         </CardTitle>
@@ -71,14 +71,14 @@ export function QuickLinks() {
               <link.icon className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-card-foreground">
+              <p className="smalltext font-medium text-card-foreground">
                 {link.title}
               </p>
-              <p className="text-xs text-card-foreground truncate">
+              <p className="smalltext text-card-foreground truncate">
                 {link.description}
               </p>
             </div>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+            <span className="smalltext text-muted-foreground bg-muted px-2 py-0.5 rounded">
               {link.type}
             </span>
           </a>

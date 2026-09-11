@@ -183,7 +183,7 @@ Clicking any cycle cell (project-level or milestone-level) opens a panel below t
 
 ### Opening an issue from the timeline
 
-Clicking an issue card opens the full **IssueDetailModal** — Description, Chat, Tests, Decisions, and (for non-bug issues) Design/Demo tabs, same as everywhere else in the app (see `app/docs/FEATURES_FLOWS.md`). A **pencil/edit button** on each card (new alongside the drill-down rework) opens `EditIssueModal` directly instead, and on save invalidates the `["roadmap", slug]` query so the timeline reflects the change.
+Clicking an issue card opens the full **IssueDetailModal** — Description, Chat, Tests, Decisions, Demo, and (for non-bug issues) Design tabs too, same as everywhere else in the app (see `app/docs/FEATURES_FLOWS.md`). A **pencil/edit button** on each card (new alongside the drill-down rework) opens `EditIssueModal` directly instead, and on save invalidates the `["roadmap", slug]` query so the timeline reflects the change.
 
 ---
 

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, ExternalLink, Calendar } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
+import { titleCase } from "@/lib/utils";
 
 const documents = [
   {
@@ -87,7 +88,7 @@ export function DocumentsDirectory() {
                     statusColors[doc.status as keyof typeof statusColors]
                   }`}
                 >
-                  {doc.status}
+                  {titleCase(doc.status)}
                 </Badge>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <Download className="h-4 w-4" />

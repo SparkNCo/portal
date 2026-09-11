@@ -2,13 +2,15 @@
 
 import { corsHeaders } from "../utils/headers.ts";
 import { jsonResponse } from "./helpers.ts";
-import { listDemoVideos } from "./listDemoVideos.ts";
+import { listDemoVideos, listDemoVideosByIssueIds } from "./listDemoVideos.ts";
 import {
   createDemoVideoFromEmbed,
+  createDemoVideoFromExisting,
   createDemoVideoFromUpload,
 } from "./createDemoVideo.ts";
 import {
   updateDemoVideoWithEmbed,
+  updateDemoVideoWithExisting,
   updateDemoVideoWithUpload,
 } from "./updateDemoVideo.ts";
 import { listComments } from "./listComments.ts";
@@ -59,10 +61,21 @@ Deno.serve(async (req) => {
 // ============================================================
 
 const handleGetVideos = async (url: URL) => {
+  const issueIdsParam = url.searchParams.get("issue_ids");
+
+  if (issueIdsParam) {
+    const issueIds = issueIdsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    return jsonResponse(await listDemoVideosByIssueIds(issueIds));
+  }
+
   const issueId = url.searchParams.get("issue_id");
 
   if (!issueId) {
-    return jsonResponse({ error: "issue_id is required" }, 400);
+    return jsonResponse({ error: "issue_id or issue_ids is required" }, 400);
   }
 
   return jsonResponse(await listDemoVideos(issueId));
@@ -77,6 +90,7 @@ const handlePostVideo = async (req: Request) => {
     const file = formData.get("file");
     const issueId = formData.get("issue_id");
     const email = formData.get("email");
+    const title = formData.get("title");
 
     if (!(file instanceof File)) {
       return jsonResponse({ error: "A video file is required" }, 400);
@@ -87,21 +101,35 @@ const handlePostVideo = async (req: Request) => {
     if (!email || typeof email !== "string") {
       return jsonResponse({ error: "email is required" }, 400);
     }
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return jsonResponse({ error: "title is required" }, 400);
+    }
 
     return jsonResponse(
-      await createDemoVideoFromUpload(issueId, email, file),
+      await createDemoVideoFromUpload(issueId, email, file, title.trim()),
       201,
     );
   }
 
-  const { issue_id, email, embed_url } = await req.json();
+  const { issue_id, email, embed_url, source_demo_id, title } = await req.json();
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+
+  if (source_demo_id) {
+    return jsonResponse(
+      await createDemoVideoFromExisting(issue_id, email, source_demo_id),
+      201,
+    );
+  }
+
   if (!embed_url) return jsonResponse({ error: "embed_url is required" }, 400);
+  if (!title || !String(title).trim()) {
+    return jsonResponse({ error: "title is required" }, 400);
+  }
 
   return jsonResponse(
-    await createDemoVideoFromEmbed(issue_id, email, embed_url),
+    await createDemoVideoFromEmbed(issue_id, email, embed_url, String(title).trim()),
     201,
   );
 };
@@ -129,10 +157,17 @@ const handlePutVideo = async (req: Request) => {
     return jsonResponse(await updateDemoVideoWithUpload(demoId, email, file));
   }
 
-  const { demo_id, email, embed_url } = await req.json();
+  const { demo_id, email, embed_url, source_demo_id } = await req.json();
 
   if (!demo_id) return jsonResponse({ error: "demo_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+
+  if (source_demo_id) {
+    return jsonResponse(
+      await updateDemoVideoWithExisting(demo_id, email, source_demo_id),
+    );
+  }
+
   if (!embed_url) return jsonResponse({ error: "embed_url is required" }, 400);
 
   return jsonResponse(

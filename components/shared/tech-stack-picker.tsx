@@ -49,7 +49,7 @@ function SortableTechChip({
       {...listeners}
       className={cn(
         badgeVariants({ variant: "secondary" }),
-        "gap-1 pr-1 cursor-grab touch-none active:cursor-grabbing",
+        "smalltext gap-1 pr-1 cursor-grab touch-none active:cursor-grabbing",
       )}
     >
       <GripVertical className="h-3 w-3 text-muted-foreground" />
@@ -128,7 +128,7 @@ export function TechStackPicker({
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <Input
-            className="bg-secondary border-0"
+            className="smalltext bg-secondary border-0"
             placeholder="Type a skill..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -144,7 +144,7 @@ export function TechStackPicker({
           type="button"
           size="sm"
           variant="outline"
-          className="h-9"
+          className="h-9 smalltext"
           disabled={!input.trim()}
           onClick={addTech}
         >
@@ -154,7 +154,7 @@ export function TechStackPicker({
 
       <div className="min-h-[60px] rounded-lg border border-dashed border-border p-2.5">
         {value.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic text-center py-2.5">
+          <p className="smalltext text-muted-foreground italic text-center py-2.5">
             Add skills here
           </p>
         ) : (

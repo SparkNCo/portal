@@ -156,7 +156,45 @@ export type Issue = {
   estimate?: number | null;
   createdAt?: string;
   project?: { id: string; name: string; slugId?: string };
+  // Client-side tag (not from the API) added by pages that merge issues
+  // across multiple customers, e.g. the developer dashboard — holds the
+  // owning customer's `clientName`.
+  _project?: string;
 };
+
+// ── Priority / status quick-change menus ────────────────────────────────────
+// Shared by issue-detail-modal.tsx and build/edit-issue-modal.tsx's own
+// header priority/status "plates" (click a badge, pick a value, saves
+// immediately) — one definition so the two editors can't drift apart.
+
+export const PRIORITY_MENU_OPTIONS: { value: string; label: Issue["priorityLabel"] }[] = [
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: "none", label: "No priority" },
+];
+
+// Every real Linear workflow state name this app knows about (see
+// `Issue["state"]["name"]` above), minus "needs-input" and "waiting" —
+// those two are synthetic client-side buckets, not settable Linear states,
+// so offering them here would just fail the PATCH.
+export const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
+  "Backlog",
+  "Planning",
+  "Business Review",
+  "Development",
+  "QA",
+  "UAT",
+  "Todo",
+  "In Progress",
+  "In Review",
+  "Blocked",
+  "Not Started",
+  "Canceled",
+  "Done",
+  "Completed",
+];
 
 export type FilterState = {
   selectedStatuses: string[];
@@ -178,6 +216,14 @@ export type FilterState = {
   onDateToChange?: (date: string) => void;
 };
 
+export type IssueDetailTab =
+  | "description"
+  | "chat"
+  | "decisions"
+  | "tests"
+  | "design"
+  | "demo";
+
 export type PriorityTasksProps = {
   issuesData: Issue[];
   filterState: FilterState;
@@ -190,6 +236,10 @@ export type PriorityTasksProps = {
   // panel rather than a global IssueListRow change.
   lightCard?: boolean;
   headerAction?: ReactNode;
+  // Optional sort control rendered next to the Filter button — omit both to
+  // leave sorting out of the toolbar entirely (pages that sort elsewhere).
+  sortBy?: "updated" | "priority";
+  onSortByChange?: (value: "updated" | "priority") => void;
   // Which customer these issues belong to — passed through to the issue
   // detail modal's Chat tab so a brand-new chat group gets tagged with the
   // right customer even when a developer/admin (not the customer) sends the
@@ -197,4 +247,8 @@ export type PriorityTasksProps = {
   // developer dashboard) — each issue there already carries its own
   // `_project` (clientName), which the modal falls back to per-issue.
   slug?: string;
+  // Opens each ticket's detail modal straight on this tab instead of
+  // Description — e.g. the Demos page, since that's the whole reason it
+  // linked to the ticket in the first place.
+  initialModalTab?: IssueDetailTab;
 };

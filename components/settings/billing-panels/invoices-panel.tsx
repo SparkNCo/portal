@@ -4,6 +4,7 @@ import { Button } from "@/components/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditCard, Download } from "lucide-react";
 import { formatDateFromUnix, formatAmountFromCents } from "@/lib/formatters";
+import { titleCase } from "@/lib/utils";
 
 const statusColors = {
   paid: "bg-green-100 text-green-800",
@@ -96,7 +97,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
                 "bg-muted text-muted-foreground"
               }`}
             >
-              {invoice.status}
+              {titleCase(invoice.status)}
             </Badge>
 
             {invoice.invoicePdf && (

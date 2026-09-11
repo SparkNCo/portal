@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Group } from "@cometchat/chat-sdk-javascript";
 import { Plus, MessageSquare, Bot, X, ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -9,10 +9,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
-
-// Radix Select reserves the empty string for "no value" internally, so "no
-// customer selected" (show every chat) needs its own sentinel instead.
-const ALL_CUSTOMERS_VALUE = "__all__";
 
 type CustomerOption = { id: string; userName: string };
 
@@ -70,7 +66,11 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
 function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   return (
     <div
-      className="group/item flex items-center gap-3 px-3 py-2.5 border-b bg-black"
+      className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
+        isSelected
+          ? "bg-accent/10 border-l-2 border-l-accent"
+          : "hover:bg-secondary/40 border-l-2 border-l-transparent"
+      }`}
     >
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <GroupAvatar name={group.getName()} />
@@ -100,7 +100,7 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
     <div>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold uppercase tracking-wider text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs md:smalltext font-semibold text-muted-foreground bg-secondary/30 border-b hover:bg-secondary/50 transition-colors"
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         {slug || "Other"}
@@ -119,13 +119,32 @@ function GroupSection({ slug, bucket, selectedGroup, onSelectGroup, onCloseGroup
   );
 }
 
-function groupBySlug(groups: Group[]): Map<string, Group[]> {
+// Buckets primarily by `projectSlug` metadata (lets a single customer's own
+// chats still split out by initiative when they have more than one). But a
+// group created from a flow with no project route in scope — e.g. any chat
+// started from /admin/chats, which has no customer slug to tag it with —
+// never gets a `projectSlug` at all, and used to fall into a catch-all
+// "Other" bucket even though its `customerId` metadata (the same field the
+// customer filter above matches on) makes perfectly clear which customer it
+// belongs to. Resolving that customerId to a name before giving up keeps
+// every chat under the customer it actually belongs to instead of a bucket
+// that shouldn't exist.
+function groupByProject(
+  groups: Group[],
+  customerNameById: Map<string, string>,
+): Map<string, Group[]> {
   const map = new Map<string, Group[]>();
   for (const g of groups) {
-    const slug: string = (g.getMetadata() as any)?.projectSlug ?? "";
-    const bucket = map.get(slug) ?? [];
+    const metadata = g.getMetadata() as
+      | { customerId?: string; projectSlug?: string }
+      | undefined;
+    const key =
+      metadata?.projectSlug ||
+      (metadata?.customerId && customerNameById.get(metadata.customerId)) ||
+      "";
+    const bucket = map.get(key) ?? [];
     bucket.push(g);
-    map.set(slug, bucket);
+    map.set(key, bucket);
   }
   return map;
 }
@@ -148,7 +167,11 @@ export default function ChatSideBar({
   onSelectedCustomerIdChange,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
-  const groupedBySlug = groupBySlug(groups);
+  const customerNameById = useMemo(
+    () => new Map(customerOptions.map((c) => [c.id, c.userName])),
+    [customerOptions],
+  );
+  const groupedBySlug = groupByProject(groups, customerNameById);
   const showGrouped = groupedBySlug.size > 1;
 
   return (
@@ -156,18 +179,13 @@ export default function ChatSideBar({
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
           <Select
-            value={selectedCustomerId?.trim() ? selectedCustomerId : ALL_CUSTOMERS_VALUE}
-            onValueChange={(value) =>
-              onSelectedCustomerIdChange?.(value === ALL_CUSTOMERS_VALUE ? "" : value)
-            }
+            value={selectedCustomerId}
+            onValueChange={(value) => onSelectedCustomerIdChange?.(value)}
           >
             <SelectTrigger className="h-8 text-xs md:smalltext">
-              <SelectValue placeholder="All customers" />
+              <SelectValue placeholder="Select a customer" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_CUSTOMERS_VALUE}>
-                All customers
-              </SelectItem>
               {customerOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.userName}

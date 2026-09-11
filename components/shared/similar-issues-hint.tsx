@@ -16,15 +16,19 @@ type SimilarIssueMatch = {
 
 // Don't bother querying on very short/partial titles — too little text for the
 // embedding to be meaningful, and it'd just be noise while the user is still typing.
-const MIN_QUERY_LENGTH = 12;
+const MIN_QUERY_LENGTH = 7;
 // Long on purpose — every firing is an Upstash query, so this waits for the user to
 // actually pause typing rather than re-querying on every short break in typing.
 const DEBOUNCE_MS = 3000;
 
 // Cosine similarity threshold for surfacing a match. Calibrated empirically against
-// the live index: an exact-duplicate title only scored ~0.858 (the stored vector is
-// title+description combined, so title-only queries never approach 1.0), and close
+// the live index back when every issue had a single title+description vector, so an
+// exact-duplicate title only scored ~0.858 (diluted by the description) and close
 // paraphrases landed around ~0.74-0.76 — 0.86 never fired even on real duplicates.
+// Each issue now also has a title-only vector that a query under 15 characters is
+// matched against instead (see queryTopIssueMatches in lib/vector.ts) — scores there
+// run higher since there's no long description to dilute the comparison, so 0.7
+// still clears real matches without needing to be raised for the short-query case.
 const SIMILARITY_THRESHOLD = 0.7;
 
 async function fetchSimilarIssues(

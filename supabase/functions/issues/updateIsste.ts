@@ -1,8 +1,32 @@
 // @ts-nocheck
+import { supabase } from "../client.ts";
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
+
+// Resolves a customer's stable Linear Initiative id (`customers.linear_slug`)
+// from the frontend's clientName-based `slug` — see createIssue.ts's own
+// resolveCustomer() for the fuller version of this lookup (that one also
+// resolves a teamId, which the two handlers below don't need). This keeps
+// the issues vector index namespaced the same way linear-vector-sync's
+// hourly cron already does, instead of the raw `slug` — which is editable
+// (Admin → Users → Customer Profile) and inconsistently cased across the
+// app, so it's not a safe permanent index key.
+async function resolveLinearSlug(slug: string, schema: string): Promise<string | null> {
+  const { data, error } = await supabase.schema(schema)
+    .from("customers")
+    .select("linear_slug")
+    .ilike("clientName", escapeIlike(slug))
+    .maybeSingle();
+
+  if (error) {
+    console.error("[resolveLinearSlug] lookup failed:", error.message);
+    return null;
+  }
+
+  return data?.linear_slug ?? null;
+}
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -12,7 +36,9 @@ const GET_ISSUE_TEAM_QUERY = `
   }
 `;
 
-const GET_STATE_ID_QUERY = `
+// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
+// needs to resolve "Backlog"'s stateId the same way handleUpdateState does here.
+export const GET_STATE_ID_QUERY = `
   query GetStateId($teamId: ID!, $stateName: String!) {
     workflowStates(filter: {
       team: { id: { eq: $teamId } },
@@ -153,12 +179,15 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   // Best-effort — keeps the issues vector index in sync for edits made through this
   // app. Edits made directly in Linear are caught by the linear-vector-sync cron.
   if (slug && updatedIssue) {
-    await upsertIssueVector(slug, {
-      id: updatedIssue.id,
-      title: updatedIssue.title,
-      description: updatedIssue.description,
-      kind: deriveIssueKind(updatedIssue.labels?.nodes),
-    });
+    const linearSlug = await resolveLinearSlug(slug, "portal");
+    if (linearSlug) {
+      await upsertIssueVector(linearSlug, {
+        id: updatedIssue.id,
+        title: updatedIssue.title,
+        description: updatedIssue.description,
+        kind: deriveIssueKind(updatedIssue.labels?.nodes),
+      });
+    }
   }
 
   return Response.json(data.issueUpdate);
@@ -178,7 +207,10 @@ export async function handleGetSimilarIssues(req: Request): Promise<Response> {
 
   if (!slug || !q?.trim()) return Response.json([]);
 
-  const matches = await queryTopIssueMatches(slug, q.trim(), 3, kind);
+  const linearSlug = await resolveLinearSlug(slug, "portal");
+  if (!linearSlug) return Response.json([]);
+
+  const matches = await queryTopIssueMatches(linearSlug, q.trim(), 3, kind);
   return Response.json(matches);
 }
 

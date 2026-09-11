@@ -129,7 +129,7 @@ export function DeveloperDetailsModal({
                       <Badge
                         key={tech}
                         variant="outline"
-                        className="smalltext border-border bg-muted/40 text-foreground max-w-full break-words"
+                        className="smalltext border-border bg-muted/40 text-foreground max-w-full break-words px-2.5 py-1"
                       >
                         {tech}
                       </Badge>
