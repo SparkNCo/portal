@@ -21,12 +21,12 @@ import {
   type Demo,
   type DemoUser,
   attachDemoToIssue,
+  demoLabel,
   isImageFile,
   getEmbedIframeSrc,
   displayName,
 } from "@/lib/demo-video-utils";
 import { DemoPicker } from "@/components/developer/demo-picker";
-import { PreviewLinksBanner } from "./preview-links-banner";
 import type { Issue } from "./issues.types";
 
 type DemoComment = {
@@ -371,8 +371,6 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         </p>
       </div>
 
-      <PreviewLinksBanner slug={slug} />
-
       {/* Add or update a version */}
       <div className="flex flex-wrap items-end gap-3">
         {hasDemos && (
@@ -460,18 +458,17 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            disabled={uploadMutation.isPending}
-            onClick={() => fileInputRef.current?.click()}
+            className={`gap-1.5 ${createMode === "upload" ? "bg-muted" : ""}`}
+            onClick={() => setCreateMode(createMode === "upload" ? null : "upload")}
           >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Add Link
+            <Upload className="h-3.5 w-3.5" />
+            Upload Media
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowAddEmbedForm((v) => !v)}
+            className={`gap-1.5 ${createMode === "embed" ? "bg-muted" : ""}`}
+            onClick={() => setCreateMode(createMode === "embed" ? null : "embed")}
           >
             <LinkIcon className="h-3.5 w-3.5" />
             Add Link
@@ -483,6 +480,97 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
             />
           )}
+        </div>
+      )}
+
+      {/* New demo's title + its content (file or link) — a brand-new demo
+          needs both before it can be created; "Select Existing" above
+          skips this entirely since it's reusing another demo's identity. */}
+      {createOpen && createMode && (
+        <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Title
+            </label>
+            <Input
+              value={newDemoTitle}
+              onChange={(e) => setNewDemoTitle(e.target.value)}
+              placeholder="e.g. Login flow walkthrough"
+              className="bg-background"
+            />
+          </div>
+
+          {createMode === "upload" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Video or image
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {newDemoFile ? newDemoFile.name : "Choose file…"}
+              </Button>
+            </div>
+          )}
+
+          {createMode === "embed" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Video URL (e.g. Loom)
+              </label>
+              <Input
+                value={addEmbedUrl}
+                onChange={(e) => setAddEmbedUrl(e.target.value)}
+                placeholder="https://www.loom.com/share/..."
+                className="bg-background"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={
+                createMode === "upload"
+                  ? uploadMutation.isPending || !newDemoFile || !newDemoTitle.trim()
+                  : addEmbedMutation.isPending || !addEmbedUrl.trim() || !newDemoTitle.trim()
+              }
+              onClick={() => {
+                if (createMode === "upload") {
+                  if (!newDemoFile) return;
+                  uploadMutation.mutate({ file: newDemoFile, title: newDemoTitle.trim() });
+                } else {
+                  addEmbedMutation.mutate({
+                    embedUrl: addEmbedUrl.trim(),
+                    title: newDemoTitle.trim(),
+                  });
+                }
+              }}
+              className="gap-1.5"
+            >
+              {(createMode === "upload" ? uploadMutation.isPending : addEmbedMutation.isPending) ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : createMode === "upload" ? (
+                <Upload className="h-3.5 w-3.5" />
+              ) : (
+                <LinkIcon className="h-3.5 w-3.5" />
+              )}
+              Add version
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={uploadMutation.isPending || addEmbedMutation.isPending}
+              onClick={resetCreateForm}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 
@@ -517,23 +605,6 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               slug={slug}
               disabled={replaceWithExistingMutation.isPending}
               onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Add embed link form (new version) */}
-      {showAddEmbedForm && (
-        <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Video URL (e.g. Loom)
-            </label>
-            <Input
-              value={addEmbedUrl}
-              onChange={(e) => setAddEmbedUrl(e.target.value)}
-              placeholder="https://www.loom.com/share/..."
-              className="bg-background"
             />
           )}
         </div>
