@@ -33,7 +33,7 @@ export function PendingBalancePanel({ balance }: { balance?: Balance }) {
   const currency = balance?.currency ?? "usd";
 
   return (
-    <Card className="bg-transparent">
+    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between ">
           <div>

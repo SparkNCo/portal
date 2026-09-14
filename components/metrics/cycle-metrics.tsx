@@ -123,7 +123,7 @@ export function CycleBarChart({
   };
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <RefreshCw className="h-4 w-4 text-primary" />
