@@ -88,7 +88,7 @@ export function DocumentsList({
   });
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="body font-semibold flex items-center gap-2">
@@ -96,8 +96,8 @@ export function DocumentsList({
             Project Documents
           </CardTitle>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 aria-label="Search documents"

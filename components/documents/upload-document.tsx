@@ -148,7 +148,7 @@ export function UploadDocument({
   };
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2">
           <Upload className="h-4 w-4 text-primary" />
