@@ -26,7 +26,9 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <Sidebar />
       {isOpen && (
-        <div
+        <button
+          type="button"
+          aria-label="Close sidebar"
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
           onClick={close}
         />

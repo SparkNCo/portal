@@ -423,10 +423,11 @@ export function DesignTab({ issue }: { issue: Issue }) {
         {showAddLink && (
           <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label htmlFor="design-link-url" className="text-xs font-medium text-muted-foreground">
                 URL (Figma or v0)
               </label>
               <Input
+                id="design-link-url"
                 value={newLinkUrl}
                 onChange={(e) => handleLinkUrlChange(e.target.value)}
                 placeholder="https://www.figma.com/file/... or https://v0.dev/..."
@@ -437,10 +438,11 @@ export function DesignTab({ issue }: { issue: Issue }) {
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label htmlFor="design-link-title" className="text-xs font-medium text-muted-foreground">
                 Title (optional)
               </label>
               <Input
+                id="design-link-title"
                 value={newLinkTitle}
                 onChange={(e) => setNewLinkTitle(e.target.value)}
                 placeholder="e.g., Dashboard Mockup"
