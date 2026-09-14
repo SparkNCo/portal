@@ -104,7 +104,9 @@ export default function BuildPage() {
       <Header title="Build" subtitle="Guide new features" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
-        <FeatureRequestPanel slug={slug} />
+        <div className="-mx-4 sm:mx-0">
+          <FeatureRequestPanel slug={slug} />
+        </div>
         {projects.length > 0 && (
           <Select
             value={selectedProject ?? ALL_PROJECTS_VALUE}
@@ -128,7 +130,7 @@ export default function BuildPage() {
           </Select>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="build_product_decisions" />
             <div className="pt-12">
@@ -139,7 +141,6 @@ export default function BuildPage() {
                 onEditIssue={(issue) => setEditingIssue(issue)}
                 title="Business Reviews"
                 slug={slug}
-                compact
                 lightCard
               />
             </div>
@@ -154,7 +155,6 @@ export default function BuildPage() {
                 onEditIssue={(issue) => setEditingIssue(issue)}
                 title="Acceptance Testing"
                 slug={slug}
-                compact
                 lightCard
               />
             </div>

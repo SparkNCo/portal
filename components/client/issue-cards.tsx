@@ -244,7 +244,7 @@ export function IssueListRow({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border",
+        "group relative flex flex-wrap items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border sm:flex-nowrap",
         lightCard
           ? "light-card"
           : "bg-background hover:bg-muted text-foreground",
@@ -256,9 +256,15 @@ export function IssueListRow({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {/* Small screens: the row wraps into two lines — 1) label icon, code,
+          title  2) priority, status — since a single squeezed-together line
+          left almost no room for the title. `order` re-sequences visually
+          without moving anything in the DOM, so sm+ (order-none) falls back
+          to plain source order, unchanged. The basis-full spacer below is
+          what forces the wrap between the two lines. */}
       <span
         className={cn(
-          "smalltext font-mono flex-shrink-0 whitespace-nowrap",
+          "order-2 sm:order-none smalltext font-mono flex-shrink-0 whitespace-nowrap",
           lightCard ? "light-card-muted" : "text-muted-foreground",
         )}
       >
@@ -266,14 +272,14 @@ export function IssueListRow({
       </span>
       <Badge
         variant="outline"
-        className={`smalltext flex-shrink-0 w-24 justify-center px-1 whitespace-nowrap mr-2 ${priorityColors[issue.priorityLabel]}`}
+        className={`order-6 sm:order-none smalltext flex-shrink-0 w-24 justify-center px-1 whitespace-nowrap mr-2 ${priorityColors[issue.priorityLabel]}`}
       >
         {issue.priorityLabel}
       </Badge>
 
       <p
         className={cn(
-          "smalltext font-medium  flex-1 truncate",
+          "order-3 sm:order-none smalltext font-medium  flex-1 truncate",
           lightCard ? "light-card-text" : "text-foreground",
         )}
       >
@@ -281,33 +287,36 @@ export function IssueListRow({
       </p>
       {hasUpdate && (
         <span
-          className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
+          className="order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
           title="Recently updated"
         >
           <Mail className="h-2 w-2 text-white" />
         </span>
       )}
+      <div className="order-5 basis-full sm:hidden" aria-hidden="true" />
       {issue.state?.name &&
         (lightCard && NEUTRAL_STATUS_NAMES.has(issue.state.name) ? (
           <Badge
             variant="outline"
-            className="smalltext flex-shrink-0 whitespace-nowrap border light-card-text"
+            className="order-7 sm:order-none smalltext flex-shrink-0 whitespace-nowrap border light-card-text"
           >
             {issue.state.name}
           </Badge>
         ) : (
           <Badge
             variant="secondary"
-            className={`smalltext flex-shrink-0 whitespace-nowrap ${
+            className={`order-7 sm:order-none smalltext flex-shrink-0 whitespace-nowrap ${
               statusColors[issue.state.name as keyof typeof statusColors]
             }`}
           >
             {issue.state.name}
           </Badge>
         ))}
-      {issue.labels?.nodes?.map((l) => (
-        <LabelPill key={l.id} label={l} iconOnly />
-      ))}
+      <span className="order-1 sm:order-none flex items-center gap-1 flex-shrink-0">
+        {issue.labels?.nodes?.map((l) => (
+          <LabelPill key={l.id} label={l} iconOnly />
+        ))}
+      </span>
     </div>
   );
 }
