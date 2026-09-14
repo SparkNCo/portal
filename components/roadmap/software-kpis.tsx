@@ -530,7 +530,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
   };
 
   return (
-    <Card className="bg-background border-border flex flex-col h-full">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl flex flex-col h-full">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
           <TrendingUp className="h-4 w-4 text-primary" />

@@ -49,7 +49,7 @@ export default function RoadmapPage() {
     <div className="min-h-screen">
       <Header title={pageTitle} subtitle="Project timeline and progress" subtitleClassName="smalltext" />
       <div className="p-4 md:p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">
             <PinButton panelId="progress_pie_chart" />
             <div className="pt-12">
@@ -63,7 +63,7 @@ export default function RoadmapPage() {
             </div>
           </div>
         </div>
-        <div className="relative">
+        <div className="relative -mx-4 sm:mx-0">
           <PinButton panelId="roadmap_timeline" />
           <div className="pt-12">
             {isLoading && (
