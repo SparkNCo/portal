@@ -133,7 +133,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background text-foreground">
+    <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle level={2} className="body font-semibold flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-primary" />

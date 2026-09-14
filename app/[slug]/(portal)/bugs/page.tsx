@@ -177,9 +177,11 @@ export default function BugsPage() {
       <Header title="Bugs" subtitle="Issues discovered in production" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
-        <BugReportPanel slug={slug} />
+        <div className="-mx-4 sm:mx-0">
+          <BugReportPanel slug={slug} />
+        </div>
 
-        <div className="relative w-full max-w-full overflow-x-hidden">
+        <div className="relative -mx-4 sm:mx-0 w-full max-w-full overflow-x-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (
