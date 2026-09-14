@@ -327,7 +327,7 @@ export function DocumentRow({
                   />{" "}
                 </Button>
 
-                {(doc.permission === "owner" || isAdmin) && (
+                {doc.permission === "owner" && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -343,60 +343,6 @@ export function DocumentRow({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                )}
-
-                {/* Admin-only: reassign this document's owner to any user
-                    assigned to the initiative — e.g. the original uploader
-                    left the company and someone else needs delete/share
-                    rights over what they left behind. */}
-                {isAdmin && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
-                        aria-label={`Change owner for ${doc.name}`}
-                      >
-                        <UserCog className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-56 p-1">
-                      {assignedUsersQuery.isLoading && (
-                        <p className="smalltext text-muted-foreground px-2 py-1.5">
-                          Loading…
-                        </p>
-                      )}
-                      {!assignedUsersQuery.isLoading &&
-                        (assignedUsersQuery.data?.length ?? 0) === 0 && (
-                          <p className="smalltext text-muted-foreground px-2 py-1.5">
-                            No assigned users found.
-                          </p>
-                        )}
-                      {assignedUsersQuery.data
-                        ?.filter((a: any) => a.role !== "stakeholder")
-                        .map((assignment: any) => (
-                          <Button
-                            key={assignment.user_id}
-                            variant="ghost"
-                            size="sm"
-                            disabled={transferOwnerMutation.isPending}
-                            className="w-full justify-start smalltext truncate"
-                            onClick={() =>
-                              transferOwnerMutation.mutate({
-                                documentId: doc.id,
-                                newOwnerId: assignment.user_id,
-                              })
-                            }
-                          >
-                            {assignment.firstName
-                              ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
-                              : assignment.userName || assignment.email}
-                          </Button>
-                        ))}
-                    </PopoverContent>
-                  </Popover>
                 )}
               </div>
             </div>
