@@ -109,12 +109,12 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Default range shown on open — "last 2 weeks" through today, rather than
+// Default range shown on open — last 7 days through today, rather than
 // starting with no range picked (which used to fall back to a plain
 // unfiltered 30-day view with no explicit dates shown anywhere).
-function twoWeeksAgoIso(): string {
+function sevenDaysAgoIso(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 14);
+  d.setDate(d.getDate() - 6);
   return d.toISOString().slice(0, 10);
 }
 
@@ -321,7 +321,7 @@ export function MyHoursModal({
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingEntry, setEditingEntry] = useState<HoursLogEntry | null>(null);
   const [projectFilter, setProjectFilter] = useState(ALL_PROJECTS);
-  const [dateFrom, setDateFrom] = useState(twoWeeksAgoIso);
+  const [dateFrom, setDateFrom] = useState(sevenDaysAgoIso);
   const [dateTo, setDateTo] = useState(todayIso);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const isSmallScreen = useIsSmallScreen();
@@ -379,6 +379,17 @@ export function MyHoursModal({
     }
     return projects.find((p) => p.clientName === projectFilter)?.allocation ?? 0;
   }, [projects, projectFilter]);
+
+  // What the allocation total above is actually summing — the single
+  // project's name when filtered down to one, otherwise how many projects
+  // (with a real allocation) fed into that sum.
+  const allocationProjectLabel =
+    projectFilter === ALL_PROJECTS
+      ? (() => {
+          const count = projects.filter((p) => (p.allocation ?? 0) > 0).length;
+          return `${count} project${count === 1 ? "" : "s"}`;
+        })()
+      : projectFilter;
 
   const isRangeSelected = !!dateFrom && !!dateTo;
   const isRangeInvalid = isRangeSelected && dateFrom > dateTo;
@@ -581,7 +592,14 @@ export function MyHoursModal({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {isRangeFocused && <AllocationMeter hours={rangeTotal} allocation={rangeAllocation} />}
+                      {isRangeFocused && (
+                        <AllocationMeter
+                          hours={rangeTotal}
+                          allocation={rangeAllocation}
+                          days={rangeDays.length}
+                          projectLabel={allocationProjectLabel}
+                        />
+                      )}
                       <div className="h-56 cursor-pointer [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
                         <ResponsiveContainer width="100%" height={224}>
                           <LineChart
@@ -612,7 +630,7 @@ export function MyHoursModal({
                             <Tooltip content={<DayTooltip isMultiProject={isMultiProject} />} />
                             {isMultiProject && (
                               <Legend
-                                wrapperStyle={{ fontSize: 11 }}
+                                wrapperStyle={{ fontSize: 16 }}
                                 formatter={(value) => (
                                   <span style={{ color: "oklch(0.75 0 0)" }}>{value}</span>
                                 )}
@@ -631,6 +649,12 @@ export function MyHoursModal({
                                 x={d.label}
                                 stroke="oklch(0.4 0 0)"
                                 strokeDasharray="2 2"
+                                label={{
+                                  value: d.monthLabel,
+                                  position: "top",
+                                  fill: "oklch(0.6 0 0)",
+                                  fontSize: 16,
+                                }}
                               />
                             ))}
                             {isMultiProject ? (
