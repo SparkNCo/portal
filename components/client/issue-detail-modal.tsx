@@ -1313,7 +1313,7 @@ function TestsTab({
             onSubmitUat={handleSubmitUat}
           />
 
-          {(role === "stakeholder" || role === "customer") &&
+          {(role === "stakeholder" || role === "customer" || role === "admin") &&
             (e.status === "approved" || e.status === "passed") &&
             currentStateName === "UAT" &&
             (e.status === "passed" ||
@@ -1535,12 +1535,13 @@ export function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const role = profile?.role;
-  const canAnswer = role === "customer" || role === "stakeholder";
+  // Admins can do anything a customer can, on top of their own powers below.
+  const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
-  const canRecordUatResult = role === "customer" || role === "stakeholder";
+  const canRecordUatResult = role === "customer" || role === "stakeholder" || role === "admin";
   // Freely changing priority/status from the header plates is a
   // developer/admin power-tool — customers and stakeholders only move
   // tickets through the guided flow in the Description tab.
