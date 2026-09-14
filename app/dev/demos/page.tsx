@@ -147,8 +147,11 @@ function UploadDemoForm({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <label className="smalltext font-medium text-muted-foreground">Title</label>
+          <label htmlFor="demo-title" className="smalltext font-medium text-muted-foreground">
+            Title
+          </label>
           <Input
+            id="demo-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Login flow walkthrough"
@@ -209,10 +212,11 @@ function UploadDemoForm({
 
         {mode && (
           <div className="space-y-1.5">
-            <label className="smalltext font-medium text-muted-foreground">
+            <label htmlFor="demo-issue-filter" className="smalltext font-medium text-muted-foreground">
               Related features & bugs
             </label>
             <Input
+              id="demo-issue-filter"
               value={issueFilter}
               onChange={(e) => setIssueFilter(e.target.value)}
               placeholder="Search tickets…"

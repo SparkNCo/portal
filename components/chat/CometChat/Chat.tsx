@@ -145,31 +145,32 @@ export default function Chat({
   return (
     <div className="relative flex flex-1 flex-col border-4">
       {notification && (
-        <div
-          className="absolute top-4 right-4 bg-black text-white px-4 py-2 rounded-lg shadow-lg cursor-pointer z-50"
-          onClick={() => {
-            setResponseConversation(notification);
-            setMode("response");
-            setNotification(null);
-          }}
-        >
-          <div>
+        <div className="absolute top-4 right-4 z-50">
+          <button
+            type="button"
+            aria-label={`Open conversation with ${notification.from}`}
+            className="block w-full text-left bg-black text-white px-4 py-2 rounded-lg shadow-lg cursor-pointer"
+            onClick={() => {
+              setResponseConversation(notification);
+              setMode("response");
+              setNotification(null);
+            }}
+          >
             <div className="text-xs opacity-70 px-8">
               New message from {notification.from}
             </div>
-            <button
-              className="absolute top-1 right-1 text-xs opacity-70 hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                setNotification(null);
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          <div className="text-sm font-medium truncate max-w-[220px] px-8">
-            {notification.text}
-          </div>
+            <div className="text-sm font-medium truncate max-w-[220px] px-8">
+              {notification.text}
+            </div>
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss notification"
+            className="absolute top-1 right-1 text-xs opacity-70 hover:opacity-100"
+            onClick={() => setNotification(null)}
+          >
+            ✕
+          </button>
         </div>
       )}
 

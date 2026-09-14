@@ -327,7 +327,6 @@ function DecisionsTab({
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
                       handleSubmitAnswer(d.id);
                   }}
-                  autoFocus
                 />
                 <div className="flex gap-2 justify-end">
                   <Button
@@ -386,7 +385,6 @@ function DecisionsTab({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
                     handleCreateQuestion();
                 }}
-                autoFocus
               />
               <div className="flex gap-2 justify-end">
                 <Button
@@ -673,7 +671,6 @@ function TestUatSection({
         placeholder="Describe what actually happened…"
         value={uatForm.result}
         onChange={(e) => setUatForm({ ...uatForm, result: e.target.value })}
-        autoFocus
       />
       <input
         ref={uatFileInputRef}
@@ -1169,7 +1166,6 @@ function TestsTab({
                   onChange={(ev) =>
                     setEditForm({ ...editForm, title: ev.target.value })
                   }
-                  autoFocus
                 />
               </div>
               <StepsEditor
@@ -1352,7 +1348,6 @@ function TestsTab({
                   onChange={(ev) =>
                     setTestForm((f) => ({ ...f, title: ev.target.value }))
                   }
-                  autoFocus
                 />
               </div>
               <StepsEditor
@@ -1431,7 +1426,6 @@ function TestsTab({
                   onChange={(ev) =>
                     setPendingExisting((p) => (p ? { ...p, expected: ev.target.value } : p))
                   }
-                  autoFocus
                 />
               </div>
               <div className="flex gap-2 justify-end">

@@ -546,10 +546,11 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
       {createOpen && createMode && (
         <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="demo-new-title" className="text-xs font-medium text-muted-foreground">
               Title
             </label>
             <Input
+              id="demo-new-title"
               value={newDemoTitle}
               onChange={(e) => setNewDemoTitle(e.target.value)}
               placeholder="e.g. Login flow walkthrough"
@@ -559,10 +560,11 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 
           {createMode === "upload" && (
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label htmlFor="demo-new-file" className="text-xs font-medium text-muted-foreground">
                 Video or image
               </label>
               <Button
+                id="demo-new-file"
                 type="button"
                 size="sm"
                 variant="outline"
@@ -577,10 +579,11 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 
           {createMode === "embed" && (
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label htmlFor="demo-new-embed-url" className="text-xs font-medium text-muted-foreground">
                 Video URL (e.g. Loom)
               </label>
               <Input
+                id="demo-new-embed-url"
                 value={addEmbedUrl}
                 onChange={(e) => setAddEmbedUrl(e.target.value)}
                 placeholder="https://www.loom.com/share/..."
@@ -671,10 +674,11 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
       {showReplaceEmbedForm && currentDemo && (
         <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="demo-replace-embed-url" className="text-xs font-medium text-muted-foreground">
               Replace v{currentDemo.version} with video URL
             </label>
             <Input
+              id="demo-replace-embed-url"
               value={replaceEmbedUrl}
               onChange={(e) => setReplaceEmbedUrl(e.target.value)}
               placeholder="https://www.loom.com/share/..."

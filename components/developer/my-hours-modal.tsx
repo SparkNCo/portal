@@ -331,7 +331,9 @@ export function MyHoursModal({
   // assigned to.
   const activeProjectNames = useMemo(() => {
     if (projectFilter !== ALL_PROJECTS) return [];
-    return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort();
+    return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort((a, b) =>
+      a.localeCompare(b),
+    );
   }, [filteredEntries, projectFilter]);
   const isMultiProject = activeProjectNames.length > 0;
 
