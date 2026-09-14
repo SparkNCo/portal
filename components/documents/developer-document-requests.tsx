@@ -26,13 +26,19 @@ export function DeveloperDocumentRequests({
     return <DocumentRequestsList canManage customerSlug={customerSlug} />;
   }
 
-  const assignedSlugs = Array.from(
-    new Set(
-      (profile.assignment_id ?? [])
-        .map((a) => a.clientName)
-        .filter((slug): slug is string => Boolean(slug)),
-    ),
-  );
+  // `customerSlug` here is whichever project is selected in the sidebar
+  // dropdown (resolved by app/[slug]/(portal)/documents/page.tsx) — scope
+  // to just that one project rather than every assignment, falling back to
+  // every assigned project only if none resolved yet.
+  const assignedSlugs = customerSlug
+    ? [customerSlug]
+    : Array.from(
+        new Set(
+          (profile.assignment_id ?? [])
+            .map((a) => a.clientName)
+            .filter((slug): slug is string => Boolean(slug)),
+        ),
+      );
 
   return <DocumentRequestsList canManage assignedSlugs={assignedSlugs} />;
 }

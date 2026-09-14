@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ListTodo, ArrowRight, GitBranch } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
+import { titleCase } from "@/lib/utils";
 
 const tasks = [
   {
@@ -71,7 +72,7 @@ export function DevTasks() {
                     statusColors[task.status as keyof typeof statusColors]
                   }
                 >
-                  {task.status}
+                  {titleCase(task.status)}
                 </Badge>
               </div>
               <p className="text-sm font-medium text-card-foreground truncate">

@@ -92,6 +92,10 @@ Clicking a row opens a read-only detail modal (title, status, project, related r
 
 **Completing a claimed request:** `markDocumentRequestDone` (the PATCH's default branch) rejects with `409` if the request is claimed by someone other than the caller — unless the caller is an `admin`, who can complete any request regardless of who claimed it.
 
+**Releasing a claim:** `PATCH /document-requests { action: "release", id, releasedBy }` clears `claimed_by`/`claimed_at` on a still-`pending` request. Two paths trigger it:
+- **Automatic** — cancelling `FulfillDocumentRequestModal` (Cancel/X) on a request the current user claimed themselves releases it immediately, so backing out of an upload doesn't leave the request stuck claimed forever.
+- **Admin-only "Unassign" button** — shown on a request claimed by *someone else*, for when a developer claims a request and never follows through. `releaseDocumentRequest` only allows clearing someone else's claim when the caller is an `admin`; anyone else can only release their own.
+
 ---
 
 ## Panel — Project Documents (`DocumentsList`)
@@ -266,6 +270,7 @@ User lands on /{slug}/documents or /dev/documents
           └── Document Requests (independent of the list above):
                 ├── POST /document-requests → new pending request
                 ├── PATCH /document-requests { action: "claim" } → optimistic lock, 409 if already claimed
+                ├── PATCH /document-requests { action: "release" } → clears the claim (self, or admin on anyone's)
                 └── Fulfill: POST /storage (upload) → POST /storage/share (deliver) → PATCH /document-requests (mark done)
 ```
 
@@ -284,10 +289,11 @@ User lands on /{slug}/documents or /dev/documents
 | `components/documents/update-document-entry.ts` | `useUpdateDocument` (category change) and `useDeleteDocument` mutations |
 | `components/documents/use-document-requests.ts` | Shared `useDocumentRequests` hook + `DocumentRequest` type |
 | `components/documents/request-document-dialog.tsx` | Customer/stakeholder "Request Report or Documentation" dialog |
-| `components/documents/document-requests-list.tsx` | Pending/done request panels, detail modal, claim button |
+| `components/documents/document-requests-list.tsx` | Pending/done request panels, detail modal, claim button, admin-only "Unassign" button |
 | `components/documents/developer-document-requests.tsx` | Role gate + scoping wrapper around `DocumentRequestsList` for developer/admin |
 | `components/documents/fulfill-document-request-modal.tsx` | Upload-and-share-in-one-step modal used to fulfill a claimed request |
-| `supabase/functions/document-requests/index.ts` | Router — `POST` create, `PATCH` claim/complete |
+| `supabase/functions/document-requests/index.ts` | Router — `POST` create, `PATCH` claim/release/complete |
 | `supabase/functions/document-requests/createDocumentRequest.ts` | Inserts a new pending request |
 | `supabase/functions/document-requests/claimDocumentRequest.ts` | Optimistic claim (`WHERE status='pending' AND claimed_by IS NULL`) |
+| `supabase/functions/document-requests/releaseDocumentRequest.ts` | Clears a claim — self always allowed, someone else's only if caller is `admin` |
 | `supabase/functions/document-requests/markDocumentRequestDone.ts` | Marks done; blocks non-claimer/non-admin completion |

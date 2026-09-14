@@ -1,0 +1,30 @@
+flowchart TD
+    subgraph Generate ["generateSuggestion.ts — manual trigger for now, no cron yet"]
+        TRIG(["POST /suggested-features/generate\n{ slug, projectId }"]) --> CTX["PROJECT_CONTEXT_QUERY\n(Linear): project + milestones + issues"]
+        CTX --> PROMPT["buildPrompt():\nproject/milestone/ticket context"]
+        PROMPT --> AI["OpenAI /v1/responses\nstructured output: title, description, milestoneId"]
+        AI --> MATCH["Match milestoneId against\nthis project's own milestones"]
+        MATCH --> INSERT[("portal.suggested_features\nstatus = pending")]
+    end
+
+    subgraph List ["listSuggestions.ts"]
+        LIST(["GET /suggested-features?slug=..."]) --> PENDING["WHERE project_slug = slug\nAND status = pending"]
+    end
+
+    subgraph Accept ["acceptSuggestion.ts"]
+        ACC(["POST /suggested-features/accept\n{ id, priority }"]) --> ROW{"row status\n== pending?"}
+        ROW -->|No| CONFLICT[409 already resolved]
+        ROW -->|Yes| TEAM["GET_PROJECT_TEAM_QUERY\n→ teamId"]
+        TEAM --> STATE["GET_STATE_ID_QUERY\n(teamId, 'Backlog') → stateId"]
+        STATE --> CREATE["CREATE_ISSUE_MUTATION\nprojectId, projectMilestoneId?, stateId,\ncycleId: null, priority"]
+        CREATE --> VEC["upsertIssueVector\n(best-effort)"]
+        VEC --> UPDATE["update row:\nstatus = accepted, priority,\nlinear_issue_id/identifier"]
+    end
+
+    subgraph Decline ["declineSuggestion.ts"]
+        DEC(["POST /suggested-features/decline\n{ id }"]) --> DUPDATE["update row:\nstatus = declined\n(no Linear issue created)"]
+    end
+
+    INSERT -.-> PENDING
+    UPDATE -.->|"no longer status=pending"| PENDING
+    DUPDATE -.->|"no longer status=pending"| PENDING

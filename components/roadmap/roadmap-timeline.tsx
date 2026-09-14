@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
 import type { TimeBucket } from "./TimelineHeader";
 import { ProjectRow } from "./ProjectRow";
@@ -14,10 +15,11 @@ import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LABEL_ICONS } from "@/components/client/issue-cards";
 import { useIssueUpdateBadge } from "@/components/client/use-issue-update-badge";
+import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-filter-panel";
 import { useUser } from "context/UserContext";
-import type { Issue } from "@/components/client/issues.types";
+import type { FilterState, Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { X, Pencil, Gauge, Search, Mail } from "lucide-react";
+import { X, Pencil, Gauge, Search, Mail, SlidersHorizontal } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -70,6 +72,10 @@ type RoadmapTimelineProps = {
   // status (Project.status.color) — colors the little circle on each
   // project row instead of a generic icon.
   projectColorByName?: Record<string, string>;
+  // Maps project name -> the project's own Linear targetDate (ISO string, or
+  // null if unset) — sorts the project list, replacing the old "most
+  // milestones first" order.
+  projectTargetDateByName?: Record<string, string | null>;
   cycles?: RawCycle[];
   slug?: string;
   hasMoreProjects?: boolean;
@@ -141,6 +147,7 @@ export function RoadmapTimeline({
   projectIdsByName = {},
   cycles: rawCycles = [],
   projectColorByName = {},
+  projectTargetDateByName = {},
   slug = "",
   hasMoreProjects = false,
   loadingMoreProjects = false,
@@ -156,8 +163,9 @@ export function RoadmapTimeline({
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [issueSearch, setIssueSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [cycleIssues, setCycleIssues] = useState<any[]>([]);
   const [cycleIssuesLoading, setCycleIssuesLoading] = useState(false);
   const [cycleIssuesCursor, setCycleIssuesCursor] = useState<string | null>(null);
@@ -226,9 +234,47 @@ export function RoadmapTimeline({
     }, seeded);
   }, [projectMilestones, allProjectNames]);
 
+  // A milestone only ever shows a colored block on the timeline when it has
+  // at least one issue assigned to a cycle — otherwise every bucket renders
+  // empty for it regardless of which window is showing. Those milestones
+  // are dropped from the list entirely rather than shown as a permanently
+  // blank row, but the project itself always stays — even if every one of
+  // its milestones gets filtered out, it still renders with "0 milestones"
+  // (see ProjectRow's milestoneCount, which counts this filtered list).
   const sortedProjectEntries = useMemo(
-    () => Object.entries(groupedMilestones).sort(([a], [b]) => a.localeCompare(b)),
-    [groupedMilestones],
+    () =>
+      Object.entries(groupedMilestones)
+        .map(
+          ([projectName, milestones]) =>
+            [
+              projectName,
+              milestones.filter((m) =>
+                (m.issues?.nodes ?? []).some((issue: any) => !!issue?.cycle?.id),
+              ),
+            ] as [string, Milestone[]],
+        )
+        // Soonest deadline first among projects that actually have milestones
+        // showing — a project with 0 (every one filtered out above, or none
+        // to begin with) has nothing to be urgent about, so those always
+        // sink to the bottom regardless of their own targetDate. Within each
+        // group, projects with no targetDate set sort last, and equal/missing
+        // dates fall back to name for a stable order.
+        .sort(([nameA, milestonesA], [nameB, milestonesB]) => {
+          const emptyA = milestonesA.length === 0;
+          const emptyB = milestonesB.length === 0;
+          if (emptyA !== emptyB) return emptyA ? 1 : -1;
+
+          const dateA = projectTargetDateByName[nameA];
+          const dateB = projectTargetDateByName[nameB];
+          if (dateA && dateB) {
+            const diff = new Date(dateA).getTime() - new Date(dateB).getTime();
+            if (diff !== 0) return diff;
+          } else if (dateA || dateB) {
+            return dateA ? -1 : 1;
+          }
+          return nameA.localeCompare(nameB);
+        }),
+    [groupedMilestones, projectTargetDateByName],
   );
 
   const selectedBucket = useMemo(
@@ -237,20 +283,26 @@ export function RoadmapTimeline({
   );
 
   // Builds the query for GET /roadmap: a specific cycle when one was
-  // clicked, or — when the project/milestone itself was clicked directly —
-  // every issue under it with no cycle restriction at all (the edge
-  // function branches on cycleId's absence to fetch that way).
+  // clicked, or — when a project/milestone was clicked directly — every
+  // issue under it with no cycle restriction at all (the edge function
+  // branches on cycleId's absence to fetch that way, and milestoneId takes
+  // priority over projectId there since a milestone already implies one
+  // project). Milestone is always forwarded to the network — it used to be a
+  // client-side filter over the project's own (paginated, first: 25) fetch,
+  // but that silently showed "no issues" for any milestone whose issues
+  // hadn't happened to load onto that first page yet. A dedicated
+  // milestone-scoped Linear query doesn't have that gap.
   function buildIssuesParams(sel: CycleSelection, after?: string | null) {
     const params = new URLSearchParams();
     if (sel.cycleKey) params.set("cycleId", sel.cycleKey);
-    if (sel.projectId) params.set("projectId", sel.projectId);
     if (sel.milestoneId) params.set("milestoneId", sel.milestoneId);
+    if (sel.projectId) params.set("projectId", sel.projectId);
     if (after) params.set("after", after);
     return params;
   }
 
-  // Fetches the real, complete set of issues in the clicked cycle (or, with
-  // no cycle selected, the whole project/milestone) directly from Linear
+  // Fetches the real, complete set of issues in the clicked cycle/milestone
+  // (or, with neither selected, the whole project) directly from Linear
   // (team-wide) rather than pooling whatever happened to already be loaded
   // via project milestones.
   useEffect(() => {
@@ -263,8 +315,8 @@ export function RoadmapTimeline({
 
     let cancelled = false;
     setIssueSearch("");
-    setStatusFilter(null);
-    setPriorityFilter(null);
+    setStatusFilters([]);
+    setPriorityFilters([]);
     setCycleIssuesLoading(true);
 
     const params = buildIssuesParams(selection);
@@ -338,8 +390,8 @@ export function RoadmapTimeline({
   );
 
   const visibleIssues = cycleIssues.filter((issue) => {
-    if (statusFilter && issue.state?.name !== statusFilter) return false;
-    if (priorityFilter && issue.priorityLabel !== priorityFilter) return false;
+    if (statusFilters.length > 0 && !statusFilters.includes(issue.state?.name)) return false;
+    if (priorityFilters.length > 0 && !priorityFilters.includes(issue.priorityLabel)) return false;
     if (issueSearch.trim()) {
       const q = issueSearch.toLowerCase();
       const matchesTitle = issue.title?.toLowerCase().includes(q);
@@ -348,6 +400,30 @@ export function RoadmapTimeline({
     }
     return true;
   });
+
+  const activeFilters = statusFilters.length + priorityFilters.length;
+
+  const cycleIssuesFilterState: FilterState = {
+    selectedStatuses: statusFilters,
+    onlyActive: false,
+    availableStatuses,
+    hasCycles: false,
+    onToggleStatus: (s: string) =>
+      setStatusFilters((prev) =>
+        prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+      ),
+    onToggleActive: () => {},
+    selectedPriorities: priorityFilters,
+    availablePriorities,
+    onTogglePriority: (p: string) =>
+      setPriorityFilters((prev) =>
+        prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p],
+      ),
+    onClearFilters: () => {
+      setStatusFilters([]);
+      setPriorityFilters([]);
+    },
+  };
 
   return (
     <div className="space-y-4">
@@ -388,16 +464,8 @@ export function RoadmapTimeline({
                       }))
                     }
                     selection={selection}
-                    onCycleSelect={(next) =>
-                      setSelection((prev) =>
-                        prev &&
-                        prev.projectName === next.projectName &&
-                        prev.milestoneName === next.milestoneName &&
-                        prev.cycleKey === next.cycleKey
-                          ? null
-                          : next,
-                      )
-                    }
+                    onCycleSelect={(next) => setSelection(next)}
+                    onCloseIssues={() => setSelection(null)}
                   />
                 ))}
 
@@ -422,7 +490,7 @@ export function RoadmapTimeline({
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-[#fb923c]/50" />
-                    In progress
+                    In Progress
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-[#2dd4bf]/50" />
@@ -498,11 +566,15 @@ export function RoadmapTimeline({
               <p className="smalltext text-muted-foreground">Loading issues...</p>
             ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
-                {selectedBucket ? "No issues in this cycle." : "No issues found."}
+                {selectedBucket
+                  ? "No issues in this cycle."
+                  : selection.milestoneName
+                    ? "No issues in this milestone."
+                    : "No issues found."}
               </p>
             ) : (
               <>
-                <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:flex-wrap">
+                <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:items-center sm:flex-wrap">
                   <div className="relative flex-1 sm:max-w-[220px]">
                     <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                     <Input
@@ -511,48 +583,44 @@ export function RoadmapTimeline({
                       placeholder="Search by title or ID..."
                       value={issueSearch}
                       onChange={(e) => setIssueSearch(e.target.value)}
-                      className="pl-8"
+                      className="h-7 pl-8 smalltext"
                     />
                   </div>
-                  {availableStatuses.length > 0 && (
-                    <div className="flex gap-1.5 flex-wrap">
-                      {availableStatuses.map((status) => (
-                        <button
-                          key={status}
-                          onClick={() =>
-                            setStatusFilter((prev) => (prev === status ? null : status))
-                          }
-                          className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
-                            statusFilter === status
-                              ? `${stateColors[status] ?? "bg-muted text-foreground"} border-current`
-                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
-                          }`}
+                  {(availableStatuses.length > 0 || availablePriorities.length > 0) && (
+                    <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 smalltext gap-1.5 relative"
                         >
-                          {status}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {availablePriorities.length > 0 && (
-                    <div className="flex gap-1.5 flex-wrap">
-                      {availablePriorities.map((priority) => (
-                        <button
-                          key={priority}
-                          onClick={() =>
-                            setPriorityFilter((prev) => (prev === priority ? null : priority))
-                          }
-                          className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
-                            priorityFilter === priority
-                              ? `${priorityColors[priority] ?? "bg-muted text-foreground"} border-current`
-                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
-                          }`}
-                        >
-                          {priority}
-                        </button>
-                      ))}
-                    </div>
+                          <SlidersHorizontal className="h-3 w-3" />
+                          Filter
+                          {activeFilters > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                              {activeFilters}
+                            </span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        className="w-96 p-4 bg-background border-border text-foreground"
+                      >
+                        <TaskFilterPanel
+                          filterState={cycleIssuesFilterState}
+                          activeFilters={activeFilters}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   )}
                 </div>
+
+                {activeFilters > 0 && (
+                  <div className="mb-4">
+                    <ActiveFilterChips filterState={cycleIssuesFilterState} />
+                  </div>
+                )}
 
                 {visibleIssues.length === 0 ? (
                   <p className="smalltext text-muted-foreground">
@@ -662,14 +730,6 @@ export function RoadmapTimeline({
                     )}
 
                     <div className="space-y-0.5">
-                      {issue.assignee?.displayName && (
-                        <p className="smalltext light-card-muted">
-                          Assignee:{" "}
-                          <span className="light-card-text">
-                            {issue.assignee.displayName}
-                          </span>
-                        </p>
-                      )}
                       {issue.dueDate && (
                         <p className="smalltext light-card-muted">
                           Due:{" "}

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn, titleCase } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Milestone, type MilestoneStatus } from "@/components/roadmap/roadmap-timeline";
@@ -139,7 +139,7 @@ export function ProjectSummaryBar({
                           >
                             <span className="font-medium">{m.name}</span>
                             <span className="smalltext text-popover-foreground/60">
-                              {m.status}
+                              {titleCase(m.status)}
                             </span>
                           </div>
                         ))}
@@ -239,7 +239,7 @@ export function MilestoneRow({
                     {data.name && (
                       <div className="flex flex-col">
                         <span className="font-medium">{data.name}</span>
-                        <span className="smalltext text-popover-foreground/60">{data.status}</span>
+                        <span className="smalltext text-popover-foreground/60">{titleCase(data.status)}</span>
                       </div>
                     )}
                     <Tooltip.Arrow className="fill-popover" />

@@ -17,29 +17,17 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import {
+  type Demo,
+  type DemoUser,
+  attachDemoToIssue,
+  demoLabel,
+  isImageFile,
+  getEmbedIframeSrc,
+  displayName,
+} from "@/lib/demo-video-utils";
+import { DemoPicker } from "@/components/developer/demo-picker";
 import type { Issue } from "./issues.types";
-
-type DemoUser = {
-  id: string;
-  email: string;
-  userName?: string | null;
-  role?: string;
-};
-
-type Demo = {
-  id: string;
-  issue_id: string;
-  version: number;
-  source_type: "upload" | "embed";
-  file_name: string | null;
-  file_url: string | null;
-  storage_path: string | null;
-  embed_url: string | null;
-  embed_provider: string | null;
-  created_at: string;
-  updated_at?: string;
-  uploader?: DemoUser | null;
-};
 
 type DemoComment = {
   id: string;
@@ -49,26 +37,7 @@ type DemoComment = {
   author?: DemoUser | null;
 };
 
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
-
-function isImageFile(fileName?: string | null) {
-  return !!fileName && IMAGE_EXTENSIONS.test(fileName);
-}
-
-function getEmbedIframeSrc(embedUrl: string, provider?: string | null) {
-  if (provider === "loom") {
-    const match = embedUrl.match(/loom\.com\/share\/([a-zA-Z0-9]+)/);
-    if (match) return `https://www.loom.com/embed/${match[1]}`;
-  }
-  return embedUrl;
-}
-
-function displayName(user?: DemoUser | null) {
-  if (!user) return "Someone";
-  return user.userName || user.email;
-}
-
-export function DemoTab({ issue }: { issue: Issue }) {
+export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
 
@@ -78,11 +47,23 @@ export function DemoTab({ issue }: { issue: Issue }) {
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
-  const [showAddEmbedForm, setShowAddEmbedForm] = useState(false);
+  // Create Version's Upload Media / Add Link both need a title now (a brand
+  // new demo's identity), so both share one small mode-switched form instead
+  // of Upload Media firing the file picker immediately like it used to.
+  const [createMode, setCreateMode] = useState<"upload" | "embed" | null>(null);
+  const [newDemoTitle, setNewDemoTitle] = useState("");
+  const [newDemoFile, setNewDemoFile] = useState<File | null>(null);
   const [addEmbedUrl, setAddEmbedUrl] = useState("");
   const [showReplaceEmbedForm, setShowReplaceEmbedForm] = useState(false);
   const [replaceEmbedUrl, setReplaceEmbedUrl] = useState("");
   const [commentBody, setCommentBody] = useState("");
+
+  function resetCreateForm() {
+    setCreateMode(null);
+    setNewDemoTitle("");
+    setNewDemoFile(null);
+    setAddEmbedUrl("");
+  }
 
   /*
    * Load all demo versions for this issue.
@@ -138,7 +119,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
    * Upload a completely new version. v1 -> v2 -> v3 -> ...
    */
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, title }: { file: File; title: string }) => {
       if (!profile?.email) {
         throw new Error("Could not identify the current user");
       }
@@ -147,6 +128,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
       formData.append("file", file);
       formData.append("issue_id", issue.id);
       formData.append("email", profile.email);
+      formData.append("title", title);
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
@@ -163,6 +145,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
+      resetCreateForm();
       setCreateOpen(false);
       toast.success(`Demo uploaded (v${demo.version})`);
     },
@@ -173,7 +156,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
    * Add a completely new version as an embed link (e.g. Loom).
    */
   const addEmbedMutation = useMutation({
-    mutationFn: async (embedUrl: string) => {
+    mutationFn: async ({ embedUrl, title }: { embedUrl: string; title: string }) => {
       if (!profile?.email) {
         throw new Error("Could not identify the current user");
       }
@@ -187,6 +170,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
             issue_id: issue.id,
             email: profile.email,
             embed_url: embedUrl,
+            title,
           }),
         },
       );
@@ -201,10 +185,32 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
-      setShowAddEmbedForm(false);
-      setAddEmbedUrl("");
+      resetCreateForm();
       setCreateOpen(false);
       toast.success(`Demo added (v${demo.version})`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  /*
+   * Add a completely new version by pointing at a demo already uploaded
+   * elsewhere in the project — no re-upload, just a new row on this issue
+   * sharing that same file/link.
+   */
+  const attachExistingMutation = useMutation({
+    mutationFn: async (sourceDemoId: string) => {
+      const email = profile?.email;
+      if (!email) {
+        throw new Error("Could not identify the current user");
+      }
+
+      return attachDemoToIssue(issue.id, email, sourceDemoId);
+    },
+    onSuccess: (demo) => {
+      queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
+      setSelectedVersion(demo.version);
+      setCreateOpen(false);
+      toast.success(`Demo attached (v${demo.version})`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -291,6 +297,49 @@ export function DemoTab({ issue }: { issue: Issue }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  /*
+   * Replace the currently selected version's content with a demo already
+   * uploaded elsewhere in the project — no re-upload, just repoints this
+   * version at that same file/link.
+   */
+  const replaceWithExistingMutation = useMutation({
+    mutationFn: async (sourceDemoId: string) => {
+      if (!profile?.email) {
+        throw new Error("Could not identify the current user");
+      }
+      if (!currentDemo) {
+        throw new Error("Select a demo version before updating it");
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
+        {
+          method: "PUT",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            demo_id: currentDemo.id,
+            email: profile.email,
+            source_demo_id: sourceDemoId,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to attach demo video");
+      }
+
+      return (await res.json()) as Demo;
+    },
+    onSuccess: (demo) => {
+      queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
+      setSelectedVersion(demo.version);
+      setUpdateOpen(false);
+      toast.success(`Version v${demo.version} updated`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const addCommentMutation = useMutation({
     mutationFn: async (body: string) => {
       if (!profile?.email) {
@@ -332,6 +381,9 @@ export function DemoTab({ issue }: { issue: Issue }) {
   const isSupportedMediaFile = (file: File) =>
     file.type.startsWith("video/") || file.type.startsWith("image/");
 
+  // Just stores the picked file now, rather than uploading it immediately —
+  // Create Version needs a title too, so the actual upload waits for the
+  // form's own submit button.
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -342,7 +394,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
       return;
     }
 
-    uploadMutation.mutate(file);
+    setNewDemoFile(file);
   };
 
   const handleReplaceFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -370,8 +422,8 @@ export function DemoTab({ issue }: { issue: Issue }) {
     <div className="flex-1 overflow-y-auto p-5 space-y-6 min-h-[320px]">
       {/* Header */}
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold">Demo</h3>
-        <p className="text-xs text-muted-foreground">
+        <h3 className="smalltext font-semibold">Demo</h3>
+        <p className="smalltext text-muted-foreground">
           Upload or embed demo videos and images for this issue and gather feedback
         </p>
       </div>
@@ -412,6 +464,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
           }`}
           onClick={() => {
             setCreateOpen((v) => !v);
+            resetCreateForm();
             setUpdateOpen(false);
             setShowReplaceEmbedForm(false);
           }}
@@ -432,7 +485,7 @@ export function DemoTab({ issue }: { issue: Issue }) {
             onClick={() => {
               setUpdateOpen((v) => !v);
               setCreateOpen(false);
-              setShowAddEmbedForm(false);
+              resetCreateForm();
             }}
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -456,47 +509,131 @@ export function DemoTab({ issue }: { issue: Issue }) {
         />
       </div>
 
-      {/* Create Version: choose Add Link or Upload Media */}
+      {/* Create Version: choose Upload Media, Add Link, or Select Existing */}
       {createOpen && (
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowAddEmbedForm((v) => !v)}
+            className={`gap-1.5 ${createMode === "upload" ? "bg-muted" : ""}`}
+            onClick={() => setCreateMode(createMode === "upload" ? null : "upload")}
           >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Add Link
+            <Upload className="h-3.5 w-3.5" />
+            Upload Media
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            disabled={uploadMutation.isPending}
-            onClick={() => fileInputRef.current?.click()}
+            className={`gap-1.5 ${createMode === "embed" ? "bg-muted" : ""}`}
+            onClick={() => setCreateMode(createMode === "embed" ? null : "embed")}
           >
-            {uploadMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Upload className="h-3.5 w-3.5" />
-            )}
-            Upload Media
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
           </Button>
+          {slug && (
+            <DemoPicker
+              slug={slug}
+              disabled={attachExistingMutation.isPending}
+              onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
+            />
+          )}
         </div>
       )}
 
-      {/* Update Version: choose Add Link or Upload Media */}
+      {/* New demo's title + its content (file or link) — a brand-new demo
+          needs both before it can be created; "Select Existing" above
+          skips this entirely since it's reusing another demo's identity. */}
+      {createOpen && createMode && (
+        <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Title
+            </label>
+            <Input
+              value={newDemoTitle}
+              onChange={(e) => setNewDemoTitle(e.target.value)}
+              placeholder="e.g. Login flow walkthrough"
+              className="bg-background"
+            />
+          </div>
+
+          {createMode === "upload" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Video or image
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {newDemoFile ? newDemoFile.name : "Choose file…"}
+              </Button>
+            </div>
+          )}
+
+          {createMode === "embed" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Video URL (e.g. Loom)
+              </label>
+              <Input
+                value={addEmbedUrl}
+                onChange={(e) => setAddEmbedUrl(e.target.value)}
+                placeholder="https://www.loom.com/share/..."
+                className="bg-background"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={
+                createMode === "upload"
+                  ? uploadMutation.isPending || !newDemoFile || !newDemoTitle.trim()
+                  : addEmbedMutation.isPending || !addEmbedUrl.trim() || !newDemoTitle.trim()
+              }
+              onClick={() => {
+                if (createMode === "upload") {
+                  if (!newDemoFile) return;
+                  uploadMutation.mutate({ file: newDemoFile, title: newDemoTitle.trim() });
+                } else {
+                  addEmbedMutation.mutate({
+                    embedUrl: addEmbedUrl.trim(),
+                    title: newDemoTitle.trim(),
+                  });
+                }
+              }}
+              className="gap-1.5"
+            >
+              {(createMode === "upload" ? uploadMutation.isPending : addEmbedMutation.isPending) ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : createMode === "upload" ? (
+                <Upload className="h-3.5 w-3.5" />
+              ) : (
+                <LinkIcon className="h-3.5 w-3.5" />
+              )}
+              Add version
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={uploadMutation.isPending || addEmbedMutation.isPending}
+              onClick={resetCreateForm}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Update Version: choose Upload Media, Add Link, or Select Existing */}
       {updateOpen && currentDemo && (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowReplaceEmbedForm((v) => !v)}
-          >
-            <LinkIcon className="h-3.5 w-3.5" />
-            Add Link
-          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -511,49 +648,22 @@ export function DemoTab({ issue }: { issue: Issue }) {
             )}
             Upload Media
           </Button>
-        </div>
-      )}
-
-      {/* Add embed link form (new version) */}
-      {showAddEmbedForm && (
-        <div className="p-4 border border-border rounded-lg bg-muted/30 space-y-3">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Video URL (e.g. Loom)
-            </label>
-            <Input
-              value={addEmbedUrl}
-              onChange={(e) => setAddEmbedUrl(e.target.value)}
-              placeholder="https://www.loom.com/share/..."
-              className="bg-background"
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => setShowReplaceEmbedForm((v) => !v)}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            Add Link
+          </Button>
+          {slug && (
+            <DemoPicker
+              slug={slug}
+              disabled={replaceWithExistingMutation.isPending}
+              onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
             />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={addEmbedMutation.isPending || !addEmbedUrl.trim()}
-              onClick={() => addEmbedMutation.mutate(addEmbedUrl.trim())}
-              className="gap-1.5"
-            >
-              {addEmbedMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <LinkIcon className="h-3.5 w-3.5" />
-              )}
-              Add version
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={addEmbedMutation.isPending}
-              onClick={() => {
-                setShowAddEmbedForm(false);
-                setAddEmbedUrl("");
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
+          )}
         </div>
       )}
 
@@ -765,13 +875,8 @@ function DemoMeta({
   return (
     <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-border bg-background">
       <div className="min-w-0">
-        <p className="text-xs font-medium text-foreground truncate">
-          {demo.source_type === "upload"
-            ? demo.file_name
-            : demo.embed_provider
-              ? `${demo.embed_provider} link`
-              : "Embedded link"}
-        </p>
+        <p className="text-xs font-medium text-foreground truncate">{demo.title}</p>
+        <p className="text-[10px] text-muted-foreground font-mono">{demoLabel(demo)}</p>
         <p className="text-[10px] text-muted-foreground">
           v{demo.version}
           {demo.uploader ? ` · ${displayName(demo.uploader)}` : ""}

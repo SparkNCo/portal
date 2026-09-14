@@ -491,7 +491,7 @@ Messages show user initials avatars, sender name, and timestamp. The list auto-s
 
 **Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
 
-> Both **Design** and **Demo** (4.6b below) are hidden for Bug issues (`isBugIssue`, derived from a "bug" label on the issue) — the tab bar only shows Description / Chat / Tests / Decisions for those.
+> **Design** is hidden for Bug issues (`isBugIssue`, derived from a "bug" label on the issue) — the tab bar shows Description / Chat / Tests / Decisions / Demo for those. **Demo** (4.6b below) shows for bugs and features alike.
 
 A **Service** is a Supabase-only concept — no link to Linear (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used elsewhere (`document.project_slug`, the `/{slug}/dashboard/...` URL param), read via `CustomerSlugContext` — which is why it works identically regardless of the viewer's role. Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each uploaded from a specific issue.
 
@@ -527,6 +527,8 @@ A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_
 1. **"Replace v{n} with file"** → `PUT /demo-videos` (multipart) with `demo_id`, `email`, `file`.
 2. **"Replace v{n} with link"** → `PUT /demo-videos` (JSON) with `demo_id`, `email`, `embed_url`.
 3. Either way the new content is written first, then the old Storage object is deleted afterward — but only if the version being replaced was itself an upload.
+
+**Attaching an existing demo (no re-upload):** both flows above also offer **"Select Existing"** — a search combobox (`DemoPicker`) listing every demo already uploaded anywhere in the project, deduped by actual content. Picking one sends `source_demo_id` instead of `file`/`embed_url`; the backend copies that row's content fields onto the new/updated row rather than uploading again. Because several rows can now share one `storage_path`, replacing/re-uploading a version only deletes the old Storage object once no other row still references it. This is also how the developer-only **Demos** sidebar page (`/dev/demos`, see `app/docs/DEMOS_FLOWS.md`) links one uploaded video to several features/bugs from a single upload.
 
 **Playback:** uploads get a fresh 1-hour signed URL on every `GET` (private bucket, no public URLs). Embeds render in an `<iframe>`; Loom share links (`loom.com/share/{id}`) are rewritten to the embeddable `loom.com/embed/{id}` form, other providers embed as-is.
 

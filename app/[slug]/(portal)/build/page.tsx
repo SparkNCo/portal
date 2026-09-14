@@ -9,17 +9,40 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { Issue } from "@/components/client/issues.types";
 import { safeDecodeURIComponent } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// Radix Select reserves the empty string for "no value" internally, so "no
+// project selected" (show every project) needs its own sentinel instead.
+const ALL_PROJECTS_VALUE = "__all__";
 
 export default function BuildPage() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  // Aliased — this page already has its own `selectedProject` state below
+  // for the Linear sub-project filter buttons, a different concept.
+  const { selectedProject: selectedSidebarProject } = useSelectedProject();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+  // Developers have no `[slug]` route segment under `/dev/build` — fall back
+  // to whichever project is selected in the sidebar dropdown (see
+  // components/sidebar.tsx), defaulting to their first assignment the same
+  // way that dropdown does.
+  const developerProject =
+    profile?.role === "developer"
+      ? (selectedSidebarProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+      : null;
+  const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? developerProject ?? "";
 
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
@@ -82,31 +105,28 @@ export default function BuildPage() {
 
       <div className="p-4 md:p-6 space-y-6">
         <FeatureRequestPanel slug={slug} />
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setSelectedProject(null)}
-            className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
-              selectedProject === null
-                ? "bg-primary text-primary-foreground border-primary/40"
-                : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-            }`}
+        {projects.length > 0 && (
+          <Select
+            value={selectedProject ?? ALL_PROJECTS_VALUE}
+            onValueChange={(value) =>
+              setSelectedProject(value === ALL_PROJECTS_VALUE ? null : value)
+            }
           >
-            All Projects
-          </button>
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProject(p.id)}
-              className={`px-3 py-1.5 rounded-md smalltext font-medium border transition-colors ${
-                selectedProject === p.id
-                  ? "bg-primary text-primary-foreground border-primary/40"
-                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-foreground/30"
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
+            <SelectTrigger className="h-8 w-[200px] smalltext">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent align="start">
+              <SelectItem value={ALL_PROJECTS_VALUE} className="smalltext">
+                All Projects
+              </SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id} className="smalltext">
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div className="relative">

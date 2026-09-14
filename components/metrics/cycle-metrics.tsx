@@ -136,8 +136,8 @@ export function CycleBarChart({
             No cycles in selected range
           </p>
         ) : (
-          <div className="h-56 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
-            <ResponsiveContainer width="100%" height={224}>
+          <div className="h-80 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={chartData} barGap={4}>
                 <XAxis
                   dataKey="label"

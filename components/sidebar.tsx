@@ -17,11 +17,21 @@ import {
   MessageCircle,
   Hammer,
   Bug,
+  Video,
   X,
+  FolderKanban,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
+import { useSelectedProject } from "@/lib/selected-project-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const clientNavItems = [
   { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -36,6 +46,9 @@ const clientNavItems = [
 const developerNavItems = [
   /* { href: "dashboards", label: "Assignments", icon: LayoutGrid }, */
   { href: "developer", label: "Developer", icon: Code2 },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
+  { href: "demos", label: "Demos", icon: Video },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "documents", label: "Documents", icon: FileText },
 ];
@@ -53,6 +66,10 @@ const stakeholderNavItems = [
   { href: "bugs", label: "Bugs", icon: Bug },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
+  // Previously missing entirely — a stakeholder had no way to reach
+  // /settings at all, which is where the Stakeholders tab (add/view other
+  // stakeholders on this initiative) lives.
+  { href: "settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -107,6 +124,24 @@ export function Sidebar() {
   const portalType = profile?.role ?? "developer";
   const navItems = roleNavMap[portalType] ?? developerNavItems;
 
+  // Developers can be assigned to several customers at once — this lets
+  // them pick which one to work on. Selection lives in SelectedProjectContext
+  // (localStorage-backed, see lib/selected-project-context.tsx) rather than
+  // the URL, so the customer's name never ends up in the address bar,
+  // browser history, or a copied/shared link.
+  const assignments: any[] = Array.isArray(profile?.assignment_id)
+    ? (profile.assignment_id as any[])
+    : [];
+  const developerProjects = [
+    ...new Set(
+      assignments.map((a) => a.clientName as string).filter(Boolean),
+    ),
+  ];
+  const { selectedProject, setSelectedProject } = useSelectedProject();
+  // Falls back to the first assignment when nothing's been picked yet, so a
+  // project is always selected rather than an "all projects" state.
+  const selectedDeveloperProject = selectedProject ?? developerProjects[0] ?? "";
+
   /* -------------------------
      Logout
   --------------------------*/
@@ -140,6 +175,38 @@ export function Sidebar() {
           <X className="h-4 w-4" />
         </button>
       </div>
+      {portalType === "developer" && developerProjects.length > 1 && (
+        <div className="px-4 py-3 border-b border-sidebar-border">
+          <label className="mb-1.5 block px-0.5 smalltext font-medium text-sidebar-foreground/50">
+            Working on
+          </label>
+          <Select
+            value={selectedDeveloperProject}
+            onValueChange={setSelectedProject}
+          >
+            <SelectTrigger
+              className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate"
+            >
+              <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-lg">
+              {developerProjects.map((clientName) => (
+                <SelectItem
+                  key={clientName}
+                  value={clientName}
+                  // Hide the default checkmark indicator for the selected
+                  // project — the trigger above already shows it, so
+                  // repeating it in every row here is just noise.
+                  className="smalltext pr-2 [&>span:first-child]:hidden"
+                >
+                  {clientName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <nav className="flex-1 space-y-1 px-3 py-2">
         {isViewingCustomer ? (
           <>

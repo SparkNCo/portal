@@ -17,8 +17,17 @@ async function navigateToRoadmap(page: any) {
   await page.waitForURL('**/monitor', { timeout: 10_000 });
 }
 
+// The Monitor page can also have the SDLC Metrics panel pinned above the
+// roadmap, and each of its stat cards has its own "Expand <metric>" toggle
+// (e.g. "Expand Deploy Frequency") — an unscoped page-wide search for
+// "Expand ..." can match one of those instead of a project row. Scoping to
+// the "Projects Timeline" card avoids the collision.
+function timelineCard(page: any) {
+  return page.locator('div').filter({ hasText: /^Projects Timeline/ }).first();
+}
+
 async function expandFirstProject(page: any) {
-  const expandBtn = page.getByRole('button', { name: /^Expand /i }).first();
+  const expandBtn = timelineCard(page).getByRole('button', { name: /^Expand /i }).first();
   await expandBtn.waitFor({ state: 'visible', timeout: 15_000 });
   await expandBtn.click();
 }
@@ -56,12 +65,23 @@ test.describe('Stakeholder — panels', () => {
   // ── Client dashboard ───────────────────────────────────────────────────────
 
   test('Client dashboard header is visible', async ({ page }) => {
-    await expect(page.getByText('Client Dashboard')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
   });
 
   test('Client dashboard loads Business Review and Acceptance Testing cards', async ({ page }) => {
-    await expect(page.getByText('Business Review')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Acceptance Testing')).toBeVisible({ timeout: 15_000 });
+    // The dashboard is now a per-user pinned-panel board (see
+    // lib/pinnable-panels.ts) rather than a fixed layout — what's pinned is
+    // persisted account state, so seed the defaults first to make this
+    // deterministic regardless of what this test account already has pinned.
+    const addDefaultsBtn = page.getByRole('button', { name: 'Add default panels' });
+    if (await addDefaultsBtn.isVisible().catch(() => false)) {
+      await addDefaultsBtn.click();
+    }
+    // Panel headings specifically — once seeded, "Business Review" and
+    // "Acceptance Testing" also appear as per-issue status badges inside the
+    // panels themselves, which would otherwise collide with a plain getByText.
+    await expect(page.getByRole('heading', { name: 'Business Review' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Acceptance Testing' })).toBeVisible({ timeout: 15_000 });
   });
 
   // ── Sidebar navigation ─────────────────────────────────────────────────────
@@ -82,7 +102,7 @@ test.describe('Stakeholder — panels', () => {
   test('Roadmap — page header and subtitle are visible', async ({ page }) => {
     await navigateToRoadmap(page);
 
-    await expect(page.getByText('Monitor')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Monitor', level: 1 })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('Project timeline and progress')).toBeVisible();
   });
 
@@ -92,43 +112,41 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('Roadmap — year navigation controls render with the current year', async ({ page }) => {
+  // The timeline used to page by calendar year over a fixed 12-month grid.
+  // It's now a 5-cycle sliding window over the team's real Linear cycles
+  // (see roadmap-timeline.tsx's `allBuckets`/`WINDOW_SIZE`), with columns
+  // labelled "#<cycle number>" instead of month names — there's no "current
+  // year" concept anymore.
+
+  test('Roadmap — cycle navigation controls render with cycle column labels', async ({ page }) => {
     await navigateToRoadmap(page);
-
-    const currentYear = new Date().getFullYear().toString();
-    await expect(page.getByRole('button', { name: currentYear })).toBeVisible({ timeout: 10_000 });
-
-    // Prev and Next chevron buttons are present
-    await expect(page.locator('button').filter({ has: page.locator('svg') }).nth(0)).toBeVisible();
-    await expect(page.locator('button').filter({ has: page.locator('svg') }).nth(1)).toBeVisible();
-  });
-
-  test('Roadmap — all 12 month abbreviations are rendered in the timeline header', async ({ page }) => {
-    await navigateToRoadmap(page);
-
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
-    for (const month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']) {
-      await expect(page.getByText(month).first()).toBeVisible();
-    }
+    await expect(page.getByRole('button', { name: 'Show earlier cycles' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Show later cycles' })).toBeVisible();
+
+    // At least one "#<number>" cycle column label is rendered.
+    await expect(page.locator('div').filter({ hasText: /^#\d+$/ }).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('Roadmap — clicking Prev decrements the year; clicking Next increments it back', async ({ page }) => {
+  test('Roadmap — clicking the earlier/later cycle arrows shifts the visible window', async ({ page }) => {
     await navigateToRoadmap(page);
+    await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
-    const currentYear  = new Date().getFullYear();
-    const previousYear = (currentYear - 1).toString();
-    const currentYearStr = currentYear.toString();
+    const bucketLabels = () =>
+      page.locator('div').filter({ hasText: /^#\d+$/ }).allTextContents();
 
-    await expect(page.getByRole('button', { name: currentYearStr })).toBeVisible({ timeout: 10_000 });
+    await expect.poll(bucketLabels, { timeout: 10_000 }).not.toHaveLength(0);
+    const before = await bucketLabels();
 
-    // Go back one year
-    await page.getByRole('button').filter({ has: page.locator('[data-lucide="chevron-left"], svg') }).first().click();
-    await expect(page.getByRole('button', { name: previousYear })).toBeVisible({ timeout: 5_000 });
+    const prevBtn = page.getByRole('button', { name: 'Show earlier cycles' });
+    await expect(prevBtn).toBeEnabled({ timeout: 5_000 });
+    await prevBtn.click();
+    await expect.poll(bucketLabels).not.toEqual(before);
 
-    // Go forward one year — back to current
-    await page.getByRole('button').filter({ has: page.locator('[data-lucide="chevron-right"], svg') }).last().click();
-    await expect(page.getByRole('button', { name: currentYearStr })).toBeVisible({ timeout: 5_000 });
+    // Going forward the same number of steps returns to the original window.
+    await page.getByRole('button', { name: 'Show later cycles' }).click();
+    await expect.poll(bucketLabels).toEqual(before);
   });
 
   test('Roadmap — project rows or empty state render after data loads', async ({ page }) => {
@@ -136,10 +154,11 @@ test.describe('Stakeholder — panels', () => {
 
     await expect(page.getByText('Projects Timeline')).toBeVisible({ timeout: 15_000 });
 
-    // Either project rows are shown or there are no milestones (empty grid)
-    const expandBtn  = page.getByRole('button', { name: /^Expand /i }).first();
-    const emptyGrid  = page.locator('[class*="min-w"]').first();
-    await expect(expandBtn.or(emptyGrid)).toBeVisible({ timeout: 15_000 });
+    // Either project rows are shown, or the team has no Linear cycles at all
+    // (see roadmap-timeline.tsx's "No cycles found for this team." branch).
+    const expandBtn = timelineCard(page).getByRole('button', { name: /^Expand /i }).first();
+    const emptyState = page.getByText('No cycles found for this team.');
+    await expect(expandBtn.or(emptyState)).toBeVisible({ timeout: 15_000 });
   });
 
   test('Roadmap — clicking a project header expands it, and collapses it again', async ({ page }) => {
@@ -168,36 +187,32 @@ test.describe('Stakeholder — panels', () => {
 
   test('Roadmap — clicking a milestone opens the detail card', async ({ page }) => {
     await navigateToRoadmap(page);
+    await expandFirstProject(page);
 
-    await page.getByRole('button', { name: /^Expand /i }).first().waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByRole('button', { name: /^Expand /i }).first().click();
-
-    // Click the first clickable milestone bar/row inside the expanded view
-    const milestoneTarget = page.locator('[class*="cursor-pointer"]').first();
+    // Click the first clickable cycle-bar cell inside the expanded project's
+    // milestone rows (components/roadmap/ProjectSummaryBar.tsx).
+    const milestoneTarget = timelineCard(page).locator('[class*="cursor-pointer"]').first();
     await milestoneTarget.waitFor({ state: 'visible', timeout: 10_000 });
     await milestoneTarget.click();
 
-    // Detail card should appear — it always renders a close (X) button
-    await expect(page.locator('button').filter({ has: page.locator('svg') }).last()).toBeVisible({ timeout: 5_000 });
+    // Selecting a cycle/milestone always renders a "cycle details" card with
+    // a close (X) button — see roadmap-timeline.tsx's `selection` block.
+    await expect(page.getByRole('button', { name: 'Close cycle details' })).toBeVisible({ timeout: 5_000 });
   });
 
   test('Roadmap — closing the milestone detail card removes it', async ({ page }) => {
     await navigateToRoadmap(page);
+    await expandFirstProject(page);
 
-    await page.getByRole('button', { name: /^Expand /i }).first().waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByRole('button', { name: /^Expand /i }).first().click();
-
-    const milestoneTarget = page.locator('[class*="cursor-pointer"]').first();
+    const milestoneTarget = timelineCard(page).locator('[class*="cursor-pointer"]').first();
     await milestoneTarget.waitFor({ state: 'visible', timeout: 10_000 });
     await milestoneTarget.click();
 
-    // Close the detail card
-    const closeBtn = page.locator('button').filter({ has: page.locator('svg') }).last();
+    const closeBtn = page.getByRole('button', { name: 'Close cycle details' });
     await closeBtn.waitFor({ state: 'visible', timeout: 5_000 });
     await closeBtn.click();
 
-    // After closing, the detail card (which always contains "No issues" or issue cards) should be gone
-    await expect(page.getByText('No issues in this milestone.')).not.toBeVisible({ timeout: 5_000 });
+    await expect(closeBtn).not.toBeVisible({ timeout: 5_000 });
   });
 
   test('Roadmap — MetricsPanel shows project selector and date range filters', async ({ page }) => {
