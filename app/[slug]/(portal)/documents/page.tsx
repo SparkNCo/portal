@@ -111,13 +111,19 @@ export default function DocumentsPage() {
                 panels below from DeveloperDocumentRequests already — with
                 canManage on top, so it's a strict superset. Rendering this
                 plain (non-manage) copy too would just duplicate them. */}
-            {!isAdmin && <DocumentRequestsList customerSlug={slug} />}
+            {!isAdmin && (
+              <div className="-mx-4 sm:mx-0">
+                <DocumentRequestsList customerSlug={slug} />
+              </div>
+            )}
           </>
         )}
 
-        <DeveloperDocumentRequests customerSlug={slug} />
+        <div className="-mx-4 sm:mx-0">
+          <DeveloperDocumentRequests customerSlug={slug} />
+        </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="-mx-4 sm:mx-0 grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
             {projectSlugPending ? (
               <p className="smalltext text-muted-foreground">Loading documents…</p>

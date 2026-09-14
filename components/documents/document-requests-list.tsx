@@ -304,7 +304,7 @@ function RequestPanel({
   const visible = requests.slice(0, limit);
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           {icon}
@@ -367,7 +367,7 @@ export function DocumentRequestsList({
 
   if (isLoading) {
     return (
-      <Card className="bg-background border-border text-foreground">
+      <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
         <CardContent className="pt-6">
           <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
         </CardContent>
