@@ -21,6 +21,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -33,6 +35,8 @@ import {
   Eye,
   Mail,
   Plus,
+  Send,
+  KeyRound,
 } from "lucide-react";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { supabase } from "@/lib/supabase-client";
@@ -472,7 +476,7 @@ export default function AdminUsersPage() {
               <Card
                 key={role}
                 data-testid={`role-section-${role}`}
-                className="bg-background border-border"
+                className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl"
               >
                 <CardHeader>
                   <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize text-foreground">
@@ -589,9 +593,18 @@ export default function AdminUsersPage() {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
                                     align="end"
+                                    className="w-60"
                                     onClick={(e) => e.stopPropagation()}
                                   >
+                                    <DropdownMenuLabel
+                                      title={u.email}
+                                      className="smalltext font-normal text-muted-foreground truncate"
+                                    >
+                                      Account email for {u.email}
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
+                                      className="gap-2 smalltext"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,
@@ -599,9 +612,11 @@ export default function AdminUsersPage() {
                                         })
                                       }
                                     >
+                                      <Send className="h-3.5 w-3.5 text-muted-foreground" />
                                       Resend invite
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
+                                      className="gap-2 smalltext"
                                       onClick={() =>
                                         resendAccountEmail({
                                           user: u,
@@ -609,6 +624,7 @@ export default function AdminUsersPage() {
                                         })
                                       }
                                     >
+                                      <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
                                       Send password reset
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
@@ -755,7 +771,7 @@ export default function AdminUsersPage() {
 
       {/* ── Projects view ── */}
       {view === "projects" && (
-        <Card className="bg-background border-border">
+        <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
               <FolderKanban className="h-4 w-4 text-primary" />
