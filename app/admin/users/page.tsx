@@ -546,7 +546,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-full sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingStakeholderUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
