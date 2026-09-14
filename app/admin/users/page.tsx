@@ -509,13 +509,18 @@ export default function AdminUsersPage() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-1 flex-wrap justify-end sm:justify-start">
-                                <div className="flex sm:hidden sm:group-hover:flex sm:group-focus-within:flex items-center gap-1 flex-wrap">
+                              {/* Mobile: a 4-col grid so every button (developer
+                                  rows show up to 4: Profile, Assign, Mail, Chevron)
+                                  gets an even 1/4 of the row's width instead of
+                                  bunching together — sm+ reverts to the compact
+                                  hover-reveal flex row where there's room. */}
+                              <div className="grid grid-cols-4 items-center gap-1 sm:flex sm:flex-wrap sm:justify-start">
+                                <div className="contents sm:hidden sm:group-hover:flex sm:group-focus-within:flex sm:items-center sm:gap-1 sm:flex-wrap">
                                   {u.role === "developer" && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-full sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingProfileUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
@@ -526,7 +531,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-full sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setEditingClientUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
@@ -537,7 +542,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-full sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setViewingStakeholderUser(u)}
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
@@ -549,7 +554,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      className="h-8 w-full sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
                                       onClick={() => setAssigningUser(u)}
                                     >
                                       <UserCheck className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
@@ -567,7 +572,7 @@ export default function AdminUsersPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 group/icon hover:bg-background hover:text-primary focus-visible:ring-0 focus-visible:ring-offset-0"
+                                      className="h-8 w-full sm:w-8 group/icon hover:bg-background hover:text-primary focus-visible:ring-0 focus-visible:ring-offset-0"
                                       title="Resend account email"
                                       aria-label="Resend account email"
                                       disabled={
@@ -612,7 +617,7 @@ export default function AdminUsersPage() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 group/icon hover:bg-background hover:text-primary"
+                                    className="h-8 w-full sm:w-8 group/icon hover:bg-background hover:text-primary"
                                     title={isExpanded ? "Hide assignments" : "Show assignments"}
                                     aria-label={isExpanded ? "Hide assignments" : "Show assignments"}
                                     onClick={() =>

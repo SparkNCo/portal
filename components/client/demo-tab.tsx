@@ -715,8 +715,13 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         </div>
       )}
 
-      {/* Demo preview */}
-      <div className="rounded-lg border border-border overflow-hidden min-h-[360px] bg-secondary/20">
+      {/* Demo preview — no min-h here: the loading/error/empty states below
+          each carry their own min-h-[360px] as placeholder height, but once
+          a demo is actually loaded the box should size to the video/image's
+          real rendered height instead of padding out to 360px with gray
+          space (very visible on mobile, where a 16:9 video at full width
+          renders much shorter than that). */}
+      <div className="rounded-lg border border-border overflow-hidden bg-secondary/20">
         {demosQuery.isLoading && (
           <div className="flex flex-col items-center justify-center min-h-[360px] text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mb-2" />
