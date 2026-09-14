@@ -183,7 +183,7 @@ function BuildPageContent() {
         )}
 
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative flex flex-col">
+          <div className="relative">
             <PinButton panelId="build_product_decisions" />
             <div className="pt-12 flex-1">
               <PriorityTasks
