@@ -56,7 +56,6 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const [addEmbedUrl, setAddEmbedUrl] = useState("");
   const [showReplaceEmbedForm, setShowReplaceEmbedForm] = useState(false);
   const [replaceEmbedUrl, setReplaceEmbedUrl] = useState("");
-  const [commentBody, setCommentBody] = useState("");
 
   function resetCreateForm() {
     setCreateMode(null);
@@ -95,25 +94,6 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
     (demo) => demo.version === selectedVersion,
   );
 
-  /*
-   * Comment thread for the currently selected version. Clients,
-   * stakeholders, and admins all read/write from the same list, so
-   * everyone sees everyone else's feedback.
-   */
-  const commentsQuery = useQuery({
-    queryKey: ["demo-comments", currentDemo?.id],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?type=comments&demo_video_id=${currentDemo!.id}`,
-        { headers: API_HEADERS },
-      );
-
-      if (!res.ok) throw new Error("Failed to load feedback");
-
-      return (await res.json()) as DemoComment[];
-    },
-    enabled: !!currentDemo?.id,
-  });
 
   /*
    * Upload a completely new version. v1 -> v2 -> v3 -> ...
@@ -340,44 +320,6 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const addCommentMutation = useMutation({
-    mutationFn: async (body: string) => {
-      if (!profile?.email) {
-        throw new Error("Could not identify the current user");
-      }
-      if (!currentDemo) {
-        throw new Error("Select a demo version before leaving feedback");
-      }
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?type=comments`,
-        {
-          method: "POST",
-          headers: API_JSON_HEADERS,
-          body: JSON.stringify({
-            demo_video_id: currentDemo.id,
-            email: profile.email,
-            body,
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.error ?? "Failed to post feedback");
-      }
-
-      return (await res.json()) as DemoComment;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["demo-comments", currentDemo?.id],
-      });
-      setCommentBody("");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
   const isSupportedMediaFile = (file: File) =>
     file.type.startsWith("video/") || file.type.startsWith("image/");
 
@@ -410,13 +352,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
     replaceWithFileMutation.mutate(file);
   };
 
-  const handleSubmitComment = () => {
-    if (!commentBody.trim()) return;
-    addCommentMutation.mutate(commentBody);
-  };
-
   const hasDemos = (demosQuery.data?.length ?? 0) > 0;
-  const comments = commentsQuery.data ?? [];
 
   return (
     <div className="flex-1 overflow-y-auto p-5 space-y-6 min-h-[320px]">
@@ -802,74 +738,146 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         )}
       </div>
 
-      {/* Feedback thread for the selected version */}
+      {/* Feedback thread for the selected version — its own component so
+          typing in the textarea only re-renders this small subtree, not the
+          whole tab (video/image player, create/update forms, etc.). That
+          was the actual source of "characters lag behind typing on mobile":
+          every keystroke re-rendered all of DemoTab. */}
       {currentDemo && (
+        <DemoFeedbackThread demoId={currentDemo.id} demoVersion={currentDemo.version} />
+      )}
+    </div>
+  );
+}
+
+function DemoFeedbackThread({
+  demoId,
+  demoVersion,
+}: {
+  demoId: string;
+  demoVersion: number;
+}) {
+  const { profile } = useUser();
+  const queryClient = useQueryClient();
+  const [commentBody, setCommentBody] = useState("");
+
+  const commentsQuery = useQuery({
+    queryKey: ["demo-comments", demoId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?type=comments&demo_video_id=${demoId}`,
+        { headers: API_HEADERS },
+      );
+
+      if (!res.ok) throw new Error("Failed to load feedback");
+
+      return (await res.json()) as DemoComment[];
+    },
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (body: string) => {
+      if (!profile?.email) {
+        throw new Error("Could not identify the current user");
+      }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?type=comments`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            demo_video_id: demoId,
+            email: profile.email,
+            body,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.error ?? "Failed to post feedback");
+      }
+
+      return (await res.json()) as DemoComment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["demo-comments", demoId] });
+      setCommentBody("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleSubmitComment = () => {
+    if (!commentBody.trim()) return;
+    addCommentMutation.mutate(commentBody);
+  };
+
+  const comments = commentsQuery.data ?? [];
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-semibold">Feedback on v{demoVersion}</h4>
+
+      {commentsQuery.isLoading && (
+        <p className="text-xs text-muted-foreground">Loading feedback…</p>
+      )}
+
+      {!commentsQuery.isLoading && comments.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No feedback yet on this version.
+        </p>
+      )}
+
+      {comments.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold">
-            Feedback on v{currentDemo.version}
-          </h4>
-
-          {commentsQuery.isLoading && (
-            <p className="text-xs text-muted-foreground">Loading feedback…</p>
-          )}
-
-          {!commentsQuery.isLoading && comments.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              No feedback yet on this version.
-            </p>
-          )}
-
-          {comments.length > 0 && (
-            <div className="space-y-3">
-              {comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="rounded-lg border border-border bg-secondary/20 px-3 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground">
-                      {displayName(comment.author)}
-                    </span>
-                    {comment.author?.role && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary capitalize">
-                        {comment.author.role}
-                      </span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(comment.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
-                    {comment.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Textarea
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              placeholder="Leave feedback on this version…"
-              className="bg-background min-h-[72px]"
-            />
-            <Button
-              size="sm"
-              className="self-end gap-1.5"
-              disabled={addCommentMutation.isPending || !commentBody.trim()}
-              onClick={handleSubmitComment}
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              className="rounded-lg border border-border bg-secondary/20 px-3 py-2"
             >
-              {addCommentMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Send className="h-3.5 w-3.5" />
-              )}
-              Post feedback
-            </Button>
-          </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-foreground">
+                  {displayName(comment.author)}
+                </span>
+                {comment.author?.role && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary capitalize">
+                    {comment.author.role}
+                  </span>
+                )}
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(comment.created_at).toLocaleString()}
+                </span>
+              </div>
+              <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
+                {comment.body}
+              </p>
+            </div>
+          ))}
         </div>
       )}
+
+      <div className="flex flex-col gap-2">
+        <Textarea
+          value={commentBody}
+          onChange={(e) => setCommentBody(e.target.value)}
+          placeholder="Leave feedback on this version…"
+          className="bg-background min-h-[72px]"
+        />
+        <Button
+          size="sm"
+          className="self-end gap-1.5"
+          disabled={addCommentMutation.isPending || !commentBody.trim()}
+          onClick={handleSubmitComment}
+        >
+          {addCommentMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Send className="h-3.5 w-3.5" />
+          )}
+          Post feedback
+        </Button>
+      </div>
     </div>
   );
 }
