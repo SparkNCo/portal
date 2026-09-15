@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/lib/tanstack/providers";
 import { UserProvider } from "../context/UserContext";
+import { ResetZoomOnNavigate } from "@/components/shared/reset-zoom-on-navigate";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -33,6 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={nunitoSans.variable} suppressHydrationWarning>
       <body className="bg-background text-foreground min-h-screen">
+        <ResetZoomOnNavigate />
         <script
           type="text/javascript"
           src="https://unpkg.com/@cometchat/chat-sdk-javascript/CometChat.js"
