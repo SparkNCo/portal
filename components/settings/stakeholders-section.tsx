@@ -34,7 +34,10 @@ type StakeholderAssignment = {
 export function StakeholdersSection({ customerId }: { readonly customerId?: string }) {
   const { profile, loading } = useUser();
   const resolvedId = useResolvedCustomerId(customerId);
-  const canAdd = profile?.role === "customer" || profile?.role === "stakeholder";
+  const canAdd =
+    profile?.role === "customer" ||
+    profile?.role === "stakeholder" ||
+    profile?.role === "admin";
   const isAdmin = profile?.role === "admin";
   const [viewingStakeholder, setViewingStakeholder] = useState<StakeholderAssignment | null>(null);
   const [editingStakeholder, setEditingStakeholder] = useState<StakeholderAssignment | null>(null);
