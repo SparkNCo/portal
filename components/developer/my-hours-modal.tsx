@@ -618,7 +618,18 @@ export function MyHoursModal({
                               tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}
                               axisLine={false}
                               tickLine={false}
-                              interval={isRangeFocused && chartData.length <= 14 ? 0 : "preserveStartEnd"}
+                              interval={
+                                isSmallScreen
+                                  ? "preserveStartEnd"
+                                  : isRangeFocused && chartData.length <= 14
+                                    ? 0
+                                    : "preserveStartEnd"
+                              }
+                              ticks={
+                                isSmallScreen && chartData.length > 1
+                                  ? [chartData[0]!.label, chartData[chartData.length - 1]!.label]
+                                  : undefined
+                              }
                             />
                             <YAxis
                               tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}

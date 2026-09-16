@@ -16,13 +16,30 @@ export function ResetZoomOnNavigate() {
     const original = meta?.getAttribute("content");
     if (!meta || !original) return;
 
-    // user-scalable=no (not just maximum-scale=1) and a longer hold before
-    // restoring — a shorter toggle is enough in Chromium but iOS Safari
-    // needs the stricter constraint held for a beat to actually snap the
-    // current pinch level back down, not just cap future zooming.
+    // user-scalable=no (not just maximum-scale=1) to actually force the
+    // current pinch level back down, not just cap future zooming. Browser
+    // vendors themselves describe this toggle as a hint applied "in the near
+    // future" rather than a guaranteed synchronous effect, so restoring too
+    // early loses the race — especially on heavier routes (Bugs, Documents)
+    // whose own initial data-fetch/render competes for the main thread right
+    // when the toggle needs to be applied. A confirmed paint (double rAF)
+    // plus a generous hold afterward gives it much more room to land.
     meta.setAttribute("content", `${original}, maximum-scale=1, user-scalable=no`);
-    const restore = setTimeout(() => meta.setAttribute("content", original), 300);
-    return () => clearTimeout(restore);
+    let restoreTimer = 0;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        restoreTimer = window.setTimeout(() => {
+          meta.setAttribute("content", original);
+        }, 500);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      clearTimeout(restoreTimer);
+      meta.setAttribute("content", original);
+    };
   }, [pathname]);
 
   return null;
