@@ -18,7 +18,7 @@ import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-fil
 import { useUser } from "context/UserContext";
 import type { FilterState, Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { X, Search, SlidersHorizontal } from "lucide-react";
+import { X, Search, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"

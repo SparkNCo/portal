@@ -19,26 +19,31 @@ export function ResetZoomOnNavigate() {
     // user-scalable=no (not just maximum-scale=1) to actually force the
     // current pinch level back down, not just cap future zooming. Browser
     // vendors themselves describe this toggle as a hint applied "in the near
-    // future" rather than a guaranteed synchronous effect, so restoring too
-    // early loses the race — especially on heavier routes (Bugs, Documents)
-    // whose own initial data-fetch/render competes for the main thread right
-    // when the toggle needs to be applied. A confirmed paint (double rAF)
-    // plus a generous hold afterward gives it much more room to land.
+    // future" rather than a guaranteed synchronous effect — a fixed delay
+    // before restoring is a guess that happened to work in dev (React
+    // Strict Mode double-invokes the effect, giving it an accidental second
+    // attempt) but not in production, where it only runs once. Polling the
+    // real visualViewport.scale and restoring only once it's actually back
+    // down (capped by a timeout so a never-zoomed page doesn't hang) reacts
+    // to the true signal instead of guessing how long the browser needs.
     meta.setAttribute("content", `${original}, maximum-scale=1, user-scalable=no`);
-    let restoreTimer = 0;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        restoreTimer = window.setTimeout(() => {
-          meta.setAttribute("content", original);
-        }, 500);
-      });
-    });
+    let pollId = 0;
+    let cancelled = false;
+    const deadline = Date.now() + 1500;
+    function poll() {
+      if (cancelled) return;
+      const scale = window.visualViewport?.scale ?? 1;
+      if (scale <= 1.02 || Date.now() > deadline) {
+        meta!.setAttribute("content", original!);
+        return;
+      }
+      pollId = requestAnimationFrame(poll);
+    }
+    pollId = requestAnimationFrame(poll);
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      clearTimeout(restoreTimer);
-      meta.setAttribute("content", original);
+      cancelled = true;
+      cancelAnimationFrame(pollId);
+      meta!.setAttribute("content", original!);
     };
   }, [pathname]);
 
