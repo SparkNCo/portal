@@ -194,7 +194,7 @@ export default function DeveloperDashboard() {
           </div>
         )}
 
-        <div className="w-full max-w-full overflow-x-hidden">
+        <div className="-mx-4 sm:mx-0 overflow-x-hidden">
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/40 p-10 text-center">
               <p className="smalltext font-medium text-foreground">

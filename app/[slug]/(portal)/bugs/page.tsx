@@ -222,7 +222,7 @@ function BugsPageContent() {
           <BugReportPanel slug={slug} />
         </div>
 
-        <div className="relative -mx-4 sm:mx-0 w-full max-w-full overflow-x-hidden">
+        <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (
