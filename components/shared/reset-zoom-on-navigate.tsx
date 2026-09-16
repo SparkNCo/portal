@@ -16,8 +16,12 @@ export function ResetZoomOnNavigate() {
     const original = meta?.getAttribute("content");
     if (!meta || !original) return;
 
-    meta.setAttribute("content", `${original}, maximum-scale=1`);
-    const restore = setTimeout(() => meta.setAttribute("content", original), 50);
+    // user-scalable=no (not just maximum-scale=1) and a longer hold before
+    // restoring — a shorter toggle is enough in Chromium but iOS Safari
+    // needs the stricter constraint held for a beat to actually snap the
+    // current pinch level back down, not just cap future zooming.
+    meta.setAttribute("content", `${original}, maximum-scale=1, user-scalable=no`);
+    const restore = setTimeout(() => meta.setAttribute("content", original), 300);
     return () => clearTimeout(restore);
   }, [pathname]);
 
