@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CartesianGrid,
@@ -288,6 +288,22 @@ function DayTooltip({
   );
 }
 
+// Below Tailwind's `sm` breakpoint, the chart is too narrow for every day's
+// label to fit without overlapping — capped to just the first/last tick
+// there, same as the "preserveStartEnd" fallback already used for long
+// ranges on wider screens.
+function useIsSmallScreen(): boolean {
+  const [isSmall, setIsSmall] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)");
+    setIsSmall(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsSmall(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isSmall;
+}
+
 export function MyHoursModal({
   projects,
   issues,
@@ -308,6 +324,7 @@ export function MyHoursModal({
   const [dateFrom, setDateFrom] = useState(sevenDaysAgoIso);
   const [dateTo, setDateTo] = useState(todayIso);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const isSmallScreen = useIsSmallScreen();
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ["hours-logged", developerId],
@@ -601,7 +618,18 @@ export function MyHoursModal({
                               tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}
                               axisLine={false}
                               tickLine={false}
-                              interval={isRangeFocused && chartData.length <= 14 ? 0 : "preserveStartEnd"}
+                              interval={
+                                isSmallScreen
+                                  ? "preserveStartEnd"
+                                  : isRangeFocused && chartData.length <= 14
+                                    ? 0
+                                    : "preserveStartEnd"
+                              }
+                              ticks={
+                                isSmallScreen && chartData.length > 1
+                                  ? [chartData[0]!.label, chartData[chartData.length - 1]!.label]
+                                  : undefined
+                              }
                             />
                             <YAxis
                               tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}
