@@ -36,6 +36,7 @@ export default function RoadmapPage() {
     projectNames: allProjectNames,
     projectIdsByName,
     projectColorByName,
+    projectStatusByName,
     projectTargetDateByName,
     cycles: roadmapCycles,
     isLoading,
@@ -81,6 +82,7 @@ export default function RoadmapPage() {
                 allProjectNames={allProjectNames}
                 projectIdsByName={projectIdsByName}
                 projectColorByName={projectColorByName}
+                projectStatusByName={projectStatusByName}
                 projectTargetDateByName={projectTargetDateByName}
                 cycles={roadmapCycles}
                 slug={slug}

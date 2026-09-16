@@ -223,6 +223,7 @@ function RoadmapTimelinePinned({
     projectNames,
     projectIdsByName,
     projectColorByName,
+    projectStatusByName,
     projectTargetDateByName,
     cycles,
     hasMoreProjects,
@@ -236,6 +237,7 @@ function RoadmapTimelinePinned({
         allProjectNames={projectNames}
         projectIdsByName={projectIdsByName}
         projectColorByName={projectColorByName}
+        projectStatusByName={projectStatusByName}
         projectTargetDateByName={projectTargetDateByName}
         cycles={cycles}
         slug={slug}

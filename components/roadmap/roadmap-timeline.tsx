@@ -18,7 +18,7 @@ import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-fil
 import { useUser } from "context/UserContext";
 import type { FilterState, Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { X, Search, SlidersHorizontal } from "lucide-react";
+import { X, Search, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -71,6 +71,11 @@ type RoadmapTimelineProps = {
   // status (Project.status.color) — colors the little circle on each
   // project row instead of a generic icon.
   projectColorByName?: Record<string, string>;
+  // Maps project name -> that project's current Linear status *name* (e.g.
+  // "In Production", "Backlog") — used to tuck finished/not-started
+  // projects behind a collapsed "Completed"/"Upcoming" divider instead of
+  // cluttering the default view alongside active work.
+  projectStatusByName?: Record<string, string>;
   // Maps project name -> the project's own Linear targetDate (ISO string, or
   // null if unset) — sorts the project list, replacing the old "most
   // milestones first" order.
@@ -147,6 +152,7 @@ export function RoadmapTimeline({
   projectIdsByName = {},
   cycles: rawCycles = [],
   projectColorByName = {},
+  projectStatusByName = {},
   projectTargetDateByName = {},
   slug = "",
   hasMoreProjects = false,
@@ -159,6 +165,8 @@ export function RoadmapTimeline({
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [showUpcoming, setShowUpcoming] = useState(false);
   const [selection, setSelection] = useState<CycleSelection | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
@@ -276,6 +284,24 @@ export function RoadmapTimeline({
         }),
     [groupedMilestones, projectTargetDateByName],
   );
+
+  // Finished and not-yet-started projects are tucked behind collapsed
+  // dividers rather than shown inline — a project's Linear status *name*
+  // (not the same thing as a milestone's derived status above) decides
+  // which bucket it falls into. Anything else (active/in-progress work)
+  // stays in the default visible list, unchanged from before.
+  const { activeEntries, completedEntries, upcomingEntries } = useMemo(() => {
+    const active: typeof sortedProjectEntries = [];
+    const completed: typeof sortedProjectEntries = [];
+    const upcoming: typeof sortedProjectEntries = [];
+    for (const entry of sortedProjectEntries) {
+      const status = projectStatusByName[entry[0]];
+      if (status === "In Production") completed.push(entry);
+      else if (status === "Backlog") upcoming.push(entry);
+      else active.push(entry);
+    }
+    return { activeEntries: active, completedEntries: completed, upcomingEntries: upcoming };
+  }, [sortedProjectEntries, projectStatusByName]);
 
   const selectedBucket = useMemo(
     () => (selection ? buckets.find((b) => b.key === selection.cycleKey) ?? null : null),
@@ -448,7 +474,7 @@ export function RoadmapTimeline({
             ) : (
               <>
                 <TimelineBucketsHeader buckets={buckets} />
-                {sortedProjectEntries.map(([projectName, milestones]) => (
+                {activeEntries.map(([projectName, milestones]) => (
                   <ProjectRow
                     key={projectName}
                     projectName={projectName}
@@ -480,6 +506,88 @@ export function RoadmapTimeline({
                     >
                       {loadingMoreProjects ? "Loading..." : "Load more projects"}
                     </Button>
+                  </div>
+                )}
+
+                {upcomingEntries.length > 0 && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowUpcoming((v) => !v)}
+                      className="flex w-full items-center gap-1.5 py-2 smalltext font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showUpcoming ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
+                      Upcoming
+                      <span className="smalltext font-normal text-muted-foreground/70">
+                        ({upcomingEntries.length})
+                      </span>
+                    </button>
+                    {showUpcoming &&
+                      upcomingEntries.map(([projectName, milestones]) => (
+                        <ProjectRow
+                          key={projectName}
+                          projectName={projectName}
+                          projectId={projectIdsByName[projectName] ?? null}
+                          projectColor={projectColorByName[projectName]}
+                          milestones={milestones}
+                          buckets={buckets}
+                          expanded={!!expandedProjects[projectName]}
+                          onToggle={() =>
+                            setExpandedProjects((p) => ({
+                              ...p,
+                              [projectName]: !p[projectName],
+                            }))
+                          }
+                          selection={selection}
+                          onCycleSelect={(next) => setSelection(next)}
+                          onCloseIssues={() => setSelection(null)}
+                        />
+                      ))}
+                  </div>
+                )}
+
+                {completedEntries.length > 0 && (
+                  <div className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleted((v) => !v)}
+                      className="flex w-full items-center gap-1.5 py-2 smalltext font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showCompleted ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
+                      Completed
+                      <span className="smalltext font-normal text-muted-foreground/70">
+                        ({completedEntries.length})
+                      </span>
+                    </button>
+                    {showCompleted &&
+                      completedEntries.map(([projectName, milestones]) => (
+                        <ProjectRow
+                          key={projectName}
+                          projectName={projectName}
+                          projectId={projectIdsByName[projectName] ?? null}
+                          projectColor={projectColorByName[projectName]}
+                          milestones={milestones}
+                          buckets={buckets}
+                          expanded={!!expandedProjects[projectName]}
+                          onToggle={() =>
+                            setExpandedProjects((p) => ({
+                              ...p,
+                              [projectName]: !p[projectName],
+                            }))
+                          }
+                          selection={selection}
+                          onCycleSelect={(next) => setSelection(next)}
+                          onCloseIssues={() => setSelection(null)}
+                        />
+                      ))}
                   </div>
                 )}
 
