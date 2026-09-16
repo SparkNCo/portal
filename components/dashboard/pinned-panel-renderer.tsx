@@ -166,17 +166,12 @@ export function PinnedPanelRenderer({
 
   if (panelId === "bugs_list") {
     const bugs = allIssues
-      .filter((i) =>
-        (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
+      .filter(
+        (i) =>
+          (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
+          i.state?.name !== "Done",
       )
       .sort((a, b) => {
-        // Done bugs sink to the bottom regardless of priority — they can't be
-        // edited from here anymore, so they'd otherwise clutter the top of a
-        // list meant to surface what still needs attention.
-        const doneA = a.state?.name === "Done" ? 1 : 0;
-        const doneB = b.state?.name === "Done" ? 1 : 0;
-        if (doneA !== doneB) return doneA - doneB;
-
         const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
         const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
         if (rankA !== rankB) return rankB - rankA;

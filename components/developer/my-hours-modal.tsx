@@ -554,7 +554,7 @@ export function MyHoursModal({
                   // Same Card, same min-height as the chart below — otherwise
                   // the modal visibly shrinks/jumps every time a project or
                   // date range with no data is picked.
-                  <Card className="bg-background border-border">
+                  <Card className="bg-background border-transparent rounded-none -mx-6">
                     <CardContent className="flex min-h-[300px] items-center justify-center py-6">
                       <p className="smalltext text-muted-foreground text-center">
                         No hours logged for this project.
@@ -562,7 +562,7 @@ export function MyHoursModal({
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card className="bg-background border-border">
+                  <Card className="bg-background border-transparent rounded-none -mx-6">
                     <CardHeader>
                       <CardTitle className="smalltext font-semibold flex items-center gap-2">
                         <CalendarRange className="h-4 w-4 text-primary" />
@@ -574,7 +574,7 @@ export function MyHoursModal({
                         )}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-6">
                       {isRangeFocused && (
                         <AllocationMeter
                           hours={rangeTotal}
@@ -587,7 +587,7 @@ export function MyHoursModal({
                         <ResponsiveContainer width="100%" height={224}>
                           <LineChart
                             data={chartData}
-                            margin={{ top: 18 }}
+                            margin={{ top: 24, right: 28, left: 12, bottom: 4 }}
                             onClick={(state) => {
                               const label = state?.activeLabel;
                               if (label == null) return;
@@ -632,12 +632,6 @@ export function MyHoursModal({
                                 x={d.label}
                                 stroke="oklch(0.4 0 0)"
                                 strokeDasharray="2 2"
-                                label={{
-                                  value: d.monthLabel,
-                                  position: "top",
-                                  fill: "oklch(0.6 0 0)",
-                                  fontSize: 16,
-                                }}
                               />
                             ))}
                             {isMultiProject ? (

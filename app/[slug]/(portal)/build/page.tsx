@@ -131,9 +131,9 @@ export default function BuildPage() {
         )}
 
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative">
+          <div className="relative flex flex-col">
             <PinButton panelId="build_product_decisions" />
-            <div className="pt-12">
+            <div className="pt-12 flex-1">
               <PriorityTasks
                 issuesData={visibleBusinessReviewIssues}
                 filterState={noopFilterState}
@@ -145,9 +145,9 @@ export default function BuildPage() {
               />
             </div>
           </div>
-          <div className="relative">
+          <div className="relative flex flex-col">
             <PinButton panelId="build_acceptance_testing" />
-            <div className="pt-12">
+            <div className="pt-12 flex-1">
               <PriorityTasks
                 issuesData={visibleUatIssues}
                 filterState={noopFilterState}

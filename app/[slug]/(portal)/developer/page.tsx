@@ -176,11 +176,11 @@ export default function DeveloperDashboard() {
               onClick={() => setShowMyHours(true)}
             >
               <History className="h-4 w-4" />
-              My Hours
+              <span className="hidden sm:inline">My Hours</span>
             </Button>
             <Button size="sm" className="smalltext" onClick={() => setShowLogHours(true)}>
               <Clock className="h-4 w-4" />
-              Log Hours
+              <span className="hidden sm:inline">Log Hours</span>
             </Button>
           </>
         }
@@ -188,13 +188,13 @@ export default function DeveloperDashboard() {
 
       <div className="p-4 md:p-6 space-y-6">
         {profile?.developerType !== "internal" && (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="-mx-4 sm:mx-0 grid gap-6 md:grid-cols-2">
             <QuickLinks />
             <ToolShortcuts />
           </div>
         )}
 
-        <div className="w-full max-w-full overflow-x-hidden">
+        <div className="-mx-4 sm:mx-0 overflow-x-hidden">
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/40 p-10 text-center">
               <p className="smalltext font-medium text-foreground">

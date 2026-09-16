@@ -1925,7 +1925,7 @@ export function IssueDetailModal({
             flush with the dialog's edges, wraps to a second row on narrow
             screens instead of overflowing/scrolling horizontally. */}
         <div className="-mx-6 -mb-6 mt-4 flex flex-1 flex-col overflow-hidden border-t border-border">
-        <div className="flex flex-wrap gap-x-5 gap-y-0.5 border-b border-border px-5 pt-3 flex-shrink-0">
+        <div className="flex flex-wrap justify-center sm:justify-start gap-x-5 gap-y-0.5 border-b border-border px-5 pt-3 flex-shrink-0">
           <TabButton
             label="Description"
             tab="description"

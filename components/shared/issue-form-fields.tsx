@@ -56,7 +56,13 @@ export function TitleContinueRow({
           </Button>
         )}
       </div>
-      {slug && <SimilarIssuesHint slug={slug} query={title} kind={kind} />}
+      {/* Unmounted (not just hidden) once Continue is clicked — otherwise a
+          debounced search already in flight would still land and pop the
+          hint up after the user has moved on, whether it was showing
+          already or hadn't resolved yet. */}
+      {slug && !detailsRevealed && (
+        <SimilarIssuesHint slug={slug} query={title} kind={kind} />
+      )}
     </div>
   );
 }

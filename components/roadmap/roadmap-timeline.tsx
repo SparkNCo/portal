@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TimelineHeader, TimelineBucketsHeader } from "./TimelineHeader";
 import type { TimeBucket } from "./TimelineHeader";
@@ -13,13 +12,13 @@ import { ProjectRow } from "./ProjectRow";
 import type { CycleSelection } from "./ProjectRow";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
-import { LABEL_ICONS } from "@/components/client/issue-cards";
+import { IssueCard } from "@/components/client/issue-cards";
 import { useIssueUpdateBadge } from "@/components/client/use-issue-update-badge";
 import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-filter-panel";
 import { useUser } from "context/UserContext";
 import type { FilterState, Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { X, Pencil, Gauge, Search, Mail, SlidersHorizontal } from "lucide-react";
+import { X, Search, SlidersHorizontal } from "lucide-react";
 
 export type MilestoneStatus =
   | "completed"
@@ -92,6 +91,7 @@ function toIssue(issue: any): Issue {
     state: issue.state,
     description: issue.description ?? null,
     labels: issue.labels,
+    estimate: issue.estimate ?? null,
   };
 }
 
@@ -628,128 +628,18 @@ export function RoadmapTimeline({
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {visibleIssues.map((issue: any, i: number) => {
-                  const typeLabel = issue.labels?.nodes?.find(
-                    (l: any) => LABEL_ICONS[l.name.toLowerCase()],
-                  );
-                  const typeIcon = typeLabel ? LABEL_ICONS[typeLabel.name.toLowerCase()] : undefined;
-                  const otherLabels = issue.labels?.nodes?.filter(
-                    (l: any) => l.id !== typeLabel?.id,
-                  );
-
-                  return (
-                  <div
-                    key={issue.id ?? i}
-                    className="group relative rounded-md border light-card p-3 space-y-2"
-                  >
-                    <button
-                      type="button"
-                      className="absolute inset-0 rounded-md cursor-pointer"
-                      onClick={() => setSelectedIssue(toIssue(issue))}
-                      aria-label={issue.title ?? "View issue"}
-                    />
-                    {hasUnseenUpdate(issue, profile?.email) && (
-                      <span
-                        className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
-                        title="Recently updated"
-                      >
-                        <Mail className="h-2.5 w-2.5 text-white" />
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-md light-card-chip opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingIssue(toIssue(issue));
-                      }}
-                      aria-label="Edit ticket"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    {(issue.identifier || issue.title) && (
-                      <div className="space-y-0.5">
-                        {issue.identifier && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="flex items-center gap-1 smalltext light-card-muted font-mono">
-                              {typeIcon && (
-                                <typeIcon.Icon
-                                  className={`h-3 w-3 shrink-0 ${typeIcon.className}`}
-                                  aria-label={typeLabel.name}
-                                />
-                              )}
-                              {issue.identifier}
-                            </p>
-                            {issue.priorityLabel &&
-                              issue.priorityLabel !== "No priority" && (
-                                <Badge
-                                  variant="outline"
-                                  className={`smalltext ${priorityColors[issue.priorityLabel] ?? ""}`}
-                                >
-                                  {issue.priorityLabel}
-                                </Badge>
-                              )}
-                          </div>
-                        )}
-                        {issue.title && (
-                          <p className="smalltext font-medium leading-snug light-card-text">{issue.title}</p>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {issue.estimate != null && (
-                        <Badge
-                          variant="outline"
-                          className="gap-1 smalltext border-chart-1/30 bg-chart-1/10 text-chart-1"
-                        >
-                          <Gauge className="h-3 w-3" />
-                          {issue.estimate}
-                        </Badge>
-                      )}
-                      {issue.state?.name && (
-                        <Badge
-                          variant="outline"
-                          className={`smalltext ${stateColors[issue.state.name] ?? "bg-muted border-border text-muted-foreground"}`}
-                        >
-                          {issue.state.name}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {otherLabels?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {otherLabels.map((l: any) => (
-                          <span
-                            key={l.name}
-                            className="smalltext bg-muted rounded px-1.5 py-0.5 text-muted-foreground"
-                          >
-                            {l.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="space-y-0.5">
-                      {issue.dueDate && (
-                        <p className="smalltext light-card-muted">
-                          Due:{" "}
-                          <span className="light-card-text">
-                            {new Date(issue.dueDate).toLocaleDateString()}
-                          </span>
-                        </p>
-                      )}
-                      {issue.completedAt && (
-                        <p className="smalltext light-card-muted">
-                          Completed:{" "}
-                          <span className="text-success">
-                            {new Date(issue.completedAt).toLocaleDateString()}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
+                    {visibleIssues.map((issue: any, i: number) => (
+                      <IssueCard
+                        key={issue.id ?? i}
+                        issue={toIssue(issue)}
+                        onOpen={() => setSelectedIssue(toIssue(issue))}
+                        onEdit={() => setEditingIssue(toIssue(issue))}
+                        dueDate={issue.dueDate}
+                        completedAt={issue.completedAt}
+                        hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                        lightCard
+                      />
+                    ))}
                   </div>
                 )}
 

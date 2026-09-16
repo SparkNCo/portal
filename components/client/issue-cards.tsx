@@ -6,6 +6,7 @@ import {
   Bug,
   Lightbulb,
   Mail,
+  Pencil,
   type LucideIcon,
 } from "lucide-react";
 import { cn, getIssueCode } from "@/lib/utils";
@@ -110,11 +111,19 @@ const PRIORITY_TEXT_COLORS: Record<Issue["priorityLabel"], string> = {
 export function IssueCard({
   issue,
   onOpen,
+  onEdit,
+  dueDate,
+  completedAt,
   hasUpdate,
   lightCard = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
+  // Roadmap's cards need a quick-edit shortcut Bugs doesn't — omitted (no
+  // button rendered) wherever the caller doesn't pass it.
+  readonly onEdit?: () => void;
+  readonly dueDate?: string | null;
+  readonly completedAt?: string | null;
   readonly hasUpdate?: boolean;
   readonly lightCard?: boolean;
 }) {
@@ -131,7 +140,7 @@ export function IssueCard({
   return (
     <div
       className={cn(
-        "group relative rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
+        "group relative min-h-36 rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
         lightCard
           ? "light-card"
           : "bg-background hover:bg-muted text-foreground",
@@ -157,6 +166,23 @@ export function IssueCard({
         >
           <Mail className="h-2.5 w-2.5 text-white" />
         </span>
+      )}
+      {onEdit && (
+        <button
+          type="button"
+          className={cn(
+            "absolute top-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
+            hasUpdate ? "right-8" : "right-2",
+            lightCard ? "light-card-chip" : "hover:bg-secondary",
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit ticket"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
       )}
       <div className="p-4 pl-5">
         <div className="flex items-center gap-1.5 mb-2">
@@ -225,6 +251,20 @@ export function IssueCard({
             <LabelPill key={l.id} label={l} />
           ))}
         </div>
+        {(dueDate || completedAt) && (
+          <div className="mt-1.5 space-y-0.5">
+            {dueDate && (
+              <p className={cn("smalltext", lightCard ? "light-card-muted" : "text-muted-foreground")}>
+                Due: <span className={lightCard ? "light-card-text" : "text-foreground"}>{new Date(dueDate).toLocaleDateString()}</span>
+              </p>
+            )}
+            {completedAt && (
+              <p className={cn("smalltext", lightCard ? "light-card-muted" : "text-muted-foreground")}>
+                Completed: <span className="text-success">{new Date(completedAt).toLocaleDateString()}</span>
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

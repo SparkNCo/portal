@@ -18,7 +18,7 @@ export function Header({ title, subtitle, subtitleClassName, actions }: HeaderPr
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 justify-between border-b border-border bg-background/95 backdrop-blur px-4 md:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={open}
           className="lg:hidden -ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
@@ -26,14 +26,14 @@ export function Header({ title, subtitle, subtitleClassName, actions }: HeaderPr
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+        <div className="flex min-w-0 items-baseline gap-3">
+          <h1 className="truncate text-lg font-semibold text-foreground">{title}</h1>
           {subtitle && (
-            <p className={`${subtitleClassName ?? "text-sm"} text-muted-foreground`}>{subtitle}</p>
+            <p className={`hidden sm:block ${subtitleClassName ?? "text-sm"} text-muted-foreground`}>{subtitle}</p>
           )}
         </div>
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </header>
   )
 }
