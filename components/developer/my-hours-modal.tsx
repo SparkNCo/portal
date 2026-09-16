@@ -571,7 +571,7 @@ export function MyHoursModal({
                   // Same Card, same min-height as the chart below — otherwise
                   // the modal visibly shrinks/jumps every time a project or
                   // date range with no data is picked.
-                  <Card className="bg-background border-border">
+                  <Card className="bg-background border-transparent rounded-none -mx-6">
                     <CardContent className="flex min-h-[300px] items-center justify-center py-6">
                       <p className="smalltext text-muted-foreground text-center">
                         No hours logged for this project.
@@ -591,7 +591,7 @@ export function MyHoursModal({
                         )}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-6">
                       {isRangeFocused && (
                         <AllocationMeter
                           hours={rangeTotal}
@@ -649,12 +649,6 @@ export function MyHoursModal({
                                 x={d.label}
                                 stroke="oklch(0.4 0 0)"
                                 strokeDasharray="2 2"
-                                label={{
-                                  value: d.monthLabel,
-                                  position: "top",
-                                  fill: "oklch(0.6 0 0)",
-                                  fontSize: 16,
-                                }}
                               />
                             ))}
                             {isMultiProject ? (
