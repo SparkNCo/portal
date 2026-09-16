@@ -97,11 +97,12 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
         </CardTitle>
 
         <div className="flex items-center gap-2">
-          {profile?.role === "customer" && resolvedId && (
+          {(profile?.role === "customer" || profile?.role === "admin") && resolvedId && (
             <AddDeveloperModal
               customerId={resolvedId}
               clientName={profile?.clientName ?? undefined}
               requestedBy={profile?.email ?? user?.email ?? undefined}
+              isAdmin={profile?.role === "admin"}
             />
           )}
 

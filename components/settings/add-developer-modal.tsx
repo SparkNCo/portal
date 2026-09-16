@@ -109,10 +109,16 @@ export function AddDeveloperModal({
   customerId,
   clientName,
   requestedBy,
+  isAdmin,
 }: {
   readonly customerId: string;
   readonly clientName?: string;
   readonly requestedBy?: string;
+  // Same "internal" developer kind either way — only the label/copy changes.
+  // "Internal" reads correctly from a customer's own point of view (their
+  // in-house engineer), but is backwards from an admin's, who's adding
+  // someone external to Spark & Co on the client's behalf.
+  readonly isAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -231,7 +237,9 @@ export function AddDeveloperModal({
               <div className="min-w-0 flex-1 space-y-1">
                 <DialogTitle className="truncate text-primary">Add Developer</DialogTitle>
                 <p className="smalltext text-muted-foreground">
-                  Add one of your own engineers, or request one from Spark & Co.
+                  {isAdmin
+                    ? "Add an external engineer, or request one from Spark & Co."
+                    : "Add one of your own engineers, or request one from Spark & Co."}
                 </p>
               </div>
             </div>
@@ -242,7 +250,7 @@ export function AddDeveloperModal({
               {(
                 [
                   { value: "spark_fde", label: "Spark & Co FDE" },
-                  { value: "internal", label: "Internal" },
+                  { value: "internal", label: isAdmin ? "External" : "Internal" },
                 ] as const
               ).map((option) => (
                 <button
@@ -263,8 +271,9 @@ export function AddDeveloperModal({
             {isInternal ? (
               <div className="space-y-4">
                 <p className="smalltext text-muted-foreground">
-                  Add one of your own engineers to this initiative. They&apos;ll get an invite
-                  email to set up portal access.
+                  {isAdmin
+                    ? "Add an engineer external to Spark & Co to this initiative. They'll get an invite email to set up portal access."
+                    : "Add one of your own engineers to this initiative. They'll get an invite email to set up portal access."}
                 </p>
 
                 <div className="flex gap-2">
