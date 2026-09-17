@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
   Download,
@@ -11,6 +12,7 @@ import {
   Calendar,
   Settings,
   Trash2,
+  UserCog,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +27,7 @@ import { useDeleteDocument, useUpdateDocument } from "./update-document-entry";
 import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
-import { API_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -47,18 +49,60 @@ const CATEGORIES = ["Reports", "Technical", "Design"];
 export function DocumentRow({
   filteredDocs,
   userId,
+  customerId,
 }: {
   filteredDocs: any[];
   userId: string | undefined;
+  // The initiative whose assigned users can be picked as a new document
+  // owner (admin-only) — same id StaffingSection/StakeholdersSection use to
+  // scope their own `GET /assignments?customer_id=` calls.
+  customerId?: string;
 }) {
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
+  const queryClient = useQueryClient();
   const { user, profile } = useUser();
   const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+
+  // Only fetched when an admin actually opens the Owner popover on some row
+  // (enabled below, per-row) — no point loading this for every visitor.
+  const assignedUsersQuery = useQuery({
+    queryKey: ["assignments", customerId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerId}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch initiative users");
+      return res.json() as Promise<any[]>;
+    },
+    enabled: isAdmin && !!customerId,
+  });
+
+  const transferOwnerMutation = useMutation({
+    mutationFn: async ({ documentId, newOwnerId }: { documentId: string; newOwnerId: string }) => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/transfer-owner`,
+        {
+          method: "POST",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({ document_id: documentId, new_owner_id: newOwnerId, user_id: userId }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to change owner");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
+  });
 
   const handleOpen = async (doc: any) => {
     try {
@@ -243,7 +287,7 @@ export function DocumentRow({
                   />{" "}
                 </Button>
 
-                {doc.permission === "owner" && (
+                {(doc.permission === "owner" || isAdmin) && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -259,6 +303,60 @@ export function DocumentRow({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                )}
+
+                {/* Admin-only: reassign this document's owner to any user
+                    assigned to the initiative — e.g. the original uploader
+                    left the company and someone else needs delete/share
+                    rights over what they left behind. */}
+                {isAdmin && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
+                        aria-label={`Change owner for ${doc.name}`}
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-56 p-1">
+                      {assignedUsersQuery.isLoading && (
+                        <p className="smalltext text-muted-foreground px-2 py-1.5">
+                          Loading…
+                        </p>
+                      )}
+                      {!assignedUsersQuery.isLoading &&
+                        (assignedUsersQuery.data?.length ?? 0) === 0 && (
+                          <p className="smalltext text-muted-foreground px-2 py-1.5">
+                            No assigned users found.
+                          </p>
+                        )}
+                      {assignedUsersQuery.data
+                        ?.filter((a: any) => a.role !== "stakeholder")
+                        .map((assignment: any) => (
+                          <Button
+                            key={assignment.user_id}
+                            variant="ghost"
+                            size="sm"
+                            disabled={transferOwnerMutation.isPending}
+                            className="w-full justify-start smalltext truncate"
+                            onClick={() =>
+                              transferOwnerMutation.mutate({
+                                documentId: doc.id,
+                                newOwnerId: assignment.user_id,
+                              })
+                            }
+                          >
+                            {assignment.firstName
+                              ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
+                              : assignment.userName || assignment.email}
+                          </Button>
+                        ))}
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
             </div>

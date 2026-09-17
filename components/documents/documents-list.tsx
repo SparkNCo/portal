@@ -23,9 +23,13 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-async function fetchDocuments(id: string, projectSlug?: string) {
+async function fetchDocuments(id: string, projectSlug?: string, viewerId?: string) {
   const params = new URLSearchParams({ user_id: id });
   if (projectSlug) params.set("project_slug", projectSlug);
+  // The actual logged-in caller (as opposed to `id`, whose permissions the
+  // list is scoped by) — lets the backend give an admin the full initiative
+  // list instead of only what the previewed user has a permission row for.
+  if (viewerId) params.set("viewer_id", viewerId);
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?${params.toString()}`,
@@ -58,8 +62,8 @@ export function DocumentsList({
   const documentsOwnerId = usePinnedPanelsOwnerId();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId],
-    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug),
+    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId, profile?.id],
+    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug, profile?.id),
     enabled: !!documentsOwnerId,
   });
 
@@ -146,7 +150,11 @@ export function DocumentsList({
         )}
 
         {filteredDocs.length > 0 && (
-          <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
+          <DocumentRow
+            filteredDocs={filteredDocs}
+            userId={profile?.id}
+            customerId={documentsOwnerId}
+          />
         )}
       </CardContent>
     </Card>

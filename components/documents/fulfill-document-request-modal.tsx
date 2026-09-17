@@ -20,10 +20,19 @@ async function uploadDocument({
   file,
   email,
   projectSlug,
+  ownerEmail,
+  sharedWithEmails,
 }: {
   file: File;
   email: string;
   projectSlug?: string;
+  // The requester should own what they asked for, not the developer who
+  // happened to upload it.
+  ownerEmail?: string;
+  // Every developer assigned to the initiative — so fulfilling a request
+  // doesn't lock the rest of the team out of a document filed under their
+  // own project.
+  sharedWithEmails?: string[];
 }) {
   const formData = new FormData();
   formData.append("file", file);
@@ -31,6 +40,10 @@ async function uploadDocument({
   formData.append("path", `uploads/${Date.now()}-${file.name}`);
   formData.append("email", email);
   if (projectSlug) formData.append("project_slug", projectSlug);
+  if (ownerEmail) formData.append("owner_email", ownerEmail);
+  if (sharedWithEmails?.length) {
+    formData.append("shared_with_emails", sharedWithEmails.join(","));
+  }
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
     method: "POST",
@@ -38,20 +51,6 @@ async function uploadDocument({
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload document");
-  return res.json();
-}
-
-async function shareDocument(payload: {
-  document_id: number;
-  emails: string[];
-  user_id: string | undefined;
-}) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/share`, {
-    method: "POST",
-    headers: API_JSON_HEADERS,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to share document");
   return res.json();
 }
 
@@ -102,28 +101,52 @@ export function FulfillDocumentRequestModal({
       );
       if (!res.ok) throw new Error("Failed to fetch customers");
       return res.json() as Promise<
-        { clientName: string; linear_slug: string | null }[]
+        { id: string; email: string; clientName: string; linear_slug: string | null }[]
       >;
     },
   });
 
-  const resolvedProjectSlug =
-    customers?.find(
-      (c) => c.clientName?.toLowerCase() === request.customer_slug?.toLowerCase(),
-    )?.linear_slug ?? request.customer_slug;
+  const matchedCustomer = customers?.find(
+    (c) => c.clientName?.toLowerCase() === request.customer_slug?.toLowerCase(),
+  );
+  const resolvedProjectSlug = matchedCustomer?.linear_slug ?? request.customer_slug;
+
+  // Every other stakeholder on this initiative (besides whoever specifically
+  // made this request, who already gets ownership below) — developers are
+  // deliberately left out, they already have their own access as team
+  // members. See uploadDocument's sharedWithEmails / upload-document.tsx's
+  // matching logic for the "Upload Document" panel's own version of this.
+  const { data: assignments } = useQuery({
+    queryKey: ["assignments", matchedCustomer?.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${matchedCustomer!.id}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json() as Promise<{ role: string; email: string }[]>;
+    },
+    enabled: !!matchedCustomer?.id,
+  });
+
+  const clientSideEmails = Array.from(
+    new Set(
+      [
+        ...(assignments ?? []).filter((a) => a.role === "stakeholder").map((a) => a.email),
+        matchedCustomer?.email,
+      ].filter((e): e is string => !!e),
+    ),
+  );
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("No file selected");
-      const { document } = await uploadDocument({
+      await uploadDocument({
         file,
         email: profile?.email ?? "",
         projectSlug: resolvedProjectSlug,
-      });
-      await shareDocument({
-        document_id: document.id,
-        emails: [request.requested_by],
-        user_id: profile?.id,
+        ownerEmail: request.requested_by,
+        sharedWithEmails: clientSideEmails,
       });
       await markRequestDone({ id: request.id, completedBy: profile?.email });
     },
