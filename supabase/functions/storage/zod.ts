@@ -73,6 +73,16 @@ export const UploadStorageInputSchema = z.object({
   email: z.string(),
   category: z.string().min(1),
   project_slug: z.string().optional(),
+  // Who should own the document — defaults to `email` (the uploader) for
+  // the normal Upload Document panel. Fulfilling a Document Request passes
+  // the requester's email here instead, since the customer who asked for
+  // it should own it, not the developer who happened to upload it.
+  owner_email: z.string().optional(),
+  // Extra emails to grant "write" access to alongside the owner — e.g.
+  // every developer assigned to the initiative, so fulfilling a request
+  // doesn't lock the rest of the team out of a document filed under their
+  // own project. Comma-separated since this comes in as form data.
+  shared_with_emails: z.string().optional(),
 });
 
 export const UploadStorageResponseSchema = z.object({

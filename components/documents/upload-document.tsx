@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
 import { useUser } from "context/UserContext";
-import { API_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 
 interface UploadedFile {
   name: string;
@@ -28,11 +28,16 @@ function useUploadFile() {
       userId,
       email,
       projectSlug,
+      sharedWithEmails,
     }: {
       file: File;
       userId: string;
       email: string;
       projectSlug: string;
+      // Everyone else assigned to this initiative — granted "write" access
+      // alongside the uploader's "owner", so a document filed under a
+      // project isn't only ever visible to whoever happened to upload it.
+      sharedWithEmails?: string[];
     }) => {
       const formData = new FormData();
 
@@ -42,6 +47,9 @@ function useUploadFile() {
       formData.append("user_id", user?.id);
       formData.append("email", email);
       formData.append("project_slug", projectSlug);
+      if (sharedWithEmails?.length) {
+        formData.append("shared_with_emails", sharedWithEmails.join(","));
+      }
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage`, {
         method: "POST",
@@ -81,6 +89,48 @@ export function UploadDocument({
 
   const targetProjectSlug = projectSlug ?? "";
   const canUploadNow = !!targetProjectSlug;
+
+  // Resolve the initiative's customer + stakeholders so an upload shares
+  // with the client side automatically, not just whoever happened to
+  // upload it — developers already have their own access via being
+  // assigned, so they're deliberately left out of this list.
+  const { data: customers } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json() as Promise<{ id: string; email: string; linear_slug: string | null }[]>;
+    },
+    enabled: canUploadNow,
+  });
+  const matchedCustomer = customers?.find(
+    (c) => c.linear_slug?.toLowerCase() === targetProjectSlug.toLowerCase(),
+  );
+  const matchedCustomerId = matchedCustomer?.id;
+
+  const { data: assignments } = useQuery({
+    queryKey: ["assignments", matchedCustomerId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${matchedCustomerId}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch assignments");
+      return res.json() as Promise<{ email: string; role: string }[]>;
+    },
+    enabled: !!matchedCustomerId,
+  });
+  const initiativeEmails = Array.from(
+    new Set(
+      [
+        ...(assignments ?? []).filter((a) => a.role === "stakeholder").map((a) => a.email),
+        matchedCustomer?.email,
+      ].filter((e): e is string => !!e),
+    ),
+  );
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -122,6 +172,7 @@ export function UploadDocument({
           userId: user!.id,
           email: user!.email!,
           projectSlug: targetProjectSlug,
+          sharedWithEmails: initiativeEmails,
         },
         {
           onSuccess: () => {
@@ -148,7 +199,7 @@ export function UploadDocument({
   };
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2">
           <Upload className="h-4 w-4 text-primary" />

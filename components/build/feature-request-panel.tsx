@@ -11,11 +11,12 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   TitleContinueRow,
   ProjectField,
+  MilestoneField,
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { postCreateIssue, fetchProjects } from "@/lib/issues-api";
+import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
 // (Linear's presigned GCS URLs aren't CORS-enabled for direct browser upload).
@@ -68,6 +69,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [requirements, setRequirements] = useState("");
   const [priority, setPriority] = useState("medium");
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +78,19 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     queryFn: () => fetchProjects(slug),
     enabled: !!slug,
   });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ["milestones", selectedProjectId],
+    queryFn: () => fetchMilestones(selectedProjectId),
+    enabled: !!selectedProjectId,
+  });
+
+  // A milestone from a previously-selected project shouldn't linger once the
+  // project changes (or is cleared) — it wouldn't belong to the new project.
+  function handleProjectChange(projectId: string) {
+    setSelectedProjectId(projectId);
+    setSelectedMilestoneId("");
+  }
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -88,6 +103,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
         slug,
         type: "feature",
         ...(selectedProjectId && { projectId: selectedProjectId }),
+        ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),
       });
 
       const issueId = result.issue?.id;
@@ -116,6 +132,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     setRequirements("");
     setPriority("medium");
     setSelectedProjectId("");
+    setSelectedMilestoneId("");
     setAttachments([]);
   }
 
@@ -133,7 +150,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background text-foreground">
+    <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle level={2} className="body font-semibold flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-primary" />
@@ -187,8 +204,16 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
               <ProjectField
                 projects={projects}
                 value={selectedProjectId}
-                onValueChange={setSelectedProjectId}
+                onValueChange={handleProjectChange}
               />
+
+              {selectedProjectId && (
+                <MilestoneField
+                  milestones={milestones}
+                  value={selectedMilestoneId}
+                  onValueChange={setSelectedMilestoneId}
+                />
+              )}
 
               <PriorityField value={priority} onValueChange={setPriority} />
             </div>

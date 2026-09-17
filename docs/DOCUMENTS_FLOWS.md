@@ -81,9 +81,9 @@ Clicking a row opens a read-only detail modal (title, status, project, related r
 
 ### 3. Claiming and fulfilling (developer/admin, `canManage`)
 
-1. A pending, unclaimed request shows an **"Upload & Share"** button.
-2. First click: `PATCH /document-requests { action: "claim", id, claimedBy }` — optimistic lock (`UPDATE ... WHERE status = 'pending' AND claimed_by IS NULL`). Returns `409` if someone else claimed it first (`"Request was already claimed by someone else"`), in which case the row shows a **"Claimed by {email}"** badge and the button disappears for everyone else.
-3. Once claimed (by the current user), the button re-opens `FulfillDocumentRequestModal` directly on subsequent clicks (no re-claim needed).
+1. A pending, unclaimed request shows a **"Claim"** button.
+2. Clicking it: `PATCH /document-requests { action: "claim", id, claimedBy }` — optimistic lock (`UPDATE ... WHERE status = 'pending' AND claimed_by IS NULL`). Returns `409` if someone else claimed it first (`"Request was already claimed by someone else"`), in which case the row shows a **"Claimed by {email}"** badge and the button disappears for everyone else. This step only claims — it does *not* open the upload modal.
+3. Once claimed (by the current user), the button relabels itself to **"Upload & Share"**; clicking it opens `FulfillDocumentRequestModal`. Claiming and opening the upload modal are deliberately two separate clicks, not one action that silently claims as a side effect.
 4. In the modal: drag-and-drop or browse for **one file**, then **"Upload & Share"** does three calls in sequence:
    - `POST /storage` (multipart) — uploads the file, `project_slug` = the request's `customer_slug`.
    - `POST /storage/share` — shares the newly uploaded document with `request.requested_by`'s email (grants them `read` permission — see Permission model below).

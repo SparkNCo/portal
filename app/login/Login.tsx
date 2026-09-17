@@ -212,7 +212,7 @@ export default function LoginForm({
           </label>
           <Input
             id="email"
-            className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 white-input bg-white text-background shadow-none selection:bg-primary selection:text-background"
+            className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 white-input bg-white text-background [-webkit-text-fill-color:hsl(var(--background))] shadow-none selection:bg-primary selection:text-background"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -230,7 +230,7 @@ export default function LoginForm({
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 pr-10 white-input bg-white text-background shadow-none selection:bg-primary selection:text-background"
+              className="rounded border-2 border-transparent focus:border-primary focus:outline-none p-2 pr-10 white-input bg-white text-background [-webkit-text-fill-color:hsl(var(--background))] shadow-none selection:bg-primary selection:text-background"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

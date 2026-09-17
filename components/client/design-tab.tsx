@@ -97,12 +97,25 @@ function MermaidDiagram({ source }: { source: string }) {
   );
 }
 
-export function DesignTab({ issue }: { issue: Issue }) {
+export function DesignTab({
+  issue,
+  slug,
+}: {
+  issue: Issue;
+  // The already-resolved customer slug from IssueDetailModal (which itself
+  // falls back to the issue's own `_project` tag — see DemoTab/TestTab,
+  // which already use it). Takes priority over this component's own
+  // route/profile-based guesses below, which have no assignment fallback
+  // and leave `projectSlug` empty for a developer/admin viewing an issue
+  // outside a customer-scoped route (e.g. "Could not identify the current
+  // project" when uploading a diagram).
+  slug?: string;
+}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  const projectSlug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
+  const projectSlug = slug ?? customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const updateFileInputRef = useRef<HTMLInputElement>(null);

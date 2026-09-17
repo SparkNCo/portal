@@ -147,28 +147,34 @@ export function SettingsTabs() {
       <div>
         {activeTab === "documents" && <DocumentsDirectory />}
         {activeTab === "billing" && (
-          <BillingSection
-            billingData={billingData}
-            isLoading={isLoading}
-            stripeCustomerId={effectiveStripeId}
-            customerId={effectiveCustomerId}
-            billingMode={effectiveBillingMode}
-            isBillingModeLoading={isBillingModeLoading}
-            isBillingModeError={isBillingModeError}
-            invoiceAmount={billingModeData?.invoice_amount ?? null}
-            invoiceInterval={billingModeData?.invoice_interval ?? null}
-            invoiceIntervalCount={billingModeData?.invoice_interval_count ?? null}
-            isAdmin={isAdmin}
-            onStripeIdSaved={handleStripeIdSaved}
-            onBillingModeSaved={handleBillingSettingsSaved}
-            onInvoiceSettingsSaved={handleBillingSettingsSaved}
-          />
+          <div className="-mx-4 sm:mx-0">
+            <BillingSection
+              billingData={billingData}
+              isLoading={isLoading}
+              stripeCustomerId={effectiveStripeId}
+              customerId={effectiveCustomerId}
+              billingMode={effectiveBillingMode}
+              isBillingModeLoading={isBillingModeLoading}
+              isBillingModeError={isBillingModeError}
+              invoiceAmount={billingModeData?.invoice_amount ?? null}
+              invoiceInterval={billingModeData?.invoice_interval ?? null}
+              invoiceIntervalCount={billingModeData?.invoice_interval_count ?? null}
+              isAdmin={isAdmin}
+              onStripeIdSaved={handleStripeIdSaved}
+              onBillingModeSaved={handleBillingSettingsSaved}
+              onInvoiceSettingsSaved={handleBillingSettingsSaved}
+            />
+          </div>
         )}
         {activeTab === "staffing" && (
-          <StaffingSection customerId={staffingCustomerIdOverride} />
+          <div className="-mx-4 sm:mx-0">
+            <StaffingSection customerId={staffingCustomerIdOverride} />
+          </div>
         )}
         {activeTab === "stakeholders" && (
-          <StakeholdersSection customerId={staffingCustomerIdOverride} />
+          <div className="-mx-4 sm:mx-0">
+            <StakeholdersSection customerId={staffingCustomerIdOverride} />
+          </div>
         )}
       </div>
     </div>

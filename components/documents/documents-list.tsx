@@ -23,9 +23,13 @@ function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-async function fetchDocuments(id: string, projectSlug?: string) {
+async function fetchDocuments(id: string, projectSlug?: string, viewerId?: string) {
   const params = new URLSearchParams({ user_id: id });
   if (projectSlug) params.set("project_slug", projectSlug);
+  // The actual logged-in caller (as opposed to `id`, whose permissions the
+  // list is scoped by) — lets the backend give an admin the full initiative
+  // list instead of only what the previewed user has a permission row for.
+  if (viewerId) params.set("viewer_id", viewerId);
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?${params.toString()}`,
@@ -58,8 +62,8 @@ export function DocumentsList({
   const documentsOwnerId = usePinnedPanelsOwnerId();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId],
-    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug),
+    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId, profile?.id],
+    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug, profile?.id),
     enabled: !!documentsOwnerId,
   });
 
@@ -88,7 +92,7 @@ export function DocumentsList({
   });
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="body font-semibold flex items-center gap-2">
@@ -96,17 +100,15 @@ export function DocumentsList({
             Project Documents
           </CardTitle>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                aria-label="Search documents"
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full sm:w-48 bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
+          <div className="relative w-full sm:w-auto">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Search documents"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-48 bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground"
+            />
           </div>
         </div>
 
@@ -148,7 +150,11 @@ export function DocumentsList({
         )}
 
         {filteredDocs.length > 0 && (
-          <DocumentRow filteredDocs={filteredDocs} userId={profile?.id} />
+          <DocumentRow
+            filteredDocs={filteredDocs}
+            userId={profile?.id}
+            customerId={documentsOwnerId}
+          />
         )}
       </CardContent>
     </Card>

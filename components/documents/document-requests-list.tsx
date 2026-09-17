@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileQuestion, FileCheck2, Lock, Loader2, UserMinus } from "lucide-react";
+import { Upload, FileQuestion, FileCheck2, Lock, Loader2, UserMinus, Hand } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,13 +145,41 @@ function RequestRow({
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["document-requests"] });
 
+  // Resolves the "Claimed by" badge to a human name instead of a bare email
+  // — firstName+lastName, falling back to userName, falling back to the
+  // email itself when none of those are set.
+  const claimedByUserQuery = useQuery({
+    queryKey: ["user-by-email", request.claimed_by],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(request.claimed_by!)}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch claimer");
+      return res.json() as Promise<{
+        firstName?: string | null;
+        lastName?: string | null;
+        userName?: string | null;
+        email?: string | null;
+      } | null>;
+    },
+    enabled: !!request.claimed_by,
+    staleTime: 5 * 60 * 1000,
+  });
+  const claimedByUser = claimedByUserQuery.data;
+  const claimedByDisplayName = claimedByUser?.firstName
+    ? `${claimedByUser.firstName} ${claimedByUser.lastName ?? ""}`.trim()
+    : claimedByUser?.userName || claimedByUser?.email || request.claimed_by;
+
   const claimMutation = useMutation({
     mutationFn: () =>
       patchDocumentRequest({ action: "claim", id: request.id, claimedBy: profile?.email }),
-    onSuccess: () => {
-      invalidate();
-      setShowFulfill(true);
-    },
+    // Just claims — doesn't open the upload modal yet. The button relabels
+    // itself to "Upload & Share" once claimed (see the JSX below), and *that*
+    // click is what opens FulfillDocumentRequestModal. Splitting these into
+    // two explicit steps makes "claim" a visible, deliberate action instead
+    // of something that silently happens as a side effect of hitting Upload.
+    onSuccess: invalidate,
     onError: (err: Error) => {
       toast.error(err.message);
       invalidate();
@@ -209,7 +237,7 @@ function RequestRow({
             {request.status === "pending" && claimedBySomeoneElse && (
               <Badge variant="outline" className="smalltext border-muted-foreground/30 text-muted-foreground">
                 <Lock className="h-3 w-3 mr-1" />
-                Claimed by {request.claimed_by}
+                Claimed by {claimedByDisplayName}
               </Badge>
             )}
           </div>
@@ -221,22 +249,49 @@ function RequestRow({
         </button>
 
         {canManage && request.status === "pending" && !claimedBySomeoneElse && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={claimMutation.isPending}
-            onClick={handleFulfillClick}
-            className="flex-shrink-0 smalltext"
-          >
-            {claimMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <>
-                <Upload className="h-3.5 w-3.5 mr-1.5" />
-                Upload & Share
-              </>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={claimMutation.isPending}
+              onClick={handleFulfillClick}
+              className="flex-shrink-0 smalltext"
+            >
+              {claimMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : claimedByMe ? (
+                <>
+                  <Upload className="h-3.5 w-3.5 mr-1.5" />
+                  Upload & Share
+                </>
+              ) : (
+                <>
+                  <Hand className="h-3.5 w-3.5 mr-1.5" />
+                  Claim
+                </>
+              )}
+            </Button>
+
+            {/* Lets the claimer back out without opening the upload modal
+                just to hit Cancel in it — same release action that modal's
+                Cancel already triggers, just reachable directly from the row. */}
+            {claimedByMe && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={releaseMutation.isPending}
+                onClick={() => releaseMutation.mutate()}
+                className="flex-shrink-0 smalltext text-muted-foreground"
+                aria-label="Unassign yourself from this request"
+              >
+                {releaseMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UserMinus className="h-3.5 w-3.5" />
+                )}
+              </Button>
             )}
-          </Button>
+          </div>
         )}
 
         {/* Admin-only escape hatch for a request stuck claimed by someone
@@ -260,6 +315,7 @@ function RequestRow({
             )}
           </Button>
         )}
+
       </div>
 
       {showDetail && (
@@ -304,7 +360,7 @@ function RequestPanel({
   const visible = requests.slice(0, limit);
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           {icon}
@@ -367,7 +423,7 @@ export function DocumentRequestsList({
 
   if (isLoading) {
     return (
-      <Card className="bg-background border-border text-foreground">
+      <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
         <CardContent className="pt-6">
           <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
         </CardContent>

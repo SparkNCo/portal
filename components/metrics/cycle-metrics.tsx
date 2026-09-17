@@ -123,7 +123,7 @@ export function CycleBarChart({
   };
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <RefreshCw className="h-4 w-4 text-primary" />
@@ -161,10 +161,35 @@ export function CycleBarChart({
                   }}
                   labelStyle={{ color: "oklch(0.95 0 0)" }}
                 />
-                <Legend wrapperStyle={{ fontSize: "12px" }} iconType="square" />
+                {/* Recharts doesn't reliably keep the legend in Bar
+                    declaration order once each Bar has its own <Cell>
+                    children (as these do, for the per-cycle opacity
+                    highlight) — a custom renderer pins it so it always
+                    reads Scope, then Completed. */}
+                <Legend
+                  wrapperStyle={{ fontSize: "12px" }}
+                  content={() => (
+                    <ul className="flex items-center justify-center gap-4 mt-2 smalltext text-muted-foreground">
+                      <li className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2.5 w-2.5"
+                          style={{ backgroundColor: "hsl(var(--primary))" }}
+                        />
+                        Scope
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span
+                          className="inline-block h-2.5 w-2.5"
+                          style={{ backgroundColor: "hsl(var(--card))" }}
+                        />
+                        Completed
+                      </li>
+                    </ul>
+                  )}
+                />
                 <Bar
                   dataKey="Scope"
-                  fill="oklch(0.65 0.2 250)"
+                  fill="hsl(var(--primary))"
                   radius={[3, 3, 0, 0]}
                   onClick={handleBarClick}
                   cursor={onCycleClick ? "pointer" : undefined}
@@ -178,7 +203,7 @@ export function CycleBarChart({
                 </Bar>
                 <Bar
                   dataKey="Completed"
-                  fill="oklch(0.7 0.18 140)"
+                  fill="hsl(var(--card))"
                   radius={[3, 3, 0, 0]}
                   onClick={handleBarClick}
                   cursor={onCycleClick ? "pointer" : undefined}

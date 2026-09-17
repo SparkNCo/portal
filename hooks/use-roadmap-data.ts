@@ -74,6 +74,11 @@ export function useRoadmapData(slug: string) {
         .filter((project: any) => project.status?.color)
         .map((project: any) => [project.name, project.status.color]),
     );
+    const projectStatusByName: Record<string, string> = Object.fromEntries(
+      projectNodes
+        .filter((project: any) => project.status?.name)
+        .map((project: any) => [project.name, project.status.name]),
+    );
     const projectTargetDateByName: Record<string, string | null> = Object.fromEntries(
       projectNodes.map((project: any) => [project.name, project.targetDate ?? null]),
     );
@@ -83,6 +88,7 @@ export function useRoadmapData(slug: string) {
       projectNames,
       projectIdsByName,
       projectColorByName,
+      projectStatusByName,
       projectTargetDateByName,
       cycles,
     };

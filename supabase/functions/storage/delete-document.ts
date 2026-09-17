@@ -30,31 +30,40 @@ export async function deleteDocument(req: Request, schema: string) {
 
     /**
      * ---------------------------------------
-     * ✅ 1. CHECK OWNER PERMISSION
+     * ✅ 1. CHECK OWNER PERMISSION (admins bypass this)
      * ---------------------------------------
      */
-    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .select("permission")
-      .eq("user_id", user_id)
-      .eq("document_id", document_id)
-      .single();
+    const { data: userData } = await supabase.schema(schema)
+      .from("users")
+      .select("role")
+      .eq("id", user_id)
+      .maybeSingle();
+    const isAdmin = userData?.role === "admin";
 
-    if (permissionError || !permissionData) {
-      return new Response(JSON.stringify({ error: "No access" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!isAdmin) {
+      const { data: permissionData, error: permissionError } = await supabase.schema(schema)
+        .from("document_permissions")
+        .select("permission")
+        .eq("user_id", user_id)
+        .eq("document_id", document_id)
+        .single();
 
-    if (permissionData.permission !== "owner") {
-      return new Response(
-        JSON.stringify({ error: "Only the owner can delete this document" }),
-        {
+      if (permissionError || !permissionData) {
+        return new Response(JSON.stringify({ error: "No access" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+        });
+      }
+
+      if (permissionData.permission !== "owner") {
+        return new Response(
+          JSON.stringify({ error: "Only the owner can delete this document" }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     /**

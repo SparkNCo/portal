@@ -56,8 +56,10 @@ export default function BugsPage() {
 
   const allIssues: any[] = issuesData ?? [];
 
-  const bugIssues = allIssues.filter((i: any) =>
-    (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug"),
+  const bugIssues = allIssues.filter(
+    (i: any) =>
+      (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
+      i?.state?.name !== "Done",
   );
 
   const projects: { id: string; name: string }[] = Array.from(
@@ -107,12 +109,6 @@ export default function BugsPage() {
 
   const visibleIssues = useMemo(() => {
     return [...dateFiltered].sort((a: any, b: any) => {
-      // Not-Done issues first, Done issues last — each half is then ordered by
-      // priority (desc) and createdAt (asc) same as before.
-      const doneA = a?.state?.name === "Done" ? 1 : 0;
-      const doneB = b?.state?.name === "Done" ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-
       const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;
       const rankB = PRIORITY_RANK[b.priorityLabel] ?? 0;
       if (rankA !== rankB) return rankB - rankA;
@@ -181,9 +177,11 @@ export default function BugsPage() {
       <Header title="Bugs" subtitle="Issues discovered in production" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
-        <BugReportPanel slug={slug} />
+        <div className="-mx-4 sm:mx-0">
+          <BugReportPanel slug={slug} />
+        </div>
 
-        <div className="relative w-full max-w-full overflow-x-hidden">
+        <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
           {issuesLoading ? (
             <LoadingDataPanel />
           ) : (
