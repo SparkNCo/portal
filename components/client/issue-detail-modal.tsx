@@ -1945,6 +1945,10 @@ export function IssueDetailModal({
             onClick={() => setActiveTab("tests")}
             badge={executions.length}
           />
+          {/* Bug issues have exactly 5 tabs (no Design) — on narrow screens
+              that wraps naturally as 4+1, an awkward lone tab on its own
+              row. Forcing the break here instead makes it 3+2. */}
+          {isBugIssue && <div className="basis-full sm:hidden" />}
           <TabButton
             label="Decisions"
             tab="decisions"
@@ -2005,7 +2009,9 @@ export function IssueDetailModal({
           />
         )}
 
-        {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
+        {activeTab === "design" && !isBugIssue && (
+          <DesignTab issue={issue} slug={slug ?? (issue as any)._project} />
+        )}
 
         {activeTab === "demo" && (
           <DemoTab issue={issue} slug={slug ?? (issue as any)._project} />
