@@ -128,7 +128,7 @@ export function NextPaymentPanel({
 
   if (isLoading) {
     return (
-      <Card className="bg-transparent">
+      <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl">
         <LoadingDataPanel />
       </Card>
     );
@@ -153,7 +153,7 @@ export function NextPaymentPanel({
   };
 
   return (
-    <Card className="bg-transparent text-foreground">
+    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       {subscriptionStatus && (
         <div className="flex items-center gap-2 px-6 pt-4">
           <span className="smalltext text-card">Subscription status</span>

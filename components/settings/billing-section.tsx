@@ -379,7 +379,7 @@ function StripeIdPanel({
   if (isAdmin || stripeCustomerId) return null;
 
   return (
-    <Card className="bg-transparent text-foreground">
+    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardContent className="bg-background flex items-center gap-4 pt-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
           <CreditCard className="h-6 w-6" />
@@ -586,7 +586,7 @@ function AdminBillingControls({
   // rather than showing a toggle that might be wrong.
 
   return (
-    <Card className="bg-transparent text-foreground">
+    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardContent
         className={`bg-background flex flex-col pt-4 ${hasStripeId ? "divide-y divide-border" : ""}`}
       >
@@ -707,7 +707,7 @@ export function BillingSection({
       // manually-invoiced client, or briefly claiming a client is manual
       // when they're not.
       billingContent = (
-        <Card className="bg-transparent text-foreground">
+        <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6" />
@@ -727,7 +727,7 @@ export function BillingSection({
       );
     } else if (isManual) {
       billingContent = (
-        <Card className="bg-transparent text-foreground">
+        <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
           <CardContent className="bg-background flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6" />

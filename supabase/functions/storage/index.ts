@@ -3,6 +3,7 @@ import { corsHeaders } from "../utils/headers.ts";
 import { downloadDocument } from "./downloadDocument.ts";
 import { getStorageData } from "./fetch-storage-data.ts";
 import { shareDocument } from "./shareDocument.ts";
+import { transferOwnership } from "./transferOwnership.ts";
 import { deleteDocument } from "./delete-document.ts";
 import { updateDocumentCategory } from "./update-document-category.ts";
 import { updateStorageEntry } from "./update-storage-entry.ts";
@@ -34,6 +35,9 @@ Deno.serve(async (req) => {
     }
     if (req.method === "POST" && pathname === "/storage/share") {
       return await shareDocument(req, schema);
+    }
+    if (req.method === "POST" && pathname === "/storage/transfer-owner") {
+      return await transferOwnership(req, schema);
     }
     if (req.method === "PATCH" && pathname === "/storage") {
       return await updateStorageEntry(req, schema);

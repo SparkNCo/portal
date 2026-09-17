@@ -206,7 +206,11 @@ export default function ClientDashboard() {
               items={pinnedPanels.map((p) => p.panel_id)}
               strategy={rectSortingStrategy}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              {/* Negative margin on mobile only, cancelling the page's own
+                  p-4 so panels reach the screen edges — "Your Panels" and
+                  the request button above stay inset since they're outside
+                  this div. sm+ reverts to the normal contained grid. */}
+              <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {pinnedPanels.map((pin) => (
                   <SortablePinnedPanel
                     key={pin.panel_id}

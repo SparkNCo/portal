@@ -51,14 +51,14 @@ const links = [
 
 export function QuickLinks() {
   return (
-    <Card className="bg-background border-border">
-      <CardHeader>
+    <Card className="min-w-0 bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
+      <CardHeader className="px-4 sm:px-6">
         <CardTitle className="smalltext font-semibold flex items-center gap-2 text-white">
           <ExternalLink className="h-4 w-4 text-primary" />
           Quick Links
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 px-4 sm:px-6">
         {links.map((link) => (
           <a
             key={link.title}

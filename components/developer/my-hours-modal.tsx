@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CartesianGrid,
@@ -109,19 +109,32 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Default range shown on open — "last 2 weeks" through today, rather than
+// Default range shown on open — last 7 days through today, rather than
 // starting with no range picked (which used to fall back to a plain
 // unfiltered 30-day view with no explicit dates shown anywhere).
-function twoWeeksAgoIso(): string {
+function sevenDaysAgoIso(): string {
   const d = new Date();
-  d.setDate(d.getDate() - 14);
+  d.setDate(d.getDate() - 6);
   return d.toISOString().slice(0, 10);
 }
 
 // "A single ratio against a limit" — a meter, not a line/bar chart: the fill
 // carries how much of the week's allocation has been used, the track is a
 // lighter step of the same hue so the whole bar still reads at a glance.
-function AllocationMeter({ hours, allocation }: { readonly hours: number; readonly allocation: number }) {
+function AllocationMeter({
+  hours,
+  allocation,
+  days,
+  projectLabel,
+}: {
+  readonly hours: number;
+  readonly allocation: number;
+  readonly days: number;
+  // Either "N projects" (All Projects filter) or the single selected
+  // project's name — so the prorated number is traceable to what it's
+  // actually summing.
+  readonly projectLabel: string;
+}) {
   if (allocation <= 0) return null;
   const pct = Math.min(100, Math.round((hours / allocation) * 100));
   const over = hours > allocation;
@@ -129,8 +142,16 @@ function AllocationMeter({ hours, allocation }: { readonly hours: number; readon
     <div className="space-y-1.5">
       <div className="flex items-center justify-between smalltext">
         <span className="font-medium text-foreground">{hours}h logged</span>
-        <span className="text-muted-foreground">of {allocation}h allocated ({pct}%)</span>
+        <span className="text-muted-foreground">
+          of {Math.round(allocation * 100) / 100}h allocated ({pct}%)
+        </span>
       </div>
+      {/* Allocation is a weekly figure prorated to the picked range (days/7),
+          which rarely lands on a whole number — spelled out here so it
+          doesn't read as a bug when the range isn't a multiple of 7 days. */}
+      <p className="smalltext text-muted-foreground/70">
+        Weekly allocation for {projectLabel}, prorated for {days} day{days === 1 ? "" : "s"}
+      </p>
       <div className="h-2.5 w-full rounded-full bg-primary/15 overflow-hidden">
         <div
           className={cn("h-full rounded-full transition-all", over ? "bg-success" : "bg-primary")}
@@ -267,6 +288,22 @@ function DayTooltip({
   );
 }
 
+// Below Tailwind's `sm` breakpoint, the chart is too narrow for every day's
+// label to fit without overlapping — capped to just the first/last tick
+// there, same as the "preserveStartEnd" fallback already used for long
+// ranges on wider screens.
+function useIsSmallScreen(): boolean {
+  const [isSmall, setIsSmall] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)");
+    setIsSmall(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsSmall(e.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  return isSmall;
+}
+
 export function MyHoursModal({
   projects,
   issues,
@@ -284,9 +321,10 @@ export function MyHoursModal({
   const [isExpanded, setIsExpanded] = useState(false);
   const [editingEntry, setEditingEntry] = useState<HoursLogEntry | null>(null);
   const [projectFilter, setProjectFilter] = useState(ALL_PROJECTS);
-  const [dateFrom, setDateFrom] = useState(twoWeeksAgoIso);
+  const [dateFrom, setDateFrom] = useState(sevenDaysAgoIso);
   const [dateTo, setDateTo] = useState(todayIso);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const isSmallScreen = useIsSmallScreen();
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ["hours-logged", developerId],
@@ -331,9 +369,7 @@ export function MyHoursModal({
   // assigned to.
   const activeProjectNames = useMemo(() => {
     if (projectFilter !== ALL_PROJECTS) return [];
-    return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort((a, b) =>
-      a.localeCompare(b),
-    );
+    return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort();
   }, [filteredEntries, projectFilter]);
   const isMultiProject = activeProjectNames.length > 0;
 
@@ -343,6 +379,17 @@ export function MyHoursModal({
     }
     return projects.find((p) => p.clientName === projectFilter)?.allocation ?? 0;
   }, [projects, projectFilter]);
+
+  // What the allocation total above is actually summing — the single
+  // project's name when filtered down to one, otherwise how many projects
+  // (with a real allocation) fed into that sum.
+  const allocationProjectLabel =
+    projectFilter === ALL_PROJECTS
+      ? (() => {
+          const count = projects.filter((p) => (p.allocation ?? 0) > 0).length;
+          return `${count} project${count === 1 ? "" : "s"}`;
+        })()
+      : projectFilter;
 
   const isRangeSelected = !!dateFrom && !!dateTo;
   const isRangeInvalid = isRangeSelected && dateFrom > dateTo;
@@ -524,7 +571,7 @@ export function MyHoursModal({
                   // Same Card, same min-height as the chart below — otherwise
                   // the modal visibly shrinks/jumps every time a project or
                   // date range with no data is picked.
-                  <Card className="bg-background border-border">
+                  <Card className="bg-background border-transparent rounded-none -mx-6">
                     <CardContent className="flex min-h-[300px] items-center justify-center py-6">
                       <p className="smalltext text-muted-foreground text-center">
                         No hours logged for this project.
@@ -532,7 +579,7 @@ export function MyHoursModal({
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card className="bg-background border-border">
+                  <Card className="bg-background border-transparent rounded-none -mx-6">
                     <CardHeader>
                       <CardTitle className="smalltext font-semibold flex items-center gap-2">
                         <CalendarRange className="h-4 w-4 text-primary" />
@@ -544,13 +591,20 @@ export function MyHoursModal({
                         )}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      {isRangeFocused && <AllocationMeter hours={rangeTotal} allocation={rangeAllocation} />}
+                    <CardContent className="space-y-6">
+                      {isRangeFocused && (
+                        <AllocationMeter
+                          hours={rangeTotal}
+                          allocation={rangeAllocation}
+                          days={rangeDays.length}
+                          projectLabel={allocationProjectLabel}
+                        />
+                      )}
                       <div className="h-56 cursor-pointer [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
                         <ResponsiveContainer width="100%" height={224}>
                           <LineChart
                             data={chartData}
-                            margin={{ top: 18 }}
+                            margin={{ top: 24, right: 28, left: 12, bottom: 4 }}
                             onClick={(state) => {
                               const label = state?.activeLabel;
                               if (label == null) return;
@@ -561,22 +615,33 @@ export function MyHoursModal({
                             <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.22 0 0)" />
                             <XAxis
                               dataKey="label"
-                              tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                              tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}
                               axisLine={false}
                               tickLine={false}
-                              interval={isRangeFocused && chartData.length <= 14 ? 0 : "preserveStartEnd"}
+                              interval={
+                                isSmallScreen
+                                  ? "preserveStartEnd"
+                                  : isRangeFocused && chartData.length <= 14
+                                    ? 0
+                                    : "preserveStartEnd"
+                              }
+                              ticks={
+                                isSmallScreen && chartData.length > 1
+                                  ? [chartData[0]!.label, chartData[chartData.length - 1]!.label]
+                                  : undefined
+                              }
                             />
                             <YAxis
-                              tick={{ fontSize: 11, fill: "oklch(0.6 0 0)" }}
+                              tick={{ fontSize: 16, fill: "oklch(0.6 0 0)" }}
                               axisLine={false}
                               tickLine={false}
-                              width={30}
+                              width={40}
                               allowDecimals={false}
                             />
                             <Tooltip content={<DayTooltip isMultiProject={isMultiProject} />} />
                             {isMultiProject && (
                               <Legend
-                                wrapperStyle={{ fontSize: 11 }}
+                                wrapperStyle={{ fontSize: 16 }}
                                 formatter={(value) => (
                                   <span style={{ color: "oklch(0.75 0 0)" }}>{value}</span>
                                 )}
@@ -595,12 +660,6 @@ export function MyHoursModal({
                                 x={d.label}
                                 stroke="oklch(0.4 0 0)"
                                 strokeDasharray="2 2"
-                                label={{
-                                  value: d.monthLabel,
-                                  position: "top",
-                                  fill: "oklch(0.6 0 0)",
-                                  fontSize: 11,
-                                }}
                               />
                             ))}
                             {isMultiProject ? (

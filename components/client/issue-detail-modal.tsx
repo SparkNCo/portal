@@ -431,11 +431,21 @@ function DecisionsTab({
 type StepDraft = { id: string; text: string };
 type UatFormState = { executionId: string; result: string; files: File[] } | null;
 
+// crypto.randomUUID() only exists in secure contexts (HTTPS, or localhost) —
+// opening the app over plain HTTP via a LAN IP (e.g. from a phone on the same
+// WiFi during local testing) throws "crypto.randomUUID is not a function"
+// there, which crashed this whole tab since it's called from useState's
+// initializer. These ids are only used as local React keys for step
+// ordering, never sent anywhere, so they don't need real randomness.
+function generateLocalId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 // A brand-new test always opens with one blank step already showing, rather
 // than an empty list — otherwise there's no input row for "+ Add step" below
 // to line up with until the user adds one themselves.
 function createEmptyStep(): StepDraft {
-  return { id: crypto.randomUUID(), text: "" };
+  return { id: generateLocalId(), text: "" };
 }
 
 function SortableStepRow({
@@ -542,7 +552,7 @@ function StepsEditor({
   // Enter on a step inserts a fresh one right after it and focuses it, so
   // users can keep listing steps without reaching for "+ Add step" each time.
   function insertStepAfter(index: number) {
-    const newStep: StepDraft = { id: crypto.randomUUID(), text: "" };
+    const newStep: StepDraft = { id: generateLocalId(), text: "" };
     const next = [...steps];
     next.splice(index + 1, 0, newStep);
     onChange(next);
@@ -847,7 +857,7 @@ function TestsTab({
     setPendingExisting({
       test,
       expected: "",
-      steps: test.steps.map((s) => ({ id: crypto.randomUUID(), text: s.description })),
+      steps: test.steps.map((s) => ({ id: generateLocalId(), text: s.description })),
     });
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-executions?test_id=${test.id}`,
@@ -928,7 +938,7 @@ function TestsTab({
       testId: execution.test_id,
       title: execution.test.title,
       steps: execution.test.steps.map((s) => ({
-        id: crypto.randomUUID(),
+        id: generateLocalId(),
         text: s.description,
       })),
       expected: execution.expected,
@@ -1313,7 +1323,7 @@ function TestsTab({
             onSubmitUat={handleSubmitUat}
           />
 
-          {(role === "stakeholder" || role === "customer") &&
+          {(role === "stakeholder" || role === "customer" || role === "admin") &&
             (e.status === "approved" || e.status === "passed") &&
             currentStateName === "UAT" &&
             (e.status === "passed" ||
@@ -1535,12 +1545,13 @@ export function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const role = profile?.role;
-  const canAnswer = role === "customer" || role === "stakeholder";
+  // Admins can do anything a customer can, on top of their own powers below.
+  const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
-  const canRecordUatResult = role === "customer" || role === "stakeholder";
+  const canRecordUatResult = role === "customer" || role === "stakeholder" || role === "admin";
   // Freely changing priority/status from the header plates is a
   // developer/admin power-tool — customers and stakeholders only move
   // tickets through the guided flow in the Description tab.
@@ -1914,7 +1925,7 @@ export function IssueDetailModal({
             flush with the dialog's edges, wraps to a second row on narrow
             screens instead of overflowing/scrolling horizontally. */}
         <div className="-mx-6 -mb-6 mt-4 flex flex-1 flex-col overflow-hidden border-t border-border">
-        <div className="flex flex-wrap gap-x-5 gap-y-0.5 border-b border-border px-5 pt-3 flex-shrink-0">
+        <div className="flex flex-wrap justify-center sm:justify-start gap-x-5 gap-y-0.5 border-b border-border px-5 pt-3 flex-shrink-0">
           <TabButton
             label="Description"
             tab="description"
@@ -1934,6 +1945,10 @@ export function IssueDetailModal({
             onClick={() => setActiveTab("tests")}
             badge={executions.length}
           />
+          {/* Bug issues have exactly 5 tabs (no Design) — on narrow screens
+              that wraps naturally as 4+1, an awkward lone tab on its own
+              row. Forcing the break here instead makes it 3+2. */}
+          {isBugIssue && <div className="basis-full sm:hidden" />}
           <TabButton
             label="Decisions"
             tab="decisions"
@@ -1994,7 +2009,9 @@ export function IssueDetailModal({
           />
         )}
 
-        {activeTab === "design" && !isBugIssue && <DesignTab issue={issue} />}
+        {activeTab === "design" && !isBugIssue && (
+          <DesignTab issue={issue} slug={slug ?? (issue as any)._project} />
+        )}
 
         {activeTab === "demo" && (
           <DemoTab issue={issue} slug={slug ?? (issue as any)._project} />

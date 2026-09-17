@@ -30,3 +30,12 @@ export async function fetchProjects(slug: string) {
   if (!res.ok) throw new Error("Failed to fetch projects");
   return res.json() as Promise<{ id: string; name: string }[]>;
 }
+
+export async function fetchMilestones(projectId: string) {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/milestones?projectId=${encodeURIComponent(projectId)}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to fetch milestones");
+  return res.json() as Promise<{ id: string; name: string; targetDate: string | null }[]>;
+}

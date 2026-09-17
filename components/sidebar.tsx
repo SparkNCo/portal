@@ -157,7 +157,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen w-full sm:w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200",
+        "fixed left-0 top-0 z-40 flex h-dvh w-full sm:w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200",
         "lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full",
       )}
@@ -207,7 +207,7 @@ export function Sidebar() {
           </Select>
         </div>
       )}
-      <nav className="flex-1 space-y-1 px-3 py-2">
+      <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
         {isViewingCustomer ? (
           <>
             <Link

@@ -45,6 +45,7 @@ query Projects($initiativeId: String!, $after: String) {
           }
         }
         status {
+          name
           color
         }
       }

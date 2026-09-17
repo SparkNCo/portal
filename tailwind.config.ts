@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config = {
   darkMode: ["class"],
@@ -119,7 +120,20 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // Mobile browsers simulate a ":hover" pass on the first tap before
+    // delivering the real click — normally harmless, but it turns any
+    // element that has both a hover: style and a click handler (e.g. a
+    // hover-styled card with a separate overlay button for onClick, like
+    // IssueCard/IssueListRow) into a "tap twice to open" trap on touch
+    // devices. Scoping `hover:` to devices that actually have a mouse
+    // removes the hover state from touch entirely, so there's nothing for
+    // the browser to disambiguate and a single tap goes straight to click.
+    plugin(({ addVariant }) => {
+      addVariant("hover", "@media (hover: hover) and (pointer: fine) { &:hover }");
+    }),
+  ],
 } satisfies Config;
 
 export default config;

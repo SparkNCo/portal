@@ -297,7 +297,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="-mx-4 sm:mx-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <CycleBarChart
           data={filteredCycleMetrics}
           activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}

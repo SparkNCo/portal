@@ -49,11 +49,15 @@ export function SortablePinnedPanel({
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
+        {/* Toggling "full width" only does anything once the grid actually
+            has 2 columns (md:col-span-2 below) — hidden below that
+            breakpoint since it'd be a no-op on a single-column mobile
+            layout. */}
         <button
           type="button"
           onClick={onToggleWidth}
           title={fullWidth ? "Shrink to half width" : "Expand to full width"}
-          className={actionButtonClass}
+          className={`hidden md:inline-block ${actionButtonClass}`}
         >
           {fullWidth ? (
             <Minimize2 className="h-3.5 w-3.5" />

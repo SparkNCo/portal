@@ -24,7 +24,7 @@ export function PaymentMethodPanel({
 }) {
   if (!paymentMethod) {
     return (
-      <Card className="bg-transparent">
+      <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl">
         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
           <div>
             <p className="smalltext text-card">Payment Method</p>
@@ -51,7 +51,7 @@ export function PaymentMethodPanel({
   }
 
   return (
-    <Card className="bg-transparent text-foreground">
+    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">

@@ -18,6 +18,8 @@ export async function uploadStorageData(req: Request, schema: string) {
       user_id: formData.get("user_id"),
       category: formData.get("category") ?? "document",
       project_slug: formData.get("project_slug") ?? undefined,
+      owner_email: formData.get("owner_email") ?? undefined,
+      shared_with_emails: formData.get("shared_with_emails") ?? undefined,
     };
 
     const parsedInput = UploadStorageInputSchema.safeParse(rawInput);
@@ -38,7 +40,7 @@ export async function uploadStorageData(req: Request, schema: string) {
       );
     }
 
-    const { file, bucket, path, email, category, project_slug } =
+    const { file, bucket, path, email, category, project_slug, owner_email, shared_with_emails } =
       parsedInput.data;
 
     /**
@@ -59,7 +61,28 @@ export async function uploadStorageData(req: Request, schema: string) {
       });
     }
 
-    const owner_id = matchedUser.id;
+    const uploader_id = matchedUser.id;
+
+    // Owner defaults to the uploader (the normal Upload Document panel
+    // never sets owner_email) — only differs when fulfilling a Document
+    // Request, where the requester should own what they asked for, not
+    // whoever happened to upload it.
+    let owner_id = uploader_id;
+    if (owner_email && owner_email !== email) {
+      const { data: ownerUser, error: ownerError } = await supabase.schema(schema)
+        .from("users")
+        .select("id")
+        .eq("email", owner_email)
+        .maybeSingle();
+
+      if (ownerError || !ownerUser) {
+        return new Response(JSON.stringify({ error: "Owner user not found" }), {
+          status: 404,
+          headers: corsHeaders,
+        });
+      }
+      owner_id = ownerUser.id;
+    }
 
     /**
      * ---------------------------------------
@@ -145,6 +168,50 @@ export async function uploadStorageData(req: Request, schema: string) {
           headers: corsHeaders,
         },
       );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 5b. Grant "write" to everyone else who should have it — the
+     * uploader (when they're not the owner, e.g. fulfilling a request) plus
+     * anyone in shared_with_emails (the initiative's assigned developers, so
+     * the rest of the team isn't locked out of a document filed under their
+     * own project). Best-effort per-user — one bad email shouldn't undo the
+     * document that already exists.
+     * ---------------------------------------
+     */
+    const writeEmails = new Set(
+      (shared_with_emails ?? "")
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean),
+    );
+    if (owner_id !== uploader_id) writeEmails.add(email);
+
+    if (writeEmails.size > 0) {
+      const { data: writeUsers } = await supabase.schema(schema)
+        .from("users")
+        .select("id, email")
+        .in("email", Array.from(writeEmails));
+
+      const writeUserIds = (writeUsers ?? [])
+        .map((u) => u.id)
+        .filter((id) => id !== owner_id);
+
+      if (writeUserIds.length > 0) {
+        const { error: writeError } = await supabase.schema(schema)
+          .from("document_permissions")
+          .insert(
+            writeUserIds.map((user_id) => ({
+              user_id,
+              document_id: document.id,
+              permission: "write",
+            })),
+          );
+        if (writeError) {
+          console.error("[Write Permission Insert Error] (non-fatal)", writeError);
+        }
+      }
     }
 
     /**

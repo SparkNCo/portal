@@ -1,10 +1,22 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { supabase } from "../client.ts";
+import { markIssueUpdated } from "../utils/issueUpdates.ts";
 
 const AI_UID = Deno.env.get("AI_UID")!;
 const APP_ID = Deno.env.get("COMETCHAT_APP_ID")!;
 const API_KEY = Deno.env.get("COMETCHAT_API_KEY")!;
 const REGION = Deno.env.get("COMETCHAT_REGION")!;
+
+// Issue chat groups are always created with this deterministic guid (see
+// getOrCreateIssueGroup.ts's buildGroupGuid) — "-" is the only character a
+// Linear issue's UUID has that isn't alphanumeric, so swapping "_" back to
+// "-" reverses it losslessly. Any other group (not issue-scoped) won't match
+// the prefix and is left alone.
+function decodeIssueIdFromGroupId(groupId: string): string | null {
+  if (!groupId?.startsWith("issue_")) return null;
+  return groupId.slice("issue_".length).replaceAll("_", "-");
+}
 
 Deno.serve(async (req) => {
   // ✅ CORS preflight
@@ -48,6 +60,25 @@ Deno.serve(async (req) => {
         return new Response("AI self-message ignored", {
           status: 200,
         });
+      }
+
+      // 🔔 Flag the issue as updated for everyone else — same badge Tests,
+      // Decisions, Design, and Demo already light up (see issueUpdates.ts).
+      // `sender` is the CometChat UID, which for a real member is just their
+      // portal.users id (see getOrCreateIssueGroup.ts), so it's resolved to
+      // an email here the same way every other markIssueUpdated caller
+      // identifies who made the change.
+      const issueId = decodeIssueIdFromGroupId(groupId);
+      if (issueId) {
+        const { data: sendingUser } = await supabase
+          .schema("portal")
+          .from("users")
+          .select("email")
+          .eq("id", sender)
+          .maybeSingle();
+        if (sendingUser?.email) {
+          await markIssueUpdated(issueId, sendingUser.email);
+        }
       }
 
       // ===============================

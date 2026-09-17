@@ -3,6 +3,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProjectSelect } from "@/components/shared/project-select";
+import { MilestoneSelect } from "@/components/shared/milestone-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
 import { SimilarIssuesHint } from "@/components/shared/similar-issues-hint";
 
@@ -55,7 +56,13 @@ export function TitleContinueRow({
           </Button>
         )}
       </div>
-      {slug && <SimilarIssuesHint slug={slug} query={title} kind={kind} />}
+      {/* Unmounted (not just hidden) once Continue is clicked — otherwise a
+          debounced search already in flight would still land and pop the
+          hint up after the user has moved on, whether it was showing
+          already or hadn't resolved yet. */}
+      {slug && !detailsRevealed && (
+        <SimilarIssuesHint slug={slug} query={title} kind={kind} />
+      )}
     </div>
   );
 }
@@ -78,6 +85,33 @@ export function ProjectField({
       <ProjectSelect
         id="issue-project"
         projects={projects}
+        value={value}
+        onValueChange={onValueChange}
+      />
+    </div>
+  );
+}
+
+// Only rendered once a project is picked — milestones belong to a specific
+// project, so there's nothing meaningful to choose (or fetch) before that.
+export function MilestoneField({
+  milestones,
+  value,
+  onValueChange,
+}: {
+  milestones: { id: string; name: string; targetDate: string | null }[];
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="issue-milestone" className="smalltext">
+        Milestone{" "}
+        <span className="text-muted-foreground font-normal">(optional)</span>
+      </Label>
+      <MilestoneSelect
+        id="issue-milestone"
+        milestones={milestones}
         value={value}
         onValueChange={onValueChange}
       />

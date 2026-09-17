@@ -272,7 +272,7 @@ export default function ChatSideBar({
       {/* Visible to every role — customers/stakeholders create a chat for
           their one initiative directly; developers/admins pick which
           initiative first, via the dropdown in CreateChatModal. */}
-      <div className="p-3 border-t">
+      <div className="h-[72px] flex items-center px-4 border-t">
         <button
           onClick={onCreateChat}
           className="flex items-center justify-center gap-2 w-full text-sm md:smalltext bg-accent text-accent-foreground px-3 py-2 rounded-lg hover:opacity-90 transition-opacity font-medium"

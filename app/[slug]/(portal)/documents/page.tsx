@@ -102,22 +102,12 @@ export default function DocumentsPage() {
 
       <div className="p-4 md:p-6 space-y-6">
         {canRequest && (
-          <>
-            <div className="flex items-center justify-end">
-              <RequestDocumentDialog customerSlug={slug} requestedBy={profile?.email} />
-            </div>
-
-            {/* Admins get the same "Document Requests"/"Requests Fulfilled"
-                panels below from DeveloperDocumentRequests already — with
-                canManage on top, so it's a strict superset. Rendering this
-                plain (non-manage) copy too would just duplicate them. */}
-            {!isAdmin && <DocumentRequestsList customerSlug={slug} />}
-          </>
+          <div className="flex items-center justify-end">
+            <RequestDocumentDialog customerSlug={slug} requestedBy={profile?.email} />
+          </div>
         )}
 
-        <DeveloperDocumentRequests customerSlug={slug} />
-
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="-mx-4 sm:mx-0 grid gap-6 lg:grid-cols-3">
           <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
             {projectSlugPending ? (
               <p className="smalltext text-muted-foreground">Loading documents…</p>
@@ -130,6 +120,20 @@ export default function DocumentsPage() {
               <UploadDocument projectSlug={projectSlug} />
             </div>
           )}
+        </div>
+
+        {/* Admins get the same "Document Requests"/"Requests Fulfilled"
+            panels below from DeveloperDocumentRequests already — with
+            canManage on top, so it's a strict superset. Rendering this
+            plain (non-manage) copy too would just duplicate them. */}
+        {canRequest && !isAdmin && (
+          <div className="-mx-4 sm:mx-0">
+            <DocumentRequestsList customerSlug={slug} />
+          </div>
+        )}
+
+        <div className="-mx-4 sm:mx-0">
+          <DeveloperDocumentRequests customerSlug={slug} />
         </div>
       </div>
     </div>

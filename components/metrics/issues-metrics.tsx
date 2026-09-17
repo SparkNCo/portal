@@ -197,7 +197,7 @@ export function IssueMetricsView({
   }
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <BarChart2 className="h-4 w-4 text-primary" />
