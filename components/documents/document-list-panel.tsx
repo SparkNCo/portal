@@ -28,7 +28,6 @@ import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { DocumentPreviewModal, PREVIEWABLE_FORMATS, type PreviewableDoc } from "./document-preview-modal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -69,7 +68,7 @@ export function DocumentRow({
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
   const queryClient = useQueryClient();
-  const { profile } = useUser();
+  const { user, profile } = useUser();
   const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -113,24 +112,6 @@ export function DocumentRow({
     },
   });
 
-  // Clicking a document's name previews it in-app for formats we know how to
-  // render (markdown/text/csv); anything else falls back to the existing
-  // "open in a new tab" behavior the ExternalLink button already used.
-  const handleDocumentClick = (doc: any) => {
-    if (PREVIEWABLE_FORMATS.has(doc.format)) {
-      setPreviewDoc({ id: doc.id, name: doc.name, format: doc.format });
-    } else {
-      handleOpen(doc);
-    }
-  };
-
-  // `user_id` here is checked against document_permissions.user_id, which is
-  // keyed by portal.users.id — `userId` (this row's own prop, already
-  // resolved to profile.id by documents-list.tsx) is that id. `user.id` from
-  // useUser() is the raw Supabase Auth uid instead, a different id space
-  // (see 20260921140000_fix_chat_rls_match_by_email.sql) that essentially
-  // never matches a document_permissions row, which was making every
-  // open/download/preview fail with a silent "No access" 403.
   const handleOpen = async (doc: any) => {
     if (!userId) return;
     try {
@@ -325,7 +306,7 @@ export function DocumentRow({
                   />{" "}
                 </Button>
 
-                {doc.permission === "owner" && (
+                {(doc.permission === "owner" || isAdmin) && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -341,6 +322,60 @@ export function DocumentRow({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                )}
+
+                {/* Admin-only: reassign this document's owner to any user
+                    assigned to the initiative — e.g. the original uploader
+                    left the company and someone else needs delete/share
+                    rights over what they left behind. */}
+                {isAdmin && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
+                        aria-label={`Change owner for ${doc.name}`}
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-56 p-1">
+                      {assignedUsersQuery.isLoading && (
+                        <p className="smalltext text-muted-foreground px-2 py-1.5">
+                          Loading…
+                        </p>
+                      )}
+                      {!assignedUsersQuery.isLoading &&
+                        (assignedUsersQuery.data?.length ?? 0) === 0 && (
+                          <p className="smalltext text-muted-foreground px-2 py-1.5">
+                            No assigned users found.
+                          </p>
+                        )}
+                      {assignedUsersQuery.data
+                        ?.filter((a: any) => a.role !== "stakeholder")
+                        .map((assignment: any) => (
+                          <Button
+                            key={assignment.user_id}
+                            variant="ghost"
+                            size="sm"
+                            disabled={transferOwnerMutation.isPending}
+                            className="w-full justify-start smalltext truncate"
+                            onClick={() =>
+                              transferOwnerMutation.mutate({
+                                documentId: doc.id,
+                                newOwnerId: assignment.user_id,
+                              })
+                            }
+                          >
+                            {assignment.firstName
+                              ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
+                              : assignment.userName || assignment.email}
+                          </Button>
+                        ))}
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
             </div>
