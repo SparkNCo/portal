@@ -28,6 +28,7 @@ import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { DocumentPreviewModal, PREVIEWABLE_FORMATS, type PreviewableDoc } from "./document-preview-modal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -111,6 +112,17 @@ export function DocumentRow({
       queryClient.invalidateQueries({ queryKey: ["documents"] });
     },
   });
+
+  // Clicking a document's name previews it in-app for formats we know how to
+  // render (markdown/text/csv); anything else falls back to the existing
+  // "open in a new tab" behavior the ExternalLink button already used.
+  const handleDocumentClick = (doc: any) => {
+    if (PREVIEWABLE_FORMATS.has(doc.format)) {
+      setPreviewDoc({ id: doc.id, name: doc.name, format: doc.format });
+    } else {
+      handleOpen(doc);
+    }
+  };
 
   const handleOpen = async (doc: any) => {
     if (!userId) return;
@@ -265,8 +277,10 @@ export function DocumentRow({
                   variant="ghost"
                   size="icon"
                   className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
-                  onClick={() => handleOpen(doc)}
-                  aria-label={`Open ${doc.name}`}
+                  onClick={() => handleDocumentClick(doc)}
+                  aria-label={
+                    PREVIEWABLE_FORMATS.has(doc.format) ? `Preview ${doc.name}` : `Open ${doc.name}`
+                  }
                 >
                   <ExternalLink
                     className={cn(
