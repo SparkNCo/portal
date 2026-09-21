@@ -2,7 +2,6 @@
 import { corsHeaders } from "../utils/headers.ts";
 import { createChat } from "./createChat.ts";
 import { getChats } from "./getChats.ts";
-import { getExistingIssueChat, getOrCreateIssueChat } from "./getOrCreateIssueChat.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,15 +12,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-
     if (req.method === "POST") {
-      if (url.searchParams.get("type") === "issue") return getOrCreateIssueChat(req);
       return createChat(req);
     }
 
     if (req.method === "GET") {
-      if (url.searchParams.has("issueId")) return getExistingIssueChat(req);
       return getChats(req);
     }
 

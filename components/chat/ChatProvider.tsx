@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -85,51 +84,6 @@ export default function ChatProvider({
   // exchange for not duplicating that list/sort logic a third time here.
   const [adminSelectedCustomerId, setAdminSelectedCustomerId] = useState("");
 
-  // SPA-513: a chat notification's link (see NotificationBell.tsx's
-  // resolveLink) always points at a Realtime chat — notify_chat_message
-  // only triggers on portal.chats — but for an admin, which provider gets
-  // mounted above is otherwise guessed from whichever customer
-  // adminSelectedCustomerId defaults to (the first one alphabetically,
-  // unrelated to the chat being linked to). If that guess isn't a Realtime
-  // customer, RealtimeChatLayout — and its own chatId deep-link handling —
-  // never mounts at all, so the notification silently opens nothing. Look
-  // up the deep-linked chat's actual owner directly (the same unscoped
-  // admin listing RealtimeChatLayout would otherwise fetch on its own) and
-  // seed the filter with it before the "first customer alphabetically"
-  // default can win the race.
-  const searchParams = useSearchParams();
-  const chatIdParam = searchParams.get("chatId");
-  const { data: deepLinkedChat } = useQuery({
-    queryKey: ["admin-chat-notification-lookup", chatIdParam, profile?.id],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chats?user_id=${profile!.id}&admin=true`,
-        { headers: API_JSON_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch chats");
-      const chats: { id: string; metadata?: { customerId?: string } }[] = await res.json();
-      return chats.find((c) => c.id === chatIdParam) ?? null;
-    },
-    enabled: isAdmin && !!chatIdParam && !!profile?.id,
-  });
-
-  useEffect(() => {
-    if (deepLinkedChat?.metadata?.customerId) {
-      setAdminSelectedCustomerId(deepLinkedChat.metadata.customerId);
-    }
-  }, [deepLinkedChat]);
-
-  // Set when an admin submits "New Chat" for an initiative whose own
-  // systems.chat differs from whatever's currently mounted (see
-  // handleCrossProviderCreate below) — the sidebar filter switches to that
-  // initiative, which remounts the *other* ChatLayout, and this is handed to
-  // it so it can finish the creation that started under the wrong provider.
-  const [pendingCreate, setPendingCreate] = useState<{
-    title: string;
-    initiativeId?: string;
-    issue?: unknown;
-  } | null>(null);
-
   const selectedProjectCustomerId = isDeveloper
     ? resolveSelectedProjectCustomerId(selectedProject, profile?.assignment_id)
     : undefined;
@@ -145,10 +99,6 @@ export default function ChatProvider({
     ownProfileId: profile?.id,
   });
 
-  // Admins always need the full list (not just the currently-viewed
-  // customer's row) — "New Chat" lets them freely pick *any* initiative,
-  // and that pick can name a customer other than the one currently
-  // governing this view (see handleCrossProviderCreate).
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers-systems"],
     queryFn: async () => {
@@ -158,24 +108,8 @@ export default function ChatProvider({
       if (!res.ok) throw new Error("Failed to fetch customer systems");
       return res.json() as Promise<CustomerSystemsRow[]>;
     },
-    enabled: !!relevantCustomerUserId || isAdmin,
+    enabled: !!relevantCustomerUserId,
   });
-
-  const customerSystemsById = new Map(
-    (customers ?? []).map((c) => [c.id, c.systems?.chat ?? "cometchat"]),
-  );
-
-  // A chat created for a specific initiative must actually land in *that*
-  // initiative's own provider — the free-choice "Initiative" dropdown in
-  // New Chat (admin only; developers/customers are locked to their own) can
-  // name a customer other than whichever one is currently governing this
-  // view. When that happens, switch the view to the target customer (which
-  // remounts the correct ChatLayout) and hand it what to create once ready.
-  const handleCrossProviderCreate = (title: string, initiativeId: string | undefined, issue: unknown) => {
-    if (!initiativeId) return;
-    setPendingCreate({ title, initiativeId, issue });
-    setAdminSelectedCustomerId(initiativeId);
-  };
 
   if (relevantCustomerUserId && isLoading) {
     return <LoadingDataPanel />;
@@ -192,10 +126,6 @@ export default function ChatProvider({
         fallbackProjectSlug={fallbackProjectSlug}
         controlledCustomerId={isAdmin ? adminSelectedCustomerId : undefined}
         onControlledCustomerIdChange={isAdmin ? setAdminSelectedCustomerId : undefined}
-        customerSystemsById={isAdmin ? customerSystemsById : undefined}
-        pendingCreate={pendingCreate}
-        onPendingCreateHandled={() => setPendingCreate(null)}
-        onCrossProviderCreate={isAdmin ? handleCrossProviderCreate : undefined}
       />
     );
   }
@@ -206,10 +136,6 @@ export default function ChatProvider({
       fallbackProjectSlug={fallbackProjectSlug}
       controlledCustomerId={isAdmin ? adminSelectedCustomerId : undefined}
       onControlledCustomerIdChange={isAdmin ? setAdminSelectedCustomerId : undefined}
-      customerSystemsById={isAdmin ? customerSystemsById : undefined}
-      pendingCreate={pendingCreate}
-      onPendingCreateHandled={() => setPendingCreate(null)}
-      onCrossProviderCreate={isAdmin ? handleCrossProviderCreate : undefined}
     />
   );
 }
