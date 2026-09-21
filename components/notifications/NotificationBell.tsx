@@ -2,41 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, Video, HelpCircle, Palette, FileEdit } from "lucide-react";
+import { Bell, MessageCircle, Video, HelpCircle, Palette } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUser } from "context/UserContext";
-import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useNotifications, type Notification } from "./useNotifications";
 
-// The ticket wants each item to show action, object, user and created
-// time as distinct fields, not a single canned sentence — "<user> <action
-// phrase> <object>", then the time on its own line below.
-const ACTION_PHRASES: Record<string, string> = {
-  chat_message: "sent a message",
-  decision_requested: "asked a question",
-  decision_answered: "answered a decision",
-  demo_uploaded: "uploaded a demo",
-  design_resource_added: "added a design resource",
-  requirement_update_added: "posted a requirement update",
+// Word filled into "There is a new <word>[ for <issue_code>]" — kept to one
+// word per the simplified phrasing, no actor/preview details.
+const ACTION_WORDS: Record<string, string> = {
+  chat_message: "message",
+  decision_requested: "question",
+  decision_answered: "answer",
+  demo_uploaded: "video",
+  design_resource_added: "design",
 };
-
-const OBJECT_TYPE_LABELS: Record<string, string> = {
-  chat: "in a chat",
-  issue_decision: "on a decision",
-  demo: "on a demo",
-  design_resource: "on a design resource",
-};
-
-// Prefer the human-readable ticket code ("on SPA-123") when there is one.
-// Chat notifications have no ticket code — show the chat's own title
-// ("in <title>") instead, falling back to the generic object-type label
-// only for chats with no title (e.g. a direct chat) or older events from
-// before object_title existed.
-function formatObject(event: { object_type: string; issue_code: string | null; object_title: string | null }): string {
-  if (event.issue_code) return `on ${event.issue_code}`;
-  if (event.object_type === "chat" && event.object_title) return `in ${event.object_title}`;
-  return OBJECT_TYPE_LABELS[event.object_type] ?? "";
-}
 
 const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   chat_message: MessageCircle,
@@ -44,7 +23,6 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   decision_answered: HelpCircle,
   demo_uploaded: Video,
   design_resource_added: Palette,
-  requirement_update_added: FileEdit,
 };
 
 function formatRelativeTime(iso: string): string {
@@ -83,32 +61,14 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
   design_resource: "design",
 };
 
-// `event.link` is baked in server-side as `/${projectSlug}/build` or
-// `/${projectSlug}/bugs` (see resolveIssueDashboardLink in
-// supabase/functions/utils/notify.ts) — correct for a customer/stakeholder/
-// admin, whose own pages really are slug-scoped. A developer's equivalent
-// pages are `/dev/build`/`/dev/bugs` with no slug at all (they pick their
-// project from the sidebar instead, see app/dev/build/page.tsx) — sending
-// them through the customer-facing slug URL instead landed them on a
-// different page than their own portal, with the "Working on" project
-// selector not applying there (it isn't that page's concept of a project),
-// which is what looked like being stuck on the wrong customer.
-function resolveIssueBasePath(role: string | undefined, eventLink: string): string {
-  if (role !== "developer") return eventLink;
-  const suffix = eventLink.endsWith("/bugs") ? "bugs" : "build";
-  return `/dev/${suffix}`;
-}
-
 function resolveLink(n: Notification, role: string | undefined, ownSlug: string | undefined): string {
-  const { event } = n;
-  if (event.object_type === "chat") {
-    return `${resolveChatBasePath(role, ownSlug)}?chatId=${event.object_id}`;
+  if (n.object_type === "chat") {
+    return `${resolveChatBasePath(role, ownSlug)}?chatId=${n.object_id}`;
   }
-  if (!event.issue_id) return event.link;
-  const base = resolveIssueBasePath(role, event.link);
-  const tab = OBJECT_TYPE_TABS[event.object_type];
+  if (!n.issue_id) return n.link;
+  const tab = OBJECT_TYPE_TABS[n.object_type];
   const tabParam = tab ? `&tab=${tab}` : "";
-  return `${base}?issueId=${event.issue_id}${tabParam}`;
+  return `${n.link}?issueId=${n.issue_id}${tabParam}`;
 }
 
 function NotificationItem({
@@ -118,22 +78,21 @@ function NotificationItem({
   readonly notification: Notification;
   readonly onOpen: (n: Notification) => void;
 }) {
-  const { event } = notification;
-  const actionPhrase = ACTION_PHRASES[event.action] ?? event.action;
-  const Icon = ACTION_ICONS[event.action] ?? MessageCircle;
+  const word = ACTION_WORDS[notification.action] ?? notification.action;
+  const Icon = ACTION_ICONS[notification.action] ?? MessageCircle;
 
   return (
     <button
       onClick={() => onOpen(notification)}
-      className="group w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors bg-accent/5"
+      className="group w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors bg-accent/5 hover:bg-secondary/40"
     >
-      <div className="flex items-start gap-2.5">
-        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
-        <Icon className="h-4 w-4 mt-0.5 text-popover-foreground/70 group-hover:text-primary flex-shrink-0" />
+      <div className="flex items-center gap-2.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
+        <Icon className="h-4 w-4 text-popover-foreground/70 group-hover:text-primary flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="smalltext text-popover-foreground group-hover:text-primary">
-            <span className="font-medium">{event.actor_email ?? "Someone"}</span> {actionPhrase}{" "}
-            {formatObject(event)}
+          <p className="smalltext text-popover-foreground group-hover:text-primary whitespace-nowrap overflow-hidden text-ellipsis">
+            There is a new {word}
+            {notification.issue_code ? ` for ${notification.issue_code}` : ""}
           </p>
           <p className="smalltext text-popover-foreground/70 group-hover:text-primary mt-0.5">
             {formatRelativeTime(notification.created_at)}
@@ -147,24 +106,13 @@ function NotificationItem({
 export function NotificationBell() {
   const { profile } = useUser();
   const router = useRouter();
-  // The URL's own `[slug]` segment (see context/CustomerSlugContext.tsx) —
-  // whatever a customer is already correctly viewing right now. Preferred
-  // over `profile.linear_slug` (customers.linear_slug joined server-side),
-  // which is looked up independently and can disagree with it — e.g. mixed
-  // casing or a stale value (see 20260921190000-era linear_slug fixes). A
-  // wrong slug here doesn't just 404: it becomes the new `[slug]` segment
-  // for the rest of the session, since sidebar links build off whatever's
-  // currently in the URL — so this route/build page's fetches start failing
-  // too. Falls back to profile.linear_slug only if the bell is somehow
-  // rendered outside a `/[slug]/...` route.
-  const customerSlug = useCustomerSlug();
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
   const [open, setOpen] = useState(false);
 
   const handleOpen = (n: Notification) => {
     markAsRead(n.id);
     setOpen(false);
-    router.push(resolveLink(n, profile?.role, customerSlug ?? profile?.linear_slug));
+    router.push(resolveLink(n, profile?.role, profile?.linear_slug));
   };
 
   return (
@@ -176,13 +124,13 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive" aria-hidden="true" />
+            <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-96 max-w-[90vw] p-0">
+      <PopoverContent align="start" className="w-max min-w-80 max-w-[90vw] p-0">
         {!loading && notifications.length > 0 && (
-          <div className="flex justify-end px-3 py-1.5 bg-accent/5">
+          <div className="flex justify-end px-3 py-1.5 border-b">
             <button
               onClick={markAllAsRead}
               className="smalltext text-popover-foreground/70 hover:text-primary"

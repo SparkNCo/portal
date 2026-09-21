@@ -6,7 +6,7 @@ import { FeatureRequestPanel } from "@/components/build/feature-request-panel";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import type { IssueDetailTab } from "@/components/client/issues.types";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -39,15 +39,12 @@ export default function BuildPage() {
 function BuildPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
-  // NotificationBell.tsx). This page only ever fetches Business Review/UAT/
-  // Backlog issues (see the issuesData query below) — for anything else,
-  // the fallback query further down fetches that one issue directly by id
-  // and opens it in its own modal instead of silently landing here with
-  // nothing open.
+  // NotificationBell.tsx) — only finds the issue if it's currently in
+  // Business Review or UAT, since that's all this page ever fetches (see
+  // the issuesData query below). A notification for an issue in any other
+  // status silently lands here without opening anything.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below

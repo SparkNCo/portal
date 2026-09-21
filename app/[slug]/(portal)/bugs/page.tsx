@@ -14,12 +14,11 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import { API_HEADERS } from "@/lib/api-headers";
 import type { Issue, IssueDetailTab } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { safeDecodeURIComponent } from "@/lib/utils";
@@ -35,15 +34,11 @@ export default function BugsPage() {
 function BugsPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx) — this page fetches every issue (unlike Build's
-  // status-filtered query), so this usually just works. It can still miss
-  // if the "bug" label got removed or the issue moved to Done after the
-  // notification fired — the fallback query further down covers that case
-  // the same way build/page.tsx does.
+  // status-filtered query), so as long as the issue is bug-labeled and not
+  // Done, it'll be here once loading finishes.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below

@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, titleCase } from "@/lib/utils";
+import { cn, titleCase, getIssueCode, deriveIssueKind } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -246,7 +246,6 @@ function DecisionsTab({
             slug,
             issueCode: getIssueCode(issue.branchName),
             issueType: deriveIssueKind(issue.labels?.nodes),
-            type,
           }),
         },
       );

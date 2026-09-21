@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -39,6 +39,8 @@ export default function ChatLayout({
   const { profile } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const chatIdParam = searchParams.get("chatId");
   const customerSlug = useCustomerSlug();
   const { selectedProject } = useSelectedProject();
   const viewedCustomerId = usePinnedPanelsOwnerId();
@@ -123,6 +125,20 @@ export default function ChatLayout({
     if (!ready) return;
     if (initialTitle) setShowCreateModal(true);
   }, [ready]);
+
+  // Deep link from a chat notification (see NotificationBell.tsx's
+  // resolveLink) — selects the target chat once it's loaded, regardless of
+  // the admin/developer customer filter, since a notification recipient is
+  // necessarily already a participant. Retries as `chats` updates in case
+  // the initial fetch raced the participant row being seeded.
+  useEffect(() => {
+    if (!ready || !chatIdParam) return;
+    const match = chats.find((c) => c.id === chatIdParam);
+    if (match) {
+      setSelectedChat(match);
+      clearNewChatParam();
+    }
+  }, [ready, chatIdParam, chats]);
 
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
