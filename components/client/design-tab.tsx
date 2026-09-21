@@ -49,7 +49,7 @@ type Diagram = {
 
 const NEW_SERVICE = "__new__";
 
-function MermaidDiagram({ source }: { source: string }) {
+export function MermaidDiagram({ source }: { source: string }) {
   const renderId = useId().replace(/:/g, "");
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

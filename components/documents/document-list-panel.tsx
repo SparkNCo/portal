@@ -28,6 +28,7 @@ import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { DocumentPreviewModal, PREVIEWABLE_FORMATS, type PreviewableDoc } from "./document-preview-modal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -36,6 +37,13 @@ const formatIcons: Record<string, any> = {
   docx: FileText,
   xlsx: FileSpreadsheet,
   zip: File,
+  md: FileText,
+  markdown: FileText,
+  txt: FileText,
+  text: FileText,
+  csv: FileSpreadsheet,
+  mmd: FileText,
+  mermaid: FileText,
 };
 
 const categoryColors: Record<string, string> = {
@@ -67,6 +75,7 @@ export function DocumentRow({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewableDoc | null>(null);
 
   // Only fetched when an admin actually opens the Owner popover on some row
   // (enabled below, per-row) — no point loading this for every visitor.
@@ -103,6 +112,17 @@ export function DocumentRow({
       queryClient.invalidateQueries({ queryKey: ["documents"] });
     },
   });
+
+  // Clicking a document's name previews it in-app for formats we know how to
+  // render (markdown/text/csv); anything else falls back to the existing
+  // "open in a new tab" behavior the ExternalLink button already used.
+  const handleDocumentClick = (doc: any) => {
+    if (PREVIEWABLE_FORMATS.has(doc.format)) {
+      setPreviewDoc({ id: doc.id, name: doc.name, format: doc.format });
+    } else {
+      handleOpen(doc);
+    }
+  };
 
   const handleOpen = async (doc: any) => {
     try {
@@ -148,6 +168,8 @@ export function DocumentRow({
         id={userId}
       />
 
+      <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+
       {filteredDocs.map((doc) => {
         const FormatIcon =
           formatIcons[doc.format as keyof typeof formatIcons] || File;
@@ -172,9 +194,16 @@ export function DocumentRow({
                 original layout. */}
             <div className="flex-1 min-w-0 flex flex-col gap-2 py-2 sm:py-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                <button
+                  type="button"
+                  onClick={() => handleDocumentClick(doc)}
+                  className="block max-w-full smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate text-left hover:underline"
+                  aria-label={
+                    PREVIEWABLE_FORMATS.has(doc.format) ? `Preview ${doc.name}` : `Open ${doc.name}`
+                  }
+                >
                   {doc.name}
-                </p>
+                </button>
 
                 <div className="flex items-center gap-2 smalltext text-muted-foreground flex-wrap">
                   <Badge
@@ -246,8 +275,10 @@ export function DocumentRow({
                   variant="ghost"
                   size="icon"
                   className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
-                  onClick={() => handleOpen(doc)}
-                  aria-label={`Open ${doc.name}`}
+                  onClick={() => handleDocumentClick(doc)}
+                  aria-label={
+                    PREVIEWABLE_FORMATS.has(doc.format) ? `Preview ${doc.name}` : `Open ${doc.name}`
+                  }
                 >
                   <ExternalLink
                     className={cn(
