@@ -33,15 +33,12 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // `sending` (React state) updates asynchronously, so a second send fired
-  // in the same tick as the first — e.g. Enter key-repeat, or a stray extra
-  // click before the re-render lands — could still read the stale `false`
-  // and slip past the `sending` check below. A ref updates immediately.
-  const sendingRef = useRef(false);
+  const seenIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!chatId) {
       setMessages([]);
+      seenIds.current = new Set();
       setLoading(false);
       return;
     }
@@ -49,16 +46,6 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-
-    // Dedupe against the *current* state (functional update) rather than a
-    // separate seenIds ref kept in sync by hand — the initial history fetch
-    // below and the realtime subscription both run concurrently, so the
-    // sender's own message can be appended by the subscription before the
-    // fetch (dispatched first) resolves. A ref-tracked "seen" set can fall
-    // out of sync with that race; checking the real array can't.
-    const addMessage = (row: ChatMessage) => {
-      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
-    };
 
     const fetchHistory = async () => {
       const { data, error: fetchError } = await supabase
@@ -74,17 +61,8 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
         console.error("Fetch messages error:", fetchError);
         setError("Failed to load messages");
       } else {
-        // Merge instead of overwrite — replacing outright would either drop
-        // a message the realtime subscription already appended (if this
-        // fetch's own snapshot predates it) or, combined with that append,
-        // show it twice once both updates landed.
-        setMessages((prev) => {
-          const byId = new Map(prev.map((m) => [m.id, m]));
-          for (const row of (data ?? []) as ChatMessage[]) byId.set(row.id, row);
-          return Array.from(byId.values()).sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          );
-        });
+        seenIds.current = new Set((data ?? []).map((m) => m.id));
+        setMessages((data ?? []) as ChatMessage[]);
       }
       setLoading(false);
     };
@@ -96,7 +74,12 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "portal", table: "messages", filter: `chat_id=eq.${chatId}` },
-        (payload) => addMessage(payload.new as ChatMessage),
+        (payload) => {
+          const row = payload.new as ChatMessage;
+          if (seenIds.current.has(row.id)) return;
+          seenIds.current.add(row.id);
+          setMessages((prev) => [...prev, row]);
+        },
       )
       .subscribe();
 
@@ -108,9 +91,8 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
 
   const sendMessage = async (body: string) => {
     const trimmed = body.trim();
-    if (!chatId || !profile?.id || !trimmed || sendingRef.current) return;
+    if (!chatId || !profile?.id || !trimmed || sending) return;
 
-    sendingRef.current = true;
     setSending(true);
     try {
       const { error: sendError } = await supabase
@@ -122,7 +104,6 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
       console.error("Send message error:", err);
       setError("Failed to send message");
     } finally {
-      sendingRef.current = false;
       setSending(false);
     }
   };
