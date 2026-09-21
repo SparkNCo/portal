@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/headerDashboard";
-import ChatLayout from "@/components/chat/CometChat/ChatLayout";
+import ChatProvider from "@/components/chat/ChatProvider";
 import { LoadingDataPanel } from "@/components/loader";
 
 function ChatContent() {
@@ -13,7 +13,7 @@ function ChatContent() {
     <div className="flex flex-col h-screen">
       <Header title="Chat" subtitle="Messages and AI Assistant" subtitleClassName="smalltext" />
       <div className="flex flex-1 overflow-hidden">
-        <ChatLayout initialTitle={initialTitle} />
+        <ChatProvider initialTitle={initialTitle} />
       </div>
     </div>
   );

@@ -24,12 +24,23 @@ export type DirectChatEntry = { uid: string; title: string };
 export default function ChatLayout({
   initialTitle,
   fallbackProjectSlug,
+  controlledCustomerId,
+  onControlledCustomerIdChange,
 }: {
   readonly initialTitle?: string;
   // The caller's own `[slug]` route segment, if it has one — used to tag
   // brand-new chat groups when no customer is being viewed. Routes with no
   // personal slug (e.g. /admin/chats) simply omit this.
   readonly fallbackProjectSlug?: string;
+  // SPA-513: ChatProvider needs to know which customer an admin has
+  // filtered the unscoped inbox down to *before* this component mounts, so
+  // it can pick the right chat provider for that customer (otherwise an
+  // admin filtering to a Realtime-provider customer would still be looking
+  // at their CometChat inbox). When provided, these replace the internal
+  // selectedCustomerId state below instead of adding a second, disconnected
+  // copy of it — omit both and this behaves exactly as before.
+  readonly controlledCustomerId?: string;
+  readonly onControlledCustomerIdChange?: (id: string) => void;
 }) {
   const { profile } = useUser();
   const router = useRouter();
@@ -49,7 +60,9 @@ export default function ChatLayout({
     useCometChat(customerId);
 
   const isAdmin = profile?.role === "admin";
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [internalSelectedCustomerId, setInternalSelectedCustomerId] = useState("");
+  const selectedCustomerId = controlledCustomerId ?? internalSelectedCustomerId;
+  const setSelectedCustomerId = onControlledCustomerIdChange ?? setInternalSelectedCustomerId;
 
   // Admin-only: lets the unscoped inbox be filtered down to one customer at
   // a time (matched against each group's `customerId` metadata) rather than
