@@ -91,6 +91,9 @@ const handlePostVideo = async (req: Request) => {
     const issueId = formData.get("issue_id");
     const email = formData.get("email");
     const title = formData.get("title");
+    const slug = formData.get("slug");
+    const issueCode = formData.get("issue_code");
+    const issueType = formData.get("issue_type");
 
     if (!(file instanceof File)) {
       return jsonResponse({ error: "A video file is required" }, 400);
@@ -106,19 +109,27 @@ const handlePostVideo = async (req: Request) => {
     }
 
     return jsonResponse(
-      await createDemoVideoFromUpload(issueId, email, file, title.trim()),
+      await createDemoVideoFromUpload(
+        issueId,
+        email,
+        file,
+        title.trim(),
+        typeof slug === "string" ? slug : undefined,
+        typeof issueCode === "string" ? issueCode : undefined,
+        typeof issueType === "string" ? issueType : undefined,
+      ),
       201,
     );
   }
 
-  const { issue_id, email, embed_url, source_demo_id, title } = await req.json();
+  const { issue_id, email, embed_url, source_demo_id, title, slug, issue_code, issue_type } = await req.json();
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
 
   if (source_demo_id) {
     return jsonResponse(
-      await createDemoVideoFromExisting(issue_id, email, source_demo_id),
+      await createDemoVideoFromExisting(issue_id, email, source_demo_id, slug, issue_code, issue_type),
       201,
     );
   }
@@ -129,7 +140,7 @@ const handlePostVideo = async (req: Request) => {
   }
 
   return jsonResponse(
-    await createDemoVideoFromEmbed(issue_id, email, embed_url, String(title).trim()),
+    await createDemoVideoFromEmbed(issue_id, email, embed_url, String(title).trim(), slug, issue_code, issue_type),
     201,
   );
 };

@@ -251,4 +251,11 @@ export type PriorityTasksProps = {
   // Description — e.g. the Demos page, since that's the whole reason it
   // linked to the ticket in the first place.
   initialModalTab?: IssueDetailTab;
+  // Deep link from a notification (see NotificationBell.tsx's resolveLink):
+  // once `issuesData` contains an issue with this id, its detail modal opens
+  // automatically, on `openIssueTab` specifically — not `initialModalTab`,
+  // which would otherwise leak into every *other* issue the user opens
+  // manually afterward in this same PriorityTasks instance.
+  openIssueId?: string | null;
+  openIssueTab?: IssueDetailTab;
 };

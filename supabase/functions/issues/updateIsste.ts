@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
+import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
@@ -227,7 +228,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 
 export async function handleAddComment(req: Request): Promise<Response> {
   const schema = "portal";
-  const { issueId, question, ownerEmail } = await req.json();
+  const { issueId, question, ownerEmail, slug, issueCode, issueType } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
     return Response.json(
@@ -259,6 +260,19 @@ export async function handleAddComment(req: Request): Promise<Response> {
   }
 
   await markIssueUpdated(issueId, ownerEmail);
+  if (slug) {
+    await notifyProject({
+      slug,
+      actorEmail: ownerEmail,
+      action: "decision_requested",
+      objectType: "issue_decision",
+      objectId: (data[0] ?? data)?.id ?? issueId,
+      link: resolveIssueDashboardLink(slug, issueType),
+      preview: question,
+      issueCode,
+      issueId,
+    });
+  }
 
   return Response.json(data[0] ?? data);
 }
@@ -319,7 +333,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 
 export async function handleSetDecision(req: Request): Promise<Response> {
   const schema = "portal";
-  const { decisionId, decision, decisionEmail } = await req.json();
+  const { decisionId, decision, decisionEmail, slug, issueCode, issueType } = await req.json();
 
   if (!decisionId || !decision || !decisionEmail) {
     return Response.json(
@@ -390,6 +404,19 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   }
 
   await markIssueUpdated(row.issue_id, decisionEmail);
+  if (slug) {
+    await notifyProject({
+      slug,
+      actorEmail: decisionEmail,
+      action: "decision_answered",
+      objectType: "issue_decision",
+      objectId: row.id,
+      link: resolveIssueDashboardLink(slug, issueType),
+      preview: decision,
+      issueCode,
+      issueId: row.issue_id,
+    });
+  }
 
   return Response.json(row);
 }

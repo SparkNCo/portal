@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, titleCase } from "@/lib/utils";
+import { cn, titleCase, getIssueCode, deriveIssueKind } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
@@ -198,6 +198,7 @@ function DescriptionTab({ issue }: { issue: Issue }) {
 
 function DecisionsTab({
   issue,
+  slug,
   ownerEmail,
   canAnswer,
   canAsk,
@@ -206,6 +207,7 @@ function DecisionsTab({
   loadingDecisions,
 }: {
   issue: Issue;
+  slug?: string;
   ownerEmail: string | undefined;
   canAnswer: boolean;
   canAsk: boolean;
@@ -232,6 +234,9 @@ function DecisionsTab({
             issueId: issue.id,
             question: questionText.trim(),
             ownerEmail,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );
@@ -257,6 +262,9 @@ function DecisionsTab({
             decisionId,
             decision: answerText.trim(),
             decisionEmail: ownerEmail,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );
@@ -1984,6 +1992,7 @@ export function IssueDetailModal({
         {activeTab === "decisions" && (
           <DecisionsTab
             issue={issue}
+            slug={slug}
             ownerEmail={profile?.email}
             canAnswer={canAnswer}
             canAsk={canAsk}

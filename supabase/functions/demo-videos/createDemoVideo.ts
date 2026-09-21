@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { markIssueUpdated } from "../utils/issueUpdates.ts";
+import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
 import {
   BUCKET,
   SCHEMA,
@@ -40,6 +41,9 @@ export const createDemoVideoFromUpload = async (
   email: string,
   file: File,
   title: string,
+  slug?: string,
+  issueCode?: string,
+  issueType?: string,
 ) => {
   validateMediaFile(file);
 
@@ -90,6 +94,19 @@ export const createDemoVideoFromUpload = async (
   }
 
   await markIssueUpdated(issueId, email);
+  if (slug) {
+    await notifyProject({
+      slug,
+      actorEmail: email,
+      action: "demo_uploaded",
+      objectType: "demo",
+      objectId: demo.id,
+      link: resolveIssueDashboardLink(slug, issueType),
+      preview: title,
+      issueCode,
+      issueId,
+    });
+  }
 
   return { ...demo, file_url: await signStorageUrl(supabase, storagePath) };
 };
@@ -106,6 +123,9 @@ export const createDemoVideoFromExisting = async (
   issueId: string,
   email: string,
   sourceDemoId: string,
+  slug?: string,
+  issueCode?: string,
+  issueType?: string,
 ) => {
   const uploadedBy = await getUserIdByEmail(supabase, email);
   const source = await getDemoSourceFields(supabase, sourceDemoId);
@@ -142,6 +162,19 @@ export const createDemoVideoFromExisting = async (
   }
 
   await markIssueUpdated(issueId, email);
+  if (slug) {
+    await notifyProject({
+      slug,
+      actorEmail: email,
+      action: "demo_uploaded",
+      objectType: "demo",
+      objectId: demo.id,
+      link: resolveIssueDashboardLink(slug, issueType),
+      preview: demo.title,
+      issueCode,
+      issueId,
+    });
+  }
 
   return {
     ...demo,
@@ -157,6 +190,9 @@ export const createDemoVideoFromEmbed = async (
   email: string,
   embedUrl: string,
   title: string,
+  slug?: string,
+  issueCode?: string,
+  issueType?: string,
 ) => {
   validateEmbedUrl(embedUrl);
 
@@ -190,6 +226,19 @@ export const createDemoVideoFromEmbed = async (
   }
 
   await markIssueUpdated(issueId, email);
+  if (slug) {
+    await notifyProject({
+      slug,
+      actorEmail: email,
+      action: "demo_uploaded",
+      objectType: "demo",
+      objectId: demo.id,
+      link: resolveIssueDashboardLink(slug, issueType),
+      preview: title,
+      issueCode,
+      issueId,
+    });
+  }
 
   return demo;
 };

@@ -13,19 +13,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import type { Issue } from "@/components/client/issues.types";
+import type { Issue, IssueDetailTab } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function BugsPage() {
+  return (
+    <Suspense fallback={null}>
+      <BugsPageContent />
+    </Suspense>
+  );
+}
+
+function BugsPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const searchParams = useSearchParams();
+  // Deep link from a notification (see components/notifications/
+  // NotificationBell.tsx) — this page fetches every issue (unlike Build's
+  // status-filtered query), so as long as the issue is bug-labeled and not
+  // Done, it'll be here once loading finishes.
+  const openIssueId = searchParams.get("issueId");
+  const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below
   // for the Linear sub-project filter buttons, a different concept.
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
@@ -197,6 +212,8 @@ export default function BugsPage() {
                   slug={slug}
                   headerAction={projectFilterDropdown}
                   lightCard
+                  openIssueId={openIssueId}
+                  openIssueTab={openIssueTab}
                 />
               </div>
             </>
