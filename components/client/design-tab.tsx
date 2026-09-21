@@ -19,6 +19,7 @@ import { useParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { API_HEADERS } from "@/lib/api-headers";
+import { getIssueCode, deriveIssueKind } from "@/lib/utils";
 import type { Issue } from "./issues.types";
 import type { DesignResource } from "./design-resources.types";
 import { DesignResourcePreview } from "./design-resource-preview";
@@ -305,6 +306,8 @@ export function DesignTab({
             url,
             title: title || null,
             email: profile.email,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
           }),
         }
       );
