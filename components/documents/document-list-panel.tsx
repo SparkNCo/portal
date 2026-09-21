@@ -124,13 +124,6 @@ export function DocumentRow({
     }
   };
 
-  // `user_id` here is checked against document_permissions.user_id, which is
-  // keyed by portal.users.id — `userId` (this row's own prop, already
-  // resolved to profile.id by documents-list.tsx) is that id. `user.id` from
-  // useUser() is the raw Supabase Auth uid instead, a different id space
-  // (see 20260921140000_fix_chat_rls_match_by_email.sql) that essentially
-  // never matches a document_permissions row, which was making every
-  // open/download/preview fail with a silent "No access" 403.
   const handleOpen = async (doc: any) => {
     if (!userId) return;
     try {
