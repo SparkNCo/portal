@@ -228,7 +228,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 
 export async function handleAddComment(req: Request): Promise<Response> {
   const schema = "portal";
-  const { issueId, question, ownerEmail, slug, issueCode, issueType, type } = await req.json();
+  const { issueId, question, ownerEmail, slug, issueCode, issueType } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
     return Response.json(
@@ -266,19 +266,17 @@ export async function handleAddComment(req: Request): Promise<Response> {
 
   await markIssueUpdated(issueId, ownerEmail);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
-    EdgeRuntime.waitUntil(notifyProject({
+    await notifyProject({
       slug,
       actorEmail: ownerEmail,
-      action: decisionType === "requirement_update" ? "requirement_update_added" : "decision_requested",
+      action: "decision_requested",
       objectType: "issue_decision",
       objectId: (data[0] ?? data)?.id ?? issueId,
       link: resolveIssueDashboardLink(slug, issueType),
       preview: question,
       issueCode,
       issueId,
-    }));
+    });
   }
 
   return Response.json(data[0] ?? data);
@@ -412,9 +410,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
 
   await markIssueUpdated(row.issue_id, decisionEmail);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
-    EdgeRuntime.waitUntil(notifyProject({
+    await notifyProject({
       slug,
       actorEmail: decisionEmail,
       action: "decision_answered",
@@ -424,7 +420,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
       preview: decision,
       issueCode,
       issueId: row.issue_id,
-    }));
+    });
   }
 
   return Response.json(row);

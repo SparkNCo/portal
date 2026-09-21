@@ -27,6 +27,7 @@ import {
   displayName,
 } from "@/lib/demo-video-utils";
 import { DemoPicker } from "@/components/developer/demo-picker";
+import { getIssueCode, deriveIssueKind } from "@/lib/utils";
 import type { Issue } from "./issues.types";
 
 type DemoComment = {

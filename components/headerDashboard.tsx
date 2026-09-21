@@ -27,6 +27,7 @@ export function Header({ title, subtitle, subtitleClassName, actions }: HeaderPr
         >
           <Menu className="h-5 w-5" />
         </button>
+        <NotificationBell />
         <div className="flex min-w-0 items-baseline gap-3">
           <h1 className="truncate text-lg font-semibold text-foreground">{title}</h1>
           {subtitle && (
