@@ -28,7 +28,7 @@ import { cn, titleCase, getIssueCode, deriveIssueKind } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
-import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
+import { IssueChatTab } from "@/components/chat/IssueChatTab";
 import { LabelPill } from "./issue-cards";
 import { DesignTab } from "./design-tab";
 import ReactMarkdown from "react-markdown";
@@ -2054,7 +2054,7 @@ export function IssueDetailModal({
 
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
-            <IssueCometChat issueId={issue.id} issueTitle={issue.title} slug={slug} />
+            <IssueChatTab issueId={issue.id} issueTitle={issue.title} slug={slug} />
           </div>
         )}
 

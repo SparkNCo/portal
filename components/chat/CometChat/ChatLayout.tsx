@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
@@ -21,11 +21,17 @@ type Group = ReturnType<typeof useCometChat>["groups"][number];
 
 export type DirectChatEntry = { uid: string; title: string };
 
+const OWN_PROVIDER = "cometchat";
+
 export default function ChatLayout({
   initialTitle,
   fallbackProjectSlug,
   controlledCustomerId,
   onControlledCustomerIdChange,
+  customerSystemsById,
+  pendingCreate,
+  onPendingCreateHandled,
+  onCrossProviderCreate,
 }: {
   readonly initialTitle?: string;
   // The caller's own `[slug]` route segment, if it has one — used to tag
@@ -41,6 +47,13 @@ export default function ChatLayout({
   // copy of it — omit both and this behaves exactly as before.
   readonly controlledCustomerId?: string;
   readonly onControlledCustomerIdChange?: (id: string) => void;
+  // SPA-513: admin-only "New Chat" lets you pick any initiative, which can
+  // use a *different* provider than whatever's mounted right now — see
+  // handleCreate below and ChatProvider.tsx's handleCrossProviderCreate.
+  readonly customerSystemsById?: Map<string, string>;
+  readonly pendingCreate?: { title: string; initiativeId?: string; issue?: unknown } | null;
+  readonly onPendingCreateHandled?: () => void;
+  readonly onCrossProviderCreate?: (title: string, initiativeId: string | undefined, issue: unknown) => void;
 }) {
   const { profile } = useUser();
   const router = useRouter();
@@ -163,6 +176,19 @@ export default function ChatLayout({
     }
   }, [ready]);
 
+  // Resumes a creation ChatProvider handed off after switching us in for a
+  // different provider (see handleCreate below / ChatProvider.tsx's
+  // handleCrossProviderCreate). The ref guards against firing twice if this
+  // effect re-runs before onPendingCreateHandled's state update lands (e.g.
+  // React 18 Strict Mode's double-invoke in dev).
+  const handledPendingCreateRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !pendingCreate || handledPendingCreateRef.current) return;
+    handledPendingCreateRef.current = true;
+    handleCreate(pendingCreate.title, pendingCreate.initiativeId, pendingCreate.issue as ChatIssueOption | undefined);
+    onPendingCreateHandled?.();
+  }, [ready, pendingCreate]);
+
   // When an admin/developer is viewing a specific customer's chat panel,
   // tag new groups with that customer's slug rather than the caller's own
   // `[slug]` segment — which for that flow is the viewer's own slug, not
@@ -170,6 +196,20 @@ export default function ChatLayout({
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
   const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {
+    // The picked initiative can use a different provider than this one —
+    // hand off to ChatProvider instead of creating it here under the wrong
+    // system. Harmless/never true for developer/customer, whose initiative
+    // is always locked/fixed to the same customer this layout already
+    // resolved from.
+    if (initiativeId && customerSystemsById) {
+      const targetProvider = customerSystemsById.get(initiativeId) ?? "cometchat";
+      if (targetProvider !== OWN_PROVIDER) {
+        setShowCreateModal(false);
+        onCrossProviderCreate?.(title, initiativeId, issue);
+        return;
+      }
+    }
+
     setCreating(true);
     try {
       // A chat tied to a ticket must be the *same* chat that ticket's own
