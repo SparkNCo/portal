@@ -41,9 +41,9 @@ function BuildPageContent() {
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx) — only finds the issue if it's currently in
-  // Business Review or UAT, since that's all this page ever fetches (see
-  // the issuesData query below). A notification for an issue in any other
-  // status silently lands here without opening anything.
+  // Business Review, UAT, or Backlog, since that's all this page ever
+  // fetches (see the issuesData query below). A notification for an issue in
+  // any other status silently lands here without opening anything.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below
@@ -66,11 +66,11 @@ function BuildPageContent() {
 
   // Linear's issues query has no pagination and caps at 100 results — fetching
   // every issue for the project (all statuses, full history) risks Business
-  // Review / UAT tickets falling outside that cap. Filtering by status
-  // server-side keeps the result set to just what this page needs.
+  // Review / UAT / Backlog tickets falling outside that cap. Filtering by
+  // status server-side keeps the result set to just what this page needs.
   const { data: issuesData } = useQuery({
-    queryKey: ["linear-issues", slug, "Business Review,UAT"],
-    queryFn: () => fetchIssues(slug, ["Business Review", "UAT"]),
+    queryKey: ["linear-issues", slug, "Business Review,UAT,Backlog"],
+    queryFn: () => fetchIssues(slug, ["Business Review", "UAT", "Backlog"]),
     enabled: !!slug,
   });
 
@@ -82,6 +82,13 @@ function BuildPageContent() {
 
   const uatIssues = allIssues
     .filter((i: any) => i.state?.name === "UAT")
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+    );
+
+  const backlogIssues = allIssues
+    .filter((i: any) => i.state?.name === "Backlog")
     .sort(
       (a: any, b: any) =>
         new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
@@ -99,7 +106,7 @@ function BuildPageContent() {
 
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
-      [...businessReviewIssues, ...uatIssues]
+      [...businessReviewIssues, ...uatIssues, ...backlogIssues]
         .filter((i: any) => i.project?.id && i.project?.name)
         .map((i: any) => [
           i.project.id,
@@ -115,6 +122,10 @@ function BuildPageContent() {
   const visibleUatIssues = selectedProject
     ? uatIssues.filter((i: any) => i.project?.id === selectedProject)
     : uatIssues;
+
+  const visibleBacklogIssues = selectedProject
+    ? backlogIssues.filter((i: any) => i.project?.id === selectedProject)
+    : backlogIssues;
 
   return (
     <div className="min-h-screen">
@@ -179,6 +190,23 @@ function BuildPageContent() {
                 openIssueTab={openIssueTab}
               />
             </div>
+          </div>
+        </div>
+
+        <div className="-mx-4 sm:mx-0 relative flex flex-col">
+          <PinButton panelId="build_backlog" />
+          <div className="pt-12 flex-1">
+            <PriorityTasks
+              issuesData={visibleBacklogIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
+              title="Backlog"
+              slug={slug}
+              lightCard
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+            />
           </div>
         </div>
       </div>
