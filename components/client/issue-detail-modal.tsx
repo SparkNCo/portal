@@ -202,6 +202,7 @@ function DecisionsTab({
   ownerEmail,
   canAnswer,
   canAsk,
+  canDelete,
   decisions,
   setDecisions,
   loadingDecisions,
@@ -211,6 +212,10 @@ function DecisionsTab({
   ownerEmail: string | undefined;
   canAnswer: boolean;
   canAsk: boolean;
+  // Admin/developer only, and only while a question has no decision yet —
+  // see handleDeleteDecision on the backend, which enforces the same rule
+  // server-side rather than trusting this prop alone.
+  canDelete: boolean;
   decisions: Decision[];
   setDecisions: React.Dispatch<React.SetStateAction<Decision[]>>;
   loadingDecisions: boolean;
@@ -222,6 +227,8 @@ function DecisionsTab({
   const [questionText, setQuestionText] = useState("");
   const [requirementText, setRequirementText] = useState("");
   const [answerText, setAnswerText] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleCreateEntry(text: string, type: "question" | "requirement_update") {
     if (!text.trim() || submitting) return;
@@ -289,7 +296,32 @@ function DecisionsTab({
     }
   }
 
+  async function confirmDeleteDecision() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/decision`,
+        {
+          method: "DELETE",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({ decisionId: pendingDeleteId, requesterEmail: ownerEmail }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error ?? "Failed to delete question. Please try again.");
+        return;
+      }
+      setDecisions((prev) => prev.filter((d) => d.id !== pendingDeleteId));
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
+  }
+
   return (
+    <>
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingDecisions && (
         <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
@@ -307,11 +339,23 @@ function DecisionsTab({
         const isRequirementUpdate = d.type === "requirement_update";
         return (
           <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-            <div>
-              <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                {isRequirementUpdate ? "Requirement Update" : "Question"}
-              </p>
-              <p className="smalltext text-foreground">{d.question}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  {isRequirementUpdate ? "Requirement Update" : "Question"}
+                </p>
+                <p className="smalltext text-foreground">{d.question}</p>
+              </div>
+              {canDelete && !isRequirementUpdate && !d.decision && (
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteId(d.id)}
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-background"
+                  aria-label="Delete question"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             {!isRequirementUpdate && d.decision && (
@@ -498,6 +542,59 @@ function DecisionsTab({
         </div>
       )}
     </div>
+
+    <Dialog
+      open={!!pendingDeleteId}
+      onOpenChange={(v) => !v && setPendingDeleteId(null)}
+    >
+      <DialogContent
+        className="w-[95vw] sm:w-full sm:max-w-lg overflow-x-hidden"
+        aria-describedby={undefined}
+      >
+        <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-destructive via-destructive/60 to-transparent" />
+
+        <DialogHeader className="pt-4">
+          <div className="flex min-w-0 items-center gap-3.5 pr-6">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-red-400 ring-2 ring-destructive/30">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <DialogTitle className="truncate text-red-400">Delete Question?</DialogTitle>
+              <p className="smalltext text-muted-foreground">
+                This can't be undone.
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-5 pt-4 mt-1 border-t border-border">
+          <p className="smalltext text-foreground">
+            Delete this question from the Clarifications tab?
+          </p>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="smalltext"
+              onClick={() => setPendingDeleteId(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="smalltext bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteDecision}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -1623,6 +1720,7 @@ export function IssueDetailModal({
   // Admins can do anything a customer can, on top of their own powers below.
   const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
+  const canDeleteDecision = role === "admin" || role === "developer";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
@@ -2065,6 +2163,7 @@ export function IssueDetailModal({
             ownerEmail={profile?.email}
             canAnswer={canAnswer}
             canAsk={canAsk}
+            canDelete={canDeleteDecision}
             decisions={decisions}
             setDecisions={setDecisions}
             loadingDecisions={loadingDecisions}
