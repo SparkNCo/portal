@@ -430,6 +430,62 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   return Response.json(row);
 }
 
+// Admins/developers only, and only while the question is still unanswered —
+// once a client has decided, the thread is part of the record. Requirement
+// updates (statements, no answer flow) aren't covered by this: the ticket
+// that asked for this only mentioned "questions".
+export async function handleDeleteDecision(req: Request): Promise<Response> {
+  const schema = "portal";
+  const { decisionId, requesterEmail } = await req.json();
+
+  if (!decisionId || !requesterEmail) {
+    return Response.json(
+      { error: "Missing decisionId or requesterEmail" },
+      { status: 400 },
+    );
+  }
+
+  const { data: requester, error: requesterError } = await supabase.schema(schema)
+    .from("users")
+    .select("role")
+    .eq("email", requesterEmail)
+    .maybeSingle();
+  if (requesterError || !requester || !["admin", "developer"].includes(requester.role)) {
+    return Response.json(
+      { error: "Only admins or developers can delete a question" },
+      { status: 403 },
+    );
+  }
+
+  const { data: existing, error: existingError } = await supabase.schema(schema)
+    .from("decisions")
+    .select("id, decision")
+    .eq("id", decisionId)
+    .maybeSingle();
+  if (existingError || !existing) {
+    return Response.json({ error: "Question not found" }, { status: 404 });
+  }
+  if (existing.decision != null) {
+    return Response.json(
+      { error: "Can't delete a question that's already been answered" },
+      { status: 409 },
+    );
+  }
+
+  const { error: deleteError } = await supabase.schema(schema)
+    .from("decisions")
+    .delete()
+    .eq("id", decisionId);
+  if (deleteError) {
+    return Response.json(
+      { error: "Failed to delete question", details: deleteError.message },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({ success: true, decisionId });
+}
+
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
 const GET_PROJECTS_BY_IDS_QUERY = `
