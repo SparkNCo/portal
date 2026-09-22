@@ -228,7 +228,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 
 export async function handleAddComment(req: Request): Promise<Response> {
   const schema = "portal";
-  const { issueId, question, ownerEmail, slug, issueCode, issueType } = await req.json();
+  const { issueId, question, ownerEmail, slug, issueCode, issueType, type } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
     return Response.json(
@@ -269,7 +269,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
     await notifyProject({
       slug,
       actorEmail: ownerEmail,
-      action: "decision_requested",
+      action: decisionType === "requirement_update" ? "requirement_update_added" : "decision_requested",
       objectType: "issue_decision",
       objectId: (data[0] ?? data)?.id ?? issueId,
       link: resolveIssueDashboardLink(slug, issueType),

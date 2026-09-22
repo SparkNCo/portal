@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, Video, HelpCircle, Palette } from "lucide-react";
+import { Bell, MessageCircle, Video, HelpCircle, Palette, FileEdit } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUser } from "context/UserContext";
 import { useNotifications, type Notification } from "./useNotifications";
@@ -15,6 +15,7 @@ const ACTION_WORDS: Record<string, string> = {
   decision_answered: "answer",
   demo_uploaded: "video",
   design_resource_added: "design",
+  requirement_update_added: "requirement update",
 };
 
 const ACTION_ICONS: Record<string, typeof MessageCircle> = {
@@ -23,6 +24,7 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   decision_answered: HelpCircle,
   demo_uploaded: Video,
   design_resource_added: Palette,
+  requirement_update_added: FileEdit,
 };
 
 function formatRelativeTime(iso: string): string {
