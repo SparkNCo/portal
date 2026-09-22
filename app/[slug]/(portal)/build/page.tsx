@@ -6,7 +6,7 @@ import { FeatureRequestPanel } from "@/components/build/feature-request-panel";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { IssueDetailTab } from "@/components/client/issues.types";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -39,12 +39,15 @@ export default function BuildPage() {
 function BuildPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
-  // NotificationBell.tsx) — only finds the issue if it's currently in
-  // Business Review, UAT, or Backlog, since that's all this page ever
-  // fetches (see the issuesData query below). A notification for an issue in
-  // any other status silently lands here without opening anything.
+  // NotificationBell.tsx). This page only ever fetches Business Review/UAT/
+  // Backlog issues (see the issuesData query below) — for anything else,
+  // the fallback query further down fetches that one issue directly by id
+  // and opens it in its own modal instead of silently landing here with
+  // nothing open.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below
@@ -127,6 +130,26 @@ function BuildPageContent() {
   const visibleBacklogIssues = selectedProject
     ? backlogIssues.filter((i: any) => i.project?.id === selectedProject)
     : backlogIssues;
+
+  // The deep-linked issue isn't necessarily in Business Review/UAT/Backlog —
+  // a decision/demo/design notification can point at an issue in any status
+  // (In Progress, Todo, Done, ...). Once the three panels above have loaded
+  // and it's genuinely not among them, fetch that one issue directly by id
+  // (same lookup EditIssueModal's "similar issue" hint already uses) and
+  // open it in its own modal instead of leaving the deep link a no-op.
+  const foundInPanels = allIssues.some((i: any) => i.id === openIssueId);
+  const { data: fallbackIssue } = useQuery({
+    queryKey: ["issue-by-id", openIssueId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${openIssueId}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch issue");
+      return res.json() as Promise<Issue>;
+    },
+    enabled: !!openIssueId && !!issuesData && !foundInPanels,
+  });
 
   return (
     <div className="min-h-screen">

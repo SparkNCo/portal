@@ -7,16 +7,35 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useUser } from "context/UserContext";
 import { useNotifications, type Notification } from "./useNotifications";
 
-// Word filled into "There is a new <word>[ for <issue_code>]" — kept to one
-// word per the simplified phrasing, no actor/preview details.
-const ACTION_WORDS: Record<string, string> = {
-  chat_message: "message",
-  decision_requested: "question",
-  decision_answered: "answer",
-  demo_uploaded: "video",
-  design_resource_added: "design",
-  requirement_update_added: "requirement update",
+// The ticket wants each item to show action, object, user and created
+// time as distinct fields, not a single canned sentence — "<user> <action
+// phrase> <object>", then the time on its own line below.
+const ACTION_PHRASES: Record<string, string> = {
+  chat_message: "sent a message",
+  decision_requested: "asked a question",
+  decision_answered: "answered a decision",
+  demo_uploaded: "uploaded a demo",
+  design_resource_added: "added a design resource",
+  requirement_update_added: "posted a requirement update",
 };
+
+const OBJECT_TYPE_LABELS: Record<string, string> = {
+  chat: "in a chat",
+  issue_decision: "on a decision",
+  demo: "on a demo",
+  design_resource: "on a design resource",
+};
+
+// Prefer the human-readable ticket code ("on SPA-123") when there is one.
+// Chat notifications have no ticket code — show the chat's own title
+// ("in <title>") instead, falling back to the generic object-type label
+// only for chats with no title (e.g. a direct chat) or older events from
+// before object_title existed.
+function formatObject(event: { object_type: string; issue_code: string | null; object_title: string | null }): string {
+  if (event.issue_code) return `on ${event.issue_code}`;
+  if (event.object_type === "chat" && event.object_title) return `in ${event.object_title}`;
+  return OBJECT_TYPE_LABELS[event.object_type] ?? "";
+}
 
 const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   chat_message: MessageCircle,
@@ -64,13 +83,14 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
 };
 
 function resolveLink(n: Notification, role: string | undefined, ownSlug: string | undefined): string {
-  if (n.object_type === "chat") {
-    return `${resolveChatBasePath(role, ownSlug)}?chatId=${n.object_id}`;
+  const { event } = n;
+  if (event.object_type === "chat") {
+    return `${resolveChatBasePath(role, ownSlug)}?chatId=${event.object_id}`;
   }
-  if (!n.issue_id) return n.link;
-  const tab = OBJECT_TYPE_TABS[n.object_type];
+  if (!event.issue_id) return event.link;
+  const tab = OBJECT_TYPE_TABS[event.object_type];
   const tabParam = tab ? `&tab=${tab}` : "";
-  return `${n.link}?issueId=${n.issue_id}${tabParam}`;
+  return `${event.link}?issueId=${event.issue_id}${tabParam}`;
 }
 
 function NotificationItem({
@@ -80,21 +100,22 @@ function NotificationItem({
   readonly notification: Notification;
   readonly onOpen: (n: Notification) => void;
 }) {
-  const word = ACTION_WORDS[notification.action] ?? notification.action;
-  const Icon = ACTION_ICONS[notification.action] ?? MessageCircle;
+  const { event } = notification;
+  const actionPhrase = ACTION_PHRASES[event.action] ?? event.action;
+  const Icon = ACTION_ICONS[event.action] ?? MessageCircle;
 
   return (
     <button
       onClick={() => onOpen(notification)}
-      className="group w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors bg-accent/5 hover:bg-secondary/40"
+      className="group w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors bg-accent/5"
     >
-      <div className="flex items-center gap-2.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
-        <Icon className="h-4 w-4 text-popover-foreground/70 group-hover:text-primary flex-shrink-0" />
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" aria-hidden="true" />
+        <Icon className="h-4 w-4 mt-0.5 text-popover-foreground/70 group-hover:text-primary flex-shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="smalltext text-popover-foreground group-hover:text-primary whitespace-nowrap overflow-hidden text-ellipsis">
-            There is a new {word}
-            {notification.issue_code ? ` for ${notification.issue_code}` : ""}
+          <p className="smalltext text-popover-foreground group-hover:text-primary">
+            <span className="font-medium">{event.actor_email ?? "Someone"}</span> {actionPhrase}{" "}
+            {formatObject(event)}
           </p>
           <p className="smalltext text-popover-foreground/70 group-hover:text-primary mt-0.5">
             {formatRelativeTime(notification.created_at)}
@@ -126,13 +147,13 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+            <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive" aria-hidden="true" />
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-max min-w-80 max-w-[90vw] p-0">
+      <PopoverContent align="start" className="w-96 max-w-[90vw] p-0">
         {!loading && notifications.length > 0 && (
-          <div className="flex justify-end px-3 py-1.5 border-b">
+          <div className="flex justify-end px-3 py-1.5 bg-accent/5">
             <button
               onClick={markAllAsRead}
               className="smalltext text-popover-foreground/70 hover:text-primary"

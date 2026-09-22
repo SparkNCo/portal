@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -83,6 +84,40 @@ export default function ChatProvider({
   // swap right after initial mount — an acceptable one-time flash in
   // exchange for not duplicating that list/sort logic a third time here.
   const [adminSelectedCustomerId, setAdminSelectedCustomerId] = useState("");
+
+  // SPA-513: a chat notification's link (see NotificationBell.tsx's
+  // resolveLink) always points at a Realtime chat — notify_chat_message
+  // only triggers on portal.chats — but for an admin, which provider gets
+  // mounted above is otherwise guessed from whichever customer
+  // adminSelectedCustomerId defaults to (the first one alphabetically,
+  // unrelated to the chat being linked to). If that guess isn't a Realtime
+  // customer, RealtimeChatLayout — and its own chatId deep-link handling —
+  // never mounts at all, so the notification silently opens nothing. Look
+  // up the deep-linked chat's actual owner directly (the same unscoped
+  // admin listing RealtimeChatLayout would otherwise fetch on its own) and
+  // seed the filter with it before the "first customer alphabetically"
+  // default can win the race.
+  const searchParams = useSearchParams();
+  const chatIdParam = searchParams.get("chatId");
+  const { data: deepLinkedChat } = useQuery({
+    queryKey: ["admin-chat-notification-lookup", chatIdParam, profile?.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chats?user_id=${profile!.id}&admin=true`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch chats");
+      const chats: { id: string; metadata?: { customerId?: string } }[] = await res.json();
+      return chats.find((c) => c.id === chatIdParam) ?? null;
+    },
+    enabled: isAdmin && !!chatIdParam && !!profile?.id,
+  });
+
+  useEffect(() => {
+    if (deepLinkedChat?.metadata?.customerId) {
+      setAdminSelectedCustomerId(deepLinkedChat.metadata.customerId);
+    }
+  }, [deepLinkedChat]);
 
   // Set when an admin submits "New Chat" for an initiative whose own
   // systems.chat differs from whatever's currently mounted (see

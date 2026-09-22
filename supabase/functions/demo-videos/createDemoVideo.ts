@@ -95,7 +95,9 @@ export const createDemoVideoFromUpload = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    await notifyProject({
+    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
+    // response the user is waiting on for their upload to complete.
+    EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,
       action: "demo_uploaded",
@@ -105,7 +107,7 @@ export const createDemoVideoFromUpload = async (
       preview: title,
       issueCode,
       issueId,
-    });
+    }));
   }
 
   return { ...demo, file_url: await signStorageUrl(supabase, storagePath) };
@@ -163,7 +165,9 @@ export const createDemoVideoFromExisting = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    await notifyProject({
+    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
+    // response the user is waiting on for their save to complete.
+    EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,
       action: "demo_uploaded",
@@ -173,7 +177,7 @@ export const createDemoVideoFromExisting = async (
       preview: demo.title,
       issueCode,
       issueId,
-    });
+    }));
   }
 
   return {
@@ -227,7 +231,9 @@ export const createDemoVideoFromEmbed = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    await notifyProject({
+    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
+    // response the user is waiting on for their save to complete.
+    EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,
       action: "demo_uploaded",
@@ -237,7 +243,7 @@ export const createDemoVideoFromEmbed = async (
       preview: title,
       issueCode,
       issueId,
-    });
+    }));
   }
 
   return demo;
