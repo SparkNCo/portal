@@ -28,6 +28,7 @@ import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { DocumentPreviewModal, PREVIEWABLE_FORMATS, type PreviewableDoc } from "./document-preview-modal";
 
 const formatIcons: Record<string, any> = {
   pdf: FileText,
@@ -36,6 +37,13 @@ const formatIcons: Record<string, any> = {
   docx: FileText,
   xlsx: FileSpreadsheet,
   zip: File,
+  md: FileText,
+  markdown: FileText,
+  txt: FileText,
+  text: FileText,
+  csv: FileSpreadsheet,
+  mmd: FileText,
+  mermaid: FileText,
 };
 
 const categoryColors: Record<string, string> = {
@@ -61,12 +69,13 @@ export function DocumentRow({
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
   const queryClient = useQueryClient();
-  const { user, profile } = useUser();
+  const { profile } = useUser();
   const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewableDoc | null>(null);
 
   // Only fetched when an admin actually opens the Owner popover on some row
   // (enabled below, per-row) — no point loading this for every visitor.
@@ -104,11 +113,30 @@ export function DocumentRow({
     },
   });
 
+  // Clicking a document's name previews it in-app for formats we know how to
+  // render (markdown/text/csv); anything else falls back to the existing
+  // "open in a new tab" behavior the ExternalLink button already used.
+  const handleDocumentClick = (doc: any) => {
+    if (PREVIEWABLE_FORMATS.has(doc.format)) {
+      setPreviewDoc({ id: doc.id, name: doc.name, format: doc.format });
+    } else {
+      handleOpen(doc);
+    }
+  };
+
+  // `user_id` here is checked against document_permissions.user_id, which is
+  // keyed by portal.users.id — `userId` (this row's own prop, already
+  // resolved to profile.id by documents-list.tsx) is that id. `user.id` from
+  // useUser() is the raw Supabase Auth uid instead, a different id space
+  // (see 20260921140000_fix_chat_rls_match_by_email.sql) that essentially
+  // never matches a document_permissions row, which was making every
+  // open/download/preview fail with a silent "No access" 403.
   const handleOpen = async (doc: any) => {
+    if (!userId) return;
     try {
       setOpeningId(doc.id);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${user.id}&inline=true`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${userId}&inline=true`,
         { headers: API_HEADERS },
       );
       const { url } = await res.json();
@@ -121,11 +149,12 @@ export function DocumentRow({
   };
 
   const handleDownload = async (doc: any) => {
+    if (!userId) return;
     try {
       setDownloadingId(doc.id);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${user.id}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${userId}`,
         { headers: API_HEADERS },
       );
 
@@ -147,6 +176,8 @@ export function DocumentRow({
         document={selectedDoc}
         id={userId}
       />
+
+      <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
 
       {filteredDocs.map((doc) => {
         const FormatIcon =
@@ -172,9 +203,16 @@ export function DocumentRow({
                 original layout. */}
             <div className="flex-1 min-w-0 flex flex-col gap-2 py-2 sm:py-0 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                <button
+                  type="button"
+                  onClick={() => handleDocumentClick(doc)}
+                  className="block max-w-full smalltext font-medium text-foreground group-hover:text-primary transition-colors truncate text-left hover:underline"
+                  aria-label={
+                    PREVIEWABLE_FORMATS.has(doc.format) ? `Preview ${doc.name}` : `Open ${doc.name}`
+                  }
+                >
                   {doc.name}
-                </p>
+                </button>
 
                 <div className="flex items-center gap-2 smalltext text-muted-foreground flex-wrap">
                   <Badge
@@ -229,7 +267,7 @@ export function DocumentRow({
                           )}
                           onClick={() =>
                             updateMutation.mutate({
-                              user_id: user.id,
+                              user_id: userId!,
                               category,
                               document_id: doc.id,
                             })
@@ -246,8 +284,10 @@ export function DocumentRow({
                   variant="ghost"
                   size="icon"
                   className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
-                  onClick={() => handleOpen(doc)}
-                  aria-label={`Open ${doc.name}`}
+                  onClick={() => handleDocumentClick(doc)}
+                  aria-label={
+                    PREVIEWABLE_FORMATS.has(doc.format) ? `Preview ${doc.name}` : `Open ${doc.name}`
+                  }
                 >
                   <ExternalLink
                     className={cn(
@@ -296,7 +336,7 @@ export function DocumentRow({
                     onClick={() =>
                       deleteMutation.mutate({
                         document_id: doc.id,
-                        user_id: user.id,
+                        user_id: userId!,
                       })
                     }
                     aria-label={`Delete ${doc.name}`}

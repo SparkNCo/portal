@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AlertTriangle, ArrowRight, ArrowUpDown, Search, SlidersHorizontal } from "lucide-react";
@@ -41,6 +41,8 @@ export function PriorityTasks({
   sortBy,
   onSortByChange,
   initialModalTab,
+  openIssueId,
+  openIssueTab,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -49,6 +51,15 @@ export function PriorityTasks({
   const [titleFilter, setTitleFilter] = useState("");
   const { profile } = useUser();
   const { hasUnseenUpdate } = useIssueUpdateBadge();
+
+  // Deep link from a notification — open once the target issue actually
+  // shows up in issuesData (it may not be there on the very first render if
+  // the fetch is still in flight).
+  useEffect(() => {
+    if (!openIssueId) return;
+    const match = issuesData.find((i) => i.id === openIssueId);
+    if (match) setSelectedIssue(match);
+  }, [openIssueId, issuesData]);
 
   const {
     selectedStatuses,
@@ -89,7 +100,7 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={initialModalTab}
+      initialTab={selectedIssue.id === openIssueId ? (openIssueTab ?? initialModalTab) : initialModalTab}
     />
   );
   if (compact) {
