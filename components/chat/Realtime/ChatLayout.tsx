@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
@@ -11,8 +11,10 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import RealtimeChatSideBar from "./RealtimeChatSideBar";
 import RealtimeGroupChat from "./RealtimeGroupChat";
-import CreateChatModal from "../CometChat/CreateChatModal";
+import CreateChatModal, { type ChatIssueOption } from "../CometChat/CreateChatModal";
 import { useRealtimeChat, type Chat } from "./useRealtimeChat";
+
+const CHATS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chats`;
 
 // Realtime (Supabase) equivalent of CometChat/ChatLayout.tsx. Deliberately
 // narrower than that one for now:
@@ -21,11 +23,17 @@ import { useRealtimeChat, type Chat } from "./useRealtimeChat";
 //   - no issue-linked chat creation yet (needs the issue_id/get-or-create
 //     work tracked separately)
 //   - no "leave chat" (chat_participants has no self-removal policy yet)
+const OWN_PROVIDER = "supabase_realtime";
+
 export default function ChatLayout({
   initialTitle,
   fallbackProjectSlug,
   controlledCustomerId,
   onControlledCustomerIdChange,
+  customerSystemsById,
+  pendingCreate,
+  onPendingCreateHandled,
+  onCrossProviderCreate,
 }: {
   readonly initialTitle?: string;
   readonly fallbackProjectSlug?: string;
@@ -35,6 +43,13 @@ export default function ChatLayout({
   // stuck on whichever provider it first mounted.
   readonly controlledCustomerId?: string;
   readonly onControlledCustomerIdChange?: (id: string) => void;
+  // SPA-513: admin-only "New Chat" lets you pick any initiative, which can
+  // use a *different* provider than whatever's mounted right now — see
+  // handleCreate below and ChatProvider.tsx's handleCrossProviderCreate.
+  readonly customerSystemsById?: Map<string, string>;
+  readonly pendingCreate?: { title: string; initiativeId?: string; issue?: unknown } | null;
+  readonly onPendingCreateHandled?: () => void;
+  readonly onCrossProviderCreate?: (title: string, initiativeId: string | undefined, issue: unknown) => void;
 }) {
   const { profile } = useUser();
   const router = useRouter();
@@ -126,6 +141,19 @@ export default function ChatLayout({
     if (initialTitle) setShowCreateModal(true);
   }, [ready]);
 
+  // Resumes a creation ChatProvider handed off after switching us in for a
+  // different provider (see handleCreate above / ChatProvider.tsx's
+  // handleCrossProviderCreate). The ref guards against firing twice if this
+  // effect re-runs before onPendingCreateHandled's state update lands (e.g.
+  // React 18 Strict Mode's double-invoke in dev).
+  const handledPendingCreateRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !pendingCreate || handledPendingCreateRef.current) return;
+    handledPendingCreateRef.current = true;
+    handleCreate(pendingCreate.title, pendingCreate.initiativeId, pendingCreate.issue as ChatIssueOption | undefined);
+    onPendingCreateHandled?.();
+  }, [ready, pendingCreate]);
+
   // Deep link from a chat notification (see NotificationBell.tsx's
   // resolveLink) — selects the target chat once it's loaded, regardless of
   // the admin/developer customer filter, since a notification recipient is
@@ -142,14 +170,35 @@ export default function ChatLayout({
 
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
-  const handleCreate = async (title: string, initiativeId?: string, issue?: unknown) => {
+  const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {
+    // The picked initiative can use a different provider than this one —
+    // hand off to ChatProvider instead of creating it here under the wrong
+    // system. Harmless/never true for developer/customer, whose initiative
+    // is always locked/fixed to the same customer this layout already
+    // resolved from.
+    if (initiativeId && customerSystemsById) {
+      const targetProvider = customerSystemsById.get(initiativeId) ?? "cometchat";
+      if (targetProvider !== OWN_PROVIDER) {
+        setShowCreateModal(false);
+        onCrossProviderCreate?.(title, initiativeId, issue);
+        return;
+      }
+    }
+
     setCreating(true);
     try {
-      if (issue) {
-        // Issue-linked chats aren't wired up yet on the Realtime side.
-        console.warn("Issue-linked chat creation isn't implemented for the Realtime provider yet.");
-      }
-      const created = await createChat(title, initiativeId ?? customerId, projectSlug);
+      // A chat tied to a ticket must be the *same* chat that ticket's own
+      // Chat tab uses (see IssueChatTab.tsx / IssueRealtimeChat.tsx) — that
+      // tab looks up the one deterministic issue chat by issue_id, not "any
+      // chat whose metadata happens to mention this issue." The initiative
+      // picked in the modal resolves this issue's project slug the same way
+      // projectSlug otherwise would (mirrors CometChat/ChatLayout.tsx).
+      const issueSlug = initiativeId
+        ? initiativeOptions.find((o) => o.id === initiativeId)?.label
+        : undefined;
+      const created = issue
+        ? await createOrGetIssueChat(issue.id, issue.title, issueSlug ?? projectSlug)
+        : await createChat(title, initiativeId ?? customerId, projectSlug);
       if (created) {
         const list = await refreshChats();
         setSelectedChat(list.find((c) => c.id === created.id) ?? created);
@@ -157,6 +206,31 @@ export default function ChatLayout({
       setShowCreateModal(false);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const createOrGetIssueChat = async (
+    issueId: string,
+    issueTitle: string,
+    slugForIssue: string | undefined,
+  ): Promise<Chat | null> => {
+    if (!profile) return null;
+    try {
+      const res = await fetch(`${CHATS_URL}?type=issue`, {
+        method: "POST",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({
+          issueId,
+          issueTitle,
+          slug: slugForIssue,
+          profile: { id: profile.id, role: profile.role },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create issue chat");
+      return (await res.json()) as Chat;
+    } catch (err) {
+      console.error("Create issue chat error:", err);
+      return null;
     }
   };
 
