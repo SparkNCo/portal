@@ -155,18 +155,26 @@ export default function ChatLayout({
   }, [ready, pendingCreate]);
 
   // Deep link from a chat notification (see NotificationBell.tsx's
-  // resolveLink) — selects the target chat once it's loaded, regardless of
-  // the admin/developer customer filter, since a notification recipient is
-  // necessarily already a participant. Retries as `chats` updates in case
-  // the initial fetch raced the participant row being seeded.
+  // resolveLink) — selects the target chat once it's loaded. A notification
+  // recipient is necessarily already a participant, so the chat itself opens
+  // regardless of the admin customer filter — but the sidebar's own
+  // `visibleChats` is filtered by that same `selectedCustomerId` (see
+  // groupCustomerFilter below), so without also updating it here the
+  // sidebar kept showing whichever customer it defaulted to (the first one
+  // alphabetically) instead of the chat's actual customer. Retries as
+  // `chats` updates in case the initial fetch raced the participant row
+  // being seeded.
   useEffect(() => {
     if (!ready || !chatIdParam) return;
     const match = chats.find((c) => c.id === chatIdParam);
     if (match) {
       setSelectedChat(match);
+      if (isAdmin && match.metadata?.customerId) {
+        setSelectedCustomerId(match.metadata.customerId);
+      }
       clearNewChatParam();
     }
-  }, [ready, chatIdParam, chats]);
+  }, [ready, chatIdParam, chats, isAdmin]);
 
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
