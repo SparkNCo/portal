@@ -27,6 +27,7 @@ import {
   displayName,
 } from "@/lib/demo-video-utils";
 import { DemoPicker } from "@/components/developer/demo-picker";
+import { getIssueCode, deriveIssueKind } from "@/lib/utils";
 import type { Issue } from "./issues.types";
 
 type DemoComment = {
@@ -109,6 +110,10 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
       formData.append("issue_id", issue.id);
       formData.append("email", profile.email);
       formData.append("title", title);
+      if (slug) formData.append("slug", slug);
+      formData.append("issue_code", getIssueCode(issue.branchName));
+      const issueKind = deriveIssueKind(issue.labels?.nodes);
+      if (issueKind) formData.append("issue_type", issueKind);
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
@@ -151,6 +156,9 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             email: profile.email,
             embed_url: embedUrl,
             title,
+            slug,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );

@@ -24,11 +24,11 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn, titleCase } from "@/lib/utils";
+import { cn, titleCase, getIssueCode, deriveIssueKind } from "@/lib/utils";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
-import { IssueCometChat } from "@/components/chat/CometChat/IssueCometChat";
+import { IssueChatTab } from "@/components/chat/IssueChatTab";
 import { LabelPill } from "./issue-cards";
 import { DesignTab } from "./design-tab";
 import ReactMarkdown from "react-markdown";
@@ -198,29 +198,40 @@ function DescriptionTab({ issue }: { issue: Issue }) {
 
 function DecisionsTab({
   issue,
+  slug,
   ownerEmail,
   canAnswer,
   canAsk,
+  canDelete,
   decisions,
   setDecisions,
   loadingDecisions,
 }: {
   issue: Issue;
+  slug?: string;
   ownerEmail: string | undefined;
   canAnswer: boolean;
   canAsk: boolean;
+  // Admin/developer only, and only while a question has no decision yet —
+  // see handleDeleteDecision on the backend, which enforces the same rule
+  // server-side rather than trusting this prop alone.
+  canDelete: boolean;
   decisions: Decision[];
   setDecisions: React.Dispatch<React.SetStateAction<Decision[]>>;
   loadingDecisions: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [showNewQuestionForm, setShowNewQuestionForm] = useState(false);
+  const [showNewRequirementForm, setShowNewRequirementForm] = useState(false);
   const [activeAnswerForm, setActiveAnswerForm] = useState<string | null>(null);
   const [questionText, setQuestionText] = useState("");
+  const [requirementText, setRequirementText] = useState("");
   const [answerText, setAnswerText] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  async function handleCreateQuestion() {
-    if (!questionText.trim() || submitting) return;
+  async function handleCreateEntry(text: string, type: "question" | "requirement_update") {
+    if (!text.trim() || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(
@@ -230,15 +241,24 @@ function DecisionsTab({
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             issueId: issue.id,
-            question: questionText.trim(),
+            question: text.trim(),
             ownerEmail,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
+            type,
           }),
         },
       );
       const newDecision = await res.json();
       if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
-      setQuestionText("");
-      setShowNewQuestionForm(false);
+      if (type === "question") {
+        setQuestionText("");
+        setShowNewQuestionForm(false);
+      } else {
+        setRequirementText("");
+        setShowNewRequirementForm(false);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -257,6 +277,9 @@ function DecisionsTab({
             decisionId,
             decision: answerText.trim(),
             decisionEmail: ownerEmail,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );
@@ -273,7 +296,32 @@ function DecisionsTab({
     }
   }
 
+  async function confirmDeleteDecision() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/decision`,
+        {
+          method: "DELETE",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({ decisionId: pendingDeleteId, requesterEmail: ownerEmail }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error ?? "Failed to delete question. Please try again.");
+        return;
+      }
+      setDecisions((prev) => prev.filter((d) => d.id !== pendingDeleteId));
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
+    }
+  }
+
   return (
+    <>
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-3 min-h-[320px]">
       {loadingDecisions && (
         <p className="smalltext text-muted-foreground animate-pulse">Loading…</p>
@@ -287,130 +335,113 @@ function DecisionsTab({
         </p>
       )}
 
-      {decisions.map((d) => (
-        <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-          <div>
-            <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-              Question
-            </p>
-            <p className="smalltext text-foreground">{d.question}</p>
-          </div>
-
-          {d.decision && (
-            <div className="rounded bg-success/10 p-2.5 space-y-0.5">
-              <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
-                Decision
-              </p>
-              <p className="smalltext text-success whitespace-pre-wrap">
-                {d.decision}
-              </p>
-              <p className="smalltext text-success/60">
-                {d.decision_by} ·{" "}
-                {d.decided_at
-                  ? new Date(d.decided_at).toLocaleDateString()
-                  : ""}
-              </p>
+      {decisions.map((d) => {
+        const isRequirementUpdate = d.type === "requirement_update";
+        return (
+          <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  {isRequirementUpdate ? "Requirement Update" : "Question"}
+                </p>
+                <p className="smalltext text-foreground">{d.question}</p>
+              </div>
+              {canDelete && !isRequirementUpdate && !d.decision && (
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteId(d.id)}
+                  className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-background"
+                  aria-label="Delete question"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-          )}
 
-          {canAnswer &&
-            !d.decision &&
-            (activeAnswerForm === d.id ? (
-              <div className="flex flex-col gap-1.5">
-                <textarea
-                  className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                  rows={3}
-                  placeholder="Your decision…"
-                  value={answerText}
-                  onChange={(e) => setAnswerText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                      handleSubmitAnswer(d.id);
-                  }}
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setActiveAnswerForm(null);
-                      setAnswerText("");
+            {!isRequirementUpdate && d.decision && (
+              <div className="rounded bg-success/10 p-2.5 space-y-0.5">
+                <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
+                  Decision
+                </p>
+                <p className="smalltext text-success whitespace-pre-wrap">
+                  {d.decision}
+                </p>
+                <p className="smalltext text-success/60">
+                  {d.decision_by} ·{" "}
+                  {d.decided_at
+                    ? new Date(d.decided_at).toLocaleDateString()
+                    : ""}
+                </p>
+              </div>
+            )}
+
+            {!isRequirementUpdate &&
+              canAnswer &&
+              !d.decision &&
+              (activeAnswerForm === d.id ? (
+                <div className="flex flex-col gap-1.5">
+                  <textarea
+                    className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                    rows={3}
+                    placeholder="Your decision…"
+                    value={answerText}
+                    onChange={(e) => setAnswerText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                        handleSubmitAnswer(d.id);
                     }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="success"
-                    disabled={!answerText.trim() || submitting}
-                    onClick={() => handleSubmitAnswer(d.id)}
-                  >
-                    {submitting ? "Submitting…" : "Submit decision"}
-                  </Button>
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setActiveAnswerForm(null);
+                        setAnswerText("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="success"
+                      disabled={!answerText.trim() || submitting}
+                      onClick={() => handleSubmitAnswer(d.id)}
+                    >
+                      {submitting ? "Submitting…" : "Submit decision"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="success"
-                className="w-full"
-                onClick={() => {
-                  setActiveAnswerForm(d.id);
-                  setAnswerText("");
-                }}
-              >
-                Submit your decision
-              </Button>
-            ))}
-
-          {canAsk && !d.decision && (
-            <p className="smalltext text-muted-foreground italic">
-              Awaiting client decision…
-            </p>
-          )}
-        </div>
-      ))}
-
-      {canAsk && (
-        <div className="pt-1">
-          {showNewQuestionForm ? (
-            <div className="flex flex-col gap-2">
-              <textarea
-                className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                rows={3}
-                placeholder="Ask the client a question…"
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                    handleCreateQuestion();
-                }}
-              />
-              <div className="flex gap-2 justify-end">
+              ) : (
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="success"
+                  className="w-full"
                   onClick={() => {
-                    setShowNewQuestionForm(false);
-                    setQuestionText("");
+                    setActiveAnswerForm(d.id);
+                    setAnswerText("");
                   }}
                 >
-                  Cancel
+                  Submit your decision
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!questionText.trim() || submitting}
-                  onClick={handleCreateQuestion}
-                >
-                  {submitting ? "Saving…" : "Ask question"}
-                </Button>
-              </div>
-            </div>
-          ) : (
+              ))}
+
+            {!isRequirementUpdate && canAsk && !d.decision && (
+              <p className="smalltext text-muted-foreground italic">
+                Awaiting client decision…
+              </p>
+            )}
+          </div>
+        );
+      })}
+
+      {!showNewQuestionForm && !showNewRequirementForm && (
+        <div className="pt-1 flex flex-col sm:flex-row gap-2">
+          {canAsk && (
             <Button
               size="sm"
               variant="outline"
-              className="w-full"
+              className="flex-1"
               onClick={() => {
                 setShowNewQuestionForm(true);
                 setQuestionText("");
@@ -420,9 +451,150 @@ function DecisionsTab({
               Ask a question
             </Button>
           )}
+          {/* Available to every role — a plain statement, not a question
+              someone needs to answer. */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              setShowNewRequirementForm(true);
+              setRequirementText("");
+            }}
+          >
+            <Pencil className="h-3 w-3 mr-1.5" />
+            Update Requirement
+          </Button>
+        </div>
+      )}
+
+      {canAsk && showNewQuestionForm && (
+        <div className="pt-1">
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              rows={3}
+              placeholder="Ask the client a question…"
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                  handleCreateEntry(questionText, "question");
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowNewQuestionForm(false);
+                  setQuestionText("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!questionText.trim() || submitting}
+                onClick={() => handleCreateEntry(questionText, "question")}
+              >
+                {submitting ? "Saving…" : "Ask question"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewRequirementForm && (
+        <div className="pt-1">
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              rows={3}
+              placeholder="Describe the requirement update…"
+              value={requirementText}
+              onChange={(e) => setRequirementText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                  handleCreateEntry(requirementText, "requirement_update");
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowNewRequirementForm(false);
+                  setRequirementText("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!requirementText.trim() || submitting}
+                onClick={() => handleCreateEntry(requirementText, "requirement_update")}
+              >
+                {submitting ? "Saving…" : "Update Requirement"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
+
+    <Dialog
+      open={!!pendingDeleteId}
+      onOpenChange={(v) => !v && setPendingDeleteId(null)}
+    >
+      <DialogContent
+        className="w-[95vw] sm:w-full sm:max-w-lg overflow-x-hidden"
+        aria-describedby={undefined}
+      >
+        <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-destructive via-destructive/60 to-transparent" />
+
+        <DialogHeader className="pt-4">
+          <div className="flex min-w-0 items-center gap-3.5 pr-6">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-red-400 ring-2 ring-destructive/30">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <DialogTitle className="truncate text-red-400">Delete Question?</DialogTitle>
+              <p className="smalltext text-muted-foreground">
+                This can't be undone.
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-5 pt-4 mt-1 border-t border-border">
+          <p className="smalltext text-foreground">
+            Delete this question from the Clarifications tab?
+          </p>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="smalltext"
+              onClick={() => setPendingDeleteId(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="smalltext bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteDecision}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -1548,6 +1720,7 @@ export function IssueDetailModal({
   // Admins can do anything a customer can, on top of their own powers below.
   const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
+  const canDeleteDecision = role === "admin" || role === "developer";
   // QA Evidence (developer, during QA) and UAT Result (customer/stakeholder, during UAT)
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
@@ -1574,11 +1747,13 @@ export function IssueDetailModal({
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
-  // no explanation). The count instead flags the Decisions tab itself with
-  // an orange X (see the "warning" prop on its TabButton below).
+  // no explanation). The count instead flags the Clarifications tab itself
+  // with an orange X (see the "warning" prop on its TabButton below).
+  // Requirement updates are statements, not questions — they never get a
+  // `decision` and shouldn't count as "unanswered".
   const unansweredDecisionsCount = loadingDecisions
     ? 0
-    : decisions.filter((d) => d.decision == null).length;
+    : decisions.filter((d) => d.decision == null && d.type !== "requirement_update").length;
 
   // Bug tickets don't go through design — the Design tab isn't relevant for them.
   const isBugIssue =
@@ -1950,7 +2125,7 @@ export function IssueDetailModal({
               row. Forcing the break here instead makes it 3+2. */}
           {isBugIssue && <div className="basis-full sm:hidden" />}
           <TabButton
-            label="Decisions"
+            label="Clarifications"
             tab="decisions"
             activeTab={activeTab}
             onClick={() => setActiveTab("decisions")}
@@ -1977,16 +2152,18 @@ export function IssueDetailModal({
 
         {activeTab === "chat" && (
           <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
-            <IssueCometChat issueId={issue.id} issueTitle={issue.title} slug={slug} />
+            <IssueChatTab issueId={issue.id} issueTitle={issue.title} slug={slug} />
           </div>
         )}
 
         {activeTab === "decisions" && (
           <DecisionsTab
             issue={issue}
+            slug={slug}
             ownerEmail={profile?.email}
             canAnswer={canAnswer}
             canAsk={canAsk}
+            canDelete={canDeleteDecision}
             decisions={decisions}
             setDecisions={setDecisions}
             loadingDecisions={loadingDecisions}

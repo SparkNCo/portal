@@ -57,7 +57,7 @@ const handleGet = async (url: URL, schema: string) => {
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
     const { data: clients, error: clientsError } = await supabase.schema(schema)
       .from("customers")
-      .select("customer_id, clientName, linear_slug, stripe_customer_id, preview_links")
+      .select("customer_id, clientName, linear_slug, stripe_customer_id, preview_links, systems")
       .in("customer_id", clientIds);
     if (clientsError) throw new Error(clientsError.message);
 
@@ -71,6 +71,9 @@ const handleGet = async (url: URL, schema: string) => {
       linear_slug: clientMap.get(u.customer_id)?.linear_slug ?? null,
       stripe_customer_id: clientMap.get(u.customer_id)?.stripe_customer_id ?? null,
       preview_links: clientMap.get(u.customer_id)?.preview_links ?? [],
+      // SPA-513: per-project 3rd-party system selection, e.g. which chat
+      // provider (CometChat vs Supabase Realtime) this customer's panel uses.
+      systems: clientMap.get(u.customer_id)?.systems ?? null,
     }));
 
     return jsonResponse(data);

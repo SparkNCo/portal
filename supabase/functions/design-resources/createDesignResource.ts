@@ -1,12 +1,13 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { markIssueUpdated } from "../utils/issueUpdates.ts";
+import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
 import { validateDesignResourceUrl } from "./validateUrl.ts";
 
 export const createDesignResource = async (req: Request, schema: string) => {
   const body = await req.json();
 
-  const { issue_id, project_slug, resource_type, url, title, description, email } = body;
+  const { issue_id, project_slug, resource_type, url, title, description, email, issue_code, issue_type } = body;
 
   // Validate required fields
   if (!issue_id) throw new Error("issue_id is required");
@@ -59,6 +60,20 @@ export const createDesignResource = async (req: Request, schema: string) => {
   }
 
   await markIssueUpdated(issue_id, email);
+
+  // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
+  // response the user is waiting on for their save to complete.
+  EdgeRuntime.waitUntil(notifyProject({
+    slug: project_slug,
+    actorEmail: email,
+    action: "design_resource_added",
+    objectType: "design_resource",
+    objectId: resource.id,
+    link: resolveIssueDashboardLink(project_slug, issue_type),
+    preview: resource.title ?? url,
+    issueCode: issue_code,
+    issueId: issue_id,
+  }));
 
   return resource;
 };

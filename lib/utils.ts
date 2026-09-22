@@ -52,6 +52,19 @@ export function getIssueCode(branchName: string): string {
   return (match?.[0] ?? branchName.slice(0, 7)).toUpperCase();
 }
 
+// Mirrors supabase/functions/lib/vector.ts's deriveIssueKind (Deno, not
+// importable from the Next.js app) — used to route a decision/demo/design
+// notification to /bugs vs /build depending on which dashboard the
+// underlying issue actually shows up on.
+export function deriveIssueKind(
+  labels?: { name?: string | null }[] | null,
+): "bug" | "feature" | null {
+  const names = new Set((labels ?? []).map((l) => l.name?.toLowerCase()));
+  if (names.has("bug")) return "bug";
+  if (names.has("feature")) return "feature";
+  return null;
+}
+
 // Route params read via useParams() aren't reliably decoded in this app, so a
 // value like a customer's clientName can arrive still percent-encoded (or,
 // after repeated navigations through a link that re-encodes it, encoded more
