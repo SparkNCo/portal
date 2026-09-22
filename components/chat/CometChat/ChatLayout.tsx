@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
@@ -28,6 +28,10 @@ export default function ChatLayout({
   fallbackProjectSlug,
   controlledCustomerId,
   onControlledCustomerIdChange,
+  customerSystemsById,
+  pendingCreate,
+  onPendingCreateHandled,
+  onCrossProviderCreate,
 }: {
   readonly initialTitle?: string;
   // The caller's own `[slug]` route segment, if it has one — used to tag
@@ -43,6 +47,13 @@ export default function ChatLayout({
   // copy of it — omit both and this behaves exactly as before.
   readonly controlledCustomerId?: string;
   readonly onControlledCustomerIdChange?: (id: string) => void;
+  // SPA-513: admin-only "New Chat" lets you pick any initiative, which can
+  // use a *different* provider than whatever's mounted right now — see
+  // handleCreate below and ChatProvider.tsx's handleCrossProviderCreate.
+  readonly customerSystemsById?: Map<string, string>;
+  readonly pendingCreate?: { title: string; initiativeId?: string; issue?: unknown } | null;
+  readonly onPendingCreateHandled?: () => void;
+  readonly onCrossProviderCreate?: (title: string, initiativeId: string | undefined, issue: unknown) => void;
 }) {
   const { profile } = useUser();
   const router = useRouter();

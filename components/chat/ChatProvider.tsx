@@ -84,6 +84,17 @@ export default function ChatProvider({
   // exchange for not duplicating that list/sort logic a third time here.
   const [adminSelectedCustomerId, setAdminSelectedCustomerId] = useState("");
 
+  // Set when an admin submits "New Chat" for an initiative whose own
+  // systems.chat differs from whatever's currently mounted (see
+  // handleCrossProviderCreate below) — the sidebar filter switches to that
+  // initiative, which remounts the *other* ChatLayout, and this is handed to
+  // it so it can finish the creation that started under the wrong provider.
+  const [pendingCreate, setPendingCreate] = useState<{
+    title: string;
+    initiativeId?: string;
+    issue?: unknown;
+  } | null>(null);
+
   const selectedProjectCustomerId = isDeveloper
     ? resolveSelectedProjectCustomerId(selectedProject, profile?.assignment_id)
     : undefined;
@@ -99,6 +110,10 @@ export default function ChatProvider({
     ownProfileId: profile?.id,
   });
 
+  // Admins always need the full list (not just the currently-viewed
+  // customer's row) — "New Chat" lets them freely pick *any* initiative,
+  // and that pick can name a customer other than the one currently
+  // governing this view (see handleCrossProviderCreate).
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers-systems"],
     queryFn: async () => {
@@ -108,8 +123,24 @@ export default function ChatProvider({
       if (!res.ok) throw new Error("Failed to fetch customer systems");
       return res.json() as Promise<CustomerSystemsRow[]>;
     },
-    enabled: !!relevantCustomerUserId,
+    enabled: !!relevantCustomerUserId || isAdmin,
   });
+
+  const customerSystemsById = new Map(
+    (customers ?? []).map((c) => [c.id, c.systems?.chat ?? "cometchat"]),
+  );
+
+  // A chat created for a specific initiative must actually land in *that*
+  // initiative's own provider — the free-choice "Initiative" dropdown in
+  // New Chat (admin only; developers/customers are locked to their own) can
+  // name a customer other than whichever one is currently governing this
+  // view. When that happens, switch the view to the target customer (which
+  // remounts the correct ChatLayout) and hand it what to create once ready.
+  const handleCrossProviderCreate = (title: string, initiativeId: string | undefined, issue: unknown) => {
+    if (!initiativeId) return;
+    setPendingCreate({ title, initiativeId, issue });
+    setAdminSelectedCustomerId(initiativeId);
+  };
 
   if (relevantCustomerUserId && isLoading) {
     return <LoadingDataPanel />;
@@ -126,6 +157,10 @@ export default function ChatProvider({
         fallbackProjectSlug={fallbackProjectSlug}
         controlledCustomerId={isAdmin ? adminSelectedCustomerId : undefined}
         onControlledCustomerIdChange={isAdmin ? setAdminSelectedCustomerId : undefined}
+        customerSystemsById={isAdmin ? customerSystemsById : undefined}
+        pendingCreate={pendingCreate}
+        onPendingCreateHandled={() => setPendingCreate(null)}
+        onCrossProviderCreate={isAdmin ? handleCrossProviderCreate : undefined}
       />
     );
   }
@@ -136,6 +171,10 @@ export default function ChatProvider({
       fallbackProjectSlug={fallbackProjectSlug}
       controlledCustomerId={isAdmin ? adminSelectedCustomerId : undefined}
       onControlledCustomerIdChange={isAdmin ? setAdminSelectedCustomerId : undefined}
+      customerSystemsById={isAdmin ? customerSystemsById : undefined}
+      pendingCreate={pendingCreate}
+      onPendingCreateHandled={() => setPendingCreate(null)}
+      onCrossProviderCreate={isAdmin ? handleCrossProviderCreate : undefined}
     />
   );
 }
