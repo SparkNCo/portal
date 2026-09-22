@@ -217,12 +217,14 @@ function DecisionsTab({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [showNewQuestionForm, setShowNewQuestionForm] = useState(false);
+  const [showNewRequirementForm, setShowNewRequirementForm] = useState(false);
   const [activeAnswerForm, setActiveAnswerForm] = useState<string | null>(null);
   const [questionText, setQuestionText] = useState("");
+  const [requirementText, setRequirementText] = useState("");
   const [answerText, setAnswerText] = useState("");
 
-  async function handleCreateQuestion() {
-    if (!questionText.trim() || submitting) return;
+  async function handleCreateEntry(text: string, type: "question" | "requirement_update") {
+    if (!text.trim() || submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch(
@@ -232,18 +234,24 @@ function DecisionsTab({
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             issueId: issue.id,
-            question: questionText.trim(),
+            question: text.trim(),
             ownerEmail,
             slug,
             issueCode: getIssueCode(issue.branchName),
             issueType: deriveIssueKind(issue.labels?.nodes),
+            type,
           }),
         },
       );
       const newDecision = await res.json();
       if (newDecision.id) setDecisions((prev) => [...prev, newDecision]);
-      setQuestionText("");
-      setShowNewQuestionForm(false);
+      if (type === "question") {
+        setQuestionText("");
+        setShowNewQuestionForm(false);
+      } else {
+        setRequirementText("");
+        setShowNewRequirementForm(false);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -295,130 +303,101 @@ function DecisionsTab({
         </p>
       )}
 
-      {decisions.map((d) => (
-        <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
-          <div>
-            <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-              Question
-            </p>
-            <p className="smalltext text-foreground">{d.question}</p>
-          </div>
-
-          {d.decision && (
-            <div className="rounded bg-success/10 p-2.5 space-y-0.5">
-              <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
-                Decision
+      {decisions.map((d) => {
+        const isRequirementUpdate = d.type === "requirement_update";
+        return (
+          <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
+            <div>
+              <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                {isRequirementUpdate ? "Requirement Update" : "Question"}
               </p>
-              <p className="smalltext text-success whitespace-pre-wrap">
-                {d.decision}
-              </p>
-              <p className="smalltext text-success/60">
-                {d.decision_by} ·{" "}
-                {d.decided_at
-                  ? new Date(d.decided_at).toLocaleDateString()
-                  : ""}
-              </p>
+              <p className="smalltext text-foreground">{d.question}</p>
             </div>
-          )}
 
-          {canAnswer &&
-            !d.decision &&
-            (activeAnswerForm === d.id ? (
-              <div className="flex flex-col gap-1.5">
-                <textarea
-                  className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                  rows={3}
-                  placeholder="Your decision…"
-                  value={answerText}
-                  onChange={(e) => setAnswerText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                      handleSubmitAnswer(d.id);
-                  }}
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setActiveAnswerForm(null);
-                      setAnswerText("");
+            {!isRequirementUpdate && d.decision && (
+              <div className="rounded bg-success/10 p-2.5 space-y-0.5">
+                <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
+                  Decision
+                </p>
+                <p className="smalltext text-success whitespace-pre-wrap">
+                  {d.decision}
+                </p>
+                <p className="smalltext text-success/60">
+                  {d.decision_by} ·{" "}
+                  {d.decided_at
+                    ? new Date(d.decided_at).toLocaleDateString()
+                    : ""}
+                </p>
+              </div>
+            )}
+
+            {!isRequirementUpdate &&
+              canAnswer &&
+              !d.decision &&
+              (activeAnswerForm === d.id ? (
+                <div className="flex flex-col gap-1.5">
+                  <textarea
+                    className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
+                    rows={3}
+                    placeholder="Your decision…"
+                    value={answerText}
+                    onChange={(e) => setAnswerText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                        handleSubmitAnswer(d.id);
                     }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="success"
-                    disabled={!answerText.trim() || submitting}
-                    onClick={() => handleSubmitAnswer(d.id)}
-                  >
-                    {submitting ? "Submitting…" : "Submit decision"}
-                  </Button>
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setActiveAnswerForm(null);
+                        setAnswerText("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="success"
+                      disabled={!answerText.trim() || submitting}
+                      onClick={() => handleSubmitAnswer(d.id)}
+                    >
+                      {submitting ? "Submitting…" : "Submit decision"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="success"
-                className="w-full"
-                onClick={() => {
-                  setActiveAnswerForm(d.id);
-                  setAnswerText("");
-                }}
-              >
-                Submit your decision
-              </Button>
-            ))}
-
-          {canAsk && !d.decision && (
-            <p className="smalltext text-muted-foreground italic">
-              Awaiting client decision…
-            </p>
-          )}
-        </div>
-      ))}
-
-      {canAsk && (
-        <div className="pt-1">
-          {showNewQuestionForm ? (
-            <div className="flex flex-col gap-2">
-              <textarea
-                className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                rows={3}
-                placeholder="Ask the client a question…"
-                value={questionText}
-                onChange={(e) => setQuestionText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                    handleCreateQuestion();
-                }}
-              />
-              <div className="flex gap-2 justify-end">
+              ) : (
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="success"
+                  className="w-full"
                   onClick={() => {
-                    setShowNewQuestionForm(false);
-                    setQuestionText("");
+                    setActiveAnswerForm(d.id);
+                    setAnswerText("");
                   }}
                 >
-                  Cancel
+                  Submit your decision
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={!questionText.trim() || submitting}
-                  onClick={handleCreateQuestion}
-                >
-                  {submitting ? "Saving…" : "Ask question"}
-                </Button>
-              </div>
-            </div>
-          ) : (
+              ))}
+
+            {!isRequirementUpdate && canAsk && !d.decision && (
+              <p className="smalltext text-muted-foreground italic">
+                Awaiting client decision…
+              </p>
+            )}
+          </div>
+        );
+      })}
+
+      {!showNewQuestionForm && !showNewRequirementForm && (
+        <div className="pt-1 flex flex-col sm:flex-row gap-2">
+          {canAsk && (
             <Button
               size="sm"
               variant="outline"
-              className="w-full"
+              className="flex-1"
               onClick={() => {
                 setShowNewQuestionForm(true);
                 setQuestionText("");
@@ -428,6 +407,94 @@ function DecisionsTab({
               Ask a question
             </Button>
           )}
+          {/* Available to every role — a plain statement, not a question
+              someone needs to answer. */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              setShowNewRequirementForm(true);
+              setRequirementText("");
+            }}
+          >
+            <Pencil className="h-3 w-3 mr-1.5" />
+            Update Requirement
+          </Button>
+        </div>
+      )}
+
+      {canAsk && showNewQuestionForm && (
+        <div className="pt-1">
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              rows={3}
+              placeholder="Ask the client a question…"
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                  handleCreateEntry(questionText, "question");
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowNewQuestionForm(false);
+                  setQuestionText("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!questionText.trim() || submitting}
+                onClick={() => handleCreateEntry(questionText, "question")}
+              >
+                {submitting ? "Saving…" : "Ask question"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewRequirementForm && (
+        <div className="pt-1">
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              rows={3}
+              placeholder="Describe the requirement update…"
+              value={requirementText}
+              onChange={(e) => setRequirementText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
+                  handleCreateEntry(requirementText, "requirement_update");
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowNewRequirementForm(false);
+                  setRequirementText("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!requirementText.trim() || submitting}
+                onClick={() => handleCreateEntry(requirementText, "requirement_update")}
+              >
+                {submitting ? "Saving…" : "Update Requirement"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1582,11 +1649,13 @@ export function IssueDetailModal({
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
-  // no explanation). The count instead flags the Decisions tab itself with
-  // an orange X (see the "warning" prop on its TabButton below).
+  // no explanation). The count instead flags the Clarifications tab itself
+  // with an orange X (see the "warning" prop on its TabButton below).
+  // Requirement updates are statements, not questions — they never get a
+  // `decision` and shouldn't count as "unanswered".
   const unansweredDecisionsCount = loadingDecisions
     ? 0
-    : decisions.filter((d) => d.decision == null).length;
+    : decisions.filter((d) => d.decision == null && d.type !== "requirement_update").length;
 
   // Bug tickets don't go through design — the Design tab isn't relevant for them.
   const isBugIssue =
@@ -1958,7 +2027,7 @@ export function IssueDetailModal({
               row. Forcing the break here instead makes it 3+2. */}
           {isBugIssue && <div className="basis-full sm:hidden" />}
           <TabButton
-            label="Decisions"
+            label="Clarifications"
             tab="decisions"
             activeTab={activeTab}
             onClick={() => setActiveTab("decisions")}

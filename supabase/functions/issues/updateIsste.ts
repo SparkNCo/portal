@@ -228,7 +228,7 @@ export async function handleMarkIssueSeen(req: Request): Promise<Response> {
 
 export async function handleAddComment(req: Request): Promise<Response> {
   const schema = "portal";
-  const { issueId, question, ownerEmail, slug, issueCode, issueType } = await req.json();
+  const { issueId, question, ownerEmail, slug, issueCode, issueType, type } = await req.json();
 
   if (!issueId || !question || !ownerEmail) {
     return Response.json(
@@ -236,6 +236,11 @@ export async function handleAddComment(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
+
+  // 'requirement_update' is a plain statement (no answer flow) — see
+  // 20260921190000_add_type_to_decisions.sql. Anything else falls back to
+  // the original ask/answer 'question' type.
+  const decisionType = type === "requirement_update" ? "requirement_update" : "question";
 
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
   const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -250,7 +255,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
       Prefer: "return=representation",
       "Content-Profile": schema,
     },
-    body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question }),
+    body: JSON.stringify({ issue_id: issueId, owner_email: ownerEmail, question, type: decisionType }),
   });
 
   const data = await res.json();
@@ -264,7 +269,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
     await notifyProject({
       slug,
       actorEmail: ownerEmail,
-      action: "decision_requested",
+      action: decisionType === "requirement_update" ? "requirement_update_added" : "decision_requested",
       objectType: "issue_decision",
       objectId: (data[0] ?? data)?.id ?? issueId,
       link: resolveIssueDashboardLink(slug, issueType),

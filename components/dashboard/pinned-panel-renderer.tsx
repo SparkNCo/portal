@@ -164,6 +164,29 @@ export function PinnedPanelRenderer({
     );
   }
 
+  if (panelId === "build_backlog") {
+    const issues = allIssues
+      .filter((i) => i.state?.name === "Backlog" && matchesSelectedProject(i))
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
+      );
+    return (
+      <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
+        <PriorityTasks
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
+          title="Backlog"
+          slug={slug}
+          compact
+          lightCard
+        />
+      </PinnedPanelShell>
+    );
+  }
+
   if (panelId === "bugs_list") {
     const bugs = allIssues
       .filter(

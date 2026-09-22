@@ -86,6 +86,10 @@ export type Decision = {
   decided_at: string | null;
   posted_to_linear: boolean;
   created_at: string;
+  // 'requirement_update' is a plain statement — no answer flow, posted by
+  // any role. Older rows predate this column, so treat a missing value as
+  // the original 'question' behavior.
+  type?: "question" | "requirement_update";
 };
 
 export type TestStep = { order: number; description: string };
