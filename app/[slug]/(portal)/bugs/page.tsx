@@ -1,7 +1,7 @@
 "use client";
 
 import { Header } from "@/components/headerDashboard";
-import { PriorityTasks } from "@/components/client/priority-tasks";
+import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { BugReportPanel } from "@/components/bugs/bug-report-panel";
 import { LoadingDataPanel } from "@/components/loader";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
@@ -14,11 +14,12 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
+import { API_HEADERS } from "@/lib/api-headers";
 import type { Issue, IssueDetailTab } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { safeDecodeURIComponent } from "@/lib/utils";
@@ -34,11 +35,15 @@ export default function BugsPage() {
 function BugsPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx) — this page fetches every issue (unlike Build's
-  // status-filtered query), so as long as the issue is bug-labeled and not
-  // Done, it'll be here once loading finishes.
+  // status-filtered query), so this usually just works. It can still miss
+  // if the "bug" label got removed or the issue moved to Done after the
+  // notification fired — the fallback query further down covers that case
+  // the same way build/page.tsx does.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below
@@ -76,6 +81,27 @@ function BugsPageContent() {
       (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
       i?.state?.name !== "Done",
   );
+
+  // The deep-linked issue may no longer qualify for this list by the time
+  // it's clicked (its "bug" label got removed, or it moved to Done) even
+  // though the notification was correct when it fired. Once loading
+  // finishes and it's genuinely not shown here, fetch that one issue
+  // directly by id (same lookup EditIssueModal's "similar issue" hint
+  // already uses) and open it in its own modal instead of leaving the deep
+  // link a no-op.
+  const foundInPanel = bugIssues.some((i: any) => i.id === openIssueId);
+  const { data: fallbackIssue } = useQuery({
+    queryKey: ["issue-by-id", openIssueId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${openIssueId}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to fetch issue");
+      return res.json() as Promise<Issue>;
+    },
+    enabled: !!openIssueId && !!issuesData && !foundInPanel,
+  });
 
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
@@ -220,6 +246,15 @@ function BugsPageContent() {
           )}
         </div>
       </div>
+
+      {fallbackIssue && (
+        <IssueDetailModal
+          issue={fallbackIssue}
+          slug={slug}
+          onClose={() => router.replace(pathname)}
+          initialTab={openIssueTab}
+        />
+      )}
 
       {editingIssue && (
         <EditIssueModal
