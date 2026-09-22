@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { escapeIlike } from "./slug.ts";
+import { resolveCustomerUserIdBySlug } from "./slug.ts";
 
 // Bugs and everything else live on different dashboards (see
 // components/sidebar.tsx's "Bugs"/"Build" nav items) — a decision/demo/
@@ -52,11 +52,7 @@ async function upsertUnreadNotification(
 // Fans a project-level event (decision requested/answered, demo uploaded,
 // design resource added) out to everyone assigned to that project — the
 // customer plus every developer/stakeholder in portal.assignments — minus
-// whoever triggered it. Mirrors the same slug -> customer's own users row ->
-// assignments resolution used elsewhere (see
-// supabase/functions/chats/resolveParticipants.ts, getOrCreateIssueGroup.ts's
-// resolveCustomerIdBySlug), but keyed off `clientName` since that's the slug
-// these edge functions already receive from the frontend.
+// whoever triggered it.
 //
 // Best-effort: a failure here is logged and swallowed, same as
 // markIssueUpdated — a broken notification shouldn't fail the decision/demo/
@@ -76,28 +72,13 @@ export async function notifyProject(params: {
   const { slug, actorEmail, action, objectType, objectId, link, preview, issueCode, issueId } = params;
 
   try {
-    const { data: customer, error: customerError } = await supabase.schema(schema)
-      .from("customers")
-      .select("customer_id")
-      .ilike("clientName", escapeIlike(slug))
-      .maybeSingle();
-    if (customerError) throw new Error(customerError.message);
-    if (!customer?.customer_id) return;
+    const customerUserId = await resolveCustomerUserIdBySlug(schema, slug);
+    if (!customerUserId) return;
 
-    const { data: customerUser, error: customerUserError } = await supabase.schema(schema)
-      .from("users")
-      .select("id")
-      .eq("customer_id", customer.customer_id)
-      .eq("role", "customer")
-      .maybeSingle();
-    if (customerUserError) throw new Error(customerUserError.message);
-
-    const { data: assignments, error: assignmentsError } = customerUser?.id
-      ? await supabase.schema(schema)
-          .from("assignments")
-          .select("user_id")
-          .eq("customer_id", customerUser.id)
-      : { data: [], error: null };
+    const { data: assignments, error: assignmentsError } = await supabase.schema(schema)
+      .from("assignments")
+      .select("user_id")
+      .eq("customer_id", customerUserId);
     if (assignmentsError) throw new Error(assignmentsError.message);
 
     const { data: actor } = await supabase.schema(schema)
@@ -107,7 +88,7 @@ export async function notifyProject(params: {
       .maybeSingle();
 
     const recipientIds = new Set<string>();
-    if (customerUser?.id) recipientIds.add(customerUser.id);
+    recipientIds.add(customerUserId);
     (assignments ?? []).forEach((a) => a.user_id && recipientIds.add(a.user_id));
     if (actor?.id) recipientIds.delete(actor.id);
 
