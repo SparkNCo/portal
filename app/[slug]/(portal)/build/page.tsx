@@ -42,9 +42,9 @@ function BuildPageContent() {
   const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx) — only finds the issue if it's currently in
-  // Business Review or UAT, since that's all this page ever fetches (see
-  // the issuesData query below). A notification for an issue in any other
-  // status silently lands here without opening anything.
+  // Business Review, UAT, or Backlog, since that's all this page ever
+  // fetches (see the issuesData query below). A notification for an issue in
+  // any other status silently lands here without opening anything.
   const openIssueId = searchParams.get("issueId");
   const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
   // Aliased — this page already has its own `selectedProject` state below
@@ -127,26 +127,6 @@ function BuildPageContent() {
   const visibleBacklogIssues = selectedProject
     ? backlogIssues.filter((i: any) => i.project?.id === selectedProject)
     : backlogIssues;
-
-  // The deep-linked issue isn't necessarily in Business Review/UAT/Backlog —
-  // a decision/demo/design notification can point at an issue in any status
-  // (In Progress, Todo, Done, ...). Once the three panels above have loaded
-  // and it's genuinely not among them, fetch that one issue directly by id
-  // (same lookup EditIssueModal's "similar issue" hint already uses) and
-  // open it in its own modal instead of leaving the deep link a no-op.
-  const foundInPanels = allIssues.some((i: any) => i.id === openIssueId);
-  const { data: fallbackIssue } = useQuery({
-    queryKey: ["issue-by-id", openIssueId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${openIssueId}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch issue");
-      return res.json() as Promise<Issue>;
-    },
-    enabled: !!openIssueId && !!issuesData && !foundInPanels,
-  });
 
   return (
     <div className="min-h-screen">
