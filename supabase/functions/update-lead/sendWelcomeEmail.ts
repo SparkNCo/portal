@@ -1,8 +1,6 @@
 // @ts-nocheck
-import { Resend } from "https://esm.sh/resend@3";
+import { sendEmail } from "../lib/mailer.ts";
 import { WelcomeProposalTemplateHtml } from "./WelcomeProposalTemplateHtml.ts";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
 
 type SendWelcomeMailParams = {
   email: string;
@@ -32,8 +30,7 @@ export async function sendWelcomeMail({
     callTime,
   });
 
-  const response = await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
+  const response = await sendEmail({
     to: email,
     subject: "Your project proposal is ready 🚀",
     html,

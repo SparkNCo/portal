@@ -1,7 +1,5 @@
 // @ts-nocheck
-import { Resend } from "https://esm.sh/resend@3";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
+import { sendEmail } from "../lib/mailer.ts";
 
 const WelcomeCustomerTemplateHtml = ({ name }: { name: string }) => `
   <html>
@@ -20,8 +18,7 @@ export async function sendWelcomeCustomerMail(email: string, name: string) {
 
   const html = WelcomeCustomerTemplateHtml({ name });
 
-  const response = await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
+  const response = await sendEmail({
     to: email,
     subject: "Welcome to Our Platform 🚀",
     html,
