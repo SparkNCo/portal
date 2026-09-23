@@ -124,7 +124,7 @@ Each document in the response has the same fields as before:
 
 ### Search
 
-A text search box in the card header filters documents by name in real time. No API call is made — filtering is done client-side on the already-loaded list.
+AI-powered (SPA-513-Cycle20): the search box in the card header sends the (debounced, 400ms) query to `GET /storage?...&search={query}` instead of filtering client-side. The backend ranks the permission-scoped document list by similarity against each document's vectorized title/category/content (see "Vector search" below) rather than a plain substring match, then falls back to a plain filename/category substring check for anything the vector index missed (e.g. a document uploaded before this shipped and not yet backfilled). An empty query returns the unfiltered list, same as before.
 
 ### Category filter
 
@@ -136,10 +136,14 @@ Documents are grouped by their `project_slug`. If documents belong to more than 
 
 **Slug → display name** (`slugToInitiativeName`): the folder header shows a human-readable name, not the raw `linear_slug`, resolved from whichever of these has it — the caller's own `assignment_id[].linear_slug → clientName` map, their own `profile.linear_slug → profile.clientName`, or (for admins, since they have neither) the `customers` list passed down from the page. Falls back to the raw slug if none match.
 
+### Vector search
+
+Each document is vectorized on upload (`upsertDocumentVector` in `supabase/functions/lib/vector.ts`) into the same Upstash Vector index issues/tests already use, namespaced by `project_slug` and tagged `type: "document"`. The embedded text is `file_name + category + content`, where `content` is only populated for formats this app already reads as plain text (md/txt/csv/mmd — same set as `PREVIEWABLE_FORMATS` in `document-preview-modal.tsx`); other formats (pdf, docx, images, ...) are searchable by filename/category only, not real extracted text. Deleting a document removes its vector too (`deleteDocumentVectors`). Documents uploaded before this feature shipped have no vector until an admin runs the one-shot backfill (`POST /storage/backfill-vectors`, admin-only, optionally scoped by `project_slug`).
+
 ### Known gaps
 
-- The **Filter** icon button next to Search renders but has no `onClick` — decorative only, not wired to anything yet.
 - The `initiativeId` (`?id=`) query-key inclusion described above doesn't filter results.
+- Category-only edits (`PUT /storage`) don't re-vectorize — a renamed category can go slightly stale in the embedding until the document's content changes too.
 
 ### Document row actions
 

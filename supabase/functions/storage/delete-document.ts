@@ -2,6 +2,7 @@
 
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { deleteDocumentVectors } from "../lib/vector.ts";
 import {
   DeleteDocumentSchema,
   DeleteDocumentResponseSchema,
@@ -71,10 +72,12 @@ export async function deleteDocument(req: Request, schema: string) {
      * ✅ 2. DELETE DOCUMENT
      * ---------------------------------------
      */
-    const { error } = await supabase.schema(schema)
+    const { data: deleted, error } = await supabase.schema(schema)
       .from("documents")
       .delete()
-      .eq("id", document_id);
+      .eq("id", document_id)
+      .select("project_slug")
+      .maybeSingle();
 
     if (error) {
       console.error("[deleteDocument]", error);
@@ -82,6 +85,12 @@ export async function deleteDocument(req: Request, schema: string) {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Best-effort, fire-and-forget — a vector left behind after its document
+    // is gone just means a dead search result someday, not a broken delete.
+    if (deleted?.project_slug && typeof EdgeRuntime !== "undefined") {
+      EdgeRuntime.waitUntil(deleteDocumentVectors(deleted.project_slug, [document_id]));
     }
 
     /**

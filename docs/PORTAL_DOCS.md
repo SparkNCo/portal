@@ -942,13 +942,13 @@ Customers/stakeholders no longer upload directly — they submit a **Document Re
 | `permission` | `"owner"`, `"write"`, or `"read"` |
 | `project_slug` | Groups document under a project folder |
 
-**Search** — real-time text filter on file name (client-side).
+**Search** — AI-powered (SPA-513-Cycle20): debounced query sent to `GET /storage?...&search=`, ranked server-side by vector similarity against each document's vectorized title/category/content (Upstash index, same one issues/tests use, namespaced by `project_slug`), with a plain filename/category substring fallback for anything the vector index missed. See `docs/DOCUMENTS_FLOWS.md` for the full breakdown, including the one-shot admin backfill for documents uploaded before this shipped.
 
 **Category filter** — All / Reports / Technical / Design pills.
 
 **Project grouping** — documents grouped by `project_slug`, header resolved to a human-readable name (from assignment/profile data, or the `customers` list for admins) rather than the raw slug. If 2+ projects, shows collapsible folder headers; if only one, folders hidden.
 
-**Known gaps:** the Filter icon button next to Search has no `onClick` (decorative only); a `?id=` search param is included in the query cache key but doesn't actually filter results.
+**Known gaps:** a `?id=` search param is included in the query cache key but doesn't actually filter results; category-only edits don't re-vectorize the document.
 
 ### 8.4 Document Row Actions
 
