@@ -113,6 +113,19 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 
 ---
 
+### `clientName` vs `linear_slug`
+
+Every customer (`portal.customers`) carries two different identifiers that are easy to conflate:
+
+| Field | What it is | Example | Used for |
+|---|---|---|---|
+| `clientName` | Display name for the initiative, set by whoever created the customer | `Spark-Portal` | Route slugs (`/{clientName}/...`, usually lowercased), UI labels, `?slug=` params on manual-trigger endpoints like `linear-vector-sync` |
+| `linear_slug` | The customer's actual Linear initiative id — Linear's own code for that workspace, not something this app generates | `f12c1e4fa44b` | Scoping data to "this customer's stuff" wherever it has to line up with Linear or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and the Vector Search doc) |
+
+They're resolved separately throughout the app (see §8.1's "Resolving scope" for the Documents panel's version of this) precisely because a page's route slug (`clientName`-based) and the value needed to actually query Linear or a vector store (`linear_slug`) aren't the same string, and one can't be derived from the other — both live on the `customers` row and have to be looked up independently.
+
+---
+
 ---
 
 ## 2. Login & Authentication
