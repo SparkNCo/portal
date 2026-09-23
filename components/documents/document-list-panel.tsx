@@ -13,6 +13,7 @@ import {
   Settings,
   Trash2,
   UserCog,
+  Loader2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -341,7 +342,11 @@ export function DocumentRow({
                     }
                     aria-label={`Delete ${doc.name}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {deleteMutation.isPending && deleteMutation.variables?.document_id === doc.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </Button>
                 )}
 

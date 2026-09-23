@@ -1,4 +1,23 @@
 // @ts-nocheck
+// Every exported function here is a router: it resolves the calling
+// project's vector provider (customers.systems.vector — 'upstash' or
+// 'pgvector', same per-customer-opt-in pattern as systems.chat, see
+// vectorProvider.ts) and delegates to that provider's implementation.
+// Callers outside lib/ never see the split — they still just import
+// upsertIssueVector/queryTopDocumentMatches/etc. from here, unchanged from
+// before this file supported a second provider.
+import { resolveVectorProvider } from "./vectorProvider.ts";
+import {
+  upsertDocumentVectorPg,
+  deleteDocumentVectorsPg,
+  queryTopDocumentMatchesPg,
+  upsertIssueVectorPg,
+  deleteIssueVectorsPg,
+  queryTopIssueMatchesPg,
+  upsertTestVectorPg,
+  queryTopTestMatchesPg,
+} from "./pgvectorClient.ts";
+
 // Upstash Vector client — a single hosted-embedding index shared by issues and test
 // cases (was two separate indexes/accounts; merged to stay on Upstash's free tier).
 // Each vector's `metadata.type` ("issue" | "test-case") is what keeps the two kinds
@@ -95,7 +114,7 @@ export function deriveIssueKind(
 // silently while the caller still marks that window as "done" means the
 // trashed issue's `updatedAt` ages out of the next run's `since` filter and
 // its stale vector never gets retried, ever.
-export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<boolean> {
+async function deleteIssueVectorsUpstash(namespace: string, ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
   try {
     const { url, token } = vectorIndex();
@@ -117,17 +136,26 @@ export async function deleteIssueVectors(namespace: string, ids: string[]): Prom
   }
 }
 
-export async function upsertIssueVector(
+export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<boolean> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? deleteIssueVectorsPg(ids)
+    : deleteIssueVectorsUpstash(namespace, ids);
+}
+
+type IssueVectorInput = {
+  id: string;
+  title: string;
+  description?: string | null;
+  // "bug" | "feature" | null — lets the similar-issues row show the right icon
+  // immediately from the search response, instead of waiting on a follow-up
+  // fetch of the full issue just to read its labels.
+  kind?: "bug" | "feature" | null;
+};
+
+async function upsertIssueVectorUpstash(
   namespace: string,
-  issue: {
-    id: string;
-    title: string;
-    description?: string | null;
-    // "bug" | "feature" | null — lets the similar-issues row show the right icon
-    // immediately from the search response, instead of waiting on a follow-up
-    // fetch of the full issue just to read its labels.
-    kind?: "bug" | "feature" | null;
-  },
+  issue: IssueVectorInput,
 ): Promise<boolean> {
   try {
     const { url, token } = vectorIndex();
@@ -168,7 +196,14 @@ export async function upsertIssueVector(
   }
 }
 
-export async function upsertTestVector(
+export async function upsertIssueVector(namespace: string, issue: IssueVectorInput): Promise<boolean> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? upsertIssueVectorPg(namespace, issue)
+    : upsertIssueVectorUpstash(namespace, issue);
+}
+
+async function upsertTestVectorUpstash(
   namespace: string,
   test: { id: string; title: string; steps: { order: number; description: string }[] },
 ): Promise<void> {
@@ -188,6 +223,17 @@ export async function upsertTestVector(
   }
 }
 
+type TestVectorInput = { id: string; title: string; steps: { order: number; description: string }[] };
+
+export async function upsertTestVector(namespace: string, test: TestVectorInput): Promise<void> {
+  const provider = await resolveVectorProvider(namespace);
+  if (provider === "pgvector") {
+    await upsertTestVectorPg(namespace, test);
+  } else {
+    await upsertTestVectorUpstash(namespace, test);
+  }
+}
+
 // Below this length, a query reads as a short/generic term (e.g. "roadmap")
 // rather than an actual description — its embedding sits much closer to
 // another short title than to a long title+description document's averaged-
@@ -198,13 +244,10 @@ export async function upsertTestVector(
 // matched against the fuller combined vector instead, same as before.
 const TITLE_ONLY_QUERY_MAX_LENGTH = 15;
 
-export async function queryTopIssueMatches(
+async function queryTopIssueMatchesUpstash(
   namespace: string,
   queryText: string,
   topK = 3,
-  // Scopes the similar-issues hint to just bugs (on the Report a Bug panel) or just
-  // features (on Request a Feature), so a feature request never surfaces a bug as its
-  // "similar ticket" or vice versa. Omit to search across both.
   kind?: "bug" | "feature",
 ): Promise<VectorMatch[]> {
   try {
@@ -230,6 +273,21 @@ export async function queryTopIssueMatches(
   }
 }
 
+// Scopes the similar-issues hint to just bugs (on the Report a Bug panel) or just
+// features (on Request a Feature), so a feature request never surfaces a bug as its
+// "similar ticket" or vice versa. Omit to search across both.
+export async function queryTopIssueMatches(
+  namespace: string,
+  queryText: string,
+  topK = 3,
+  kind?: "bug" | "feature",
+): Promise<VectorMatch[]> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? queryTopIssueMatchesPg(namespace, queryText, topK, kind)
+    : queryTopIssueMatchesUpstash(namespace, queryText, topK, kind);
+}
+
 // SPA-513-Cycle20: "Use vectors for document search" — same Upstash index,
 // namespaced the same way (project_slug, which is the same value as the
 // linear_slug issues/tests already use), just a third `type`. Vector id is
@@ -245,14 +303,16 @@ export async function queryTopIssueMatches(
 // diagram" matches on the filename/category embedding), just not as rich as
 // a real full-text extraction would be — a reasonable place to stop for a
 // first pass built entirely on infrastructure this app already has.
-export async function upsertDocumentVector(
+type DocumentVectorInput = {
+  id: number | string;
+  file_name: string;
+  category?: string | null;
+  content?: string | null;
+};
+
+async function upsertDocumentVectorUpstash(
   namespace: string,
-  doc: {
-    id: number | string;
-    file_name: string;
-    category?: string | null;
-    content?: string | null;
-  },
+  doc: DocumentVectorInput,
 ): Promise<boolean> {
   try {
     const { url, token } = vectorIndex();
@@ -269,7 +329,14 @@ export async function upsertDocumentVector(
   }
 }
 
-export async function deleteDocumentVectors(namespace: string, ids: (number | string)[]): Promise<boolean> {
+export async function upsertDocumentVector(namespace: string, doc: DocumentVectorInput): Promise<boolean> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? upsertDocumentVectorPg(namespace, doc)
+    : upsertDocumentVectorUpstash(namespace, doc);
+}
+
+async function deleteDocumentVectorsUpstash(namespace: string, ids: (number | string)[]): Promise<boolean> {
   if (ids.length === 0) return true;
   try {
     const { url, token } = vectorIndex();
@@ -287,7 +354,14 @@ export async function deleteDocumentVectors(namespace: string, ids: (number | st
   }
 }
 
-export async function queryTopDocumentMatches(
+export async function deleteDocumentVectors(namespace: string, ids: (number | string)[]): Promise<boolean> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? deleteDocumentVectorsPg(ids)
+    : deleteDocumentVectorsUpstash(namespace, ids);
+}
+
+async function queryTopDocumentMatchesUpstash(
   namespace: string,
   queryText: string,
   topK = 20,
@@ -307,7 +381,18 @@ export async function queryTopDocumentMatches(
   }
 }
 
-export async function queryTopTestMatches(
+export async function queryTopDocumentMatches(
+  namespace: string,
+  queryText: string,
+  topK = 20,
+): Promise<VectorMatch[]> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? queryTopDocumentMatchesPg(namespace, queryText, topK)
+    : queryTopDocumentMatchesUpstash(namespace, queryText, topK);
+}
+
+async function queryTopTestMatchesUpstash(
   namespace: string,
   queryText: string,
   topK = 3,
@@ -325,4 +410,15 @@ export async function queryTopTestMatches(
     console.error("[queryTopTestMatches] failed:", err);
     return [];
   }
+}
+
+export async function queryTopTestMatches(
+  namespace: string,
+  queryText: string,
+  topK = 3,
+): Promise<VectorMatch[]> {
+  const provider = await resolveVectorProvider(namespace);
+  return provider === "pgvector"
+    ? queryTopTestMatchesPg(namespace, queryText, topK)
+    : queryTopTestMatchesUpstash(namespace, queryText, topK);
 }
