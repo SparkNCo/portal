@@ -140,7 +140,24 @@ export async function getStorageData(req: Request, schema: string) {
      * ---------------------------------------
      */
     if (search && project_slug) {
-      const matches = await queryTopDocumentMatches(project_slug, search, documents.length || 20);
+      // Un-thresholded, `queryTopDocumentMatches` just returns every
+      // vectorized document ranked by similarity, up to `documents.length`
+      // — with only a handful of documents in a project, that's "return
+      // everything, just reordered," so any two searches look like they hit
+      // the same result set regardless of relevance. This cutoff drops
+      // genuinely-unrelated matches instead of always filling out the list.
+      //
+      // Calibrated against real pgvector/gte-small scores (not Upstash's
+      // mxbai-embed-large-v1, which may score differently): 4 short/similar
+      // technical documents (CSVs/mmd about the same test dataset) scored
+      // 0.79-0.82 for an unrelated-ish query — gte-small compresses cosine
+      // similarity into a narrow high band for short domain-specific text,
+      // so a loose floor like 0.3 never cuts anything. 0.8 is still a rough
+      // first pass, not a universal constant — revisit if a genuinely
+      // varied document set still over- or under-matches.
+      const MIN_DOCUMENT_SIMILARITY = 0.8;
+      const allMatches = await queryTopDocumentMatches(project_slug, search, documents.length || 20);
+      const matches = allMatches.filter((m) => m.score >= MIN_DOCUMENT_SIMILARITY);
       const rank = new Map(matches.map((m, i) => [String(m.id), i]));
       const byId = new Map(documents.map((d) => [String(d.id), d]));
 
