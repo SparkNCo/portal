@@ -1,7 +1,5 @@
 // @ts-nocheck
-import { Resend } from "https://esm.sh/resend@3";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
+import { sendEmail } from "../lib/mailer.ts";
 
 type SendAdminMailParams = {
   email: string;
@@ -118,8 +116,7 @@ export async function sendAdminNotificationMail({
 
   const html = AdminNotificationTemplateHtml({ proposalLink });
 
-  const response = await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
+  const response = await sendEmail({
     to: email,
     subject: "New proposal ready for review 🚀",
     html,
