@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { queryTopDocumentMatches } from "../lib/vector.ts";
 
 export async function getStorageData(req: Request, schema: string) {
   try {
@@ -14,6 +15,12 @@ export async function getStorageData(req: Request, schema: string) {
     const user_id = searchParams.get("user_id");
     const category = searchParams.get("category") ?? undefined;
     const project_slug = searchParams.get("project_slug") ?? undefined;
+    // SPA-513-Cycle20: AI document search — free-text query, matched against
+    // each document's vectorized title/category/content (see
+    // upsertDocumentVector). Needs project_slug as the vector namespace;
+    // without one there's nothing to search against and this silently no-ops
+    // below rather than erroring, so the panel still just shows everything.
+    const search = searchParams.get("search")?.trim() || undefined;
     // The actual logged-in caller — distinct from `user_id` above, which is
     // *whose* document_permissions rows to scope by (the previewed customer,
     // when an admin/developer is browsing someone else's dashboard — see
@@ -113,7 +120,7 @@ export async function getStorageData(req: Request, schema: string) {
      * ✅ 3. Flatten result
      * ---------------------------------------
      */
-    const documents = (data || []).map((doc) => ({
+    let documents = (data || []).map((doc) => ({
       id: doc.id,
       file_name: doc.file_name,
       link: doc.link,
@@ -123,6 +130,47 @@ export async function getStorageData(req: Request, schema: string) {
       project_slug: doc.project_slug,
       permission: permissionMap.get(doc.id) ?? null,
     }));
+
+    /**
+     * ---------------------------------------
+     * ✅ 3b. AI search — rank by vector similarity, keeping every document
+     * this caller already has permission to see (queried above) as the
+     * universe; the vector index is only ever used to re-order/filter that
+     * set, never to surface a document outside it.
+     * ---------------------------------------
+     */
+    if (search && project_slug) {
+      const matches = await queryTopDocumentMatches(project_slug, search, documents.length || 20);
+      const rank = new Map(matches.map((m, i) => [String(m.id), i]));
+      const byId = new Map(documents.map((d) => [String(d.id), d]));
+
+      const ranked = matches
+        .map((m) => byId.get(String(m.id)))
+        .filter((d): d is (typeof documents)[number] => Boolean(d));
+
+      // The vector index can miss a real filename/category match (e.g. a
+      // document uploaded before this feature existed, or one whose content
+      // extraction wasn't available) — falling back to a plain substring
+      // check over whatever the ranked results didn't already cover keeps
+      // search from silently regressing to "no results" for those.
+      const searchLower = search.toLowerCase();
+      const keywordFallback = documents.filter(
+        (d) =>
+          !rank.has(String(d.id)) &&
+          (d.file_name?.toLowerCase().includes(searchLower) ||
+            d.category?.toLowerCase().includes(searchLower)),
+      );
+
+      documents = [...ranked, ...keywordFallback];
+    } else if (search) {
+      const searchLower = search.toLowerCase();
+      documents = documents.filter(
+        (d) =>
+          d.file_name?.toLowerCase().includes(searchLower) ||
+          d.category?.toLowerCase().includes(searchLower),
+      );
+    }
+
     /**
      * ---------------------------------------
      * ✅ 4. Response (no validation)

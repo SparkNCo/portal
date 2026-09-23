@@ -230,6 +230,83 @@ export async function queryTopIssueMatches(
   }
 }
 
+// SPA-513-Cycle20: "Use vectors for document search" — same Upstash index,
+// namespaced the same way (project_slug, which is the same value as the
+// linear_slug issues/tests already use), just a third `type`. Vector id is
+// `documents.id` (a bigint PK, not a uuid) stringified, so a re-upload/edit
+// upserts in place the same way issue/test ids do.
+//
+// `content` is only ever populated for the text-based formats this app
+// already knows how to read as plain text (see PREVIEWABLE_FORMATS in
+// components/documents/document-preview-modal.tsx — md/txt/csv/mmd): for
+// anything else (pdf, docx, images, ...) there's no in-process way to
+// extract text here, so the vector falls back to just file_name + category.
+// Still useful for search (a customer typing "invoice" or "architecture
+// diagram" matches on the filename/category embedding), just not as rich as
+// a real full-text extraction would be — a reasonable place to stop for a
+// first pass built entirely on infrastructure this app already has.
+export async function upsertDocumentVector(
+  namespace: string,
+  doc: {
+    id: number | string;
+    file_name: string;
+    category?: string | null;
+    content?: string | null;
+  },
+): Promise<boolean> {
+  try {
+    const { url, token } = vectorIndex();
+    const data = [doc.file_name, doc.category, doc.content].filter(Boolean).join("\n\n");
+    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
+      id: String(doc.id),
+      data,
+      metadata: { type: "document", document_id: String(doc.id), file_name: doc.file_name },
+    });
+    return true;
+  } catch (err) {
+    console.error("[upsertDocumentVector] failed (non-fatal):", err);
+    return false;
+  }
+}
+
+export async function deleteDocumentVectors(namespace: string, ids: (number | string)[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  try {
+    const { url, token } = vectorIndex();
+    await upstashRequest(
+      url,
+      token,
+      `/delete/${normalizeNamespace(namespace)}`,
+      { ids: ids.map(String) },
+      "DELETE",
+    );
+    return true;
+  } catch (err) {
+    console.error("[deleteDocumentVectors] failed (non-fatal):", err);
+    return false;
+  }
+}
+
+export async function queryTopDocumentMatches(
+  namespace: string,
+  queryText: string,
+  topK = 20,
+): Promise<VectorMatch[]> {
+  try {
+    const { url, token } = vectorIndex();
+    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
+      data: queryText,
+      topK,
+      includeMetadata: true,
+      filter: "type = 'document'",
+    });
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error("[queryTopDocumentMatches] failed:", err);
+    return [];
+  }
+}
+
 export async function queryTopTestMatches(
   namespace: string,
   queryText: string,
