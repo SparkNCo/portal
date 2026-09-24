@@ -1911,7 +1911,10 @@ export function IssueDetailModal({
           </button>
         )}
 
-        <DialogHeader className="pt-4 pr-20 flex-shrink-0">
+        {/* Left-aligned at every width — only the tab bar below is meant to
+            center on mobile; DialogHeader's own base classes default to
+            text-center below sm, which this overrides. */}
+        <DialogHeader className="pt-4 pr-20 flex-shrink-0 text-left">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="smalltext font-mono text-muted-foreground">
@@ -2070,11 +2073,15 @@ export function IssueDetailModal({
             )}
 
             {currentStateName === "UAT" && (
-              <div className="flex gap-2 pt-3">
+              // -mr-20 cancels DialogHeader's pr-20 (reserved for the edit/
+              // expand/close icons up in the top-right corner, irrelevant by
+              // this row) below sm, so the two buttons reach the same right
+              // margin as everything else instead of stopping short of it.
+              <div className="flex gap-2 pt-3 -mr-20 sm:mr-0">
                 <Button
                   size="sm"
                   variant="success"
-                  className="smalltext"
+                  className="smalltext flex-1 sm:flex-none"
                   disabled={advancing}
                   onClick={() => handleAdvanceState("Done")}
                 >
@@ -2084,7 +2091,7 @@ export function IssueDetailModal({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="smalltext"
+                  className="smalltext flex-1 sm:flex-none"
                   disabled={advancing}
                   onClick={() => handleAdvanceState("QA")}
                 >
