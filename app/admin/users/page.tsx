@@ -21,8 +21,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -596,13 +594,6 @@ export default function AdminUsersPage() {
                                     className="w-60"
                                     onClick={(e) => e.stopPropagation()}
                                   >
-                                    <DropdownMenuLabel
-                                      title={u.email}
-                                      className="smalltext font-normal text-muted-foreground truncate"
-                                    >
-                                      Account email for {u.email}
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       className="gap-2 smalltext"
                                       onClick={() =>
