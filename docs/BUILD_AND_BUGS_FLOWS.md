@@ -119,7 +119,7 @@ Because `FilterState` fields are optional, each page only needs to supply the fi
 
 ## Recently Updated badge
 
-A small **orange message-icon badge** appears on an issue card (top-right corner on the grid `IssueCard`, left of the branch tag on the compact `IssueListRow`) whenever the issue changed — an edit, a new/answered Decision, a new Test, a Design resource, or a Demo video/comment — since *that specific viewer* last opened it. Each member of the initiative gets their own read state; one person opening the issue does not clear it for anyone else.
+A small **orange message-icon badge** appears on an issue card (top-right corner on the grid `IssueCard`, left of the branch tag on the compact `IssueListRow`) whenever the issue changed — an edit, a new/answered question or requirement update on the Clarifications tab, a new Test, a Design resource, or a Demo video/comment — since *that specific viewer* last opened it. Each member of the initiative gets their own read state; one person opening the issue does not clear it for anyone else.
 
 **Backed by two tables:**
 

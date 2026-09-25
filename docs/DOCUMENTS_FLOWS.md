@@ -62,9 +62,10 @@ Customers/stakeholders no longer upload documents directly — they **request** 
 ### 1. Requesting (customer/stakeholder)
 
 1. Click **"Request Report or Documentation"** → `RequestDocumentDialog`.
-2. Fill in title (required), an optional project (from `fetchProjects(customerSlug)`, the same Linear-projects lookup Feature Request uses), an optional link to a past request of their own, and optional free-text details.
-3. `POST /document-requests` with `{ customerSlug, requestedBy, title, description?, projectId?, projectName?, relatedRequestId? }`.
-4. Appears immediately in their own `DocumentRequestsList` under **"Document Requests"** (pending).
+2. Fill in title (required), an optional project (from `fetchProjects(customerSlug)`, the same Linear-projects lookup Feature Request uses), an optional link to a past request of their own, and optional details in a `RichTextEditor` (Tiptap, markdown-backed — same component used elsewhere in the app).
+3. The dialog can be expanded to a larger size (`ExpandableDialogChrome`'s enlarge toggle) for more room to write, e.g. on a long description.
+4. `POST /document-requests` with `{ customerSlug, requestedBy, title, description?, projectId?, projectName?, relatedRequestId? }`.
+5. Appears immediately in their own `DocumentRequestsList` under **"Document Requests"** (pending). Developers/admins assigned to that customer (plus every admin) get notified (`notifyProject`, `action: "document_request_created"`), landing them on `/{slug}/documents`.
 
 ### 2. Viewing requests — `DocumentRequestsList`
 
@@ -72,7 +73,7 @@ Two panels, each paginated 3-at-a-time with a "Show More" button:
 - **"Document Requests"** — pending requests.
 - **"Documents Received"** — done requests.
 
-Clicking a row opens a read-only detail modal (title, status, project, related request if any, requester + date, and completion info once done). Requests are fetched via `useDocumentRequests(customerSlug)` — Supabase queried directly from the client (`portal.document_requests`, no edge function for reads), optionally filtered by `customer_slug`.
+Clicking a row opens a detail modal (title, status, project, related request if any, requester + date, and completion info once done), description rendered as markdown (`ReactMarkdown` + `remarkBreaks`) since it's authored with the rich-text editor. The modal supports the same enlarge toggle as the request dialog. Requests are fetched via `useDocumentRequests(customerSlug)` — Supabase queried directly from the client (`portal.document_requests`, no edge function for reads), optionally filtered by `customer_slug`.
 
 **Scoping differs from the documents list above:**
 - Customer/stakeholder: their own customer's requests only (`customerSlug` = the resolved `slug`).
@@ -95,6 +96,17 @@ Clicking a row opens a read-only detail modal (title, status, project, related r
 **Releasing a claim:** `PATCH /document-requests { action: "release", id, releasedBy }` clears `claimed_by`/`claimed_at` on a still-`pending` request. Two paths trigger it:
 - **Automatic** — cancelling `FulfillDocumentRequestModal` (Cancel/X) on a request the current user claimed themselves releases it immediately, so backing out of an upload doesn't leave the request stuck claimed forever.
 - **Admin-only "Unassign" button** — shown on a request claimed by *someone else*, for when a developer claims a request and never follows through. `releaseDocumentRequest` only allows clearing someone else's claim when the caller is an `admin`; anyone else can only release their own.
+
+### 4. Editing or deleting your own request (requester only)
+
+Pencil (edit) and Trash2 (delete) icon buttons appear on a request row **only when all of these hold**:
+- `request.requested_by === profile.email` — the current user is the one who originally created it. **No admin bypass** — unlike completing a claimed request or releasing someone else's claim (both above), an admin cannot edit or delete another customer's request.
+- `request.status !== "done"` — once fulfilled, the document was already delivered against whatever the request said at the time, so there's nothing left to usefully change or remove.
+- `!request.claimed_by` — once a developer has claimed it, editing out from under them (or deleting it) would leave them working off a version that quietly changed or vanished mid-claim. The requester has to wait for a release/unassign first.
+
+**Edit:** clicking Pencil reopens `RequestDocumentDialog` in edit mode (`editingRequest` prop), prefilled with the existing title/description/project/related request, same rich-text description field and enlarge toggle as creating a new one. Saving calls `PATCH /document-requests { action: "edit", id, editedBy, title, description?, projectId?, projectName?, relatedRequestId? }`. The backend (`editDocumentRequest.ts`) re-checks the same three conditions server-side (`403` if not the requester, `400` if done or claimed) — the UI hides the button, but the API doesn't trust that alone.
+
+**Delete:** clicking Trash2 opens a confirmation dialog ("Delete Request? This can't be undone."). Confirming calls `PATCH /document-requests { action: "delete", id, deletedBy }`. The backend (`deleteDocumentRequest.ts`) applies the same guards, then nulls out `related_request_id` on any other request that pointed at this one (no FK to cascade it — it's a plain column) before deleting the row.
 
 ---
 
@@ -138,7 +150,7 @@ Documents are grouped by their `project_slug`. If documents belong to more than 
 
 ### Vector search
 
-Each document is vectorized on upload (`upsertDocumentVector` in `supabase/functions/lib/vector.ts`) into the same Upstash Vector index issues/tests already use, namespaced by `project_slug` and tagged `type: "document"`. The embedded text is `file_name + category + content`, where `content` is only populated for formats this app already reads as plain text (md/txt/csv/mmd — same set as `PREVIEWABLE_FORMATS` in `document-preview-modal.tsx`); other formats (pdf, docx, images, ...) are searchable by filename/category only, not real extracted text. Deleting a document removes its vector too (`deleteDocumentVectors`). Documents uploaded before this feature shipped have no vector until an admin runs the one-shot backfill (`POST /storage/backfill-vectors`, admin-only, optionally scoped by `project_slug`).
+Each document is vectorized on upload (`upsertDocumentVector` in `supabase/functions/lib/vector.ts`), routed to whichever vector provider this customer is on — Upstash (default) or pgvector, via `customers.systems.vector` — namespaced/scoped by `project_slug`. On Upstash it's a third `type: "document"` in the same index issues/tests already use; on pgvector it's an `embedding` column on `portal.documents` itself, matched via the `match_documents` RPC. Either way the embedded text is `file_name + category + content`, where `content` is only populated for formats this app already reads as plain text (md/txt/csv/mmd — same set as `PREVIEWABLE_FORMATS` in `document-preview-modal.tsx`); other formats (pdf, docx, images, ...) are searchable by filename/category only, not real extracted text. Deleting a document removes its vector too (`deleteDocumentVectors`). Documents uploaded before this feature shipped have no vector until an admin runs the one-shot backfill (`POST /storage/backfill-vectors`, admin-only, optionally scoped by `project_slug`). See `FEATURES_FLOWS.md` §8 ("Vector provider: Upstash vs. pgvector") for the full provider write-up, including how similarity thresholds are calibrated per provider.
 
 ### Known gaps
 
@@ -272,10 +284,12 @@ User lands on /{slug}/documents or /dev/documents
           │     → POST /storage (multipart) → status tracked per file
           │
           └── Document Requests (independent of the list above):
-                ├── POST /document-requests → new pending request
+                ├── POST /document-requests → new pending request → notifies assigned developers + admins
                 ├── PATCH /document-requests { action: "claim" } → optimistic lock, 409 if already claimed
                 ├── PATCH /document-requests { action: "release" } → clears the claim (self, or admin on anyone's)
-                └── Fulfill: POST /storage (upload) → POST /storage/share (deliver) → PATCH /document-requests (mark done)
+                ├── Fulfill: POST /storage (upload) → POST /storage/share (deliver) → PATCH /document-requests (mark done)
+                ├── PATCH /document-requests { action: "edit" } → requester only, unclaimed + not done, no admin bypass
+                └── PATCH /document-requests { action: "delete" } → requester only, unclaimed + not done, no admin bypass
 ```
 
 ---
@@ -292,12 +306,14 @@ User lands on /{slug}/documents or /dev/documents
 | `components/documents/upload-document.tsx` | Upload panel with drag & drop and file picker (developer/admin only) |
 | `components/documents/update-document-entry.ts` | `useUpdateDocument` (category change) and `useDeleteDocument` mutations |
 | `components/documents/use-document-requests.ts` | Shared `useDocumentRequests` hook + `DocumentRequest` type |
-| `components/documents/request-document-dialog.tsx` | Customer/stakeholder "Request Report or Documentation" dialog |
-| `components/documents/document-requests-list.tsx` | Pending/done request panels, detail modal, claim button, admin-only "Unassign" button |
+| `components/documents/request-document-dialog.tsx` | Customer/stakeholder "Request Report or Documentation" dialog — also doubles as the edit dialog (`editingRequest` prop), rich-text description (`RichTextEditor`), enlarge toggle (`ExpandableDialogChrome`) |
+| `components/documents/document-requests-list.tsx` | Pending/done request panels, detail modal (markdown description), claim button, admin-only "Unassign" button, requester-only Edit/Delete buttons + delete confirmation dialog |
 | `components/documents/developer-document-requests.tsx` | Role gate + scoping wrapper around `DocumentRequestsList` for developer/admin |
 | `components/documents/fulfill-document-request-modal.tsx` | Upload-and-share-in-one-step modal used to fulfill a claimed request |
-| `supabase/functions/document-requests/index.ts` | Router — `POST` create, `PATCH` claim/release/complete |
-| `supabase/functions/document-requests/createDocumentRequest.ts` | Inserts a new pending request |
+| `supabase/functions/document-requests/index.ts` | Router — `POST` create, `PATCH` claim/release/edit/delete/complete |
+| `supabase/functions/document-requests/createDocumentRequest.ts` | Inserts a new pending request, notifies assigned developers + admins |
 | `supabase/functions/document-requests/claimDocumentRequest.ts` | Optimistic claim (`WHERE status='pending' AND claimed_by IS NULL`) |
 | `supabase/functions/document-requests/releaseDocumentRequest.ts` | Clears a claim — self always allowed, someone else's only if caller is `admin` |
+| `supabase/functions/document-requests/editDocumentRequest.ts` | Updates title/description/project/related request — requester only, unclaimed + not done, no admin bypass |
+| `supabase/functions/document-requests/deleteDocumentRequest.ts` | Deletes the request (nulling any `related_request_id` pointing at it) — same guards as edit |
 | `supabase/functions/document-requests/markDocumentRequestDone.ts` | Marks done; blocks non-claimer/non-admin completion |

@@ -79,7 +79,7 @@ Backlog → Planning → Business Review → Development → QA → UAT → Done
 
 Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control. State only changes at these specific points, available to every role:
 
-- **Business Review → Development**: a **"Complete Review"** button appears once every question in the Decisions tab has an answer (or none were asked yet — `reviewComplete`).
+- **Business Review → Development**: a **"Complete Review"** button. It stays available even with open questions — blocking it entirely was confusing, since adding a question would make the button vanish with no explanation — but the Clarifications tab itself shows a warning icon while any question is unanswered (`unansweredDecisionsCount`; requirement updates are excluded from that count, since they're statements, not questions).
 - **UAT → Done / QA**: two buttons appear while the issue is in UAT — **"Approved"** (→ `Done`) and **"Fixes Required"** (→ back to `QA`).
 - **Done → Development**: a **"Move back to Development"** button reopens a completed issue.
 
@@ -109,7 +109,7 @@ Allowed for:
 1. Opens an issue → **Tests** tab → **+ Add test case**, which opens `TestPicker`.
 2. Typing 10+ characters searches two lists in parallel:
    - **Existing tests** — a plain title search (`ILIKE`), scoped to the ticket's `project_slug`.
-   - **Similar tests** — semantic search over an Upstash Vector index, debounced 3s after typing stops, only surfacing matches scoring ≥ 0.7.
+   - **Similar tests** — semantic search debounced 3s after typing stops, backed by whichever vector provider this customer is on (Upstash or pgvector — see "Vector provider: Upstash vs. pgvector" under §8 below). The backend only returns matches scoring ≥ 0.8 (`SIMILARITY_THRESHOLD_BY_PROVIDER` in `tests/index.ts`, same for both providers); the frontend also filters at a legacy ≥ 0.7 (`SIMILARITY_THRESHOLD` in `test-picker.tsx`), which is a no-op today since nothing the backend returns ever scores below 0.8 anyway.
 3. **Picking an existing test** pre-fills "Expected" from the most recent execution of that same test on any other ticket (`GET /test-executions?test_id=`), and lets the steps be edited inline **only if the test has never passed on another ticket** (`last_passed_execution_id` is null — once a test has passed somewhere, its steps become read-only everywhere, protecting a certified "recipe"). Attaching calls `POST /test-executions` with `{ test_id, issue_id, expected, created_by }`, plus `PATCH /tests/update` first if the steps were actually edited.
 4. **Typing a name with no matching test** and choosing "Create new test" instead opens a title/steps/expected form. Submitting calls `POST /tests` with `{ project_slug, title, steps, created_by }` to create the reusable definition, then `POST /test-executions` to attach it — same as step 3.
 5. Either way, the execution is created with status **`draft`**.
@@ -163,28 +163,40 @@ draft → approved → passed
 
 ---
 
-## 4. Questions & Decisions
+## 4. Clarifications (Questions & Requirement Updates)
 
-**Where:** Decisions tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DecisionsTab`).
+**Where:** **Clarifications** tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DecisionsTab` — the component/prop names and the underlying `portal.decisions` table keep the older "decision" name; only the tab label and its user-facing copy changed).
 
-Decisions data is fetched from Supabase `decisions` table on modal open.
+Data is fetched from Supabase's `decisions` table on modal open. Every row still has one of two `type`s (`20260921190000_add_type_to_decisions.sql`):
+
+- **`question`** — the original ask/answer flow (4a/4b below).
+- **`requirement_update`** — a plain statement, added via the **"Update Requirement"** button. It never gets an answer: no "Submit your decision" form renders for it, it's excluded from `unansweredDecisionsCount` (so it never trips the tab's warning icon or blocks "Complete Review"), and it can't be deleted (the delete button in 4a only ever renders for `question` rows). Available to **every role**, not gated behind `canAsk`/`canAnswer` — anyone can leave a "here's what actually changed" note without it turning into a question someone has to formally answer.
 
 ### 4a. Developer asks a question
 
-1. Developer opens an issue → **Decisions** tab → **"Ask a question"**.
+1. Developer/admin opens an issue → **Clarifications** tab → **"Ask a question"**.
 2. Types the question, submits with the button or `Cmd/Ctrl + Enter`.
-3. `POST /issues` is called with `{ issueId, question, ownerEmail }`.
-4. The new decision appears in the list with no answer yet.
+3. `POST /issues` is called with `{ issueId, question, ownerEmail, type: "question" }` (`handleAddComment`, `supabase/functions/issues/updateIsste.ts`).
+4. The new question appears in the list with no answer yet. Notifies the project as `decision_requested`.
+
+**Deleting a question** (admin/developer only, and only while it has no answer yet — `handleDeleteDecision` enforces both server-side): a trash icon next to the question. `DELETE /issues/decision` with `{ decisionId, requesterEmail }`; `409` if it's already been answered.
 
 ### 4b. Customer answers
 
-1. Customer opens the same issue → **Decisions** tab.
+1. Customer/stakeholder/admin opens the same issue → **Clarifications** tab.
 2. Sees unanswered questions each with a **"Submit your decision"** button.
 3. Clicks it, types their decision, submits with the button or `Cmd/Ctrl + Enter`.
 4. `PATCH /issues/decision` is called with `{ decisionId, decision, decisionEmail }`.
-5. The decision body, email, and timestamp appear under the question.
+5. The decision body, email, and timestamp appear under the question. Notifies the project as `decision_answered`.
 
-**Unread badge:** When an issue has unanswered decisions the question count shows as a badge on the issue card. Opening the modal automatically calls `POST /decisions/read`, which clears the badge locally via `locallyRead` state in `PriorityTasks`.
+### 4c. Posting a requirement update (any role)
+
+1. Anyone opens an issue → **Clarifications** tab → **"Update Requirement"**.
+2. Types a plain-text description of what changed, submits with the button or `Cmd/Ctrl + Enter`.
+3. `POST /issues` is called the same way as 4a, but with `type: "requirement_update"`.
+4. It appears in the list immediately, labeled "Requirement Update" instead of "Question" — no answer form, no delete button, and it doesn't count toward the unanswered badge. Notifies the project as `requirement_update_added` (`FileEdit` icon, "posted a requirement update" — see `NotificationBell.tsx`).
+
+**Unread badge:** When an issue has unanswered *questions* (requirement updates excluded) the count shows as a badge on the issue card. Opening the modal automatically calls `POST /decisions/read`, which clears the badge locally via `locallyRead` state in `PriorityTasks`.
 
 ---
 
@@ -208,7 +220,7 @@ Each issue has its own CometChat **group** keyed to a deterministic GUID (`issue
 
 **Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
 
-> The **Design** tab is hidden for Bug issues (`isBugIssue`, computed from `issue.labels.nodes` containing a label named "bug") — design resources/diagrams aren't relevant to a bug ticket, so the tab bar only shows Description / Chat / Tests / Decisions / Demo for those. **Demo** (section 7) shows for both bugs and features — a bug fix can have a walkthrough video too.
+> The **Design** tab is hidden for Bug issues (`isBugIssue`, computed from `issue.labels.nodes` containing a label named "bug") — design resources/diagrams aren't relevant to a bug ticket, so the tab bar only shows Description / Chat / Tests / Clarifications / Demo for those. **Demo** (section 7) shows for both bugs and features — a bug fix can have a walkthrough video too.
 
 The tab has two independent sections, stacked top to bottom: **Design Resources** (external Figma/v0 links, per issue) and **Mermaid diagrams** (versioned per service, see 6b onward). Neither depends on the other.
 
@@ -371,37 +383,73 @@ Shown as a non-blocking "Similar existing tickets" hint under the title field wh
 
 1. Nothing happens until the typed title reaches `MIN_QUERY_LENGTH` (7 characters) — too little text isn't meaningful to embed.
 2. After a **3 second debounce** (`DEBOUNCE_MS`) with no further typing, `GET /issues/similar?slug={slug}&q={title}&kind={bug|feature}` fires.
-3. Results are filtered client-side to `score >= 0.7` (`SIMILARITY_THRESHOLD`) — calibrated against the live index back when every issue had a single title+description vector, where an exact-duplicate title scored ~0.858 (diluted by the description) and close paraphrases landed ~0.74-0.76. Scores run higher for the title-only vector path (see below) since there's no long description to dilute the comparison, so 0.7 still clears real matches there without needing a separate threshold. A project with few tickets of that `kind` will still return Upstash's "closest available" top-3 even when none are truly similar — the threshold is what suppresses that noise, not the query itself.
+3. Results are filtered server-side to a per-provider threshold (see "Similarity thresholds" below) — the frontend just renders whatever comes back, it no longer applies its own cutoff.
 4. Up to 3 matches render as `IssueCard`s (fetching each match's full issue via `GET /issues/by-id` for ticket code/labels). Clicking one opens `EditIssueModal` instead of continuing to create a new ticket.
 5. `kind` scopes matches to the same panel — a Bug Report never surfaces a Feature Request as "similar" or vice versa.
 
 ### Backend — `supabase/functions/issues/similar` (routed inside `issues/index.ts`)
 
-`handleGetSimilarIssues` (`supabase/functions/issues/updateIsste.ts`) calls `queryTopIssueMatches(slug, q, 3, kind)` (`supabase/functions/lib/vector.ts`), which queries Upstash Vector with `filter: "type = '<issue|issue-title>' AND kind = '<kind>'"` in the namespace `slug` resolves to.
+`handleGetSimilarIssues` (`supabase/functions/issues/updateIsste.ts`) resolves `slug` (clientName) to the customer's real `linear_slug` via `resolveLinearSlug("portal", slug)` (`supabase/functions/utils/slug.ts` — see "`clientName` vs `linear_slug`" in `PORTAL_DOCS.md` §1), then calls `queryTopIssueMatches(linearSlug, q, 3, kind)` (`supabase/functions/lib/vector.ts`).
+
+### Vector provider: Upstash vs. pgvector
+
+Every vector-backed feature — issue similarity, test similarity, and document search — is dispatched per customer through `resolveVectorProvider(namespace)` (`supabase/functions/lib/vectorProvider.ts`), which reads `customers.systems.vector` (`'upstash' | 'pgvector'`, same per-customer opt-in pattern as `systems.chat`'s CometChat/Supabase Realtime switch — see `CHAT_FLOWS.md`). It's looked up fresh on every call (deliberately uncached, so flipping the setting takes effect without waiting for an edge function instance to recycle) and defaults to `'upstash'` for any customer that hasn't opted in, so nothing changes for existing customers until explicitly switched. `lib/vector.ts` is purely a router on top of this — every public function (`upsertIssueVector`, `queryTopIssueMatches`, `upsertTestVector`, `queryTopTestMatches`, `upsertDocumentVector`, `queryTopDocumentMatches`, `deleteIssueVectors`, `deleteDocumentVectors`) resolves the provider and delegates to that provider's own implementation; call sites outside `lib/` never see the split.
+
+- **Upstash** (default) — a single hosted-embedding Vector index (shared across issues and test cases, kept apart by `metadata.type`), namespaced per customer by `linear_slug`. Upstash computes the embedding itself (a built-in model, e.g. `mxbai-embed-large-v1`) — the app just sends raw text to Upstash's `-data` endpoints.
+- **pgvector** — Supabase Postgres's own `vector` extension, added in `20260923100000_add_pgvector_support.sql`. Embeddings are computed *inside the edge function* via Supabase's built-in `Supabase.ai.Session('gte-small')` model (384 dimensions, no external API/key — `supabase/functions/lib/pgvectorClient.ts`), then stored/queried as real Postgres columns:
+  - **Documents** — `portal.documents.embedding vector(384)`, matched via the `portal.match_documents` RPC.
+  - **Issues** — issues have no table of their own in this database (they live in Linear); a purpose-built `portal.issue_vectors` table holds one row per vectorized issue (`title_embedding`, `combined_embedding`, both 384-dim), matched via `portal.match_issues`.
+  - **Test cases** — `portal.tests.embedding vector(384)`, matched via `portal.match_tests`.
+  - All three RPCs use pgvector's `<=>` cosine-distance operator, converted to a similarity score as `1 - distance`, and are declared `SET search_path = portal, public, pg_catalog` — the `vector` extension (and `<=>`) installs into `public`, so omitting it causes `operator does not exist: public.vector <=> public.vector` even though the column type itself resolves fine.
+
+Both providers stay live side by side — this is an additive choice per customer, not a migration off Upstash.
+
+### Similarity thresholds
+
+Calibrated independently per provider, because they don't score on the same scale for the same kind of match:
+
+```ts
+// supabase/functions/issues/updateIsste.ts
+const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.7, pgvector: 0.8 } as const;
+```
+
+- **Upstash — 0.7**: calibrated against the live index back when every issue had a single title+description vector, where an exact-duplicate title scored ~0.858 (diluted by the description) and close paraphrases landed ~0.74-0.76. Scores run higher for the title-only vector path (see below) since there's no long description to dilute the comparison, so 0.7 still clears real matches there without needing a separate threshold. A project with few tickets of that `kind` will still return Upstash's "closest available" top-3 even when none are truly similar — the threshold is what suppresses that noise, not the query itself.
+- **pgvector — 0.8**: `gte-small` compresses cosine similarity into a much narrower band for short/similar technical text — real logged scores for near-duplicate tickets clustered around 0.79-0.82, so Upstash's 0.7 would have let almost everything through unfiltered for pgvector customers. 0.8 is a first pass informed by that compression pattern, not independently calibrated against a large set of real duplicates — revisit if it's still too loose or starts hiding real duplicates.
+
+Test cases use a flatter, provider-agnostic threshold (unlike issues, this one wasn't split per-provider on request):
+
+```ts
+// supabase/functions/tests/index.ts
+const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.8, pgvector: 0.8 } as const;
+```
+
+Raised from the original 0.7 (still visible as a vestigial, now-redundant client-side filter in `test-picker.tsx` — see §3a above) to 0.8 for both providers.
 
 ### Two vectors per issue — short vs. long queries
 
-A single combined title+description vector meant short, generic queries (e.g. "roadmap") almost never matched, even against tickets whose *description* discussed that topic at length — a short query's embedding sits far closer to another short title than to a long document's averaged-out embedding, so the comparison was effectively diluted to noise. `upsertIssueVector` now writes **two** vectors per issue into the same namespace:
+A single combined title+description vector meant short, generic queries (e.g. "roadmap") almost never matched, even against tickets whose *description* discussed that topic at length — a short query's embedding sits far closer to another short title than to a long document's averaged-out embedding, so the comparison was effectively diluted to noise. Both providers write **two** vectors/embeddings per issue:
 
-- `id = <issueId>`, `metadata.type = "issue"` — the original title+description vector.
-- `id = <issueId>::title`, `metadata.type = "issue-title"` — a title-only vector, both tagged with `metadata.ticket_id = <issueId>` so callers can resolve either back to the real issue.
+- **Upstash**: `id = <issueId>`, `metadata.type = "issue"` (the combined title+description vector) and `id = <issueId>::title`, `metadata.type = "issue-title"` (title-only), both tagged with `metadata.ticket_id = <issueId>` so callers can resolve either back to the real issue.
+- **pgvector**: a single `portal.issue_vectors` row per issue with two columns, `title_embedding` and `combined_embedding`.
 
-`queryTopIssueMatches` picks which one to search based on the query's length: **under 15 characters** ("roadmap") queries the `issue-title` vectors, so it's compared against other titles instead of being drowned out by long descriptions; **15 characters or more** queries the combined `issue` vectors as before, since a longer query is assumed to carry actual descriptive detail worth matching against. Either way, the function normalizes each result's `id` back to `metadata.ticket_id` before returning, so the "::title" suffix never leaks past `lib/vector.ts` — `GET /issues/by-id` and everything downstream is unaffected.
+`queryTopIssueMatches` (and its pgvector counterpart) pick which one to search based on the query's length: **under 15 characters** ("roadmap") queries the title-only vector, so it's compared against other titles instead of being drowned out by long descriptions; **15 characters or more** queries the combined vector instead, since a longer query is assumed to carry actual descriptive detail worth matching against. Either way, the function normalizes each result's `id` back to the real issue id before returning — on Upstash that means stripping the `::title` suffix — so `GET /issues/by-id` and everything downstream is unaffected either way.
 
 ### Keeping the index in sync
 
-Vectors are written to the same Upstash index (one issue = two vectors — see above — id = the Linear issue id, or that id + `::title`) from three places:
+Vectors/embeddings are written from three places, regardless of provider (the router in `lib/vector.ts` sends each call to whichever provider that customer is on):
 
 - **On create** — `handleCreateIssue` (`supabase/functions/issues/createIssue.ts`) calls `upsertIssueVector` right after a successful `issueCreate`, so a brand-new ticket is searchable immediately.
 - **On edit** — `handleUpdateIssue` (`supabase/functions/issues/updateIsste.ts`) re-upserts on save, so a title/description change is reflected without waiting for the hourly sync below.
 - **`linear-vector-sync` (hourly cron)** — catches edits made *directly in Linear* (bypassing this app entirely), which the two paths above can never see. Per customer, it tracks a `last_synced_at` checkpoint in `portal.vector_sync_state` and:
-  1. Fetches issues **updated** since that checkpoint and upserts them (`upsertIssueVector`).
-  2. Fetches issues **trashed** (deleted) since that checkpoint — Linear soft-deletes, so a deleted ticket still exists and is queryable via `includeArchived: true` + `filter: { trashed: { eq: true } }`, it just silently drops out of normal (non-archived) query results. Without this step, a deleted ticket's vectors would never be cleaned up and could keep surfacing as a "similar" match forever. Deletion uses `deleteIssueVectors(namespace, ids)`, which expands each id to both its variants (`id` and `id::title`) and calls Upstash's `DELETE /delete/{namespace}` with `{ ids }`.
-  3. Advances the checkpoint to when the run started (not when it finished), so an issue edited mid-run is simply picked up again next hour rather than risking a gap.
+  1. Fetches issues **updated** since that checkpoint, oldest-first, and upserts up to `MAX_ISSUES_PER_RUN` (30) of them (`upsertIssueVector`) — embedding an issue costs real CPU (the pgvector path runs `gte-small` twice per issue, inside the edge function), so a run with a large backlog processes only the oldest 30 instead of risking a `WORKER_RESOURCE_LIMIT` failure that would silently process nothing.
+  2. Fetches issues **trashed** (deleted) since that checkpoint — Linear soft-deletes, so a deleted ticket still exists and is queryable via `includeArchived: true`, it just silently drops out of normal (non-archived) query results; `trashed` is requested as an output field and filtered in JS (it isn't a filterable `IssueFilter` input). Without this step, a deleted ticket's vectors would never be cleaned up and could keep surfacing as a "similar" match forever. Deletion uses `deleteIssueVectors(namespace, ids)`.
+  3. Advances the checkpoint — to `syncStartedAt` (captured before the run) when everything pending was processed in one pass, or, if the 30-issue cap left some behind, only up to the **last processed issue's own `updatedAt`** instead — so a truncated run doesn't skip the leftover backlog and never come back for it; the next run (or next hourly tick) picks up exactly where this one stopped. The checkpoint is only advanced at all if every write in the run actually succeeded, so a real failure gets retried next run instead of silently aging out of the `since` filter.
 
   Worst-case staleness for a deletion is ~1 hour (the cron interval) — accepted as a low-stakes tradeoff for this feature rather than adding a Linear webhook for near-instant cleanup.
 
-- **Namespace casing**: a customer's `clientName` is stored inconsistently cased across the app (raw vs. slugified at onboarding — see `components/chat/CometChat/useCometChat.ts`'s own note on the same issue). Every namespace passed into `lib/vector.ts` (upsert, query, *and* delete) is lowercased centrally there, so an upsert and a later query/delete for the same customer can never land in two different, disconnected Upstash namespaces just because the caller's casing didn't match.
+  Manual backfill: `GET /linear-vector-sync?slug={clientName}&full=true` ignores the checkpoint and re-scans every issue for that one customer — for a customer whose issues predate this feature (or the catch-up cap) and never made it into the index/table otherwise. Still subject to the same 30-issue-per-run cap, so a customer with a large backlog needs the endpoint hit repeatedly (or the cron left to work through it over several hours) rather than completing in one call.
+
+- **Namespace casing**: a customer's `clientName` is stored inconsistently cased across the app (raw vs. slugified at onboarding — see `components/chat/CometChat/useCometChat.ts`'s own note on the same issue). Every namespace passed into `lib/vector.ts` (upsert, query, *and* delete) is lowercased centrally there before reaching Upstash; `resolveVectorProvider` and the pgvector RPCs instead match `linear_slug`/`project_slug` case-insensitively (`ilike`) for the same reason.
 
 ---
 
@@ -414,8 +462,8 @@ Vectors are written to the same Upstash index (one issue = two vectors — see a
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |
 | `supabase/functions/project-requests/sendProjectRequestMail.ts` | Resend email template for project requests |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating, and the Steps editor (Enter-to-add-and-focus) live here; also owns `isBugIssue` (hides only the Design tab — Demo shows for bugs too) |
-| `components/shared/test-picker.tsx` | Search-or-create combobox for attaching a test — existing-tests search, semantic "Similar tests" (Upstash), and the create-new fallback |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Clarifications (`DecisionsTab` — questions and requirement updates) / Tests tabs; `canManageTests`/`canRecordResult` role+stage gating, and the Steps editor (Enter-to-add-and-focus) live here; also owns `isBugIssue` (hides only the Design tab — Demo shows for bugs too) |
+| `components/shared/test-picker.tsx` | Search-or-create combobox for attaching a test — existing-tests search, semantic "Similar tests" (Upstash or pgvector, per customer), and the create-new fallback |
 | `supabase/functions/tests/index.ts` | Reusable test CRUD — search/similar/by-id (`GET`), create (`POST`), update title+steps (`PATCH /update`, blocked once the test has passed anywhere), delete (`DELETE`, blocked while attached to any ticket) |
 | `supabase/functions/test-executions/index.ts` | Per-ticket attachment CRUD — list by issue or latest-by-test (`GET`), attach (`POST`), approve (`PATCH /approve`), edit expected (`PATCH /update`), record QA/UAT + passed toggle (`PATCH /result`), detach (`DELETE`) |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
@@ -445,6 +493,10 @@ Vectors are written to the same Upstash index (one issue = two vectors — see a
 | `app/dev/demos/page.tsx` | Demos sidebar page — see `app/docs/DEMOS_FLOWS.md` |
 | `components/shared/similar-issues-hint.tsx` | `SimilarIssuesHint` — debounced semantic search under the Title field on Request a Feature / Report a Bug |
 | `components/build/feature-request-panel.tsx` / `components/bugs/bug-report-panel.tsx` | Render `TitleContinueRow`, which renders `SimilarIssuesHint` |
-| `supabase/functions/lib/vector.ts` | `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`queryTopTestMatches` (tests) — shared Upstash Vector client, namespace lowercasing, best-effort error handling |
-| `supabase/functions/linear-vector-sync/index.ts` | Hourly cron — upserts issues updated directly in Linear since each customer's checkpoint, and deletes vectors for issues trashed since that same checkpoint |
+| `supabase/functions/lib/vector.ts` | Router — resolves each call's provider then delegates: `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`queryTopTestMatches` (tests), `upsertDocumentVector`/`deleteDocumentVectors`/`queryTopDocumentMatches` (documents). Also owns the Upstash client itself (namespace lowercasing, best-effort error handling) |
+| `supabase/functions/lib/vectorProvider.ts` | `resolveVectorProvider(namespace)` — reads `customers.systems.vector` per call, uncached, defaults to `'upstash'` |
+| `supabase/functions/lib/pgvectorClient.ts` | The pgvector-backed implementations (`*Pg` functions) — embeds via `Supabase.ai.Session('gte-small')`, queries the `match_documents`/`match_issues`/`match_tests` RPCs |
+| `supabase/migrations/20260921120000_add_systems_config_and_chat_tables.sql` | Adds `customers.systems` jsonb (chat + vector provider switches) with its `CHECK` constraint |
+| `supabase/migrations/20260923100000_add_pgvector_support.sql` | `CREATE EXTENSION vector`; `portal.issue_vectors` table; `embedding` columns on `documents`/`tests`; `match_documents`/`match_issues`/`match_tests` RPCs |
+| `supabase/functions/linear-vector-sync/index.ts` | Hourly cron — upserts issues updated directly in Linear since each customer's checkpoint (oldest-first, capped at `MAX_ISSUES_PER_RUN`), and deletes vectors for issues trashed since that same checkpoint; `?slug=&full=true` for a manual one-customer backfill |
 | `supabase/migrations/20260812130000_create_vector_sync_state.sql` | `portal.vector_sync_state` — one row per customer, tracks `last_synced_at` for the cron above |

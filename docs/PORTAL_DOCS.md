@@ -49,7 +49,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 
 **What they can do:**
 - View all active issues across their assigned customers.
-- Ask questions on issues (Decisions tab) and submit them to the client.
+- Ask questions on issues (Clarifications tab) and submit them to the client; also post requirement updates (any role can).
 - Cannot change issue state directly — state only advances via the client's Business Review/UAT actions or QA test recording (see 4.2, 4.3).
 - Create and manage test cases.
 - Upload and view documents.
@@ -65,9 +65,9 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 
 **What they can do:**
 - View their project's active issues in two focused lists: Business Review (needs approval) and UAT (needs testing).
-- Complete Business Review once every question has an answer, moving the issue to Development.
+- Complete Business Review, moving the issue to Development — available even with open questions (the Clarifications tab just shows a warning icon until they're answered).
 - Record a UAT outcome — "Approved" (→ Done) or "Fixes Required" (→ back to QA).
-- Answer questions asked by the dev team (Decisions tab).
+- Answer questions asked by the dev team (Clarifications tab).
 - Approve test cases and record UAT results.
 - View project stats, SDLC metrics, roadmap, and documents.
 - Manage billing and staffing in Settings.
@@ -97,7 +97,8 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 |---|---|---|---|---|
 | Create users | ✅ | ✗ | ✗ | ✗ |
 | Assign developers to customers | ✅ | ✗ | ✗ | ✗ |
-| Ask questions (Decisions tab) | ✅ | ✅ | ✗ | ✗ |
+| Ask questions (Clarifications tab) | ✅ | ✅ | ✗ | ✗ |
+| Post a requirement update (Clarifications tab) | ✅ | ✅ | ✅ | ✅ |
 | Answer questions / submit decisions | ✗ | ✗ | ✅ | ✅ |
 | Complete Business Review (→ Development) | ✗ | ✗ | ✅ | ✅ |
 | Record UAT outcome (Approved → Done / Fixes Required → QA) | ✗ | ✗ | ✅ | ✅ |
@@ -120,7 +121,7 @@ Every customer (`portal.customers`) carries two different identifiers that are e
 | Field | What it is | Example | Used for |
 |---|---|---|---|
 | `clientName` | Display name for the initiative, set by whoever created the customer | `Spark-Portal` | Route slugs (`/{clientName}/...`, usually lowercased), UI labels, `?slug=` params on manual-trigger endpoints like `linear-vector-sync` |
-| `linear_slug` | The customer's actual Linear initiative id — Linear's own code for that workspace, not something this app generates | `f12c1e4fa44b` | Scoping data to "this customer's stuff" wherever it has to line up with Linear or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and the Vector Search doc) |
+| `linear_slug` | The customer's actual Linear initiative id — Linear's own code for that workspace, not something this app generates | `f12c1e4fa44b` | Scoping data to "this customer's stuff" wherever it has to line up with Linear or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
 
 They're resolved separately throughout the app (see §8.1's "Resolving scope" for the Documents panel's version of this) precisely because a page's route slug (`clientName`-based) and the value needed to actually query Linear or a vector store (`linear_slug`) aren't the same string, and one can't be derived from the other — both live on the `customers` row and have to be looked up independently.
 
@@ -432,7 +433,7 @@ Backlog → Planning → Business Review → Development → QA → UAT → Done
 
 Defined in `STATUS_ORDER` (`components/client/issues.types.ts`) — used for sorting/ordering elsewhere in the app. The Description tab has no generic "advance to next state" control. State only changes at these specific points, available to every role:
 
-- **Business Review → Development**: a **"Complete Review"** button appears once every question in the Decisions tab has an answer (or none were asked yet — `reviewComplete`).
+- **Business Review → Development**: a **"Complete Review"** button, always available — it doesn't block on open questions (that used to make the button vanish with no explanation). Instead the Clarifications tab shows a warning icon while any question is unanswered; requirement updates don't count toward that.
 - **UAT → Done / QA**: two buttons appear while the issue is in UAT — **"Approved"** (→ `Done`) and **"Fixes Required"** (→ back to `QA`).
 - **Done → Development**: a **"Move back to Development"** button reopens a completed issue.
 
@@ -476,21 +477,24 @@ draft → approved → passed
                  → failed  (type exists but not yet wired to a UI action)
 ```
 
-### 4.4 Questions & Decisions
+### 4.4 Clarifications (Questions & Requirement Updates)
 
-**Where:** Decisions tab inside the Issue Detail Modal. Data fetched from Supabase `decisions` table on modal open.
+**Where:** **Clarifications** tab inside the Issue Detail Modal (`DecisionsTab` — component/table names still say "decision", only the tab label and copy changed). Data fetched from Supabase `decisions` table on modal open, distinguished by `type`: `question` (ask/answer, below) or `requirement_update` (a plain statement, no answer needed — see `FEATURES_FLOWS.md` §4 for the full breakdown).
 
-**Developer asks a question:**
-1. Decisions tab → "Ask a question"
+**Developer/admin asks a question:**
+1. Clarifications tab → "Ask a question"
 2. Type question, submit (button or `Cmd/Ctrl + Enter`)
-3. `POST /issues` with `{ issueId, question, ownerEmail }`
+3. `POST /issues` with `{ issueId, question, ownerEmail, type: "question" }`
+4. Deletable (admin/developer only) while still unanswered; `409` once answered.
 
-**Customer answers:**
-1. Decisions tab → "Submit your decision" on any unanswered question
+**Customer/stakeholder/admin answers:**
+1. Clarifications tab → "Submit your decision" on any unanswered question
 2. Type decision, submit (button or `Cmd/Ctrl + Enter`)
 3. `PATCH /issues/decision` with `{ decisionId, decision, decisionEmail }`
 
-**Unread badge:** Unanswered questions show a yellow number badge on the issue card. Opening the modal calls `POST /decisions/read`, which clears the badge locally via `locallyRead` state in `PriorityTasks`. Decision counts refetch every 30 seconds on all dashboards.
+**Anyone posts a requirement update:** Clarifications tab → "Update Requirement" → same `POST /issues` call as asking a question, but `type: "requirement_update"`. Not gated by role, doesn't get an answer form or a delete button, and is excluded from the unanswered count — it's a statement, not a question needing a decision.
+
+**Unread badge:** Unanswered *questions* (requirement updates excluded) show a yellow number badge on the issue card. Opening the modal calls `POST /decisions/read`, which clears the badge locally via `locallyRead` state in `PriorityTasks`. Decision counts refetch every 30 seconds on all dashboards.
 
 ### 4.5 Issue Chat (per-issue CometChat)
 
@@ -504,7 +508,7 @@ Messages show user initials avatars, sender name, and timestamp. The list auto-s
 
 **Where:** Design tab inside the Issue Detail Modal (`issue-detail-modal.tsx` → `DesignTab`).
 
-> **Design** is hidden for Bug issues (`isBugIssue`, derived from a "bug" label on the issue) — the tab bar shows Description / Chat / Tests / Decisions / Demo for those. **Demo** (4.6b below) shows for bugs and features alike.
+> **Design** is hidden for Bug issues (`isBugIssue`, derived from a "bug" label on the issue) — the tab bar shows Description / Chat / Tests / Clarifications / Demo for those. **Demo** (4.6b below) shows for bugs and features alike.
 
 A **Service** is a Supabase-only concept — no link to Linear (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used elsewhere (`document.project_slug`, the `/{slug}/dashboard/...` URL param), read via `CustomerSlugContext` — which is why it works identically regardless of the viewer's role. Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each uploaded from a specific issue.
 
@@ -553,7 +557,7 @@ A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_
 |---|---|
 | `components/shared/create-issue.tsx` | Create Issue dialog (all types) |
 | `components/client/issues.types.ts` | Shared types, color maps, STATUS_ORDER |
-| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Decisions / Tests / Design / Demo tabs; owns `isBugIssue` gating |
+| `components/client/issue-detail-modal.tsx` | Modal shell + Description / Clarifications (questions + requirement updates) / Tests / Design / Demo tabs; owns `isBugIssue` gating |
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main issue list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
@@ -936,10 +940,11 @@ Customers/stakeholders no longer upload directly — they submit a **Document Re
 
 **Source:** `use-document-requests.ts`, `request-document-dialog.tsx`, `document-requests-list.tsx`, `developer-document-requests.tsx`, `fulfill-document-request-modal.tsx`. Backend: `supabase/functions/document-requests/*`, table `portal.document_requests`.
 
-1. **Request** (customer/stakeholder): title, optional Linear project, optional link to a past request, optional details → `POST /document-requests`.
+1. **Request** (customer/stakeholder): title, optional Linear project, optional link to a past request, optional rich-text details (`RichTextEditor`, markdown-backed) in an expandable dialog → `POST /document-requests` → notifies assigned developers + admins.
 2. **View**: split into pending "Document Requests" and completed "Documents Received" panels, 3-at-a-time with Show More. Scoping differs by role — customer/stakeholder see their own customer's; admin sees whichever customer they're previewing; **developer sees every customer they're assigned to**, not just the one project the Documents list itself is scoped to.
 3. **Claim** (developer/admin): `PATCH { action: "claim" }` — optimistic lock, `409` if already claimed by someone else (shows a "Claimed by" badge to everyone else).
 4. **Fulfill**: one modal, one file, three calls — `POST /storage` (upload) → `POST /storage/share` (grants the requester `read` access) → `PATCH /document-requests` (mark done; blocked with `409` if claimed by someone else and the caller isn't `admin`).
+5. **Edit / Delete** (requester only, no admin bypass): Pencil/Trash2 buttons appear only for the person who created the request, and only while it's still unclaimed and not done. `PATCH { action: "edit" }` reopens the same dialog prefilled; `PATCH { action: "delete" }` removes it after a confirmation dialog. Both are re-validated server-side (`403`/`400`), not just hidden in the UI. See `app/docs/DOCUMENTS_FLOWS.md` §3–4 for the full permission rationale.
 
 ### 8.3 Project Documents — `DocumentsList`
 
@@ -955,7 +960,7 @@ Customers/stakeholders no longer upload directly — they submit a **Document Re
 | `permission` | `"owner"`, `"write"`, or `"read"` |
 | `project_slug` | Groups document under a project folder |
 
-**Search** — AI-powered (SPA-513-Cycle20): debounced query sent to `GET /storage?...&search=`, ranked server-side by vector similarity against each document's vectorized title/category/content (Upstash index, same one issues/tests use, namespaced by `project_slug`), with a plain filename/category substring fallback for anything the vector index missed. See `docs/DOCUMENTS_FLOWS.md` for the full breakdown, including the one-shot admin backfill for documents uploaded before this shipped.
+**Search** — AI-powered (SPA-513-Cycle20): debounced query sent to `GET /storage?...&search=`, ranked server-side by vector similarity against each document's vectorized title/category/content — Upstash or pgvector depending on `customers.systems.vector` for that customer (same per-customer switch issues/tests use, see `FEATURES_FLOWS.md` §8), namespaced/scoped by `project_slug` either way — with a plain filename/category substring fallback for anything the vector index missed. See `docs/DOCUMENTS_FLOWS.md` for the full breakdown, including the one-shot admin backfill for documents uploaded before this shipped.
 
 **Category filter** — All / Reports / Technical / Design pills.
 
@@ -1018,11 +1023,11 @@ Only rendered for developer/admin (`canUpload`) — see 8.1.
 | `components/documents/upload-document.tsx` | Upload panel (developer/admin only) |
 | `components/documents/update-document-entry.ts` | `useUpdateDocument` + `useDeleteDocument` mutations |
 | `components/documents/use-document-requests.ts` | Shared `useDocumentRequests` hook + type |
-| `components/documents/request-document-dialog.tsx` | Customer/stakeholder request dialog |
-| `components/documents/document-requests-list.tsx` | Pending/done panels, detail modal, claim button |
+| `components/documents/request-document-dialog.tsx` | Customer/stakeholder request dialog — also the edit dialog, rich-text description, enlarge toggle |
+| `components/documents/document-requests-list.tsx` | Pending/done panels, detail modal, claim button, requester-only Edit/Delete |
 | `components/documents/developer-document-requests.tsx` | Role gate + scoping wrapper for developer/admin |
 | `components/documents/fulfill-document-request-modal.tsx` | Upload-and-share-in-one-step fulfillment modal |
-| `supabase/functions/document-requests/*` | Create / claim / mark-done endpoints |
+| `supabase/functions/document-requests/*` | Create / claim / release / edit / delete / mark-done endpoints |
 
 ---
 
