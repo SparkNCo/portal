@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { authorizeRequesterAction } from "./guards.ts";
 
 // PATCH /document-requests { action: "edit" } — only the original requester
 // can edit their own request (no admin bypass). Not available once the
@@ -26,41 +27,8 @@ export async function editDocumentRequest(
     return Response.json({ error: "Missing id, editedBy, or title" }, { status: 400 });
   }
 
-  const { data: existing, error: fetchError } = await supabase
-    .schema(schema)
-    .from("document_requests")
-    .select("requested_by, status, claimed_by")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchError) {
-    return Response.json(
-      { error: "Failed to load document request", details: fetchError.message },
-      { status: 500 },
-    );
-  }
-  if (!existing) {
-    return Response.json({ error: "Request not found" }, { status: 404 });
-  }
-  if (existing.status === "done") {
-    return Response.json(
-      { error: "This request has already been fulfilled and can no longer be edited" },
-      { status: 400 },
-    );
-  }
-  if (existing.claimed_by) {
-    return Response.json(
-      { error: `This request has been claimed by ${existing.claimed_by} and can no longer be edited` },
-      { status: 400 },
-    );
-  }
-
-  if (existing.requested_by !== editedBy) {
-    return Response.json(
-      { error: "Only the person who requested this can edit it" },
-      { status: 403 },
-    );
-  }
+  const authError = await authorizeRequesterAction(schema, id, editedBy, "edit");
+  if (authError) return authError;
 
   const { data, error } = await supabase
     .schema(schema)

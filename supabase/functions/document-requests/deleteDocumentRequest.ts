@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { authorizeRequesterAction } from "./guards.ts";
 
 // PATCH /document-requests { action: "delete" } — only the original
 // requester can remove their own request (no admin bypass). Same guards as
@@ -16,41 +17,8 @@ export async function deleteDocumentRequest(
     return Response.json({ error: "Missing id or deletedBy" }, { status: 400 });
   }
 
-  const { data: existing, error: fetchError } = await supabase
-    .schema(schema)
-    .from("document_requests")
-    .select("requested_by, status, claimed_by")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (fetchError) {
-    return Response.json(
-      { error: "Failed to load document request", details: fetchError.message },
-      { status: 500 },
-    );
-  }
-  if (!existing) {
-    return Response.json({ error: "Request not found" }, { status: 404 });
-  }
-  if (existing.status === "done") {
-    return Response.json(
-      { error: "This request has already been fulfilled and can no longer be deleted" },
-      { status: 400 },
-    );
-  }
-  if (existing.claimed_by) {
-    return Response.json(
-      { error: `This request has been claimed by ${existing.claimed_by} and can no longer be deleted` },
-      { status: 400 },
-    );
-  }
-
-  if (existing.requested_by !== deletedBy) {
-    return Response.json(
-      { error: "Only the person who requested this can delete it" },
-      { status: 403 },
-    );
-  }
+  const authError = await authorizeRequesterAction(schema, id, deletedBy, "delete");
+  if (authError) return authError;
 
   // Other requests can point back at this one via related_request_id — null
   // that out first rather than leaving a dangling reference (no FK to
