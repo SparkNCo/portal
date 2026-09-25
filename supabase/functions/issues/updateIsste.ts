@@ -3,31 +3,9 @@ import { supabase } from "../client.ts";
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
-import { escapeIlike } from "../utils/slug.ts";
+import { escapeIlike, resolveLinearSlug } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
-
-// Resolves a customer's stable Linear Initiative id (`customers.linear_slug`)
-// from the frontend's clientName-based `slug` — see createIssue.ts's own
-// resolveCustomer() for the fuller version of this lookup (that one also
-// resolves a teamId, which the two handlers below don't need). This keeps
-// the issues vector index namespaced the same way linear-vector-sync's
-// hourly cron already does, instead of the raw `slug` — which is editable
-// (Admin → Users → Customer Profile) and inconsistently cased across the
-// app, so it's not a safe permanent index key.
-async function resolveLinearSlug(slug: string, schema: string): Promise<string | null> {
-  const { data, error } = await supabase.schema(schema)
-    .from("customers")
-    .select("linear_slug")
-    .ilike("clientName", escapeIlike(slug))
-    .maybeSingle();
-
-  if (error) {
-    console.error("[resolveLinearSlug] lookup failed:", error.message);
-    return null;
-  }
-
-  return data?.linear_slug ?? null;
-}
+import { resolveVectorProvider } from "../lib/vectorProvider.ts";
 
 const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
@@ -180,7 +158,7 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   // Best-effort — keeps the issues vector index in sync for edits made through this
   // app. Edits made directly in Linear are caught by the linear-vector-sync cron.
   if (slug && updatedIssue) {
-    const linearSlug = await resolveLinearSlug(slug, "portal");
+    const linearSlug = await resolveLinearSlug("portal", slug);
     if (linearSlug) {
       await upsertIssueVector(linearSlug, {
         id: updatedIssue.id,
@@ -197,8 +175,20 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
 // Powers the "similar issue" hint shown while typing a title in the Feature Request /
 // Bug Report panels — a lightweight read over the issues vector index, scoped to the
 // customer's namespace, so we can nudge users toward an existing ticket instead of a
-// duplicate. Matching is fuzzy/semantic (Upstash), so the caller is expected to apply
-// its own confidence threshold on the returned scores.
+// duplicate. Matching is fuzzy/semantic, so a confidence threshold still
+// applies on top (see components/shared/similar-issues-hint.tsx's own 0.7 —
+// kept as a client-side safety net), but the real cutoff lives here now,
+// per provider: Upstash's mxbai-embed-large-v1 was calibrated at 0.7
+// (see the frontend's own comment for that history), but pgvector's
+// built-in gte-small model compresses cosine similarity into a much
+// narrower, higher band for short/technical text — real data from the
+// document-search feature showed *unrelated* short documents scoring
+// 0.79-0.82, so 0.7 let essentially everything through for pgvector
+// customers. 0.8 is a first pass informed by that same compression
+// pattern, not independently calibrated against real duplicate issues —
+// revisit if it's still too loose or starts hiding real duplicates.
+const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.7, pgvector: 0.8 } as const;
+
 export async function handleGetSimilarIssues(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const slug = url.searchParams.get("slug");
@@ -208,11 +198,15 @@ export async function handleGetSimilarIssues(req: Request): Promise<Response> {
 
   if (!slug || !q?.trim()) return Response.json([]);
 
-  const linearSlug = await resolveLinearSlug(slug, "portal");
+  const linearSlug = await resolveLinearSlug("portal", slug);
   if (!linearSlug) return Response.json([]);
 
-  const matches = await queryTopIssueMatches(linearSlug, q.trim(), 3, kind);
-  return Response.json(matches);
+  const [matches, provider] = await Promise.all([
+    queryTopIssueMatches(linearSlug, q.trim(), 3, kind),
+    resolveVectorProvider(linearSlug),
+  ]);
+  const threshold = SIMILARITY_THRESHOLD_BY_PROVIDER[provider];
+  return Response.json(matches.filter((m) => m.score >= threshold));
 }
 
 export async function handleMarkIssueSeen(req: Request): Promise<Response> {

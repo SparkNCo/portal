@@ -139,7 +139,7 @@ The card title changes dynamically:
 - `"All Tasks"` when no project filter is active
 - The customer's `clientName` when a specific project is selected
 
-Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Clarifications, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 > **Note:** The `CreateIssue` button is currently commented out at the bottom of the page. It would allow developers to create new issues directly from their dashboard.
 
@@ -211,7 +211,7 @@ allIssues (merged, Done removed, sorted by question count)
 | `components/developer/quick-links.tsx` | Quick Links card with Airtable form links |
 | `components/developer/tool-shortcuts.tsx` | Tool Shortcuts card (JumpCloud, PostHog, GitHub) |
 | `components/client/priority-tasks.tsx` | Issue list with filter, sort, and search |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal — Description / Chat / Tests / Decisions / Design / Demo |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal — Description / Chat / Tests / Clarifications / Design / Demo |
 | `components/client/issue-cards.tsx` | Individual issue card and list row rendering |
 | `components/ui/PolicyApprovalModal.tsx` | Blocking policy agreement modal shown on first access |
 | `context/UserContext.tsx` | Provides `profile` including `assignment_id[]` |

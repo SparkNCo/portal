@@ -1,10 +1,7 @@
 // @ts-nocheck
-import { resend } from "../update-lead/sendWelcomeEmail.ts";
 import { stripe } from "./client.ts";
-import { Resend } from "https://esm.sh/resend@3.2.0";
+import { sendEmail } from "../lib/mailer.ts";
 import { SubscriptionEmailTemplateHtml } from "../utils/stripeLinkTemplate.ts";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
 
 export async function sendPaymentLink(req: Request) {
   try {
@@ -31,8 +28,7 @@ export async function sendPaymentLink(req: Request) {
     });
 
     // 2. Send email
-    await resend.emails.send({
-      from: Deno.env.get("FROM_EMAIL"),
+    await sendEmail({
       to: email,
       subject: "Complete your Spark Portal subscription",
       html: SubscriptionEmailTemplateHtml({

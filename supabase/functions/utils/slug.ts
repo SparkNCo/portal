@@ -39,3 +39,27 @@ export async function resolveCustomerUserIdBySlug(
 
   return customerUser?.id;
 }
+
+// slug (clientName-based route slug) -> the customer's stable Linear
+// Initiative id (customers.linear_slug). Needed wherever a value has to line
+// up with Linear itself or with a shared per-customer index/namespace keyed
+// by linear_slug (vector search's namespace — see lib/vectorProvider.ts —
+// and linear-vector-sync's own checkpoint) rather than the route slug, which
+// is editable (Admin → Users → Customer Profile) and inconsistently cased
+// across the app, so it's not a safe permanent key. Originally local to
+// issues/updateIsste.ts; pulled out here once tests/index.ts needed the same
+// resolution (see 20260924-era test-case vector-provider fix).
+export async function resolveLinearSlug(schema: string, slug: string): Promise<string | null> {
+  const { data, error } = await supabase.schema(schema)
+    .from("customers")
+    .select("linear_slug")
+    .ilike("clientName", escapeIlike(slug))
+    .maybeSingle();
+
+  if (error) {
+    console.error("[resolveLinearSlug] lookup failed:", error.message);
+    return null;
+  }
+
+  return data?.linear_slug ?? null;
+}

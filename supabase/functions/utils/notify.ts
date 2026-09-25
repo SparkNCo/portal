@@ -10,6 +10,13 @@ export function resolveIssueDashboardLink(slug: string, issueType?: string | nul
   return issueType === "bug" ? `/${slug}/bugs` : `/${slug}/build`;
 }
 
+// Same idea, for document-request notifications — not issue-scoped, so no
+// bug/feature branching, just the Documents page (where the "Document
+// Requests"/"Requests Fulfilled" panels live for developers/admins).
+export function resolveDocumentsLink(slug: string): string {
+  return `/${slug}/documents`;
+}
+
 // One row per thing that happened (see
 // 20260922120000_split_notifications_into_events.sql) — every recipient's
 // notification for the same call points at this same event instead of each
@@ -82,9 +89,15 @@ export async function notifyProject(params: {
   preview?: string;
   issueCode?: string;
   issueId?: string;
+  // A human-readable label for the object when there's no issue_code to
+  // fall back to (e.g. a document request isn't tied to a ticket) — see
+  // formatObject in NotificationBell.tsx, which already does this for chat
+  // (via the notify_chat_message SQL trigger's own object_title) generalized
+  // to any object type now instead of just that one.
+  objectTitle?: string;
 }): Promise<void> {
   const schema = "portal";
-  const { slug, actorEmail, action, objectType, objectId, link, preview, issueCode, issueId } = params;
+  const { slug, actorEmail, action, objectType, objectId, link, preview, issueCode, issueId, objectTitle } = params;
 
   try {
     const customerUserId = await resolveCustomerUserIdBySlug(schema, slug);
@@ -124,6 +137,7 @@ export async function notifyProject(params: {
       preview: preview ?? null,
       issue_code: issueCode ?? null,
       issue_id: issueId ?? null,
+      object_title: objectTitle ?? null,
       link,
     });
 

@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { upsertDocumentVector } from "../lib/vector.ts";
+import { isTextDocumentFormat, truncateDocumentContent } from "../utils/documentText.ts";
 import {
   UploadStorageInputSchema,
   UploadStorageResponseSchema,
@@ -167,6 +169,31 @@ export async function uploadStorageData(req: Request, schema: string) {
           status: 500,
           headers: corsHeaders,
         },
+      );
+    }
+
+    /**
+     * ---------------------------------------
+     * ✅ 5a. Vectorize (SPA-513-Cycle20: AI document search) — same Upstash
+     * index issues/tests already use, namespaced by project_slug. Skipped
+     * when there's no project_slug (nothing to namespace it under) or Deno
+     * lacks EdgeRuntime (only real in a deployed function, not local runs).
+     * Fire-and-forget so indexing never delays the upload response.
+     * ---------------------------------------
+     */
+    if (project_slug && typeof EdgeRuntime !== "undefined") {
+      EdgeRuntime.waitUntil(
+        (async () => {
+          const content = isTextDocumentFormat(file.name)
+            ? truncateDocumentContent(await file.text())
+            : null;
+          await upsertDocumentVector(project_slug, {
+            id: document.id,
+            file_name: file.name,
+            category,
+            content,
+          });
+        })(),
       );
     }
 

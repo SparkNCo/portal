@@ -154,7 +154,7 @@ Shows all issues currently in the **Business Review** state. These are issues wh
 
 Issues are sorted by question count — those with the most unanswered questions appear first.
 
-Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Decisions, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Clarifications, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
 
 The **chat icon** on each card navigates to the Chat page with that issue pre-selected (via `?newChat=...` query param).
 
@@ -217,7 +217,7 @@ User lands on /{slug}/dashboard
 | `components/roadmap/software-kpis.tsx` | SDLC Metrics card |
 | `supabase/functions/manual-metrics/` | `PATCH` endpoint for the 2 manually-entered SDLC metrics (Code Coverage, Sonar Quality Gate) |
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Business Review and Acceptance Testing |
-| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Decisions / Design / Demo tabs |
+| `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Clarifications / Design / Demo tabs |
 | `components/client/issue-cards.tsx` | Individual issue card and list row components |
 | `components/client/request-project-dialog.tsx` | "New project Request" dialog — emails admins instead of creating in Linear |
 | `supabase/functions/project-requests/createProjectRequest.ts` | Looks up `role === "admin"` users and triggers the notification email |

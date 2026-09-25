@@ -4,6 +4,8 @@ import { createDocumentRequest } from "./createDocumentRequest.ts";
 import { markDocumentRequestDone } from "./markDocumentRequestDone.ts";
 import { claimDocumentRequest } from "./claimDocumentRequest.ts";
 import { releaseDocumentRequest } from "./releaseDocumentRequest.ts";
+import { editDocumentRequest } from "./editDocumentRequest.ts";
+import { deleteDocumentRequest } from "./deleteDocumentRequest.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -23,6 +25,10 @@ Deno.serve(async (req) => {
         res = await claimDocumentRequest(body, schema);
       } else if (body.action === "release") {
         res = await releaseDocumentRequest(body, schema);
+      } else if (body.action === "edit") {
+        res = await editDocumentRequest(body, schema);
+      } else if (body.action === "delete") {
+        res = await deleteDocumentRequest(body, schema);
       } else {
         res = await markDocumentRequestDone(body, schema);
       }

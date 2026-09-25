@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Search } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentRow } from "./document-list-panel";
 import { useSearchParams } from "next/navigation";
@@ -19,17 +19,26 @@ import { API_HEADERS } from "@/lib/api-headers";
 
 const categories = ["All", "Reports", "Technical", "Design"];
 
+// Waits for a pause in typing before firing an AI search — a plain filename
+// filter can react on every keystroke since it's free (client-side), but
+// this hits the vector index (see queryTopDocumentMatches), so it's worth
+// debouncing the same way SimilarIssuesHint does for issue search.
+const SEARCH_DEBOUNCE_MS = 400;
+
 function getFileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
-async function fetchDocuments(id: string, projectSlug?: string, viewerId?: string) {
+async function fetchDocuments(id: string, projectSlug?: string, viewerId?: string, search?: string) {
   const params = new URLSearchParams({ user_id: id });
   if (projectSlug) params.set("project_slug", projectSlug);
   // The actual logged-in caller (as opposed to `id`, whose permissions the
   // list is scoped by) — lets the backend give an admin the full initiative
   // list instead of only what the previewed user has a permission row for.
   if (viewerId) params.set("viewer_id", viewerId);
+  // AI search (SPA-513-Cycle20) — ranked server-side against each
+  // document's vectorized title/category/content, see fetch-storage-data.ts.
+  if (search) params.set("search", search);
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage?${params.toString()}`,
@@ -50,6 +59,8 @@ export function DocumentsList({
 }) {
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchParams = useSearchParams();
   const initiativeId = searchParams.get("id");
   const { user, profile, loading } = useUser();
@@ -61,9 +72,17 @@ export function DocumentsList({
   // of the customer's documents.
   const documentsOwnerId = usePinnedPanelsOwnerId();
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId, profile?.id],
-    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug, profile?.id),
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(searchQuery.trim()), SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
+
+  const { data, isLoading, isFetching, isError } = useQuery({
+    queryKey: ["documents", initiativeId, projectSlug, documentsOwnerId, profile?.id, debouncedSearch],
+    queryFn: () => fetchDocuments(documentsOwnerId!, projectSlug, profile?.id, debouncedSearch),
     enabled: !!documentsOwnerId,
   });
 
@@ -83,12 +102,13 @@ export function DocumentsList({
     }));
   }, [data]);
 
+  // The name/AI text match already happened server-side (see
+  // fetchDocuments/fetch-storage-data.ts) — this only narrows by category,
+  // and preserves the relevance order the backend returned for a search.
   const filteredDocs = documents.filter((doc: any) => {
-    const name = doc.name?.toLowerCase() ?? "";
-    const matchesSearch = name.includes(searchQuery.trim().toLowerCase());
     const matchesCategory =
       activeCategory === "All" || doc.category === activeCategory;
-    return matchesSearch && matchesCategory;
+    return matchesCategory;
   });
 
   return (
@@ -100,15 +120,23 @@ export function DocumentsList({
             Project Documents
           </CardTitle>
 
-          <div className="relative w-full sm:w-auto">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label="Search documents"
-              placeholder="Search documents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-48 bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground"
-            />
+          <div className="w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
+              <Input
+                aria-label="AI-powered document search"
+                placeholder="Ask AI to find a document…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-muted border-0 pl-9 pr-8 smalltext text-foreground placeholder:text-muted-foreground focus-visible:ring-accent"
+              />
+              {isFetching && debouncedSearch && (
+                <div className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+              )}
+            </div>
+            <p className="mt-1 smalltext text-muted-foreground/70">
+              AI search — matches meaning, not just filenames.
+            </p>
           </div>
         </div>
 

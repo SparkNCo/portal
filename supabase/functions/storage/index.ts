@@ -8,6 +8,7 @@ import { deleteDocument } from "./delete-document.ts";
 import { updateDocumentCategory } from "./update-document-category.ts";
 import { updateStorageEntry } from "./update-storage-entry.ts";
 import { uploadStorageData } from "./upload-storage-data.ts";
+import { backfillDocumentVectors } from "./backfill-document-vectors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,6 +39,9 @@ Deno.serve(async (req) => {
     }
     if (req.method === "POST" && pathname === "/storage/transfer-owner") {
       return await transferOwnership(req, schema);
+    }
+    if (req.method === "POST" && pathname === "/storage/backfill-vectors") {
+      return await backfillDocumentVectors(req, schema);
     }
     if (req.method === "PATCH" && pathname === "/storage") {
       return await updateStorageEntry(req, schema);

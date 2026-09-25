@@ -2,8 +2,14 @@
 // Cron target (see supabase/migrations/..._schedule_linear_vector_sync_cron.sql):
 // catches issue edits made directly in Linear (not through this app, which already
 // upserts inline on save — see issues/updateIsste.ts's handleUpdateIssue). Pulls each
-// customer's issues updated since their last checkpoint and upserts them into the
-// Upstash issues vector index, namespaced by linear_slug.
+// customer's issues updated since their last checkpoint and upserts them (via
+// lib/vector.ts's router — Upstash or pgvector, per that customer's
+// systems.vector) into the issues vector index/table.
+//
+// Manual backfill: GET ?slug={clientName}&full=true re-scans every issue for
+// that one customer regardless of the checkpoint — for a customer whose
+// issues predate this feature (or the 1-day catch-up cap) and never made it
+// into portal.issue_vectors / the Upstash index otherwise.
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
 import { getAllCustomers } from "../issueMetrics/db.ts";
@@ -134,12 +140,43 @@ async function fetchTrashedIssues(projectIds: string[], since: Date): Promise<Tr
   return trashed;
 }
 
-async function syncCustomer(customer: { linear_slug: string; linear_projects: string[] }, syncStartedAt: Date) {
+async function syncCustomer(
+  customer: { linear_slug: string; linear_projects: string[] },
+  syncStartedAt: Date,
+  // Manual-trigger-only (?full=true) — ignores the checkpoint entirely and
+  // re-scans every issue ever, not just what changed since last_synced_at.
+  // For backfilling a customer whose issues predate this feature (or the
+  // 1-day catch-up cap, whichever came first) into portal.issue_vectors.
+  full = false,
+) {
   const { linear_slug, linear_projects } = customer;
   if (!linear_slug || !linear_projects?.length) return;
 
-  const since = await getSinceForCustomer(linear_slug);
-  const issues = await fetchIssuesUpdatedSince(linear_projects, since);
+  const since = full ? new Date(0) : await getSinceForCustomer(linear_slug);
+  const allIssues = await fetchIssuesUpdatedSince(linear_projects, since);
+
+  // Embedding an issue (upsertIssueVector) runs the gte-small model twice —
+  // real CPU cost, unlike deleteIssueVectors below (a plain DELETE/REST
+  // call, no inference at all). A big batch of *edits* landing in one
+  // window — a bulk cleanup day, or a `full=true` backfill — can add up to
+  // more CPU than a single edge function invocation gets, which is exactly
+  // what WORKER_RESOURCE_LIMIT means. Oldest-first + a per-run cap turns
+  // that into a hard failure processing nothing into steady, bounded
+  // progress: this run does the oldest MAX_ISSUES_PER_RUN, and — since the
+  // checkpoint below only advances to the last one actually processed when
+  // there's a leftover — the next run (or the next cron tick) picks up
+  // right where this one stopped instead of re-scanning the same backlog.
+  const MAX_ISSUES_PER_RUN = 30;
+  const sortedIssues = [...allIssues].sort(
+    (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
+  );
+  const issues = sortedIssues.slice(0, MAX_ISSUES_PER_RUN);
+  const truncated = sortedIssues.length > issues.length;
+  if (truncated) {
+    console.warn(
+      `[linear-vector-sync] ${linear_slug}: ${sortedIssues.length} issues pending, processing oldest ${issues.length} this run`,
+    );
+  }
 
   // upsertIssueVector/deleteIssueVectors are both "best-effort" (they catch
   // their own Upstash errors and never throw — a vector-sync hiccup must
@@ -185,11 +222,21 @@ async function syncCustomer(customer: { linear_slug: string; linear_projects: st
     console.error(`[linear-vector-sync] ${linear_slug}: trash cleanup failed (non-fatal):`, err);
   }
 
+  // A truncated run only actually processed up through the last (oldest of
+  // the leftover) issue's own updatedAt — advancing all the way to
+  // syncStartedAt would skip everything past MAX_ISSUES_PER_RUN and never
+  // come back for it. Landing exactly on that issue's updatedAt (not one ms
+  // after) is deliberate: the `gt` comparison in fetchIssuesUpdatedSince
+  // excludes it next run (already processed) while still including
+  // whatever comes after.
+  const lastProcessed = issues.at(-1);
+  const nextCheckpoint = truncated && lastProcessed ? new Date(lastProcessed.updatedAt) : syncStartedAt;
+
   if (allWritesSucceeded) {
     await supabase.schema(SCHEMA)
       .from("vector_sync_state")
       .upsert(
-        { linear_slug, last_synced_at: syncStartedAt.toISOString() },
+        { linear_slug, last_synced_at: nextCheckpoint.toISOString() },
         { onConflict: "linear_slug" },
       );
   } else {
@@ -199,8 +246,9 @@ async function syncCustomer(customer: { linear_slug: string; linear_projects: st
   }
 
   console.log(
-    `[linear-vector-sync] ${linear_slug}: synced ${issues.length} issue(s), ` +
-      `removed ${trashedCount} trashed vector(s) since ${since.toISOString()}`,
+    `[linear-vector-sync] ${linear_slug}: synced ${issues.length}/${sortedIssues.length} issue(s), ` +
+      `removed ${trashedCount} trashed vector(s) since ${since.toISOString()}` +
+      (truncated ? ` (truncated — ${sortedIssues.length - issues.length} left for next run)` : ""),
   );
 }
 
@@ -217,7 +265,12 @@ Deno.serve(async (req) => {
     // The cron itself never sends this — it's a manual-trigger convenience
     // (e.g. from Insomnia while testing) to scope one run to a single
     // customer by clientName instead of every customer in the project.
-    const slug = new URL(req.url).searchParams.get("slug");
+    const url = new URL(req.url);
+    const slug = url.searchParams.get("slug");
+    // Requires `slug` — a full re-scan of every issue for every customer at
+    // once isn't what "manual backfill for one customer" is for, and would
+    // hit Linear's API a lot harder than the incremental cron ever does.
+    const full = url.searchParams.get("full") === "true" && !!slug;
     let customers;
     if (slug) {
       const { data, error } = await supabase.schema(SCHEMA)
@@ -243,9 +296,9 @@ Deno.serve(async (req) => {
     // work. Paired with upsertIssueVector's now-sequential (not Promise.all)
     // pair of upserts per issue as the other lever against the "vector store
     // backend is currently unavailable" throttling seen during catch-up runs.
-    await runWithConcurrency(customers, 2, (customer) => syncCustomer(customer, syncStartedAt));
+    await runWithConcurrency(customers, 2, (customer) => syncCustomer(customer, syncStartedAt, full));
 
-    return new Response(JSON.stringify({ success: true, customersProcessed: customers.length }), {
+    return new Response(JSON.stringify({ success: true, customersProcessed: customers.length, full }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

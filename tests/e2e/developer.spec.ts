@@ -121,10 +121,10 @@ test.describe('Developer — panels', () => {
     await page.waitForURL('**/documents', { timeout: 10_000 });
 
     // Wait for the card to render before asserting
-    await expect(page.getByPlaceholder('Search documents...')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByPlaceholder('Ask AI to find a document…')).toBeVisible({ timeout: 10_000 });
 
     // Category tabs — there is no separate filter icon button anymore, the
-    // search input above covers that (see components/documents/documents-list.tsx)
+    // AI search input above covers that (see components/documents/documents-list.tsx)
     for (const category of ['all', 'reports', 'technical', 'design']) {
       await expect(page.getByTestId(`category-tab-${category}`)).toBeVisible();
     }

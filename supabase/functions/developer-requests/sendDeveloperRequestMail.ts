@@ -1,7 +1,5 @@
 // @ts-nocheck
-import { Resend } from "https://esm.sh/resend@3";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
+import { sendEmail } from "../lib/mailer.ts";
 
 type SendDeveloperRequestMailParams = {
   email: string;
@@ -39,8 +37,7 @@ export async function sendDeveloperRequestMail({
     </div>
   `;
 
-  const response = await resend.emails.send({
-    from: Deno.env.get("FROM_EMAIL"),
+  const response = await sendEmail({
     to: email,
     subject: `New Spark & Co FDE developer request${clientName ? ` — ${clientName}` : ""}`,
     html,
