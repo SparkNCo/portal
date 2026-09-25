@@ -55,11 +55,20 @@ async function fetchEvent(eventId: string): Promise<NotificationEvent | null> {
 export function useNotifications() {
   const { profile } = useUser();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  // The real total, independent of PAGE_SIZE — the bell only ever shows the
+  // 3 most recent (see the .limit(PAGE_SIZE) below), so `notifications.length`
+  // alone can't tell "3 shown" apart from "3 of 52 total". Updated only via
+  // the realtime subscription below (never optimistically alongside
+  // markAsRead/markAllAsRead), so a self-triggered UPDATE only ever
+  // decrements it once instead of racing an optimistic decrement here
+  // against the echo of the write that caused it.
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!profile?.id) {
       setNotifications([]);
+      setTotalUnreadCount(0);
       setLoading(false);
       return;
     }
@@ -68,19 +77,31 @@ export function useNotifications() {
     setLoading(true);
 
     const fetchNotifications = async () => {
-      const { data, error } = await supabase
-        .schema("portal")
-        .from("notifications")
-        .select("*, event:events(*)")
-        .eq("read", false)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
+      const [listResult, countResult] = await Promise.all([
+        supabase
+          .schema("portal")
+          .from("notifications")
+          .select("*, event:events(*)")
+          .eq("read", false)
+          .order("created_at", { ascending: false })
+          .limit(PAGE_SIZE),
+        supabase
+          .schema("portal")
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("read", false),
+      ]);
 
       if (cancelled) return;
-      if (error) {
-        console.error("Fetch notifications error:", error);
+      if (listResult.error) {
+        console.error("Fetch notifications error:", listResult.error);
       } else {
-        setNotifications((data ?? []) as Notification[]);
+        setNotifications((listResult.data ?? []) as Notification[]);
+      }
+      if (countResult.error) {
+        console.error("Fetch notification count error:", countResult.error);
+      } else {
+        setTotalUnreadCount(countResult.count ?? 0);
       }
       setLoading(false);
     };
@@ -94,6 +115,7 @@ export function useNotifications() {
         { event: "INSERT", schema: "portal", table: "notifications", filter: `user_id=eq.${profile.id}` },
         async (payload) => {
           const row = payload.new as RawNotificationRow;
+          setTotalUnreadCount((c) => c + 1);
           const event = await fetchEvent(row.event_id);
           if (!event) return;
           setNotifications((prev) => [{ ...row, event }, ...prev].slice(0, PAGE_SIZE));
@@ -105,12 +127,14 @@ export function useNotifications() {
         async (payload) => {
           const row = payload.new as RawNotificationRow;
           if (row.read) {
+            setTotalUnreadCount((c) => Math.max(0, c - 1));
             setNotifications((prev) => prev.filter((n) => n.id !== row.id));
             return;
           }
           // Not a read-toggle — a repeat event on the same thread re-pointed
           // this notification at a newer event_id (see notify_chat_message /
-          // notifyProject's upsertNotificationForEvent).
+          // notifyProject's upsertNotificationForEvent). Doesn't change the
+          // unread count either way.
           const event = await fetchEvent(row.event_id);
           if (!event) return;
           setNotifications((prev) => {
@@ -128,8 +152,6 @@ export function useNotifications() {
       supabase.removeChannel(channel);
     };
   }, [profile?.id]);
-
-  const unreadCount = notifications.length;
 
   const markAsRead = async (id: string) => {
     // Drop it from the list immediately — read notifications aren't shown
@@ -150,5 +172,5 @@ export function useNotifications() {
     if (error) console.error("Mark all notifications read error:", error);
   };
 
-  return { notifications, unreadCount, loading, markAsRead, markAllAsRead };
+  return { notifications, totalUnreadCount, loading, markAsRead, markAllAsRead };
 }

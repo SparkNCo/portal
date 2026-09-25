@@ -713,7 +713,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             <div className="flex flex-col">
               <video
                 key={currentDemo.id}
-                className="w-full max-h-[560px] bg-black"
+                className="w-full max-h-[560px] bg-black object-contain"
                 controls
                 preload="metadata"
                 src={currentDemo.file_url ?? undefined}

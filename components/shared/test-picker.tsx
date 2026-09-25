@@ -28,7 +28,7 @@ type SimilarTestMatch = {
 
 // The semantic search needs real text to match against — too short and it's
 // just noise, same reasoning as the "similar issue" hint on Request a Feature.
-const MIN_QUERY_LENGTH = 10;
+const MIN_QUERY_LENGTH = 7;
 const SIMILARITY_THRESHOLD = 0.7;
 // Long on purpose — every firing is an Upstash query, so this waits for the user to
 // actually pause typing rather than re-querying on every short break in typing.

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileQuestion, FileCheck2, Lock, Loader2, UserMinus, Hand } from "lucide-react";
+import { Upload, FileQuestion, FileCheck2, Lock, Loader2, UserMinus, Hand, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { useDocumentRequests, type DocumentRequest } from "./use-document-requests";
 import { FulfillDocumentRequestModal } from "./fulfill-document-request-modal";
+import { RequestDocumentDialog } from "./request-document-dialog";
 
 async function patchDocumentRequest(payload: Record<string, unknown>) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/document-requests`, {
@@ -103,9 +106,19 @@ function RequestDetailModal({
           <div>
             <p className="smalltext font-medium text-foreground mb-1.5">Details</p>
             <div className="rounded-lg bg-muted/40 p-3">
-              <p className="smalltext text-foreground whitespace-pre-wrap break-words">
-                {request.description || "No additional details provided."}
-              </p>
+              {request.description ? (
+                <div
+                  className="smalltext text-foreground prose prose-sm prose-invert max-w-none leading-relaxed
+                  [&_p]:mb-2 [&_p:last-child]:mb-0
+                  [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ul]:space-y-1
+                  [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_ol]:space-y-1
+                  [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2"
+                >
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{request.description}</ReactMarkdown>
+                </div>
+              ) : (
+                <p className="smalltext text-muted-foreground">No additional details provided.</p>
+              )}
             </div>
           </div>
 
@@ -142,6 +155,8 @@ function RequestRow({
   const queryClient = useQueryClient();
   const [showDetail, setShowDetail] = useState(false);
   const [showFulfill, setShowFulfill] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["document-requests"] });
 
@@ -197,9 +212,30 @@ function RequestRow({
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      patchDocumentRequest({ action: "delete", id: request.id, deletedBy: profile?.email }),
+    onSuccess: () => {
+      toast.success("Request deleted");
+      invalidate();
+      setShowDeleteConfirm(false);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+      setShowDeleteConfirm(false);
+    },
+  });
+
   const claimedByMe = request.claimed_by === profile?.email;
   const claimedBySomeoneElse = !!request.claimed_by && !claimedByMe;
   const isAdmin = profile?.role === "admin";
+  // Only the requester can edit/delete their own request (no admin bypass)
+  // — and only while it's unclaimed (a developer is already working off it
+  // otherwise) and not yet done (the document was already delivered against
+  // whatever it said at the time). Matches editDocumentRequest.ts/
+  // deleteDocumentRequest.ts's own rules.
+  const canEditOrDelete =
+    request.requested_by === profile?.email && request.status !== "done" && !request.claimed_by;
 
   function handleFulfillClick() {
     if (claimedByMe) {
@@ -247,6 +283,29 @@ function RequestRow({
             {request.customer_slug ? ` · ${request.customer_slug}` : ""}
           </p>
         </button>
+
+        {canEditOrDelete && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowEdit(true)}
+              className="flex-shrink-0 smalltext text-muted-foreground"
+              aria-label={`Edit ${request.title}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex-shrink-0 smalltext text-muted-foreground hover:text-destructive"
+              aria-label={`Delete ${request.title}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </>
+        )}
 
         {canManage && request.status === "pending" && !claimedBySomeoneElse && (
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -328,6 +387,16 @@ function RequestRow({
         />
       )}
 
+      {showEdit && (
+        <RequestDocumentDialog
+          customerSlug={request.customer_slug}
+          requestedBy={profile?.email}
+          editingRequest={request}
+          open={showEdit}
+          onOpenChange={setShowEdit}
+        />
+      )}
+
       {showFulfill && (
         <FulfillDocumentRequestModal
           request={request}
@@ -335,6 +404,53 @@ function RequestRow({
           onFulfilled={() => setShowFulfill(false)}
         />
       )}
+
+      <Dialog open={showDeleteConfirm} onOpenChange={(v) => !v && setShowDeleteConfirm(false)}>
+        <DialogContent
+          className="w-[95vw] sm:w-full sm:max-w-lg overflow-x-hidden"
+          aria-describedby={undefined}
+        >
+          <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-destructive via-destructive/60 to-transparent" />
+
+          <DialogHeader className="pt-4">
+            <div className="flex min-w-0 items-center gap-3.5 pr-6">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-red-400 ring-2 ring-destructive/30">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <DialogTitle className="truncate text-red-400">Delete Request?</DialogTitle>
+                <p className="smalltext text-muted-foreground">This can't be undone.</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-5 pt-4 mt-1 border-t border-border">
+            <p className="smalltext text-foreground">
+              Delete "{request.title}"?
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="smalltext"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="smalltext bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

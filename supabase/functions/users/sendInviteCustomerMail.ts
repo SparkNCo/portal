@@ -1,7 +1,5 @@
 // @ts-nocheck
-import { Resend } from "https://esm.sh/resend@3";
-
-const resend = new Resend(Deno.env.get("RESEND_KEY")!);
+import { sendEmail } from "../lib/mailer.ts";
 
 function InviteTemplateHtml({ inviteLink, isNew }: { inviteLink: string; isNew: boolean }) {
   const heading = isNew ? "You're invited!" : "Reset your password";
@@ -81,11 +79,9 @@ export async function sendInviteCustomerMail(email: string, inviteLink: string, 
     return { skipped: true };
   }
 
-  const from = Deno.env.get("FROM_EMAIL");
-  console.log("[sendInviteCustomerMail] sending", { from, to: email, isNew });
+  console.log("[sendInviteCustomerMail] sending", { to: email, isNew });
 
-  const response = await resend.emails.send({
-    from,
+  const response = await sendEmail({
     to: email,
     subject: isNew ? "You've been invited to the portal" : "Reset your portal password",
     html: InviteTemplateHtml({ inviteLink, isNew }),

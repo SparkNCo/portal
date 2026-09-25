@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, MessageCircle, Video, HelpCircle, Palette, FileEdit } from "lucide-react";
+import { Bell, MessageCircle, Video, HelpCircle, Palette, FileEdit, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -18,6 +18,7 @@ const ACTION_PHRASES: Record<string, string> = {
   demo_uploaded: "uploaded a demo",
   design_resource_added: "added a design resource",
   requirement_update_added: "posted a requirement update",
+  document_request_created: "requested a document",
 };
 
 const OBJECT_TYPE_LABELS: Record<string, string> = {
@@ -25,16 +26,18 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
   issue_decision: "on a decision",
   demo: "on a demo",
   design_resource: "on a design resource",
+  document_request: "a document",
 };
 
 // Prefer the human-readable ticket code ("on SPA-123") when there is one.
-// Chat notifications have no ticket code — show the chat's own title
-// ("in <title>") instead, falling back to the generic object-type label
-// only for chats with no title (e.g. a direct chat) or older events from
-// before object_title existed.
+// Otherwise, prefer the object's own title when notifyProject set one (chat
+// and document_request both do — see object_title on portal.events),
+// falling back to the generic object-type label only when neither is
+// available (e.g. a direct chat with no title, or an older event from
+// before object_title existed).
 function formatObject(event: { object_type: string; issue_code: string | null; object_title: string | null }): string {
   if (event.issue_code) return `on ${event.issue_code}`;
-  if (event.object_type === "chat" && event.object_title) return `in ${event.object_title}`;
+  if (event.object_title) return event.object_type === "chat" ? `in ${event.object_title}` : `"${event.object_title}"`;
   return OBJECT_TYPE_LABELS[event.object_type] ?? "";
 }
 
@@ -45,6 +48,7 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   demo_uploaded: Video,
   design_resource_added: Palette,
   requirement_update_added: FileEdit,
+  document_request_created: FileText,
 };
 
 function formatRelativeTime(iso: string): string {
@@ -83,19 +87,22 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
   design_resource: "design",
 };
 
-// `event.link` is baked in server-side as `/${projectSlug}/build` or
-// `/${projectSlug}/bugs` (see resolveIssueDashboardLink in
+// `event.link` is baked in server-side as `/${projectSlug}/build`,
+// `/${projectSlug}/bugs`, or `/${projectSlug}/documents` (see
+// resolveIssueDashboardLink/resolveDocumentsLink in
 // supabase/functions/utils/notify.ts) — correct for a customer/stakeholder/
 // admin, whose own pages really are slug-scoped. A developer's equivalent
-// pages are `/dev/build`/`/dev/bugs` with no slug at all (they pick their
-// project from the sidebar instead, see app/dev/build/page.tsx) — sending
-// them through the customer-facing slug URL instead landed them on a
-// different page than their own portal, with the "Working on" project
-// selector not applying there (it isn't that page's concept of a project),
-// which is what looked like being stuck on the wrong customer.
-function resolveIssueBasePath(role: string | undefined, eventLink: string): string {
+// pages (`/dev/build`, `/dev/bugs`, `/dev/documents`) have no slug at all
+// (they pick their project from the sidebar instead, see
+// app/dev/build/page.tsx) — sending them through the customer-facing slug
+// URL instead landed them on a different page than their own portal, with
+// the "Working on" project selector not applying there (it isn't that
+// page's concept of a project), which is what looked like being stuck on
+// the wrong customer.
+const DEVELOPER_SAFE_SUFFIXES = ["bugs", "build", "documents"];
+function resolveDeveloperSafePath(role: string | undefined, eventLink: string): string {
   if (role !== "developer") return eventLink;
-  const suffix = eventLink.endsWith("/bugs") ? "bugs" : "build";
+  const suffix = DEVELOPER_SAFE_SUFFIXES.find((s) => eventLink.endsWith(`/${s}`)) ?? "build";
   return `/dev/${suffix}`;
 }
 
@@ -104,8 +111,8 @@ function resolveLink(n: Notification, role: string | undefined, ownSlug: string 
   if (event.object_type === "chat") {
     return `${resolveChatBasePath(role, ownSlug)}?chatId=${event.object_id}`;
   }
-  if (!event.issue_id) return event.link;
-  const base = resolveIssueBasePath(role, event.link);
+  if (!event.issue_id) return resolveDeveloperSafePath(role, event.link);
+  const base = resolveDeveloperSafePath(role, event.link);
   const tab = OBJECT_TYPE_TABS[event.object_type];
   const tabParam = tab ? `&tab=${tab}` : "";
   return `${base}?issueId=${event.issue_id}${tabParam}`;
@@ -158,7 +165,7 @@ export function NotificationBell() {
   // too. Falls back to profile.linear_slug only if the bell is somehow
   // rendered outside a `/[slug]/...` route.
   const customerSlug = useCustomerSlug();
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, totalUnreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
   const [open, setOpen] = useState(false);
 
   const handleOpen = (n: Notification) => {
@@ -171,18 +178,21 @@ export function NotificationBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+          aria-label={totalUnreadCount > 0 ? `Notifications, ${totalUnreadCount} unread` : "Notifications"}
           className="relative rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-primary"
         >
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
+          {totalUnreadCount > 0 && (
             <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-destructive" aria-hidden="true" />
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-96 max-w-[90vw] p-0">
         {!loading && notifications.length > 0 && (
-          <div className="flex justify-end px-3 py-1.5 bg-accent/5">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-accent/5">
+            <span className="smalltext text-popover-foreground/70">
+              {totalUnreadCount} new
+            </span>
             <button
               onClick={markAllAsRead}
               className="smalltext text-popover-foreground/70 hover:text-primary"
