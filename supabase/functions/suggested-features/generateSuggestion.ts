@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { linearRequest } from "../issues/linearClient.ts";
 import { PROJECT_CONTEXT_QUERY } from "./query.ts";
+import { resolveLinearSlug } from "../utils/slug.ts";
 
 type Milestone = { id: string; name: string; description?: string | null; status: string };
 type ContextIssue = {
@@ -57,27 +58,43 @@ Respond with:
 - "milestoneId": the "id" of whichever milestone listed above this feature best belongs to, or null if none of them fit (or there are no milestones)`;
 }
 
-async function generateWithOpenAI(prompt: string): Promise<{
+// SPA-509 test: swapped from a direct OpenAI call to Hugging Face's
+// Inference Providers router (https://router.huggingface.co/v1/chat/
+// completions) — an OpenAI-compatible Chat Completions endpoint that fans
+// out to whichever backing provider serves the requested model. Only the
+// token lives in an env var; endpoint/model/schema stay hardcoded here on
+// purpose (no multi-provider config yet — see the SPA-509 discussion, on
+// hold pending confirmation from the team on the direction).
+//
+// "Qwen/Qwen2.5-Coder-3B-Instruct" — a small, cheap model (live via the
+// nscale/featherless-ai providers behind HF's router) chosen to keep this
+// test's cost down. Unlike aisuite-js (evaluated for this same ticket), HF's
+// router supports response_format.json_schema directly — so this keeps the
+// same strict schema-enforced JSON output the old /v1/responses call had, no
+// prompt-only JSON parsing needed.
+// Trade-off worth watching: this is a *code*-tuned 3B model, not a general
+// instruct model — it may write flatter/less grounded feature descriptions
+// than a bigger general-purpose model would. Swap the model string below if
+// suggestion quality turns out too weak once tested against a real project.
+async function generateWithHuggingFace(prompt: string): Promise<{
   title: string;
   description: string;
   milestoneId: string | null;
 }> {
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+      Authorization: `Bearer ${Deno.env.get("HUGGINGFACE_API_KEY")}`,
     },
     body: JSON.stringify({
-      // A more capable model than debounce/analyze-idea.ts's gpt-4.1-mini —
-      // that one only classifies booleans, this has to generate a coherent,
-      // grounded feature idea from a fair amount of context.
-      model: "gpt-4.1",
-      input: prompt,
-      text: {
-        format: {
-          type: "json_schema",
+      model: "Qwen/Qwen2.5-Coder-3B-Instruct",
+      messages: [{ role: "user", content: prompt }],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
           name: "suggested_feature",
+          strict: true,
           schema: {
             type: "object",
             properties: {
@@ -95,17 +112,27 @@ async function generateWithOpenAI(prompt: string): Promise<{
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`OpenAI error: ${errorText}`);
+    throw new Error(`Hugging Face error: ${errorText}`);
   }
 
   const data = await res.json();
-  const raw = data.output?.[0]?.content?.[0]?.text;
-  if (!raw) throw new Error("OpenAI returned no structured output");
+  const raw = data.choices?.[0]?.message?.content;
+  if (!raw) throw new Error("Hugging Face returned no structured output");
   return JSON.parse(raw);
 }
 
 // POST /suggested-features/generate — manual trigger for now (no cron yet, see
-// ticket notes), one project at a time: { slug, projectId }.
+// ticket notes), one project at a time: { slug, projectId }. `slug` is the
+// caller's clientName-based route slug (same value every other panel on the
+// Build page already has in hand) — resolved here to the customer's
+// linear_slug before it's persisted, same pattern as issues/updateIsste.ts
+// and tests/index.ts, so `project_slug` lines up with what
+// upsertIssueVector/resolveVectorProvider expect downstream in
+// acceptSuggestion.ts, and so listSuggestions.ts can resolve the same way on
+// read. Never trust a client-supplied linear_slug directly here — it has to
+// come from `customers.linear_slug` itself, or a stale/wrong value from the
+// caller silently lands suggestions in the wrong (or no) namespace, same bug
+// class as the old portal.tests.project_slug issue.
 export async function handleGenerateSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
   const { slug, projectId } = await req.json();
@@ -113,8 +140,12 @@ export async function handleGenerateSuggestion(req: Request): Promise<Response> 
   if (!slug || !projectId) {
     return Response.json({ error: "Missing slug or projectId" }, { status: 400 });
   }
-  
-  
+
+  const linearSlug = await resolveLinearSlug(schema, slug);
+  if (!linearSlug) {
+    return Response.json({ error: `No customer found for slug "${slug}"` }, { status: 404 });
+  }
+
   const data = await linearRequest(PROJECT_CONTEXT_QUERY, { projectId });
   const project = data?.project;
   if (!project) {
@@ -124,14 +155,14 @@ export async function handleGenerateSuggestion(req: Request): Promise<Response> 
   const milestones: Milestone[] = project.projectMilestones?.nodes ?? [];
   const issues: ContextIssue[] = project.issues?.nodes ?? [];
 
-  const suggestion = await generateWithOpenAI(buildPrompt(project, milestones, issues));
+  const suggestion = await generateWithHuggingFace(buildPrompt(project, milestones, issues));
   const matchedMilestone = milestones.find((m) => m.id === suggestion.milestoneId) ?? null;
 
   const { data: row, error } = await supabase
     .schema(schema)
     .from("suggested_features")
     .insert({
-      project_slug: slug,
+      project_slug: linearSlug,
       linear_project_id: project.id,
       linear_project_name: project.name,
       linear_milestone_id: matchedMilestone?.id ?? null,
