@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Lightbulb, X } from "lucide-react";
+import { Check, Lightbulb, Loader2, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { priorityColors } from "@/components/client/issues.types";
+import { fetchMilestones, fetchProjects } from "@/lib/issues-api";
 import {
   acceptSuggestedFeature,
   declineSuggestedFeature,
+  updateSuggestionMilestone,
+  updateSuggestionProject,
   type SuggestedFeature,
 } from "@/lib/suggested-features-api";
 
@@ -24,18 +27,113 @@ const PRIORITY_OPTIONS: { value: "urgent" | "high" | "medium" | "low"; label: ke
   { value: "low", label: "Low" },
 ];
 
+// Shared shell for the project/milestone badge pickers below — same trigger
+// (a clickable Badge, no dropdown chevron, hover just tints the text orange
+// instead of filling a background) and the same popover list (with a
+// spinner while its options load lazily). Kept local to this file since
+// nothing else needs it.
+function BadgePicker({
+  label,
+  loading,
+  options,
+  open,
+  onOpenChange,
+  onSelect,
+  disabled,
+  clearLabel,
+  onClear,
+}: {
+  readonly label: string;
+  readonly loading: boolean;
+  readonly options: { id: string; name: string }[];
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly onSelect: (id: string) => void;
+  readonly disabled: boolean;
+  readonly clearLabel?: string;
+  readonly onClear?: () => void;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button type="button" disabled={disabled} className="w-full min-w-0">
+          <Badge
+            variant="outline"
+            className="w-full justify-start text-sm px-2.5 py-1.5 cursor-pointer transition-colors hover:text-primary"
+          >
+            {/* Badge itself is inline-flex — text-overflow: ellipsis doesn't
+                reliably apply directly on a flex container's own overflowing
+                content, it needs a block-formatted child to truncate
+                against. Without this nested span, a long name just got hard
+                cut on both edges with no "…", instead of ellipsizing at the
+                end. */}
+            <span className="block truncate">{label}</span>
+          </Badge>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        {loading ? (
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="custom-scrollbar flex flex-col gap-0.5 max-h-56 overflow-y-auto pr-1">
+            {onClear && (
+              <button
+                type="button"
+                className="rounded-md px-2 py-1.5 text-left smalltext text-muted-foreground transition-colors hover:text-primary"
+                onClick={onClear}
+              >
+                {clearLabel}
+              </button>
+            )}
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="rounded-md px-2 py-1.5 text-left smalltext transition-colors hover:text-primary"
+                onClick={() => onSelect(opt.id)}
+              >
+                <span className="block truncate">{opt.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function SuggestedFeatureCard({
   feature,
   slug,
+  actorEmail,
 }: {
   readonly feature: SuggestedFeature;
   readonly slug: string;
+  readonly actorEmail: string;
 }) {
   const queryClient = useQueryClient();
   const [priorityOpen, setPriorityOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+
+  // Both lazy — only fetched once their picker actually opens, so a row of N
+  // cards doesn't fire N project/milestone lookups just from rendering.
+  const { data: projects = [], isLoading: loadingProjects } = useQuery({
+    queryKey: ["projects", slug],
+    queryFn: () => fetchProjects(slug),
+    enabled: projectOpen,
+  });
+
+  const { data: milestones = [], isLoading: loadingMilestones } = useQuery({
+    queryKey: ["milestones", feature.linear_project_id],
+    queryFn: () => fetchMilestones(feature.linear_project_id),
+    enabled: milestoneOpen,
+  });
 
   const acceptMutation = useMutation({
-    mutationFn: (priority: string) => acceptSuggestedFeature(feature.id, priority),
+    mutationFn: (priority: string) => acceptSuggestedFeature(feature.id, priority, actorEmail),
     onSuccess: (updated) => {
       toast.success(
         updated.linear_issue_identifier
@@ -51,14 +149,35 @@ export function SuggestedFeatureCard({
   });
 
   const declineMutation = useMutation({
-    mutationFn: () => declineSuggestedFeature(feature.id),
+    mutationFn: () => declineSuggestedFeature(feature.id, actorEmail),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const milestoneMutation = useMutation({
+    mutationFn: (milestoneId: string | null) =>
+      updateSuggestionMilestone(feature.id, milestoneId, actorEmail),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const projectMutation = useMutation({
+    mutationFn: (projectId: string) => updateSuggestionProject(feature.id, projectId, actorEmail),
+    onSuccess: () => {
+      // The backend clears the milestone when the project changes (it
+      // belonged to the old one) — refreshing this suggestion is enough to
+      // pick that up, same query the milestone mutation already invalidates.
+      queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const busy = acceptMutation.isPending || declineMutation.isPending;
+  const pickersDisabled = milestoneMutation.isPending || projectMutation.isPending;
 
   return (
     // Same dark-card treatment as IssueCard's non-lightCard branch (Business
@@ -86,15 +205,48 @@ export function SuggestedFeatureCard({
 
       <div className="flex-1 space-y-3 px-4 pl-5 pb-3">
         <p className="smalltext text-muted-foreground line-clamp-4">{feature.description}</p>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="outline" className="smalltext">
-            {feature.linear_project_name}
-          </Badge>
-          {feature.linear_milestone_name && (
-            <Badge variant="outline" className="smalltext">
-              {feature.linear_milestone_name}
-            </Badge>
-          )}
+        <div className="flex flex-col gap-2">
+          {/* AI-picked (or previously overridden) project — re-validated
+              against this customer's own customers.linear_projects on every
+              change (updateSuggestionProject.ts), never trusted blind.
+              Switching projects clears the milestone server-side, since it
+              belonged to whichever project was selected before. */}
+          <BadgePicker
+            label={feature.linear_project_name}
+            loading={loadingProjects}
+            options={projects}
+            open={projectOpen}
+            onOpenChange={setProjectOpen}
+            onSelect={(id) => {
+              setProjectOpen(false);
+              projectMutation.mutate(id);
+            }}
+            disabled={pickersDisabled}
+          />
+
+          {/* AI-picked (or previously overridden) milestone — always one of
+              this suggestion's own project's real milestones, never trusted
+              blind (see generateSuggestion.ts's matchedMilestone check and
+              updateSuggestionMilestone.ts's own re-validation). Developers
+              never see this card at all (gated in suggested-features-row.tsx),
+              so no separate read-only path needed here. */}
+          <BadgePicker
+            label={feature.linear_milestone_name ?? "No milestone"}
+            loading={loadingMilestones}
+            options={milestones}
+            open={milestoneOpen}
+            onOpenChange={setMilestoneOpen}
+            onSelect={(id) => {
+              setMilestoneOpen(false);
+              milestoneMutation.mutate(id);
+            }}
+            disabled={pickersDisabled}
+            clearLabel="No milestone"
+            onClear={() => {
+              setMilestoneOpen(false);
+              milestoneMutation.mutate(null);
+            }}
+          />
         </div>
       </div>
 

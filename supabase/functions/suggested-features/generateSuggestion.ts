@@ -121,35 +121,23 @@ async function generateWithHuggingFace(prompt: string): Promise<{
   return JSON.parse(raw);
 }
 
-// POST /suggested-features/generate — manual trigger for now (no cron yet, see
-// ticket notes), one project at a time: { slug, projectId }. `slug` is the
-// caller's clientName-based route slug (same value every other panel on the
-// Build page already has in hand) — resolved here to the customer's
-// linear_slug before it's persisted, same pattern as issues/updateIsste.ts
-// and tests/index.ts, so `project_slug` lines up with what
-// upsertIssueVector/resolveVectorProvider expect downstream in
-// acceptSuggestion.ts, and so listSuggestions.ts can resolve the same way on
-// read. Never trust a client-supplied linear_slug directly here — it has to
-// come from `customers.linear_slug` itself, or a stale/wrong value from the
-// caller silently lands suggestions in the wrong (or no) namespace, same bug
-// class as the old portal.tests.project_slug issue.
-export async function handleGenerateSuggestion(req: Request): Promise<Response> {
-  const schema = "portal";
-  const { slug, projectId } = await req.json();
-
-  if (!slug || !projectId) {
-    return Response.json({ error: "Missing slug or projectId" }, { status: 400 });
-  }
-
-  const linearSlug = await resolveLinearSlug(schema, slug);
-  if (!linearSlug) {
-    return Response.json({ error: `No customer found for slug "${slug}"` }, { status: 404 });
-  }
-
+// Does the actual work — Linear context fetch, AI call, insert — for one
+// project. Shared by the manual HTTP trigger below and
+// generateAllSuggestions.ts's weekly cron loop, so both stay in lockstep
+// instead of the cron drifting from whatever the manual endpoint does.
+// `linearSlug` is the customer's real `customers.linear_slug`, already
+// resolved by the caller — this never re-derives it, since who's allowed to
+// resolve clientName -> linear_slug (an HTTP request vs. a cron reading the
+// customers row directly) differs between the two callers.
+export async function generateSuggestionForProject(
+  schema: string,
+  linearSlug: string,
+  projectId: string,
+) {
   const data = await linearRequest(PROJECT_CONTEXT_QUERY, { projectId });
   const project = data?.project;
   if (!project) {
-    return Response.json({ error: "Project not found in Linear" }, { status: 404 });
+    throw new Error(`Project ${projectId} not found in Linear`);
   }
 
   const milestones: Milestone[] = project.projectMilestones?.nodes ?? [];
@@ -174,6 +162,35 @@ export async function handleGenerateSuggestion(req: Request): Promise<Response> 
     .single();
 
   if (error) throw new Error(error.message);
+
+  return row;
+}
+
+// POST /suggested-features/generate — manual trigger, one project at a time:
+// { slug, projectId }. `slug` is the caller's clientName-based route slug
+// (same value every other panel on the Build page already has in hand) —
+// resolved here to the customer's linear_slug before it's persisted, same
+// pattern as issues/updateIsste.ts and tests/index.ts, so `project_slug`
+// lines up with what upsertIssueVector/resolveVectorProvider expect
+// downstream in acceptSuggestion.ts, and so listSuggestions.ts can resolve
+// the same way on read. Never trust a client-supplied linear_slug directly
+// here — it has to come from `customers.linear_slug` itself, or a stale/wrong
+// value from the caller silently lands suggestions in the wrong (or no)
+// namespace, same bug class as the old portal.tests.project_slug issue.
+export async function handleGenerateSuggestion(req: Request): Promise<Response> {
+  const schema = "portal";
+  const { slug, projectId } = await req.json();
+
+  if (!slug || !projectId) {
+    return Response.json({ error: "Missing slug or projectId" }, { status: 400 });
+  }
+
+  const linearSlug = await resolveLinearSlug(schema, slug);
+  if (!linearSlug) {
+    return Response.json({ error: `No customer found for slug "${slug}"` }, { status: 404 });
+  }
+
+  const row = await generateSuggestionForProject(schema, linearSlug, projectId);
 
   return Response.json(row);
 }

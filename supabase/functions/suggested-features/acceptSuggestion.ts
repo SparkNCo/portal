@@ -4,11 +4,12 @@ import { linearRequest, GET_PROJECT_TEAM_QUERY } from "../issues/linearClient.ts
 import { GET_STATE_ID_QUERY } from "../issues/updateIsste.ts";
 import { PRIORITY_MAP, CREATE_ISSUE_MUTATION } from "../issues/createIssue.ts";
 import { upsertIssueVector } from "../lib/vector.ts";
+import { requireNonDeveloper } from "./authorize.ts";
 
-// POST /suggested-features/accept — { id, priority }. Creates the real Linear
-// issue (Backlog, no cycle, the suggestion's project/milestone, the chosen
-// priority) and marks the row accepted. Deliberately builds its own
-// IssueCreateInput here instead of calling issues/createIssue.ts's
+// POST /suggested-features/accept — { id, priority, actorEmail }. Creates the
+// real Linear issue (Backlog, no cycle, the suggestion's project/milestone,
+// the chosen priority) and marks the row accepted. Deliberately builds its
+// own IssueCreateInput here instead of calling issues/createIssue.ts's
 // handleCreateIssue — that helper has no way to force stateId or an explicit
 // cycleId, which this flow needs and the regular Feature Request/Bug Report
 // flow never has, so extending it wasn't worth the risk to an already-used
@@ -16,10 +17,10 @@ import { upsertIssueVector } from "../lib/vector.ts";
 // linearClient.ts's team lookup, so the actual Linear call stays identical.
 export async function handleAcceptSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
-  const { id, priority } = await req.json();
+  const { id, priority, actorEmail } = await req.json();
 
-  if (!id || !priority) {
-    return Response.json({ error: "Missing id or priority" }, { status: 400 });
+  if (!id || !priority || !actorEmail) {
+    return Response.json({ error: "Missing id, priority, or actorEmail" }, { status: 400 });
   }
   if (!(priority in PRIORITY_MAP)) {
     return Response.json(
@@ -27,6 +28,9 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
+
+  const authError = await requireNonDeveloper(schema, actorEmail);
+  if (authError) return authError;
 
   const { data: suggestion, error: fetchError } = await supabase
     .schema(schema)
