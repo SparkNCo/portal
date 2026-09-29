@@ -74,9 +74,7 @@ export const createDemoVideoFromUpload = async (
       storage_path: storagePath,
       uploaded_by: uploadedBy,
       title,
-      // demo_number omitted deliberately — the column default
-      // (nextval on portal.demo_videos_demo_number_seq) assigns it, since
-      // this is a genuinely new demo, not one sharing an existing identity.
+      // demo_number omitted: new demo, the column's sequence default assigns it.
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
     .single();
@@ -95,8 +93,7 @@ export const createDemoVideoFromUpload = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their upload to complete.
+    // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,
@@ -114,12 +111,9 @@ export const createDemoVideoFromUpload = async (
 };
 
 /*
- * Attach an already-uploaded demo (from another issue, or another version
- * of this one) as a brand-new version here — no re-upload, just a new row
- * pointing at the same storage object / embed link. This is how "Demos"
- * (see app/dev/demos/page.tsx) links one uploaded video to several
- * features/bugs at once, and how a ticket's own Demo tab can attach a demo
- * already uploaded elsewhere in the project.
+ * Attach an already-uploaded demo to this issue as a new version — a new row
+ * pointing at the same storage object/embed, no re-upload. Lets one video be
+ * linked to several tickets (Demos page, Demo tab).
  */
 export const createDemoVideoFromExisting = async (
   issueId: string,
@@ -145,8 +139,7 @@ export const createDemoVideoFromExisting = async (
       embed_url: source.embed_url,
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
-      // Adopts the source demo's own identity rather than getting a fresh
-      // one — this row is the *same* demo, just attached to another ticket.
+      // Same demo, so keep the source's demo_number.
       title: source.title,
       demo_number: source.demo_number,
     })
@@ -165,8 +158,7 @@ export const createDemoVideoFromExisting = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
+    // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,
@@ -231,8 +223,7 @@ export const createDemoVideoFromEmbed = async (
 
   await markIssueUpdated(issueId, email);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
+    // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: email,

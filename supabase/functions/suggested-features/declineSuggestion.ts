@@ -1,16 +1,18 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { requireNonDeveloper } from "./authorize.ts";
 
-// POST /suggested-features/decline — { id }. No Linear issue is ever created
-// for a declined suggestion; this just records the status so it drops out of
-// handleListSuggestions' pending-only view.
+// POST /suggested-features/decline — { id, actorEmail }. Only records the status.
 export async function handleDeclineSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
-  const { id } = await req.json();
+  const { id, actorEmail } = await req.json();
 
-  if (!id) {
-    return Response.json({ error: "Missing id" }, { status: 400 });
+  if (!id || !actorEmail) {
+    return Response.json({ error: "Missing id or actorEmail" }, { status: 400 });
   }
+
+  const authError = await requireNonDeveloper(schema, actorEmail);
+  if (authError) return authError;
 
   const { data, error } = await supabase
     .schema(schema)

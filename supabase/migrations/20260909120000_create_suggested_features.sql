@@ -1,13 +1,5 @@
--- Backs the (upcoming) Build page "Suggested Features" row: AI-generated feature
--- ideas for a project, reviewed by the client/developer as pending/accepted/declined.
---
--- Scoped by `project_slug` (the customer/initiative's clientName-based slug), same
--- convention as portal.hours_logged — not a hard FK to a customers row, since this
--- app resolves customers by clientName/slug throughout rather than by a customers.id
--- join.
---
--- `linear_project_id`/`linear_milestone_id` are Linear's own ids (not Postgres rows),
--- so — same as portal.test_executions.issue_id — there's no FK for them either.
+-- Build page "Suggested Features": AI-generated feature ideas per Linear project.
+-- `project_slug` holds the customer's linear_slug (no FK). Linear ids have no FK either.
 
 CREATE TABLE IF NOT EXISTS portal.suggested_features (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -24,8 +16,7 @@ CREATE TABLE IF NOT EXISTS portal.suggested_features (
   description text NOT NULL,
 
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
-  -- Only set once accepted — the priority chosen in the Accept flow (not an AI
-  -- decision), matching Linear's own priority labels.
+  -- Set on accept (chosen by the user, not the AI).
   priority text CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
 
   -- The resulting Linear issue, once accepted.

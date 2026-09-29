@@ -9,7 +9,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KeyRound, Eye, EyeOff, AlertTriangle, Mail, Building2 } from "lucide-react";
-import { useUser } from "context/UserContext";
+import { getStakeholderClientSlug, useUser } from "context/UserContext";
 
 // Supabase redirects an invite link it can no longer honor (expired/already
 // used) back to `redirectTo` with `error_code` in either the query string or
@@ -23,6 +23,17 @@ function getInviteErrorCode(searchParams: URLSearchParams): string | null {
   return new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_code");
 }
 
+// Same destination as Login.tsx: the dashboard of the stakeholder's assigned customer.
+async function resolveStakeholderDashboardPath(email: string): Promise<string | null> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?email=${encodeURIComponent(email)}`,
+    { headers: API_JSON_HEADERS },
+  );
+  if (!res.ok) return null;
+  const clientSlug = getStakeholderClientSlug(await res.json());
+  return clientSlug ? `/${clientSlug}/dashboard` : null;
+}
+
 function SetPasswordForm() {
   const router = useRouter();
   const { reloadUser } = useUser();
@@ -33,7 +44,7 @@ function SetPasswordForm() {
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<"customer" | "developer" | "admin" | null>(
+  const [role, setRole] = useState<"customer" | "developer" | "admin" | "stakeholder" | null>(
     null,
   );
   const [firstName, setFirstName] = useState("");
@@ -50,6 +61,7 @@ function SetPasswordForm() {
   const [done, setDone] = useState(false);
 
   const isCustomer = role === "customer";
+  const isStakeholder = role === "stakeholder";
 
   async function resolveSession(session: {
     user: { id: string; email?: string };
@@ -101,7 +113,7 @@ function SetPasswordForm() {
       setError("First name and last name are required.");
       return;
     }
-    if (!clientName.trim()) {
+    if (!isStakeholder && !clientName.trim()) {
       setError(isCustomer ? "Client name is required." : "GitHub handle is required.");
       return;
     }
@@ -124,11 +136,9 @@ function SetPasswordForm() {
     }
 
     const slugifiedClientName = clientName.trim().toLowerCase().replaceAll(" ", "-");
-    const profileUpdate: Record<string, string> = {
-      firstName,
-      lastName,
-      userName: slugifiedClientName,
-    };
+    const profileUpdate: Record<string, string> = { firstName, lastName };
+    // Stakeholders have no GitHub handle/client name to set — keep their userName.
+    if (!isStakeholder) profileUpdate.userName = slugifiedClientName;
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
     let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
@@ -190,6 +200,16 @@ function SetPasswordForm() {
       }
     }
 
+    if (isStakeholder) {
+      const stakeholderPath = await resolveStakeholderDashboardPath(email);
+      if (!stakeholderPath) {
+        setError("Password set, but no client is assigned to this account. Contact your administrator.");
+        setSubmitting(false);
+        return;
+      }
+      redirectPath = stakeholderPath;
+    }
+
     setDone(true);
     await reloadUser();
     router.replace(redirectPath);
@@ -238,7 +258,7 @@ function SetPasswordForm() {
                   <Building2 className="h-4 w-4 shrink-0" />
                   <span className="truncate">{clientName}</span>
                 </div>
-              ) : (
+              ) : isStakeholder ? null : (
                 <div className="space-y-1.5">
                   <Label>GitHub Handle</Label>
                   <Input
@@ -347,7 +367,7 @@ function SetPasswordForm() {
                     submitting ||
                     !firstName ||
                     !lastName ||
-                    !clientName ||
+                    (!isStakeholder && !clientName) ||
                     !password ||
                     !confirm
                   }

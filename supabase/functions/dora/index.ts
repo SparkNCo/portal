@@ -27,15 +27,8 @@ const handlers: Record<string, (repo: string, token: string, limit: number) => P
   pollEvents: async (repo, token) => ({ recorded: await pollBranchCreationEvents(repo, token, "portal") }),
 };
 
-// Never look back less than this, even when resuming from a stored
-// last_called. A fixed "last 24h" cutoff silently and permanently drops any
-// qualifying merge that doesn't happen to land within 24h of a cron run — if
-// the cron missed a day, or last_called got advanced without actually
-// capturing everything up to that point (e.g. a row that was reset/recreated
-// from scratch), that merge is gone for good, since the next run only ever
-// looks at "last 24h from now" / "since last_called", never further back.
-// Clamping to a minimum window makes this self-healing instead of
-// permanently trusting a possibly-stale/corrupted checkpoint.
+// Minimum look-back even when resuming from last_called, so a missed cron run
+// or a bad checkpoint self-heals instead of dropping merges forever.
 const MIN_LOOKBACK_DAYS = 90;
 
 async function getSinceForCustomer(linearSlug: string, schema: string): Promise<Date> {
@@ -65,11 +58,8 @@ async function handleAll(repo: string, token: string, limit: number, since: Date
     .then((n) => console.log(`✅ [${repo}] pollBranchCreationEvents done (${n} recorded)`))
     .catch((e) => console.error(`⚠️ [${repo}] pollBranchCreationEvents failed (non-fatal)`, e.message));
 
-  // mttr reads the closed_date that leadTime/featureCycleTime write for feat
-  // branches (getLastFeatClosedBefore in db.ts), so both must finish — and
-  // their writes must land — before mttr runs. Racing them in the same
-  // Promise.all let mttr read a feat's closed_date before it had been
-  // written, silently dropping that MTTR sample.
+  // mttr reads the closed_date leadTime/featureCycleTime write, so it must
+  // run after them — not in the same Promise.all.
   const [cfr, leadTime, deployFreq, featureCycleTime, fixCycleTime, defectEscapeRate] = await Promise.all([
     handleCFR(repo, token, limit).then(r => { console.log(`✅ [${repo}] CFR done:`, JSON.stringify(r)); return r; }).catch(e => { console.error(`❌ [${repo}] CFR failed`, String(e)); throw e; }),
     handleLeadTime(repo, token, limit, since).then(r => { console.log(`✅ [${repo}] Lead Time done: sample_size=${r.sample_size} avg_lead_hours=${r.avg_lead_hours}`); return r; }).catch(e => { console.error(`❌ [${repo}] Lead Time failed`, String(e)); throw e; }),
@@ -90,10 +80,8 @@ async function handleAll(repo: string, token: string, limit: number, since: Date
   };
 }
 
-// Own cron entrypoint: no longer triggered per-customer from issueMetrics via
-// HTTP, since GitHub's API is slow/rate-limited relative to Linear's and
-// shouldn't share a run (and a timeout budget) with it. Mirrors what
-// issueMetrics/index.ts's triggerDoraForCustomer used to do, just in-process.
+// Own cron entrypoint, separate from issueMetrics: GitHub's API is slower and
+// rate-limited, so it shouldn't share Linear's run or timeout budget.
 const CUSTOMER_CONCURRENCY = 5;
 
 async function handleAllCustomers(token: string, limit: number, schema: string) {
@@ -197,10 +185,7 @@ function mergeDoraMetrics(existing: Record<string, any> | null, result: Awaited<
     avg_cycle_hours: avg(fixCycleResults.map((r) => r.cycle_hours)),
   };
 
-  // Defect escape is a straight count over all of `dora_branch_events`
-  // history (not a `since`-windowed fetch like the metrics above), so
-  // there's nothing to dedupe/accumulate — the fresh result is already the
-  // complete picture.
+  // Defect escape counts all history (not windowed), so no accumulation needed.
   const defect_escape_details = { ...newDefectEscapeRate };
 
   const averages = {

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
+import { requestJson } from "../lib/aiClient.ts";
 
 export async function analyzeIdea(req: Request) {
   try {
@@ -35,45 +36,25 @@ Now analyze the following prospective client message:
 ${message}
 `;
 
-    const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: prompt,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "idea_analysis",
-            schema: {
-              type: "object",
-              properties: {
-                audience: { type: "boolean" },
-                problem: { type: "boolean" },
-                idea: { type: "boolean" },
-                stage: { type: "boolean" },
-              },
-              required: ["audience", "problem", "idea", "stage"],
-              additionalProperties: false,
-            },
-          },
+    const parsed = await requestJson<{
+      audience: boolean;
+      problem: boolean;
+      idea: boolean;
+      stage: boolean;
+    }>(prompt, {
+      name: "idea_analysis",
+      schema: {
+        type: "object",
+        properties: {
+          audience: { type: "boolean" },
+          problem: { type: "boolean" },
+          idea: { type: "boolean" },
+          stage: { type: "boolean" },
         },
-      }),
+        required: ["audience", "problem", "idea", "stage"],
+        additionalProperties: false,
+      },
     });
-
-    if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      throw new Error(errorText);
-    }
-
-    const data = await openAIResponse.json();
-
-    // Extract structured output safely
-    const raw = data.output?.[0]?.content?.[0]?.text;
-    const parsed = JSON.parse(raw);
 
     return new Response(JSON.stringify(parsed), {
       status: 200,

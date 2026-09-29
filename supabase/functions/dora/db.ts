@@ -1,15 +1,9 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 
-// Idempotent: ON CONFLICT (repo, branch_name) DO NOTHING, so redelivered
-// webhook events or repeated sync passes never overwrite the first-seen
-// creation timestamp or produce duplicate rows.
-//
-// version tracks re-attempts of the same Linear issue across separate
-// branches (e.g. the first branch was abandoned and a new one opened for the
-// same issue): each new branch_name for a linear_issue_id already seen gets
-// one more than the highest version recorded for that linear_issue_id so
-// far; the first branch for an issue gets version 1 (the column default).
+// Idempotent (ON CONFLICT DO NOTHING): redeliveries never overwrite the
+// first-seen timestamp. `version` counts branches per Linear issue (a new
+// branch after an abandoned one gets max+1; the first gets 1).
 export async function upsertBranchCreatedEvent(
   schema: string,
   repo: string,
@@ -72,11 +66,8 @@ export async function updateBranchClosedDate(
   }
 }
 
-// MTTR's "incident start" proxy: the closed_date of the most recently
-// deployed feat branch before the given timestamp — i.e. the last feature
-// work shipped to main before this fix, assumed to be what the fix is
-// resolving. Returns null if no qualifying feat has a recorded closed_date
-// before that point (e.g. the very first fix in the repo's history).
+// MTTR "incident start" proxy: closed_date of the last feat shipped before this
+// fix (assumed to be what it fixes). Null if none.
 export async function getLastFeatClosedBefore(
   schema: string,
   repo: string,
