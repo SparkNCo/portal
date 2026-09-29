@@ -12,7 +12,7 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 import AddClientModal from "@/app/admin/users/AddClientModal";
 
 type CustomerSummary = {
-  clientName: string;
+  clientName: string | null;
   linear_slug: string;
   email: string;
 };
@@ -37,41 +37,45 @@ function CustomerCard({
   readonly basePath: string;
   readonly isAdmin: boolean;
   readonly email: string;
-  readonly clientName: string;
+  readonly clientName: string | null;
   readonly linear_slug: string;
 }) {
   // Admins adopt the customer's own routes wholesale (same URL a customer
   // would see, e.g. /lualink/dashboard) instead of a nested admin-only path —
   // developers viewing an assigned customer still go through `basePath`
   // (the older nested `/{devSlug}/dashboards/[customer]/[panel]` flow).
-  const href = isAdmin
-    ? `/${encodeURIComponent(clientName.toLowerCase())}/dashboard`
-    : `${basePath}/${encodeURIComponent(clientName.toLowerCase())}/dashboard`;
+  // Customers without a clientName have no route slug, so render the card
+  // without a link instead of crashing the whole list.
+  const routeSlug = clientName
+    ? encodeURIComponent(clientName.toLowerCase())
+    : null;
+  const prefix = isAdmin ? "" : basePath;
+  const href = routeSlug ? `${prefix}/${routeSlug}/dashboard` : null;
 
-  return (
-    <Link href={href}>
-      <Card className="bg-card/90 hover:bg-card border-border transition-all duration-150 hover:shadow-md hover:-translate-y-0.5">
-        <CardHeader className="flex flex-row items-center gap-3 pb-2">
-          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-            <User className="h-4 w-4 text-primary" />
-          </div>
-          <CardTitle className="body font-semibold">
-            {clientName || "—"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="smalltext text-card-foreground/60 space-y-0.5">
-          <p className="flex items-center gap-1.5">
-            <Mail className="h-3.5 w-3.5 shrink-0 text-black" />
-            {email}
-          </p>
-          <p className="smalltext flex items-center gap-1.5">
-            <Hash className="h-3.5 w-3.5 shrink-0 text-black" />
-            {linear_slug}
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
+  const card = (
+    <Card className="bg-card/90 hover:bg-card border-border transition-all duration-150 hover:shadow-md hover:-translate-y-0.5">
+      <CardHeader className="flex flex-row items-center gap-3 pb-2">
+        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+          <User className="h-4 w-4 text-primary" />
+        </div>
+        <CardTitle className="body font-semibold">
+          {clientName || "—"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="smalltext text-card-foreground/60 space-y-0.5">
+        <p className="flex items-center gap-1.5">
+          <Mail className="h-3.5 w-3.5 shrink-0 text-black" />
+          {email}
+        </p>
+        <p className="smalltext flex items-center gap-1.5">
+          <Hash className="h-3.5 w-3.5 shrink-0 text-black" />
+          {linear_slug}
+        </p>
+      </CardContent>
+    </Card>
   );
+
+  return href ? <Link href={href}>{card}</Link> : card;
 }
 
 function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
@@ -137,7 +141,11 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
   if (isLoading) {
     return (
       <div className="min-h-screen">
-        <Header title="Dashboards" subtitle="Customer dashboards" subtitleClassName="smalltext" />
+        <Header
+          title="Dashboards"
+          subtitle="Customer dashboards"
+          subtitleClassName="smalltext"
+        />
         <LoadingDataPanel />
       </div>
     );
@@ -168,7 +176,7 @@ export function DashboardsContent({ basePath }: { readonly basePath: string }) {
         <div className="p-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
             <CustomerCard
-              key={c.clientName}
+              key={c.clientName ?? c.linear_slug ?? c.email}
               basePath={basePath}
               isAdmin={isAdmin}
               email={c.email}

@@ -13,11 +13,8 @@ ALTER TABLE portal.tests RENAME TO tests_legacy;
 
 CREATE TABLE IF NOT EXISTS portal.tests (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- The customer/initiative this test belongs to, used to scope the "pick an existing
-  -- test" autocomplete to the same customer. Nullable because tests backfilled from
-  -- `tests_legacy` can't be mapped to a project_slug (that mapping only exists in
-  -- Linear, not in Supabase) — those rows stay NULL and are simply excluded from the
-  -- autocomplete going forward, while their history/steps/results are fully preserved.
+  -- Scopes the autocomplete per customer. NULL for rows backfilled from
+  -- tests_legacy (no mapping available); those are excluded from autocomplete.
   project_slug text,
   title text NOT NULL,
   steps jsonb NOT NULL DEFAULT '[]'::jsonb,

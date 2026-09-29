@@ -31,11 +31,7 @@ export async function updateStorageEntry(req: Request, schema: string) {
 
     const { id, user_id, ...updates } = parsedBody.data;
 
-    /**
-     * ---------------------------------------
-     * 🔒 1. CHECK PERMISSIONS
-     * ---------------------------------------
-     */
+    // 🔒 1. CHECK PERMISSIONS
     const { data: permissionData, error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("permission")
@@ -63,11 +59,7 @@ export async function updateStorageEntry(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. UPDATE DOCUMENT
-     * ---------------------------------------
-     */
+    // 2. UPDATE DOCUMENT
     const { data, error } = await supabase.schema(schema)
       .from("documents")
       .update(updates)
@@ -86,11 +78,7 @@ export async function updateStorageEntry(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. RESPONSE
-     * ---------------------------------------
-     */
+    // 3. RESPONSE
     const responsePayload = {
       success: true,
       document: data,

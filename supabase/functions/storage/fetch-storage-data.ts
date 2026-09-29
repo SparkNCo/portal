@@ -5,29 +5,17 @@ import { queryTopDocumentMatches } from "../lib/vector.ts";
 
 export async function getStorageData(req: Request, schema: string) {
   try {
-    /**
-     * ---------------------------------------
-     * ✅ 1. Read params
-     * ---------------------------------------
-     */
+    // 1. Read params
     const { searchParams } = new URL(req.url);
 
     const user_id = searchParams.get("user_id");
     const category = searchParams.get("category") ?? undefined;
     const project_slug = searchParams.get("project_slug") ?? undefined;
-    // SPA-513-Cycle20: AI document search — free-text query, matched against
-    // each document's vectorized title/category/content (see
-    // upsertDocumentVector). Needs project_slug as the vector namespace;
-    // without one there's nothing to search against and this silently no-ops
-    // below rather than erroring, so the panel still just shows everything.
+    // Vector search needs project_slug as namespace; without it, falls back
+    // to a plain substring filter.
     const search = searchParams.get("search")?.trim() || undefined;
-    // The actual logged-in caller — distinct from `user_id` above, which is
-    // *whose* document_permissions rows to scope by (the previewed customer,
-    // when an admin/developer is browsing someone else's dashboard — see
-    // usePinnedPanelsOwnerId). Without this, the backend never learns who's
-    // really asking, so an admin previewing a customer was stuck seeing only
-    // documents that customer specifically has a permission row for — the
-    // same blind spot as everyone else, despite being an admin.
+    // The logged-in caller. `user_id` is whose permissions to scope by (the
+    // previewed customer when an admin/developer browses their dashboard).
     const viewer_id = searchParams.get("viewer_id") ?? undefined;
 
     if (!user_id) {
@@ -50,9 +38,7 @@ export async function getStorageData(req: Request, schema: string) {
       viewerIsAdmin = viewer?.role === "admin";
     }
 
-    // 1. Get permissions for this user (still fetched even for an admin's
-    // full-initiative view below, so each document can still show whatever
-    // real permission — if any — the previewed user/admin actually has).
+    // 1. Get permissions (also in admin full view, to show each doc's real permission).
     const { data: permissions, error: permError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("document_id, permission")
@@ -68,11 +54,8 @@ export async function getStorageData(req: Request, schema: string) {
 
     const permissionMap = new Map((permissions ?? []).map((p) => [p.document_id, p.permission]));
 
-    // Admins previewing an initiative see *every* document filed under it,
-    // not just the ones the previewed user happens to have a permission row
-    // for — scoped by project_slug instead of document_permissions. Requires
-    // project_slug (an unscoped "every document on the platform" query isn't
-    // what was asked for); everyone else keeps the permission-scoped list.
+    // Admins see every document in the initiative (by project_slug), not just
+    // permitted ones. Requires project_slug so it's never platform-wide.
     const adminFullView = viewerIsAdmin && !!project_slug;
 
     if (!adminFullView && !permissions?.length) {
@@ -96,12 +79,8 @@ export async function getStorageData(req: Request, schema: string) {
     }
 
     if (project_slug) {
-      // customers.linear_slug (the source of documents.project_slug at
-      // upload time) has inconsistent casing for some real customers that
-      // can't be backfilled — exact .eq() here made a developer's Project
-      // Documents panel come up empty whenever their resolved project slug
-      // differed only in case from what's stored. ilike (no wildcards) is
-      // case-insensitive equality in Postgres.
+      // Stored slugs have mixed casing that can't be backfilled; ilike without
+      // wildcards = case-insensitive equality.
       docQuery = docQuery.ilike("project_slug", project_slug);
     }
 
@@ -115,11 +94,7 @@ export async function getStorageData(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. Flatten result
-     * ---------------------------------------
-     */
+    // 3. Flatten result
     let documents = (data || []).map((doc) => ({
       id: doc.id,
       file_name: doc.file_name,
@@ -131,30 +106,13 @@ export async function getStorageData(req: Request, schema: string) {
       permission: permissionMap.get(doc.id) ?? null,
     }));
 
-    /**
-     * ---------------------------------------
-     * ✅ 3b. AI search — rank by vector similarity, keeping every document
-     * this caller already has permission to see (queried above) as the
-     * universe; the vector index is only ever used to re-order/filter that
-     * set, never to surface a document outside it.
-     * ---------------------------------------
-     */
+    // 3b. AI search — only re-orders/filters the permitted set above,
+    // never surfaces a document outside it.
     if (search && project_slug) {
-      // Un-thresholded, `queryTopDocumentMatches` just returns every
-      // vectorized document ranked by similarity, up to `documents.length`
-      // — with only a handful of documents in a project, that's "return
-      // everything, just reordered," so any two searches look like they hit
-      // the same result set regardless of relevance. This cutoff drops
-      // genuinely-unrelated matches instead of always filling out the list.
-      //
-      // Calibrated against real pgvector/gte-small scores (not Upstash's
-      // mxbai-embed-large-v1, which may score differently): 4 short/similar
-      // technical documents (CSVs/mmd about the same test dataset) scored
-      // 0.79-0.82 for an unrelated-ish query — gte-small compresses cosine
-      // similarity into a narrow high band for short domain-specific text,
-      // so a loose floor like 0.3 never cuts anything. 0.8 is still a rough
-      // first pass, not a universal constant — revisit if a genuinely
-      // varied document set still over- or under-matches.
+      // Without a cutoff every document comes back, just reordered.
+      // Calibrated on pgvector/gte-small, which packs scores into a narrow
+      // high band (unrelated short docs scored ~0.8); rough — revisit with
+      // more varied data. Upstash's model may score differently.
       const MIN_DOCUMENT_SIMILARITY = 0.8;
       const allMatches = await queryTopDocumentMatches(project_slug, search, documents.length || 20);
       const matches = allMatches.filter((m) => m.score >= MIN_DOCUMENT_SIMILARITY);
@@ -165,11 +123,7 @@ export async function getStorageData(req: Request, schema: string) {
         .map((m) => byId.get(String(m.id)))
         .filter((d): d is (typeof documents)[number] => Boolean(d));
 
-      // The vector index can miss a real filename/category match (e.g. a
-      // document uploaded before this feature existed, or one whose content
-      // extraction wasn't available) — falling back to a plain substring
-      // check over whatever the ranked results didn't already cover keeps
-      // search from silently regressing to "no results" for those.
+      // Substring fallback for documents the index misses (e.g. not yet backfilled).
       const searchLower = search.toLowerCase();
       const keywordFallback = documents.filter(
         (d) =>
@@ -188,11 +142,7 @@ export async function getStorageData(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 4. Response (no validation)
-     * ---------------------------------------
-     */
+    // 4. Response (no validation)
     return new Response(
       JSON.stringify({
         success: true,

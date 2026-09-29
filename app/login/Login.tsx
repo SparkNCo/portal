@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
-import { useUser } from "context/UserContext";
+import { getStakeholderClientSlug, useUser } from "context/UserContext";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -34,12 +34,9 @@ export default function LoginForm({
   useEffect(() => {
     if (customer) {
       if (customer?.role === "stakeholder") {
-        const clientName =
-          customer.assignment_id?.[0]?.clientName ??
-          customer.assignment_id?.[0]?.linear_slug ??
-          customer.clientName;
-        if (clientName) {
-          router.push(`/${clientName.toLowerCase()}/dashboard`);
+        const clientSlug = getStakeholderClientSlug(customer);
+        if (clientSlug) {
+          router.push(`/${clientSlug}/dashboard`);
           onLoginSuccess(customer.email);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");

@@ -3,6 +3,7 @@
 import { Header } from "@/components/headerDashboard";
 import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { FeatureRequestPanel } from "@/components/build/feature-request-panel";
+import { SuggestedFeaturesRow } from "@/components/build/suggested-features-row";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
@@ -156,6 +157,8 @@ function BuildPageContent() {
       <Header title="Build" subtitle="Guide new features" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
+        <SuggestedFeaturesRow slug={slug} />
+
         <div className="-mx-4 sm:mx-0">
           <FeatureRequestPanel slug={slug} />
         </div>

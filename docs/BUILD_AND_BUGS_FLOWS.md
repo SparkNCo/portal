@@ -69,6 +69,81 @@ Clicking the edit action on an issue card opens `EditIssueModal` (`components/bu
 
 `CreateIssue` (compact mode) with `defaultType="feature"`, labeled **"Request Feature"**.
 
+### Suggested Features (AI-generated)
+
+A single horizontally scrollable row of **Suggested Feature** cards at the very top of the Build page (above the Feature Request panel), rendered by `SuggestedFeaturesRow` (`components/build/suggested-features-row.tsx`). Each card is one AI-proposed "next feature" for one Linear project in the customer's initiative, which a customer/stakeholder/admin can accept (turning it into a real Linear ticket in Backlog) or decline.
+
+**Who sees it:** `admin`, `customer`, `stakeholder` only. Developers never fetch or see the row — accepting/declining is a product/roadmap call, not an engineering one. The same restriction is enforced server-side by `requireNonDeveloper` (`supabase/functions/suggested-features/authorize.ts`), which checks the `actorEmail` sent with every mutating request against `portal.users.role` and returns `403` otherwise.
+
+**Empty state:** none. When there are no pending suggestions the row renders nothing at all.
+
+#### Generation (weekly cron)
+
+1. `pg_cron` job `suggested-features-weekly` (`supabase/migrations/20260929120000_schedule_suggested_features_cron.sql`) runs **every Monday at 06:00 UTC** and calls `POST /suggested-features/generate-all` via `pg_net`, authenticated with the `service_role_key` vault secret (same pattern as the linear-vector-sync cron — the secret must already exist in Vault).
+2. `handleGenerateAllSuggestions` (`generateAllSuggestions.ts`) loops over every customer with a non-null `linear_slug` (2 customers at a time, `runWithConcurrency`). Pass `?slug={clientName}` to run for a single customer manually.
+3. For each customer, `syncCustomerLinearProjects` fetches the initiative's **live** project list from Linear (and refreshes the `customers.linear_projects` snapshot as a side effect).
+4. Projects that **already have a pending suggestion are skipped**, so an ignored project doesn't pile up one new card per week.
+5. For every remaining project, `generateSuggestionForProject` (`generateSuggestion.ts`):
+   - Fetches the project's name/description, up to 20 milestones and up to 100 issues from Linear (`PROJECT_CONTEXT_QUERY` in `suggested-features/query.ts`).
+   - Builds a prompt (at most 80 issue titles with state/priority) asking for exactly **one** new feature that doesn't duplicate an existing ticket.
+   - Calls the LLM through the shared AI client (`requestJson`, see [PORTAL_DOCS §12](PORTAL_DOCS.md#12-ai-features--config-driven-ai-client)) with a strict JSON schema: `{ title, description, milestoneId | null }`.
+   - Only keeps `milestoneId` if it matches one of that project's real milestones. Otherwise it stores no milestone.
+   - Inserts a `pending` row into `portal.suggested_features`.
+6. The response summarizes each customer: `{ slug, projectsFound, created, skippedPending, failed }`. A failure on one project is logged and counted but doesn't stop the run.
+
+`POST /suggested-features/generate` with `{ slug, projectId }` is a manual trigger for a single project (e.g. from Insomnia). `slug` is the clientName route slug and is resolved server-side to `customers.linear_slug`.
+
+#### The card — `SuggestedFeatureCard`
+
+`components/build/suggested-feature-card.tsx` — dark card with an orange stripe, "Suggested Feature" lightbulb header, title, and a description clamped to 4 lines.
+
+| Element | Behavior |
+|---|---|
+| **Enlarge button** (top-right, shows on hover/focus) | Opens a dialog with the full, untruncated description plus the project/milestone badges. |
+| **Project badge** | Popover picker listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
+| **Milestone badge** | Popover picker listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
+| **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
+| **Accept** | Doesn't accept on click. It opens a **"Set priority to accept"** popover (Urgent / High / Medium / Low), and choosing a priority is what triggers `POST /suggested-features/accept`. |
+
+**Accept flow** (`acceptSuggestion.ts`):
+1. Resolves the project's Linear team and that team's **Backlog** state.
+2. Creates the Linear issue with the suggestion's title/description, the chosen priority, its project/milestone, `stateId = Backlog`, and `cycleId: null`. Note: a Linear team's "auto-add to active cycle" setting can still put the issue into a cycle.
+3. Best-effort `upsertIssueVector` so the new ticket shows up right away in the similar-issues hint.
+4. Marks the row `accepted` with `priority`, `linear_issue_id`, `linear_issue_identifier`.
+5. The frontend toasts `Created {identifier} in Backlog` and invalidates both `["suggested-features", slug]` and `["linear-issues", slug]`, so the ticket appears in the Build page's Backlog panel without a reload.
+
+Every mutation returns `409` if the suggestion is no longer `pending`.
+
+#### API — `supabase/functions/suggested-features/index.ts`
+
+| Method & path | Body / query | Handler |
+|---|---|---|
+| `GET /suggested-features?slug=` | — | `handleListSuggestions`: pending rows for the customer's `linear_slug`, newest first |
+| `POST /suggested-features/generate-all` | optional `?slug=` | `handleGenerateAllSuggestions` (cron target) |
+| `POST /suggested-features/generate` | `{ slug, projectId }` | `handleGenerateSuggestion` (manual, single project) |
+| `POST /suggested-features/accept` | `{ id, priority, actorEmail }` | `handleAcceptSuggestion` |
+| `POST /suggested-features/decline` | `{ id, actorEmail }` | `handleDeclineSuggestion` |
+| `PATCH /suggested-features/project` | `{ id, projectId, actorEmail }` | `handleUpdateSuggestionProject` |
+| `PATCH /suggested-features/milestone` | `{ id, milestoneId \| null, actorEmail }` | `handleUpdateSuggestionMilestone` |
+
+Frontend wrappers for all of these live in `lib/suggested-features-api.ts`.
+
+#### Table — `portal.suggested_features`
+
+| Column | Notes |
+|---|---|
+| `id` | uuid PK |
+| `project_slug` | The customer's `linear_slug` (initiative id), always resolved server-side and never taken from the client |
+| `linear_project_id` / `linear_project_name` | The project the suggestion belongs to (AI-picked initially, can be overridden) |
+| `linear_milestone_id` / `linear_milestone_name` | Nullable. AI-picked or overridden, always validated against the project |
+| `title` / `description` | AI-generated |
+| `status` | `pending` (default) / `accepted` / `declined` |
+| `priority` | `low`/`medium`/`high`/`urgent`. Only set on accept (a human choice, not an AI one) |
+| `linear_issue_id` / `linear_issue_identifier` | The created Linear issue, once accepted |
+| `created_at` / `updated_at` | `updated_at` maintained by trigger |
+
+Created in `supabase/migrations/20260909120000_create_suggested_features.sql`.
+
 ---
 
 ## Bugs Page
@@ -164,4 +239,20 @@ A small **orange message-icon badge** appears on an issue card (top-right corner
 | `components/shared/create-issue.tsx` | Create Issue dialog (both pages, different `defaultType`/`label`) |
 | `components/client/use-issue-update-badge.ts` | Reads `portal.issue_updates` + `portal.issue_views`, exposes `hasUnseenUpdate(issue)` per viewer |
 | `supabase/functions/utils/issueUpdates.ts` | `markIssueUpdated()` (writes `issue_updates`) / `markIssueViewed()` (writes `issue_views`) |
-| `supabase/functions/issues/updateIsste.ts` | `handleUpdateIssue`, `handleAddComment`, `handleSetDecision` (write the update flag), `handleMarkIssueSeen` (clears it per-user) |
+| `supabase/functions/issues/updateIsste.ts` | `handleUpdateIssue`, `handleAddComment`, `handleSetDecision` (write the update flag), `handleMarkIssueSeen` (clears it per-user). Also exports `GET_PROJECTS_BY_IDS_QUERY` / `GET_MILESTONES_QUERY`, which the suggestion project/milestone overrides reuse |
+| `components/build/suggested-features-row.tsx` | Suggested Features row: role gate (admin/customer/stakeholder), fetches pending suggestions |
+| `components/build/suggested-feature-card.tsx` | Suggestion card: project/milestone pickers, enlarge dialog, Decline, Accept-by-priority |
+| `lib/suggested-features-api.ts` | `SuggestedFeature` type + fetch/accept/decline/update-project/update-milestone wrappers |
+| `supabase/functions/suggested-features/index.ts` | Route table for the suggested-features edge function |
+| `supabase/functions/suggested-features/generateSuggestion.ts` | **AI.** Prompt + `generateSuggestionForProject` (shared by cron and manual trigger), `POST /generate` |
+| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron target `POST /generate-all`: loops over customers/projects, skips projects that already have a pending suggestion |
+| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: project + milestones + issues sent to the AI |
+| `supabase/functions/suggested-features/listSuggestions.ts` | `GET`: pending suggestions for a customer |
+| `supabase/functions/suggested-features/acceptSuggestion.ts` | Creates the Linear issue in Backlog with the chosen priority, marks the row accepted |
+| `supabase/functions/suggested-features/declineSuggestion.ts` | Marks the row declined |
+| `supabase/functions/suggested-features/updateSuggestionProject.ts` | Project override, validated against `customers.linear_projects`; clears the milestone |
+| `supabase/functions/suggested-features/updateSuggestionMilestone.ts` | Milestone override, validated against the suggestion's project |
+| `supabase/functions/suggested-features/authorize.ts` | `requireNonDeveloper`: server-side role gate for all mutations |
+| `supabase/functions/lib/aiClient.ts` | **AI.** Shared config-driven LLM client (see `PORTAL_DOCS.md` §12) |
+| `supabase/migrations/20260909120000_create_suggested_features.sql` | `portal.suggested_features` table |
+| `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Weekly `suggested-features-weekly` pg_cron job (Mon 06:00 UTC) |

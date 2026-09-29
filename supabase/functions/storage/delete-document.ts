@@ -29,11 +29,7 @@ export async function deleteDocument(req: Request, schema: string) {
 
     const { document_id, user_id } = parsedBody.data;
 
-    /**
-     * ---------------------------------------
-     * ✅ 1. CHECK OWNER PERMISSION (admins bypass this)
-     * ---------------------------------------
-     */
+    // 1. CHECK OWNER PERMISSION (admins bypass this)
     const { data: userData } = await supabase.schema(schema)
       .from("users")
       .select("role")
@@ -67,11 +63,7 @@ export async function deleteDocument(req: Request, schema: string) {
       }
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. DELETE DOCUMENT
-     * ---------------------------------------
-     */
+    // 2. DELETE DOCUMENT
     const { data: deleted, error } = await supabase.schema(schema)
       .from("documents")
       .delete()
@@ -87,17 +79,12 @@ export async function deleteDocument(req: Request, schema: string) {
       });
     }
 
-    // Best-effort, fire-and-forget — a vector left behind after its document
-    // is gone just means a dead search result someday, not a broken delete.
+    // Best-effort: a leftover vector is harmless.
     if (deleted?.project_slug && typeof EdgeRuntime !== "undefined") {
       EdgeRuntime.waitUntil(deleteDocumentVectors(deleted.project_slug, [document_id]));
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ RESPONSE
-     * ---------------------------------------
-     */
+    // RESPONSE
     const responsePayload = { success: true, document_id };
 
     const parsedOutput = DeleteDocumentResponseSchema.safeParse(responsePayload);

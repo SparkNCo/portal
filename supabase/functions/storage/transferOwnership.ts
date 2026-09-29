@@ -4,12 +4,8 @@ import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
 // POST /storage/transfer-owner — admin-only. Reassigns a document's "owner"
-// permission to a different user (typically one of the initiative's own
-// assigned members) — e.g. the original uploader left the company and
-// someone else needs delete/share/category rights on their documents.
-// The previous owner is downgraded to "write" (keeps edit access, loses
-// delete) rather than removed outright, same idea as shareDocument.ts
-// granting "read" — nobody's access silently disappears.
+// (e.g. the uploader left). The previous owner is downgraded to "write", not
+// removed, so nobody's access silently disappears.
 export async function transferOwnership(req: Request, schema: string) {
   try {
     const body = await req.json();
@@ -22,11 +18,7 @@ export async function transferOwnership(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 1. Caller must be admin
-     * ---------------------------------------
-     */
+    // 1. Caller must be admin
     const { data: callerUser } = await supabase.schema(schema)
       .from("users")
       .select("role")
@@ -40,11 +32,7 @@ export async function transferOwnership(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. Downgrade the current owner(s) to "write"
-     * ---------------------------------------
-     */
+    // 2. Downgrade the current owner(s) to "write"
     const { error: downgradeError } = await supabase.schema(schema)
       .from("document_permissions")
       .update({ permission: "write" })
@@ -58,14 +46,8 @@ export async function transferOwnership(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. Set the new owner's permission row to "owner" — update in place
-     * if they already have some permission on this document (e.g. they were
-     * shared read/write access earlier), otherwise insert a fresh row.
-     * Avoids relying on a specific named unique constraint for .upsert().
-     * ---------------------------------------
-     */
+    // 3. Set the new owner — update their existing row or insert one
+    // (manual, since there's no named unique constraint for .upsert()).
     const { data: existingPermission } = await supabase.schema(schema)
       .from("document_permissions")
       .select("user_id")

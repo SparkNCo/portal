@@ -61,8 +61,7 @@ export const createDesignResource = async (req: Request, schema: string) => {
 
   await markIssueUpdated(issue_id, email);
 
-  // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-  // response the user is waiting on for their save to complete.
+  // Fire-and-forget so notifications don't delay the response.
   EdgeRuntime.waitUntil(notifyProject({
     slug: project_slug,
     actorEmail: email,

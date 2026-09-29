@@ -1,11 +1,6 @@
 // @ts-nocheck
-// Every exported function here is a router: it resolves the calling
-// project's vector provider (customers.systems.vector — 'upstash' or
-// 'pgvector', same per-customer-opt-in pattern as systems.chat, see
-// vectorProvider.ts) and delegates to that provider's implementation.
-// Callers outside lib/ never see the split — they still just import
-// upsertIssueVector/queryTopDocumentMatches/etc. from here, unchanged from
-// before this file supported a second provider.
+// Every export routes to the customer's vector provider (customers.systems.vector:
+// 'upstash' | 'pgvector', see vectorProvider.ts). Callers never see the split.
 import { resolveVectorProvider } from "./vectorProvider.ts";
 import {
   upsertDocumentVectorPg,
@@ -18,27 +13,16 @@ import {
   queryTopTestMatchesPg,
 } from "./pgvectorClient.ts";
 
-// Upstash Vector client — a single hosted-embedding index shared by issues and test
-// cases (was two separate indexes/accounts; merged to stay on Upstash's free tier).
-// Each vector's `metadata.type` ("issue" | "test-case") is what keeps the two kinds
-// apart — every query filters on it, per Upstash's metadata-filtering support
-// (https://upstash.com/docs/vector/features/filtering), so an issue search can never
-// surface a test case or vice versa despite sharing one index.
-// The index is created manually in the Upstash console with a built-in embedding
-// model (e.g. mxbai-embed-large-v1) — the app never computes embeddings itself, it
-// just sends raw text via Upstash's "-data" endpoints and lets Upstash embed it.
+// Upstash: one index shared by issues, tests and documents, kept apart by
+// `metadata.type` — every query must filter on it. The index uses Upstash's hosted
+// embedding model (created manually in the console); we only send raw text to the
+// "-data" endpoints.
 //
-// Namespaced per customer/initiative (linear_slug), matching portal.tests.project_slug.
-// Vector ids are the source row's own id (Linear issue id / Supabase tests.id) so a
-// re-upsert on edit overwrites in place instead of creating a duplicate. Issue ids and
-// test ids come from unrelated UUID generators (Linear vs Postgres), so a collision
-// between the two — which would silently overwrite one with the other now that they
-// share an index — is astronomically unlikely, same risk any UUID space already
-// accepts elsewhere in this app.
+// Namespace = customer's linear_slug. Vector id = source row id, so re-upserts
+// overwrite in place.
 //
-// Every export here is best-effort: a vector-sync hiccup must never fail the actual
-// test/issue write it's attached to, so failures are caught and logged, not thrown —
-// same convention as utils/issueUpdates.ts.
+// Best-effort: failures are logged, never thrown — a vector hiccup must not fail
+// the write it's attached to.
 
 export type VectorMatch = {
   id: string;
@@ -51,9 +35,6 @@ async function upstashRequest(
   token: string,
   path: string,
   body: unknown,
-  // Every existing call is a POST — deleteIssueVectors below is the first
-  // caller to need DELETE (Upstash's own delete-vectors endpoint), so this
-  // stays optional and every other call site is unaffected.
   method: string = "POST",
 ): Promise<any> {
   const res = await fetch(`${baseUrl}${path}`, {
@@ -78,23 +59,15 @@ function vectorIndex() {
   };
 }
 
-// The namespace is usually a customer's `clientName`, which is stored
-// inconsistently cased across the app depending on which flow created it
-// (raw vs. slugified at onboarding — same drift already noted in
-// components/chat/CometChat/useCometChat.ts). Upstash namespaces are exact
-// strings with no case-insensitive matching, so without this every caller
-// has to coincidentally agree on casing or an upsert and a later query land
-// in two different, disconnected namespaces for the same customer.
-// Normalizing here, at the one place every namespace passes through, means
-// callers never have to think about it.
+// Slugs are stored with inconsistent casing across the app, and Upstash
+// namespaces are case-sensitive — normalize so upserts and queries always
+// land in the same namespace.
 function normalizeNamespace(namespace: string): string {
   return namespace.trim().toLowerCase();
 }
 
-// Derives the bug/feature distinction from an issue's Linear labels — an exact
-// (not substring) match on the label name, same as the frontend's LABEL_ICONS
-// lookup in issue-cards.tsx, so a vector's `kind` metadata always agrees with
-// whichever icon the label itself would render once the full issue loads.
+// Exact label-name match (not substring), same as LABEL_ICONS in
+// issue-cards.tsx, so `kind` always agrees with the icon the UI renders.
 export function deriveIssueKind(
   labels?: { name?: string | null }[] | null,
 ): "bug" | "feature" | null {
@@ -104,23 +77,15 @@ export function deriveIssueKind(
   return null;
 }
 
-// Removes one or more issue vectors by id from a namespace — used by
-// linear-vector-sync to clean up after a ticket is deleted ("trashed") in
-// Linear, since nothing else would ever tell Upstash to stop returning it as
-// a "similar issue" match. Still best-effort (never throws — a cleanup
-// hiccup must never fail the actual write it's attached to elsewhere), but
-// returns whether it actually succeeded so linear-vector-sync specifically
-// can decide not to advance its checkpoint on failure — a call that fails
-// silently while the caller still marks that window as "done" means the
-// trashed issue's `updatedAt` ages out of the next run's `since` filter and
-// its stale vector never gets retried, ever.
+// Used by linear-vector-sync to drop tickets trashed in Linear. Returns
+// success so the sync can avoid advancing its checkpoint on failure —
+// otherwise the trashed issue ages out of the next `since` window and its
+// stale vector is never retried.
 async function deleteIssueVectorsUpstash(namespace: string, ids: string[]): Promise<boolean> {
   if (ids.length === 0) return true;
   try {
     const { url, token } = vectorIndex();
-    // Each issue is stored as two vectors (see upsertIssueVector's own
-    // ":title" comment) — both need removing, or the title-only one keeps
-    // surfacing a trashed ticket on short similar-issues queries.
+    // Each issue has two vectors (combined + "::title"); remove both.
     const allIds = ids.flatMap((id) => [id, `${id}::title`]);
     await upstashRequest(
       url,
@@ -147,9 +112,7 @@ type IssueVectorInput = {
   id: string;
   title: string;
   description?: string | null;
-  // "bug" | "feature" | null — lets the similar-issues row show the right icon
-  // immediately from the search response, instead of waiting on a follow-up
-  // fetch of the full issue just to read its labels.
+  // Lets the similar-issues hint show the right icon without fetching the issue.
   kind?: "bug" | "feature" | null;
 };
 
@@ -167,18 +130,10 @@ async function upsertIssueVectorUpstash(
       ...(issue.kind ? { kind: issue.kind } : {}),
     };
 
-    // Two vectors per issue: the existing title+description one (for queries
-    // with real descriptive detail) and a title-only one, id-suffixed
-    // "::title" to avoid colliding with the combined vector's own id — see
-    // queryTopIssueMatches for why a second vector exists at all. Sequential,
-    // not Promise.all — linear-vector-sync's bulk catch-up runs (re-scanning
-    // a whole lookback window, times up to 3 customers concurrently, see
-    // runWithConcurrency there) already push a lot of simultaneous requests
-    // at Upstash; doubling that further per issue is what was tipping it
-    // into "vector store backend is currently unavailable" (a rate/
-    // concurrency ceiling, not an actual outage). Twice the wall-clock time
-    // per issue, but issues upsert one at a time in that caller anyway, so
-    // this just trades a bit of latency for not getting throttled.
+    // Two vectors per issue: title+description, and title-only ("::title",
+    // see TITLE_ONLY_QUERY_MAX_LENGTH). Sequential on purpose — parallel
+    // upserts during linear-vector-sync's bulk runs got Upstash throttling us
+    // ("vector store backend is currently unavailable").
     await upstashRequest(url, token, `/upsert-data/${ns}`, {
       id: issue.id,
       data: combinedData,
@@ -214,8 +169,6 @@ async function upsertTestVectorUpstash(
     await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
       id: test.id,
       data,
-      // Spec only calls for `{ name }`, but a bare name with no id can't be resolved
-      // back to the actual test row — test_id is added so query results are usable.
       metadata: { type: "test-case", test_id: test.id, name: test.title },
     });
   } catch (err) {
@@ -234,14 +187,9 @@ export async function upsertTestVector(namespace: string, test: TestVectorInput)
   }
 }
 
-// Below this length, a query reads as a short/generic term (e.g. "roadmap")
-// rather than an actual description — its embedding sits much closer to
-// another short title than to a long title+description document's averaged-
-// out embedding, so matching it against the combined vector was starving
-// short queries of real hits (a ticket whose *description* talks about
-// "roadmap" at length wouldn't clear the similarity threshold). At or above
-// this length the query is assumed to carry real descriptive detail, so it's
-// matched against the fuller combined vector instead, same as before.
+// Short queries (e.g. "roadmap") embed closer to short titles than to long
+// title+description vectors and missed real hits, so below this length we
+// match against the title-only vectors instead.
 const TITLE_ONLY_QUERY_MAX_LENGTH = 15;
 
 async function queryTopIssueMatchesUpstash(
@@ -260,10 +208,7 @@ async function queryTopIssueMatchesUpstash(
       includeMetadata: true,
       filter,
     });
-    // Normalize back to the underlying issue id regardless of which vector
-    // variant matched — the title-only vector's own id carries the "::title"
-    // suffix from upsertIssueVector, which callers (e.g. GET /issues/by-id)
-    // wouldn't know how to resolve.
+    // Map "::title" ids back to the real issue id.
     return Array.isArray(result)
       ? result.map((m: VectorMatch) => ({ ...m, id: (m.metadata?.ticket_id as string) ?? m.id }))
       : [];
@@ -273,9 +218,7 @@ async function queryTopIssueMatchesUpstash(
   }
 }
 
-// Scopes the similar-issues hint to just bugs (on the Report a Bug panel) or just
-// features (on Request a Feature), so a feature request never surfaces a bug as its
-// "similar ticket" or vice versa. Omit to search across both.
+// `kind` scopes results to bugs or features; omit to search both.
 export async function queryTopIssueMatches(
   namespace: string,
   queryText: string,
@@ -288,21 +231,9 @@ export async function queryTopIssueMatches(
     : queryTopIssueMatchesUpstash(namespace, queryText, topK, kind);
 }
 
-// SPA-513-Cycle20: "Use vectors for document search" — same Upstash index,
-// namespaced the same way (project_slug, which is the same value as the
-// linear_slug issues/tests already use), just a third `type`. Vector id is
-// `documents.id` (a bigint PK, not a uuid) stringified, so a re-upload/edit
-// upserts in place the same way issue/test ids do.
-//
-// `content` is only ever populated for the text-based formats this app
-// already knows how to read as plain text (see PREVIEWABLE_FORMATS in
-// components/documents/document-preview-modal.tsx — md/txt/csv/mmd): for
-// anything else (pdf, docx, images, ...) there's no in-process way to
-// extract text here, so the vector falls back to just file_name + category.
-// Still useful for search (a customer typing "invoice" or "architecture
-// diagram" matches on the filename/category embedding), just not as rich as
-// a real full-text extraction would be — a reasonable place to stop for a
-// first pass built entirely on infrastructure this app already has.
+// Documents: vector id = String(documents.id). `content` is only set for
+// plain-text formats (md/txt/csv/mmd); for pdf/docx/images we can't extract
+// text here, so those are embedded from file_name + category only.
 type DocumentVectorInput = {
   id: number | string;
   file_name: string;

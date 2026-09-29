@@ -61,9 +61,8 @@ Deno.serve(async (req) => {
   }
 });
 
-// GET /test-executions?issue_id=xxx — every test attached to this ticket, with each
-// execution's test (title/steps) merged in. Two plain fetches + JS merge, matching this
-// codebase's existing style rather than a PostgREST embedded-resource select.
+// GET /test-executions?issue_id=xxx — every test attached to this ticket, with
+// each execution's test (title/steps) merged in.
 //
 // GET /test-executions?test_id=xxx — the most recent execution of that test on *any*
 // ticket, so the frontend can prefill "expected" when the same test gets picked again.
@@ -113,9 +112,7 @@ async function handleGetExecutions(req: Request): Promise<Response> {
   return Response.json(merged);
 }
 
-// POST /test-executions — attach a test to a ticket. Used both when the user just
-// created a brand-new test (frontend POSTs /tests first, then this with the new
-// test_id) and when they picked an existing one from the autocomplete.
+// POST /test-executions — attach a new or existing test to a ticket.
 async function handleCreateExecution(req: Request): Promise<Response> {
   const schema = "portal";
   const { test_id, issue_id, expected, created_by } = await req.json();
@@ -124,9 +121,7 @@ async function handleCreateExecution(req: Request): Promise<Response> {
     return Response.json({ error: "Missing test_id, issue_id, or created_by" }, { status: 400 });
   }
 
-  // A test can be reused across many tickets, but only once per ticket — the
-  // frontend already filters the picker, this is the backstop against races
-  // or direct API calls.
+  // Once per ticket. The picker already filters; this guards races/direct calls.
   const existingRes = await fetch(
     `${db("test_executions")}?issue_id=eq.${issue_id}&test_id=eq.${test_id}&select=id&limit=1`,
     { headers: headers(schema) },
@@ -210,10 +205,8 @@ async function handleUpdateExecution(req: Request): Promise<Response> {
   return Response.json(data[0] ?? data);
 }
 
-// PATCH /test-executions/result — record a QA or UAT result and/or toggle passed
-// status (renamed from the old /tests/uat endpoint since it already served both
-// stages). When status becomes "passed", also points the parent test's
-// last_passed_execution_id at this execution.
+// PATCH /test-executions/result — record a QA/UAT result and/or toggle passed.
+// On "passed", sets the test's last_passed_execution_id to this execution.
 async function handleRecordResult(req: Request): Promise<Response> {
   const schema = "portal";
   const { execution_id, result, passed, recorded_by, kind, attachments } = await req.json();

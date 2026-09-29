@@ -29,25 +29,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Never trust a client-supplied redirect origin (open-redirect / token-leak
-    // risk) — always use the production portal origin. The frontend never
-    // actually sent one anyway, which meant this always fell back to a
-    // hardcoded localhost URL, even in production.
+    // Never trust a client-supplied redirect origin (open redirect / token leak).
     const redirectTo = "https://app.buildwithspark.co/reset-password";
 
-    // supabase.auth.resetPasswordForEmail() has Supabase send the email
-    // itself through its built-in mailer, which has a very low default rate
-    // limit ("email rate limit exceeded") — the admin "resend" flow
-    // (resendAccountEmail.ts) never hits this because it only uses the admin
-    // API to generate the link, then sends it itself via Resend. Same
-    // approach here.
+    // Generate the link via the admin API and send it ourselves: Supabase's
+    // built-in mailer has a very low rate limit.
     //
-    // Deliberately NOT resolveAuthUser (used by the admin resend flow) — that
-    // helper falls back to an "invite" link when the email isn't already
-    // registered, which actually CREATES a brand-new orphaned auth user for
-    // any email typed into this public, unauthenticated form. "recovery"
-    // requires an existing user and errors out instead, so an unknown email
-    // is a no-op here, matching resetPasswordForEmail()'s original behavior.
+    // NOT resolveAuthUser: it falls back to an "invite", which would create an
+    // orphan auth user for any email typed into this public form. "recovery"
+    // errors on unknown emails, so those are a no-op.
     try {
       const { data, error } = await supabase.auth.admin.generateLink({
         type: "recovery",
@@ -58,8 +48,7 @@ Deno.serve(async (req) => {
       await sendInviteCustomerMail(email, data.properties.action_link, false);
       console.log("[reset-password] Password reset email sent to:", email);
     } catch (err) {
-      // Never reveal whether the email exists — same anti-enumeration
-      // behavior resetPasswordForEmail() had (always responds success).
+      // Always respond success so emails can't be enumerated.
       console.error("[reset-password] Failed to resolve/send for", email, err.message);
     }
 

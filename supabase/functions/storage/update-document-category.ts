@@ -43,11 +43,7 @@ export async function updateDocumentCategory(req: Request, schema: string) {
       category,
     });
 
-    /**
-     * ---------------------------------------
-     * ✅ 1. CHECK PERMISSION
-     * ---------------------------------------
-     */
+    // 1. CHECK PERMISSION
     const { data: permissionData, error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .select("permission")
@@ -72,11 +68,7 @@ export async function updateDocumentCategory(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. UPDATE DOCUMENT CATEGORY
-     * ---------------------------------------
-     */
+    // 2. UPDATE DOCUMENT CATEGORY
     console.log("[updateDocumentCategory] 📝 Updating category...", {
       document_id,
       category,
@@ -103,11 +95,7 @@ export async function updateDocumentCategory(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ RESPONSE
-     * ---------------------------------------
-     */
+    // RESPONSE
     const responsePayload = { success: true, document: data };
 
     console.log(

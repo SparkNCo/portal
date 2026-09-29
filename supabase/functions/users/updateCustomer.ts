@@ -2,10 +2,7 @@
 import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 
-// Trims and validates a candidate clientName, enforcing the same
-// case-insensitive uniqueness rule as createCustomerFlow — clientName
-// doubles as a display/URL key elsewhere, so two customers differing only
-// by case would collide.
+// clientName is also a URL key, so uniqueness is case-insensitive (same as createCustomerFlow).
 async function resolveClientName(
   schema: string,
   customerId: string,
@@ -30,13 +27,9 @@ async function resolveClientName(
   return trimmedClientName;
 }
 
-// A "Preview Link" is a { url, text } pair — e.g. a link to the customer's
-// test environment, shown at the top of every one of their issues' Demo tab.
-// Validated defensively since this is stored as-is in jsonb: must be an
-// array of plain objects with non-empty string `url`/`text`, `url` an actual
-// http(s) URL. Empty/whitespace-only entries are dropped rather than
-// rejecting the whole save — easier to recover from a stray blank row added
-// in the UI than to force the admin to hunt it down.
+// Preview Links ({ url, text }, shown on the Demo tab) are stored as-is in
+// jsonb, so validate strictly: non-empty strings, http(s) url. Blank rows
+// are dropped instead of failing the whole save.
 function resolvePreviewLinks(previewLinks: unknown): { url: string; text: string }[] {
   if (!Array.isArray(previewLinks)) {
     throw new Error("preview_links must be an array");
@@ -66,23 +59,13 @@ function resolvePreviewLinks(previewLinks: unknown): { url: string; text: string
     .filter((entry): entry is { url: string; text: string } => entry !== null);
 }
 
-// Updates fields on the `customers` record itself (as opposed to `updateUser`,
-// which only touches the `users` table) — Stripe Customer ID (Settings/Billing),
-// clientName (set-password, so a customer's display name can be fixed up the
-// first time they log in), and Preview Links (admin/developer-managed, shown
-// on the Demo tab and Demos dashboard). Only touches fields actually present
-// in the body, so e.g. a clientName-only call never wipes out an existing
-// Stripe ID.
+// Updates the `customers` row (Stripe id, clientName, Preview Links). Only
+// fields present in the body are touched.
 //
-// `caller` is the requester's own identity, resolved server-side from their
-// bearer token by index.ts — never trust body.customer_id for authorization.
-// Admins may target any customer; everyone else may only ever touch their
-// own record, so a mismatched customer_id is rejected outright rather than
-// silently redirected to the caller's own id (a client bug sending the wrong
-// id should surface loudly, not write to a different record than intended).
-// The one exception is a developer saving *only* preview_links (see
-// isPreviewLinksOnlySave below) — developers have no customer_id of their
-// own, so they're allowed past the ownership check for that one field.
+// Authorization uses `caller` (resolved from the bearer token), never
+// body.customer_id. Admins may edit any customer; others only their own — a
+// mismatched id is rejected, not redirected. Exception: developers may save
+// preview_links only (see isPreviewLinksOnlySave).
 export const updateCustomer = async (
   body: any,
   schema: string,
@@ -94,13 +77,8 @@ export const updateCustomer = async (
     throw new Error("customer_id is required");
   }
 
-  // Developers manage Preview Links (aka "Test Environments") inline from
-  // wherever they show up (Demo tab, Demos dashboard), not just from Admin →
-  // Users like an admin would — but only for a preview-links-only save.
-  // Developers have no `customerId` of their own to compare against (they're
-  // not tied to one customer record), so without scoping this to a
-  // links-only body a developer could otherwise ride this same call to
-  // rewrite an arbitrary customer's clientName/Stripe id too.
+  // Developers have no customerId to check against, so they're limited to a
+  // links-only body — otherwise they could rewrite any customer's clientName/Stripe id.
   const isPreviewLinksOnlySave =
     preview_links !== undefined &&
     stripe_customer_id === undefined &&
@@ -116,9 +94,7 @@ export const updateCustomer = async (
     throw new Error("Not authorized to update this customer");
   }
 
-  // Preview Links are admin/developer-managed — a customer editing their own
-  // record (clientName, Stripe id) shouldn't also be able to set the links
-  // shown on their own Demo tabs.
+  // Preview Links are admin/developer-managed; customers can't set them.
   if (preview_links !== undefined && !canManagePreviewLinks) {
     throw new Error("Only an admin or developer can set preview links");
   }

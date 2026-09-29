@@ -10,9 +10,7 @@ const GET_FIRST_TEAM_QUERY = `
   }
 `;
 
-// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
-// builds its own IssueCreateInput (needs stateId + an explicit cycleId the regular
-// Feature Request/Bug Report flow never sets) but reuses this same mutation.
+// Also used by suggested-features/acceptSuggestion.ts.
 export const CREATE_ISSUE_MUTATION = `
   mutation IssueCreate($input: IssueCreateInput!) {
     issueCreate(input: $input) {
@@ -49,12 +47,8 @@ const ATTACHMENT_CREATE_MUTATION = `
   }
 `;
 
-// POST /issues/upload — takes a file (multipart/form-data), uploads it to Linear's
-// storage on the server side, and returns its public asset URL.
-//
-// Linear's presigned GCS upload URLs aren't CORS-enabled for browser-direct PUTs
-// from third-party origins, so the PUT has to happen server-to-server here rather
-// than from the client.
+// POST /issues/upload — uploads a file to Linear storage, returns its asset URL.
+// Done server-side because Linear's presigned upload URLs don't allow browser CORS.
 export async function handleRequestUpload(req: Request): Promise<Response> {
   const formData = await req.formData();
   const file = formData.get("file");
@@ -287,17 +281,8 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   }
 
   let teamId = bodyTeamId;
-  // Resolved whenever `slug` is present, regardless of whether `bodyTeamId`
-  // was already given — this is the customer's stable Linear Initiative id
-  // (`customers.linear_slug`), used below as the Upstash namespace instead
-  // of the raw `slug`. `slug` is the frontend's clientName-based routing
-  // slug (see app/[slug]/... and useCustomerSlug()) — editable by an admin
-  // (Admin → Users → Customer Profile) and inconsistently cased across the
-  // app, so it's not a safe permanent index key. `linear_slug` never
-  // changes once a customer's Linear initiative is set, and it's already
-  // what linear-vector-sync's hourly cron namespaces by — using the same
-  // value here keeps the two in sync instead of writing to two disconnected
-  // Upstash namespaces for the same customer.
+  // Vector namespace must be linear_slug (stable, same as linear-vector-sync),
+  // not the route `slug` (editable, inconsistently cased).
   let linearSlug: string | null = null;
   if (slug) {
     const resolved = await resolveCustomer(slug, schema);
@@ -320,9 +305,7 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
   const createdIssue = data.issueCreate?.issue;
 
-  // Best-effort — keeps a brand-new ticket searchable for the similar-issues hint
-  // right away, instead of waiting for someone to edit it (or the hourly cron) before
-  // it becomes findable.
+  // Best-effort: makes the new ticket searchable right away.
   if (linearSlug && createdIssue) {
     await upsertIssueVector(linearSlug, {
       id: createdIssue.id,

@@ -13,17 +13,9 @@ const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.8, pgvector: 0.8 } as cons
 
 const SCHEMA = "portal";
 
-// Every caller sends `project_slug` as the frontend's clientName-based route
-// slug (issue-detail-modal.tsx passes its own `slug` prop straight through,
-// unresolved) — but portal.tests.project_slug needs to be the real
-// customers.linear_slug, the same value documents/issues/the vector index
-// are namespaced by (see resolveVectorProvider). Resolving here, once, for
-// every handler keeps that column (and the vector namespace, and the
-// "pick/search an existing test" autocomplete that filters by it) all
-// consistent with each other — this used to just trust the raw value,
-// which silently kept every test customer's vectors in a namespace that
-// never matched customers.linear_slug, so resolveVectorProvider could never
-// find that customer's systems.vector and always fell back to Upstash.
+// Callers send the clientName route slug; tests.project_slug and the vector
+// namespace must be customers.linear_slug. Resolve once here for every handler
+// — trusting the raw value made resolveVectorProvider always fall back to Upstash.
 async function resolveTestProjectSlug(rawSlug: string): Promise<string | null> {
   return await resolveLinearSlug(SCHEMA, rawSlug);
 }
@@ -82,11 +74,8 @@ Deno.serve(async (req) => {
   }
 });
 
-// GET /tests?project_slug=xxx&q=search — autocomplete for "pick an existing test",
-// scoped to the current customer/initiative so one customer's test names never leak
-// into another's suggestions. `q` is optional (empty search just lists recent tests).
-// `id` looks up one specific test directly — used to resolve a semantic match from
-// /tests/similar (which only carries {test_id, name} metadata) into the full row.
+// GET /tests?project_slug=xxx&q=search — autocomplete, scoped to one customer.
+// `q` optional (lists recent). `id` fetches one row (resolves /tests/similar matches).
 async function handleSearchTests(req: Request): Promise<Response> {
   const schema = "portal";
   const url = new URL(req.url);
@@ -112,10 +101,8 @@ async function handleSearchTests(req: Request): Promise<Response> {
   return Response.json(data);
 }
 
-// GET /tests/similar?project_slug=xxx&q=... — semantic "similar tests" suggestion,
-// backed by the Upstash test-cases vector index. Only meaningful once the user has
-// typed enough real text to embed; the frontend enforces that minimum, not this
-// endpoint (mirrors GET /issues/similar).
+// GET /tests/similar?project_slug=xxx&q=... — semantic search. The frontend
+// enforces a minimum query length, not this endpoint.
 async function handleSimilarTests(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const rawProjectSlug = url.searchParams.get("project_slug");
@@ -134,9 +121,7 @@ async function handleSimilarTests(req: Request): Promise<Response> {
   return Response.json(matches.filter((m) => m.score >= threshold));
 }
 
-// POST /tests — create a new reusable test case (no issue_id/expected/status anymore —
-// those live on the test_executions row created separately once this test is attached
-// to a ticket).
+// POST /tests — create a reusable test case (per-ticket data lives in test_executions).
 async function handleCreateTest(req: Request): Promise<Response> {
   const schema = "portal";
   const { project_slug: rawProjectSlug, title, steps, created_by } = await req.json();
@@ -169,9 +154,8 @@ async function handleCreateTest(req: Request): Promise<Response> {
   return Response.json(created);
 }
 
-// PATCH /tests/update — edit a test's title/steps. Only while it has never had a
-// passed execution, so the "recipe" can't be rewritten out from under a ticket that
-// already certified it worked.
+// PATCH /tests/update — edit title/steps, only if it has never passed (so a
+// certified test can't be rewritten).
 async function handleUpdateTest(req: Request): Promise<Response> {
   const schema = "portal";
   const { test_id, title, steps } = await req.json();
@@ -209,9 +193,8 @@ async function handleUpdateTest(req: Request): Promise<Response> {
   return Response.json(updated);
 }
 
-// DELETE /tests?test_id=xxx — refuses to delete a test that's attached to any ticket
-// (test_executions.test_id cascades on delete, so allowing this unconditionally would
-// silently wipe another ticket's test history).
+// DELETE /tests?test_id=xxx — refused if attached to any ticket (the FK cascade
+// would wipe that ticket's test history).
 async function handleDeleteTest(req: Request): Promise<Response> {
   const schema = "portal";
   const test_id = new URL(req.url).searchParams.get("test_id");

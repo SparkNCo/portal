@@ -1,22 +1,8 @@
-// Kept deliberately lean: this is the query the "Projects Timeline" pulls
-// on every load, and it's the most expensive one in this function since
-// `first: N` at three nested levels (projects → milestones → issues)
-// multiplies together — every extra field on an issue here gets paid for
-// up to projects×milestones×issues times over. The timeline only ever
-// derives two things from a milestone's issues (see getCycleIds in
-// ProjectRow.tsx): whether it has one, and which cycle it's in. Everything
-// else previously fetched per issue (title, assignee, labels, dates,
-// estimate, etc.) — and per project (description, progress, lead, etc.,
-// none of which components/roadmap reads; `targetDate` is the one project
-// field actually used, for sorting) — was dead weight that
-// existed only because CYCLE_ISSUES_QUERY/PROJECT_ISSUES_QUERY below
-// (fetched separately, on demand, when a cycle/milestone/project is
-// actually clicked) need those fields and this query didn't need its own
-// copy. Trimming it is what makes room to raise `projects(first: ...)`
-// above the 5 it was previously capped at without tripping Linear's query
-// complexity limit — if that number ever needs to go higher still, cutting
-// `issues(first: 25)` per milestone is the next biggest lever, at the cost
-// of possibly missing a cycle a milestone's 26th+ issue belongs to.
+// Keep lean: nested `first: N` (projects → milestones → issues) multiplies
+// Linear's query complexity, so every issue field is paid for many times over.
+// The timeline only needs each issue's cycle (getCycleIds in ProjectRow.tsx);
+// detail fields come from the on-demand queries below. To fit more projects,
+// lower `issues(first: 25)` next (may miss cycles of later issues).
 export const PROJECTS_QUERY = `
 query Projects($initiativeId: String!, $after: String) {
   initiative(id: $initiativeId) {
@@ -54,10 +40,8 @@ query Projects($initiativeId: String!, $after: String) {
 }
 `;
 
-// Cycles belong to a team, not a project, so getting the full cycle list is
-// two hops: find the project's team, then that team's cycles. Kept separate
-// from PROJECTS_QUERY (rather than nested) so it only has to run once per
-// team instead of once per project.
+// Cycles belong to teams, not projects. Separate from PROJECTS_QUERY so it
+// runs once per team, not per project.
 export const PROJECT_TEAM_QUERY = `
 query GetProjectTeam($projectId: String!) {
   project(id: $projectId) {
@@ -98,11 +82,8 @@ query GetTeamCycles($teamId: String!) {
 }
 `;
 
-// Fetched on demand when a cycle block is clicked — gives the real, complete
-// set of issues in that cycle (team-wide), rather than whatever happened to
-// already be loaded via project milestones. `$filter` narrows it down to a
-// single project and/or milestone when the click came from a specific row
-// instead of the collapsed per-project summary.
+// On cycle click: all issues in the cycle; `$filter` optionally narrows to a
+// project and/or milestone.
 export const CYCLE_ISSUES_QUERY = `
 query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
   cycle(id: $cycleId) {
@@ -145,10 +126,8 @@ query CycleIssues($cycleId: String!, $after: String, $filter: IssueFilter) {
 }
 `;
 
-// Fetched when a project header is clicked directly (no cycle or milestone
-// selected) — every issue in the project across every cycle, same field
-// shape as CYCLE_ISSUES_QUERY/MILESTONE_ISSUES_QUERY so the results panel
-// doesn't need to branch on where they came from.
+// On project header click: every issue in the project. Same field shape as
+// the other issue queries so the results panel doesn't branch.
 export const PROJECT_ISSUES_QUERY = `
 query ProjectIssues($projectId: String!, $after: String) {
   project(id: $projectId) {

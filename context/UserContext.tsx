@@ -30,6 +30,16 @@ type Profile = {
   developerType?: "spark_fde" | "internal";
 };
 
+// Stakeholders have no client of their own — they land on the dashboard of
+// the customer they're assigned to. Null when they have no assignment.
+export function getStakeholderClientSlug(profile: Profile | null): string | null {
+  const clientName =
+    profile?.assignment_id?.[0]?.clientName ??
+    profile?.assignment_id?.[0]?.linear_slug ??
+    profile?.clientName;
+  return clientName ? clientName.toLowerCase() : null;
+}
+
 type UserContextType = {
   user: any;
   profile: Profile | null;

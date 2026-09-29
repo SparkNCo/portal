@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { corsHeaders } from "../utils/headers.ts";
+import { requestJson } from "../lib/aiClient.ts";
 
 export async function analyzeCurrentState(req: Request) {
   try {
@@ -36,44 +37,25 @@ Now analyze the following message:
 ${message}
 `;
 
-    const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: prompt,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "current_state_analysis",
-            schema: {
-              type: "object",
-              properties: {
-                user: { type: "boolean" },
-                capability: { type: "boolean" },
-                reason: { type: "boolean" },
-                limitations: { type: "boolean" },
-              },
-              required: ["user", "capability", "reason", "limitations"],
-              additionalProperties: false,
-            },
-          },
+    const parsed = await requestJson<{
+      user: boolean;
+      capability: boolean;
+      reason: boolean;
+      limitations: boolean;
+    }>(prompt, {
+      name: "current_state_analysis",
+      schema: {
+        type: "object",
+        properties: {
+          user: { type: "boolean" },
+          capability: { type: "boolean" },
+          reason: { type: "boolean" },
+          limitations: { type: "boolean" },
         },
-      }),
+        required: ["user", "capability", "reason", "limitations"],
+        additionalProperties: false,
+      },
     });
-
-    if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      throw new Error(errorText);
-    }
-
-    const data = await openAIResponse.json();
-
-    const raw = data.output?.[0]?.content?.[0]?.text;
-    const parsed = JSON.parse(raw);
 
     return new Response(JSON.stringify(parsed), {
       status: 200,

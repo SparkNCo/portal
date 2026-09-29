@@ -18,6 +18,7 @@
 9. [Chat](#9-chat)
 10. [Settings](#10-settings)
 11. [Environments & Schema Routing](#11-environments--schema-routing)
+12. [AI Features & Config-Driven AI Client](#12-ai-features--config-driven-ai-client)
 
 ---
 
@@ -1274,3 +1275,70 @@ When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-desi
 | `lib/api-headers.ts` | `API_HEADERS`/`API_JSON_HEADERS` for edge-function requests — no schema header |
 | `supabase/functions/client.ts` | Service-role Supabase client shared by all edge functions (bypasses RLS) |
 | `supabase/functions/*/index.ts` | Each hardcodes `const schema = "portal";` |
+
+---
+
+## 12. AI Features & Config-Driven AI Client
+
+Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change.
+
+### 12.1 Environment variables
+
+Set these as Supabase Edge Function secrets (`supabase secrets set ...`), or in `supabase/functions/.env` for local development.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `AI_API_KEY` | **Yes** | — | Bearer token sent to the provider. **If unset, AI features are off** (see 12.3) |
+| `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
+| `AI_BASE_URL` | No | `https://api.openai.com/v1` | OpenAI-compatible base URL. Trailing slashes are stripped, and requests go to `{AI_BASE_URL}/chat/completions` |
+| `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `huggingface error: ...`). It does **not** change the request format |
+
+Example (Hugging Face Inference Providers router):
+
+```
+AI_PROVIDER=huggingface
+AI_BASE_URL=https://router.huggingface.co/v1
+AI_MODEL=Qwen/Qwen2.5-Coder-3B-Instruct
+AI_API_KEY=hf_...
+```
+
+> **Migration note:** before SPA-514 the debounce analyzers read `OPENAI_API_KEY` and hardcoded `gpt-4.1-mini` against OpenAI's `/v1/responses` endpoint, and `generateSuggestion.ts` was hardcoded to Hugging Face. `OPENAI_API_KEY` is **no longer read by anything**. To keep the previous behavior, set `AI_API_KEY` to the old OpenAI key and `AI_MODEL=gpt-4.1-mini` (leave `AI_BASE_URL` unset).
+
+### 12.2 How it works
+
+`requestJson<T>(prompt, { name, schema })`:
+
+1. Throws immediately if `AI_API_KEY` or `AI_MODEL` is missing. No network call is made.
+2. `POST {AI_BASE_URL}/chat/completions` with `model`, a single `user` message containing the prompt, and `response_format: { type: "json_schema", json_schema: { name, strict: true, schema } }`.
+3. On a non-2xx response it throws `"{AI_PROVIDER} error: {body}"`, and on an empty completion it throws `"{AI_PROVIDER} returned no content"`.
+4. Returns `JSON.parse(choices[0].message.content)` typed as `T`.
+
+`aiEnabled()` returns whether `AI_API_KEY` is set, for callers that want to check up front.
+
+It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format rather than using the `aisuite` package: aisuite's OpenAI adapter drops `response_format`, and every caller depends on strict schema-enforced JSON. The chosen model/provider must therefore support `json_schema` structured outputs.
+
+### 12.3 Behavior when AI is disabled or fails
+
+| Caller | On error or no key |
+|---|---|
+| `debounce` → `analyze-idea` | Catches the error and returns all-false flags (`audience/problem/idea/stage: false`), with status 200 |
+| `debounce` → `analyze-current-state` | Same pattern, all-false flags (`user/capability/reason/limitations: false`) |
+| `suggested-features` → `generate` | Returns a `500` with the error message |
+| `suggested-features` → `generate-all` (cron) | Each project's failure is logged and counted in `failed`. The run continues and creates no suggestions |
+
+### 12.4 AI-driven files
+
+| File | What it uses AI for |
+|---|---|
+| `supabase/functions/lib/aiClient.ts` | The shared client: env config, `requestJson`, `aiEnabled` |
+| `supabase/functions/debounce/index.ts` | Router: `POST /debounce?type=idea` / `?type=current-state` |
+| `supabase/functions/debounce/analyze-idea.ts` | Classifies a prospective client's message for audience / problem / idea / stage (schema `idea_analysis`) |
+| `supabase/functions/debounce/analyze-current-state.ts` | Classifies a message for user / capability / reason / limitations (schema `current_state_analysis`) |
+| `supabase/functions/suggested-features/generateSuggestion.ts` | Prompt + one suggested feature per Linear project (schema `suggested_feature`: `title`, `description`, `milestoneId`) |
+| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron loop that calls `generateSuggestionForProject` for every customer's projects |
+| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: the Linear context fed into the suggestion prompt |
+| `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Schedules the weekly AI generation run (Mon 06:00 UTC) |
+
+The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
+
+The vector/semantic search features (similar issues, similar tests, document search) use embeddings through Upstash/pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.

@@ -1,23 +1,6 @@
--- SPA-513 fix: portal.chats/portal.messages RLS matched the caller via
--- `portal.users.auth_id = auth.uid()`, but auth_id is essentially unused
--- elsewhere in this app — supabase/functions/users/createUser.ts defaults it
--- to null, and nothing else in the codebase ever reads it. Every other
--- server-side identity check (see resolveCaller.ts, fetchUser in
--- users/index.ts) matches the Supabase Auth session to a portal.users row by
--- **email**, not auth_id.
---
--- With auth_id null for essentially every real user, `can_access_chat`'s
--- WHERE clause never matched anyone (not even admins, since the EXISTS finds
--- no `u` row at all), and `current_portal_user_id()` always returned NULL —
--- so `messages_insert`'s `user_id = portal.current_portal_user_id()` check
--- was never satisfiable. Chat creation (via the `chats` edge function,
--- service role, bypasses RLS) appeared to work fine; sending a message
--- (direct client insert, RLS-gated) silently failed, and so would every
--- direct SELECT on chats/messages.
---
--- `auth.email()` is Supabase's built-in helper (same JWT-claim source
--- resolveCaller.ts reads via supabase.auth.getUser()), so this switches both
--- functions to match on email instead, consistent with the rest of the app.
+-- Chat RLS matched users by auth_id, which is null for almost every user, so
+-- every client read/insert on chats/messages failed. Match by auth.email()
+-- instead, like the rest of the app's identity checks.
 
 CREATE OR REPLACE FUNCTION portal.can_access_chat(target_chat_id uuid)
 RETURNS boolean AS $$
