@@ -367,7 +367,7 @@ function SetPasswordForm() {
                     submitting ||
                     !firstName ||
                     !lastName ||
-                    !clientName ||
+                    (!isStakeholder && !clientName) ||
                     !password ||
                     !confirm
                   }
