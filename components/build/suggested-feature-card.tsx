@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Lightbulb, Loader2, X } from "lucide-react";
+import { Check, Lightbulb, Loader2, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { priorityColors } from "@/components/client/issues.types";
 import { fetchMilestones, fetchProjects } from "@/lib/issues-api";
@@ -117,6 +118,7 @@ export function SuggestedFeatureCard({
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Both lazy — only fetched once their picker actually opens, so a row of N
   // cards doesn't fire N project/milestone lookups just from rendering.
@@ -194,6 +196,19 @@ export function SuggestedFeatureCard({
         className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary"
         aria-hidden="true"
       />
+
+      {/* Descriptions get clamped to 4 lines below and some run past that —
+          this opens a modal with the untruncated text instead of leaving
+          "…" as a dead end. Hidden until hover/focus, same reveal pattern as
+          IssueCard's own edit button. */}
+      <button
+        type="button"
+        className="absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-muted-foreground hover:bg-secondary hover:text-primary"
+        onClick={() => setDetailOpen(true)}
+        aria-label="View full description"
+      >
+        <Maximize2 className="h-3.5 w-3.5" />
+      </button>
 
       <div className="p-4 pl-5 pb-2 space-y-1.5">
         <div className="flex items-center gap-1.5 text-primary">
@@ -278,7 +293,7 @@ export function SuggestedFeatureCard({
                 <button
                   key={opt.value}
                   type="button"
-                  className={`rounded-md border px-2 py-1.5 text-left smalltext transition-opacity hover:opacity-80 ${priorityColors[opt.label]}`}
+                  className="rounded-md px-2 py-1.5 text-left smalltext transition-colors hover:text-primary"
                   onClick={() => {
                     setPriorityOpen(false);
                     acceptMutation.mutate(opt.value);
@@ -291,6 +306,37 @@ export function SuggestedFeatureCard({
           </PopoverContent>
         </Popover>
       </div>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent
+          className="w-[95vw] sm:w-full sm:max-w-lg max-h-[85vh] overflow-y-auto overflow-x-hidden"
+          aria-describedby={undefined}
+        >
+          <div className="-mx-6 -mt-6 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
+
+          <DialogHeader className="pt-4">
+            <div className="flex items-center gap-1.5 text-primary">
+              <Lightbulb className="h-3.5 w-3.5" />
+              <span className="smalltext font-semibold uppercase tracking-wide">Suggested Feature</span>
+            </div>
+            <DialogTitle className="text-left">{feature.title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{feature.description}</p>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge variant="outline" className="smalltext">
+                {feature.linear_project_name}
+              </Badge>
+              {feature.linear_milestone_name && (
+                <Badge variant="outline" className="smalltext">
+                  {feature.linear_milestone_name}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
