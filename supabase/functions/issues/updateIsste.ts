@@ -482,7 +482,10 @@ export async function handleDeleteDecision(req: Request): Promise<Response> {
 
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
-const GET_PROJECTS_BY_IDS_QUERY = `
+// Exported for supabase/functions/suggested-features/updateSuggestionProject.ts,
+// which resolves+validates a customer/admin's project override the same way
+// handleGetProjects already resolves the project picker's own list.
+export const GET_PROJECTS_BY_IDS_QUERY = `
   query GetProjectsByIds($filter: ProjectFilter) {
     projects(filter: $filter, first: 50) {
       nodes { id name }
@@ -490,7 +493,12 @@ const GET_PROJECTS_BY_IDS_QUERY = `
   }
 `;
 
-const GET_MILESTONES_QUERY = `
+// Exported for supabase/functions/suggested-features/updateSuggestionMilestone.ts,
+// which validates a customer/admin's milestone override against the
+// suggestion's own project the same way handleGenerateSuggestion already
+// validates the AI's own milestone pick (just against
+// PROJECT_CONTEXT_QUERY's embedded list there instead of this query).
+export const GET_MILESTONES_QUERY = `
   query GetMilestones($projectId: String!) {
     project(id: $projectId) {
       projectMilestones(first: 50) {
