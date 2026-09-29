@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { linearRequest } from "../issues/linearClient.ts";
 import { PROJECT_CONTEXT_QUERY } from "./query.ts";
 import { resolveLinearSlug } from "../utils/slug.ts";
+import { requestJson } from "../lib/aiClient.ts";
 
 type Milestone = { id: string; name: string; description?: string | null; status: string };
 type ContextIssue = {
@@ -58,67 +59,31 @@ Respond with:
 - "milestoneId": the "id" of whichever milestone listed above this feature best belongs to, or null if none of them fit (or there are no milestones)`;
 }
 
-// SPA-509 test: swapped from a direct OpenAI call to Hugging Face's
-// Inference Providers router (https://router.huggingface.co/v1/chat/
-// completions) — an OpenAI-compatible Chat Completions endpoint that fans
-// out to whichever backing provider serves the requested model. Only the
-// token lives in an env var; endpoint/model/schema stay hardcoded here on
-// purpose (no multi-provider config yet — see the SPA-509 discussion, on
-// hold pending confirmation from the team on the direction).
-//
-// "Qwen/Qwen2.5-Coder-3B-Instruct" — a small, cheap model (live via the
-// nscale/featherless-ai providers behind HF's router) chosen to keep this
-// test's cost down. Unlike aisuite-js (evaluated for this same ticket), HF's
-// router supports response_format.json_schema directly — so this keeps the
-// same strict schema-enforced JSON output the old /v1/responses call had, no
-// prompt-only JSON parsing needed.
-// Trade-off worth watching: this is a *code*-tuned 3B model, not a general
-// instruct model — it may write flatter/less grounded feature descriptions
-// than a bigger general-purpose model would. Swap the model string below if
-// suggestion quality turns out too weak once tested against a real project.
-async function generateWithHuggingFace(prompt: string): Promise<{
+// Config-driven now (AI_PROVIDER/AI_MODEL/AI_BASE_URL/AI_API_KEY — see
+// lib/aiClient.ts) instead of hardcoded to Hugging Face. Was pinned to
+// "Qwen/Qwen2.5-Coder-3B-Instruct" via HF's router during the SPA-509 spike;
+// that model choice is now whatever AI_MODEL is set to in the environment —
+// keep it aimed at a model capable enough to write a grounded feature
+// description from a fair amount of project/ticket context, not just the
+// cheapest option, if quality turns out weak.
+function generateWithAI(prompt: string): Promise<{
   title: string;
   description: string;
   milestoneId: string | null;
 }> {
-  const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${Deno.env.get("HUGGINGFACE_API_KEY")}`,
-    },
-    body: JSON.stringify({
-      model: "Qwen/Qwen2.5-Coder-3B-Instruct",
-      messages: [{ role: "user", content: prompt }],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "suggested_feature",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: {
-              title: { type: "string" },
-              description: { type: "string" },
-              milestoneId: { type: ["string", "null"] },
-            },
-            required: ["title", "description", "milestoneId"],
-            additionalProperties: false,
-          },
-        },
+  return requestJson(prompt, {
+    name: "suggested_feature",
+    schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        milestoneId: { type: ["string", "null"] },
       },
-    }),
+      required: ["title", "description", "milestoneId"],
+      additionalProperties: false,
+    },
   });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Hugging Face error: ${errorText}`);
-  }
-
-  const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content;
-  if (!raw) throw new Error("Hugging Face returned no structured output");
-  return JSON.parse(raw);
 }
 
 // Does the actual work — Linear context fetch, AI call, insert — for one
@@ -143,7 +108,7 @@ export async function generateSuggestionForProject(
   const milestones: Milestone[] = project.projectMilestones?.nodes ?? [];
   const issues: ContextIssue[] = project.issues?.nodes ?? [];
 
-  const suggestion = await generateWithHuggingFace(buildPrompt(project, milestones, issues));
+  const suggestion = await generateWithAI(buildPrompt(project, milestones, issues));
   const matchedMilestone = milestones.find((m) => m.id === suggestion.milestoneId) ?? null;
 
   const { data: row, error } = await supabase
