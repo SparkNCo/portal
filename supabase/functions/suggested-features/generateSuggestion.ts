@@ -28,8 +28,7 @@ function buildPrompt(
         .join("\n")
     : "(this project has no milestones yet)";
 
-  // Capped well under the 100 fetched — plenty of signal for the AI without
-  // ballooning the prompt on a project with a long history.
+  // Capped below the 100 fetched to keep the prompt small.
   const issuesText = issues.length
     ? issues
         .slice(0, 80)
@@ -59,13 +58,8 @@ Respond with:
 - "milestoneId": the "id" of whichever milestone listed above this feature best belongs to, or null if none of them fit (or there are no milestones)`;
 }
 
-// Config-driven now (AI_PROVIDER/AI_MODEL/AI_BASE_URL/AI_API_KEY — see
-// lib/aiClient.ts) instead of hardcoded to Hugging Face. Was pinned to
-// "Qwen/Qwen2.5-Coder-3B-Instruct" via HF's router during the SPA-509 spike;
-// that model choice is now whatever AI_MODEL is set to in the environment —
-// keep it aimed at a model capable enough to write a grounded feature
-// description from a fair amount of project/ticket context, not just the
-// cheapest option, if quality turns out weak.
+// Model comes from AI_MODEL (lib/aiClient.ts). If suggestion quality is weak,
+// pick a more capable model rather than the cheapest.
 function generateWithAI(prompt: string): Promise<{
   title: string;
   description: string;
@@ -86,14 +80,8 @@ function generateWithAI(prompt: string): Promise<{
   });
 }
 
-// Does the actual work — Linear context fetch, AI call, insert — for one
-// project. Shared by the manual HTTP trigger below and
-// generateAllSuggestions.ts's weekly cron loop, so both stay in lockstep
-// instead of the cron drifting from whatever the manual endpoint does.
-// `linearSlug` is the customer's real `customers.linear_slug`, already
-// resolved by the caller — this never re-derives it, since who's allowed to
-// resolve clientName -> linear_slug (an HTTP request vs. a cron reading the
-// customers row directly) differs between the two callers.
+// Linear context → AI → insert, for one project. Shared by /generate and the
+// weekly cron. `linearSlug` must already be resolved by the caller.
 export async function generateSuggestionForProject(
   schema: string,
   linearSlug: string,
@@ -131,17 +119,9 @@ export async function generateSuggestionForProject(
   return row;
 }
 
-// POST /suggested-features/generate — manual trigger, one project at a time:
-// { slug, projectId }. `slug` is the caller's clientName-based route slug
-// (same value every other panel on the Build page already has in hand) —
-// resolved here to the customer's linear_slug before it's persisted, same
-// pattern as issues/updateIsste.ts and tests/index.ts, so `project_slug`
-// lines up with what upsertIssueVector/resolveVectorProvider expect
-// downstream in acceptSuggestion.ts, and so listSuggestions.ts can resolve
-// the same way on read. Never trust a client-supplied linear_slug directly
-// here — it has to come from `customers.linear_slug` itself, or a stale/wrong
-// value from the caller silently lands suggestions in the wrong (or no)
-// namespace, same bug class as the old portal.tests.project_slug issue.
+// POST /suggested-features/generate — manual, one project: { slug, projectId }.
+// `slug` is the route slug; resolved server-side to customers.linear_slug —
+// never accept a linear_slug from the client.
 export async function handleGenerateSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
   const { slug, projectId } = await req.json();

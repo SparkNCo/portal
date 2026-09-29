@@ -126,17 +126,14 @@ async function fetchCycleIssues(
   return data?.cycle?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
-// Used when a milestone is clicked directly (no cycle) — every issue in it,
-// across every cycle it spans, takes priority over projectId when both are
-// present since a milestone already belongs to exactly one project.
+// Milestone clicked (no cycle): every issue in it. Takes priority over projectId.
 async function fetchMilestoneIssues(milestoneId: string, after: string | null) {
   console.log("[roadmap] fetchMilestoneIssues: requesting milestone", { milestoneId, after });
   const data = await linearRequest(MILESTONE_ISSUES_QUERY, { milestoneId, after });
   return data?.projectMilestone?.issues ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 }
 
-// Used when a project header is clicked directly (no cycle, no milestone) —
-// every issue in the project across every cycle and milestone.
+// Project header clicked (no cycle/milestone): every issue in the project.
 async function fetchProjectIssues(projectId: string, after: string | null) {
   console.log("[roadmap] fetchProjectIssues: requesting project", { projectId, after });
   const data = await linearRequest(PROJECT_ISSUES_QUERY, { projectId, after });
@@ -169,10 +166,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // No cycle selected — a project or milestone was clicked directly, so
-    // every issue under it (across every cycle) is wanted instead of one
-    // cycle's worth. Milestone takes priority since it already implies a
-    // single project.
+    // No cycle: all issues of the milestone (preferred) or project.
     const noCycleMilestoneId = searchParams.get("milestoneId");
     const noCycleProjectId = searchParams.get("projectId");
     if (noCycleMilestoneId || noCycleProjectId) {
@@ -224,9 +218,7 @@ Deno.serve(async (req) => {
 
     const data = await fetchFromLinear(initiativeId, projectsAfter);
 
-    // Cycles are team-wide and already fully fetched (first: 100) on the
-    // initial page, so a "load more projects" request (projectsAfter set)
-    // skips re-fetching them — the frontend already has the full list.
+    // Cycles are fully fetched on the first page; skip them on "load more".
     const cycles = projectsAfter
       ? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
       : await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);

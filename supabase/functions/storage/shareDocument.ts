@@ -26,12 +26,8 @@ export async function shareDocument(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 1. Check permission (must be WRITE, or an admin — admins can share
-     * any document regardless of their own document_permissions row)
-     * ---------------------------------------
-     */
+    // 1. Check permission (must be WRITE, or an admin — admins can share
+    // any document regardless of their own document_permissions row)
     const { data: callerUser } = await supabase.schema(schema)
       .from("users")
       .select("role")
@@ -61,11 +57,7 @@ export async function shareDocument(req: Request, schema: string) {
       }
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. Get users by emails
-     * ---------------------------------------
-     */
+    // 2. Get users by emails
     const { data: users, error: usersError } = await supabase.schema(schema)
       .from("users")
       .select("id, email")
@@ -85,22 +77,14 @@ export async function shareDocument(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. Prepare inserts
-     * ---------------------------------------
-     */
+    // 3. Prepare inserts
     const permissionsToInsert = users.map((u) => ({
       user_id: u.id,
       document_id: Number(document_id),
       permission: "read",
     }));
 
-    /**
-     * ---------------------------------------
-     * ✅ 4. Insert permissions
-     * ---------------------------------------
-     */
+    // 4. Insert permissions
     const { error: insertError } = await supabase.schema(schema)
       .from("document_permissions")
       .insert(permissionsToInsert);
@@ -112,11 +96,7 @@ export async function shareDocument(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 5. Response
-     * ---------------------------------------
-     */
+    // 5. Response
     return new Response(
       JSON.stringify({
         success: true,

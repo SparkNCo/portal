@@ -1,25 +1,12 @@
 // @ts-nocheck
-// SPA-384: manual vs automatic invoicing toggle, and (while automatic) the
-// ability to set/edit invoice frequency + amount. Built as its own endpoint
-// so it can be tested independently of `users`/`stripe` (already deployed
-// and in use for other testing) — nothing in this file is imported by, or
-// imports from, those functions' route logic, only the shared `client.ts`/
-// `utils/headers.ts` helpers every function already uses. Intended to be
-// folded into `users`/`stripe` once this is verified.
+// Manual vs automatic invoicing, plus invoice amount/frequency while automatic.
+// Self-contained on purpose (no imports from `users`/`stripe`); meant to be
+// folded into those once verified.
 //
-// Switching a customer to "manual" pauses collection on their active Stripe
-// subscription(s) (billing stays intact, Stripe just stops trying to charge
-// it) so the admin can invoice them outside the portal. Switching back to
-// "automatic" resumes collection.
-//
-// While automatic, invoice_amount/invoice_interval/invoice_interval_count
-// describe what the customer should be billed and how often. Editing any of
-// them (re)creates a Stripe recurring Price with those terms and swaps it
-// onto the customer's existing subscription — Stripe prices are immutable,
-// so "editing" a price always means creating a new one and re-pointing the
-// subscription item at it, with proration off so nothing is charged early.
-// If the customer has no subscription yet, the values are just saved for
-// whenever one exists — there's no auto-create-a-subscription path here.
+// "manual" pauses collection on the customer's Stripe subscriptions so the admin
+// can invoice outside the portal; "automatic" resumes it. Changing amount or
+// frequency swaps a new Price onto the subscription (see syncSubscriptionPrice).
+// With no subscription yet, values are just saved for later.
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
@@ -29,9 +16,7 @@ const INTERVALS = ["day", "week", "month", "year"];
 const CUSTOMER_COLUMNS =
   "customer_id, stripe_customer_id, billing_mode, invoice_amount_cents, invoice_interval, invoice_interval_count";
 
-// Same fetch-based client Stripe/Supabase document for Deno's Edge Runtime —
-// duplicated here rather than imported from `../stripe/client.ts` to keep
-// this endpoint fully self-contained.
+// Duplicate of ../stripe/client.ts, kept local so this endpoint stays self-contained.
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2023-10-16",
   httpClient: Stripe.createFetchHttpClient(),
@@ -99,14 +84,8 @@ const handlePatch = async (req: Request) => {
     return jsonResponse({ error: "No fields to update" }, 400);
   }
 
-  // Persist first, mutate Stripe second. Previously this was the other way
-  // around — if the DB write below failed after Stripe already changed,
-  // `customers` would silently disagree with reality forever (e.g. Stripe
-  // collection paused while billing_mode still read "automatic", so the UI
-  // kept showing the Stripe panels and nobody could tell the client had
-  // stopped being charged). Now, if the Stripe calls fail instead, the row
-  // is reverted back to its pre-update values so it never drifts silently —
-  // see the catch block below.
+  // Persist first, then Stripe; if Stripe fails the row is reverted (catch
+  // below), so DB and Stripe never silently disagree.
   const { data, error } = await supabase.schema(schema)
     .from("customers")
     .update(updateFields)
@@ -129,10 +108,8 @@ const handlePatch = async (req: Request) => {
     ));
     priceSync = await applyInvoiceSettingsChange(customer, updateFields);
   } catch (stripeError) {
-    // Best-effort revert so the DB doesn't end up claiming a change that
-    // never actually took effect in Stripe. If the revert itself fails too,
-    // the row is genuinely stuck out of sync — that needs a human, so it's
-    // surfaced as a distinct, loud error rather than a generic 500.
+    // If the revert also fails, DB and Stripe are out of sync and need a
+    // human — surface a distinct error, not a generic 500.
     const { error: revertError } = await supabase.schema(schema)
       .from("customers")
       .update(revertValues(customer, updateFields))
@@ -348,11 +325,8 @@ async function resumeCollection(stripeCustomerId: string): Promise<string[]> {
   return resumed;
 }
 
-// Creates a new recurring Price with the given amount/frequency and swaps it
-// onto the customer's existing subscription item. Stripe prices can't be
-// edited in place, so "editing" always means: new price, re-point the
-// subscription at it, no proration (don't charge/credit for the switch
-// itself — the new price just takes effect on the next invoice).
+// Stripe prices are immutable: create a new recurring Price and re-point the
+// subscription item at it, without proration (takes effect next invoice).
 async function syncSubscriptionPrice(
   stripeCustomerId: string,
   amountCents: number,
@@ -364,17 +338,12 @@ async function syncSubscriptionPrice(
     status: "all",
   });
 
-  // Stripe won't let a canceled subscription's items be updated (it throws),
-  // so only ever pick a non-canceled one — falling back to data[0] regardless
-  // of status would surface that as an unhandled 500 instead of the graceful
-  // "no subscription yet" path below.
+  // Canceled subscriptions can't be updated (Stripe throws).
   const subscription = subscriptions.data.find((sub) => sub.status !== "canceled");
 
   const itemId = subscription?.items?.data?.[0]?.id;
   if (!subscription || !itemId) {
-    // No subscription to attach a price to yet — settings are still saved to
-    // `customers`, they'll just need to be applied whenever a subscription
-    // is created (e.g. via the existing renew-subscription flow).
+    // Settings stay saved in `customers` until a subscription exists.
     return { applied: false };
   }
 

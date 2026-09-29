@@ -55,11 +55,7 @@ export async function downloadDocument(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. Get document (using link)
-     * ---------------------------------------
-     */
+    // 2. Get document (using link)
 
     console.log("Document id:", document_id);
 
@@ -76,11 +72,7 @@ export async function downloadDocument(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. Extract path
-     * ---------------------------------------
-     */
+    // 3. Extract path
     console.log("Document link:", document.link);
 
     const path = extractPathFromUrl(document.link);
@@ -91,11 +83,7 @@ export async function downloadDocument(req: Request, schema: string) {
         headers: corsHeaders,
       });
     }
-    /**
-     * ---------------------------------------
-     * ✅ 4. Generate signed URL
-     * ---------------------------------------
-     */
+    // 4. Generate signed URL
     const { data: signedUrlData, error: signedError } = await supabase.storage
       .from("documents_bucket")
       .createSignedUrl(path, 300, ...(inline ? [] : [{ download: true }]));
@@ -107,11 +95,7 @@ export async function downloadDocument(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 5. Return URL
-     * ---------------------------------------
-     */
+    // 5. Return URL
     return new Response(JSON.stringify({ url: signedUrlData.signedUrl }), {
       headers: {
         ...corsHeaders,

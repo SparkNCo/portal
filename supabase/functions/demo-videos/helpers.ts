@@ -117,11 +117,8 @@ export const detectEmbedProvider = (embedUrl: string): string => {
   return parsed.hostname.replace(/^www\./, "");
 };
 
-// Fields that define a demo version's actual playable content, as opposed
-// to bookkeeping (id/issue_id/version/uploaded_by/timestamps). Copying just
-// these onto a new/updated row is what lets one uploaded file or embed link
-// be attached to several issues at once ("select an existing demo video")
-// without re-uploading it.
+// A demo's playable content (not bookkeeping). Copying these onto another row
+// attaches the same video to another issue without re-uploading.
 export const getDemoSourceFields = async (supabase: any, demoId: string) => {
   const { data, error } = await supabase
     .schema(SCHEMA)
@@ -139,10 +136,7 @@ export const getDemoSourceFields = async (supabase: any, demoId: string) => {
     storage_path: string | null;
     embed_url: string | null;
     embed_provider: string | null;
-    // Carried along so "attach existing" (see createDemoVideoFromExisting/
-    // updateDemoVideoWithExisting) makes the new/repointed row adopt the
-    // same identity as the demo it's now sharing content with, instead of
-    // getting its own fresh demo_number and no title.
+    // So "attach existing" rows keep the source demo's identity.
     title: string;
     demo_number: number;
   };

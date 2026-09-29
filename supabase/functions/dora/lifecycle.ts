@@ -59,25 +59,14 @@ function resolveDevStart(
   return null;
 }
 
-// Joins already-fetched merged PRs with recorded branch-creation events for
-// branches of the given qualifying type, producing the three DORA lifecycle
-// timestamps per Linear issue: dev start, dev completion (squash merge), and
-// production deployment (squash commit reachable on main).
+// Per Linear issue: dev start, dev completion (squash merge), and production
+// deployment (squash commit reachable on main). Dev start: see resolveDevStart.
 //
-// dev start prefers the recorded branch_created_at (webhook or events-poll
-// capture); when that's missing it falls back to the earliest commit date on
-// the PR, so a branch is never silently excluded just because nothing was
-// there to witness its creation live.
+// Branch identity comes from the PR title, not pr.head.ref — PRs go
+// staging→main, so head.ref is always "staging"; the title matches the
+// original branch name (e.g. "feat/SPA-123-add-login").
 //
-// Qualification (feat/fix + Linear id) and the branch_created_at lookup key
-// both come from the PR title, not pr.head.ref — PRs are opened staging→main,
-// so pr.head.ref is always "staging" and carries no branch identity. The
-// original working branch is created with the same name that later becomes
-// the PR title (e.g. "feat/SPA-123-add-login"), so the title is what actually
-// identifies it.
-//
-// `getCommits`/`isSquashed`/`isOnMain` are injected so this join logic is
-// testable without hitting the network.
+// getCommits/isSquashed/isOnMain are injected for testability.
 export async function joinBranchEvents(
   prs: any[],
   branchType: QualifyingBranchType,

@@ -7,14 +7,9 @@ import { upsertIssueVector } from "../lib/vector.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
 // POST /suggested-features/accept — { id, priority, actorEmail }. Creates the
-// real Linear issue (Backlog, no cycle, the suggestion's project/milestone,
-// the chosen priority) and marks the row accepted. Deliberately builds its
-// own IssueCreateInput here instead of calling issues/createIssue.ts's
-// handleCreateIssue — that helper has no way to force stateId or an explicit
-// cycleId, which this flow needs and the regular Feature Request/Bug Report
-// flow never has, so extending it wasn't worth the risk to an already-used
-// path. It does reuse createIssue.ts's own mutation/priority map and
-// linearClient.ts's team lookup, so the actual Linear call stays identical.
+// Linear issue (Backlog, no cycle, suggestion's project/milestone, chosen
+// priority) and marks the row accepted. Builds its own input instead of using
+// handleCreateIssue, which can't set stateId/cycleId.
 export async function handleAcceptSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
   const { id, priority, actorEmail } = await req.json();
@@ -67,9 +62,7 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
     priority: PRIORITY_MAP[priority],
     projectId: suggestion.linear_project_id,
     stateId,
-    // Explicit, not just omitted — see this file's own header comment on why
-    // this can't be a 100% guarantee (a Linear workspace's own "auto-add to
-    // active cycle" team setting can still override it).
+    // Explicit null. A team's "auto-add to active cycle" setting can still override it.
     cycleId: null,
   };
   if (suggestion.linear_milestone_id) {
@@ -82,8 +75,7 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
     throw new Error("Failed to create the Linear issue");
   }
 
-  // Best-effort, same as issues/createIssue.ts's own handleCreateIssue —
-  // keeps the new ticket searchable for the similar-issues hint right away.
+  // Best-effort: makes the new ticket searchable right away.
   await upsertIssueVector(suggestion.project_slug, {
     id: issue.id,
     title: suggestion.title,

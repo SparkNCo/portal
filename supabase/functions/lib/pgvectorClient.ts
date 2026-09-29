@@ -1,17 +1,9 @@
 // @ts-nocheck
-// pgvector-backed half of the vector store — the "instead of upstash" path
-// from customers.systems.vector = 'pgvector'. Routed to from vector.ts,
-// which is still the only file anything outside lib/ ever imports from; see
-// that file for why nothing else needed to change.
+// pgvector provider (customers.systems.vector = 'pgvector'); only called via vector.ts.
 //
-// Embeddings come from Supabase Edge Functions' built-in `Supabase.ai`
-// runtime (the "gte-small" model, 384 dimensions) — no external embedding
-// API or key, matching "Supabase has built in vector support" in the
-// ticket. Only available when actually running as a deployed/served edge
-// function (the `Supabase` global doesn't exist under `supabase functions
-// serve` in some older CLI versions or a plain `deno run`), so embedText
-// throws a clear error rather than a confusing "Supabase is not defined" if
-// that's ever hit.
+// Embeddings use the built-in `Supabase.ai` runtime (gte-small, 384 dims), no
+// external API. The `Supabase` global is missing under plain `deno run` or some
+// older CLIs, so embedText throws a clear error in that case.
 import { supabase } from "../client.ts";
 import type { VectorMatch } from "./vector.ts";
 
