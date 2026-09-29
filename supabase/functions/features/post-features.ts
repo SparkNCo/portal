@@ -8,10 +8,8 @@ import { CreateRequirementsSchema } from "./zod.ts";
  * Helpers
  * -------------------------------- */
 
-// Features the client already fetched (from GET /features) carry their real
-// DB id — resubmitting the whole list (edit + add-new flows) would otherwise
-// re-insert those as brand-new duplicate rows every time. Only features with
-// no id, or an id that doesn't match an existing row, are actually new.
+// The client resubmits the whole list; only features without a matching
+// existing id are new — otherwise every save would duplicate rows.
 const findNewFeatures = async (features) => {
   const incomingIds = features.map((f) => f.id).filter(Boolean);
   if (!incomingIds.length) return features;

@@ -1,21 +1,9 @@
--- Splits the combined portal.notifications (event data + per-recipient read
--- state in one row) into the shape a specific ticket calls for: an
--- immutable `events` log (one row per thing that happened) plus
--- `notifications` as a thin per-(user, event) join with a boolean `read`.
--- A single event can now be shared by every recipient's notification
--- instead of the same action/object/preview/link being duplicated once per
--- recipient.
+-- Splits portal.notifications into an immutable `events` log plus
+-- `notifications` as a per-(user, event) row with `read`.
 --
--- Dedupe (one unread notification per active chat/issue, not one per
--- message/question) survives this differently than before: it used to be a
--- partial UNIQUE index + ON CONFLICT directly on portal.notifications, but
--- "same thread" now means "same object_type/issue_id on the *linked*
--- event", which a plain index on portal.notifications can't see across the
--- join. Callers (notify_chat_message below, notify.ts's notifyProject) now
--- do it explicitly: always insert a new event, then either insert a new
--- notification or re-point an existing unread one at that new event —
--- same visible behavior (one unread row per thread), but the full event
--- history is preserved instead of being overwritten in place.
+-- Dedupe (one unread notification per chat/issue) can't be a unique index
+-- anymore (it depends on the linked event), so callers do it: insert an event,
+-- then insert a notification or re-point the existing unread one.
 
 CREATE TABLE IF NOT EXISTS portal.events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,12 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_events_thread_object ON portal.events(object_type
 ALTER TABLE portal.notifications ADD COLUMN IF NOT EXISTS event_id uuid;
 ALTER TABLE portal.notifications ADD COLUMN IF NOT EXISTS read boolean NOT NULL DEFAULT false;
 
--- Backfill: one event per existing notification, reusing that
--- notification's own id as the new event's id — a simple, collision-free
--- way to correlate the INSERT back to the row it came from without a
--- temporary bridge column. Existing rows never shared an event to begin
--- with (that's exactly what this migration fixes going forward), so this
--- loses nothing.
+-- Backfill: one event per existing notification, reusing its id as the event id.
 INSERT INTO portal.events (id, actor_user_id, actor_email, action, object_type, object_id, issue_code, issue_id, preview, link, created_at)
 SELECT id, actor_user_id, actor_email, action, object_type, object_id, issue_code, issue_id, preview, link, created_at
 FROM portal.notifications
@@ -94,9 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
 -- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
--- events has no direct owner check of its own — it's only ever readable
--- through a notification that points at it (so the bell's embedded-select
--- join, `notifications.select("*, event:events(*)")`, works under RLS).
+-- events are readable only through a notification that points at them.
 ALTER TABLE portal.events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS events_select_via_notification ON portal.events;
@@ -113,9 +94,7 @@ GRANT SELECT ON portal.events TO authenticated;
 -- ---------------------------------------------------------------------------
 -- Chat message -> event + notification fan-out (rewritten for the new shape)
 -- ---------------------------------------------------------------------------
--- Also folds in 20260922110000's admin fan-out (UNION with every admin,
--- not just chat_participants) — this CREATE OR REPLACE fully supersedes
--- both of the two prior versions of this function.
+-- Supersedes both earlier versions (includes 20260922110000's admin fan-out).
 CREATE OR REPLACE FUNCTION portal.notify_chat_message()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -131,9 +110,7 @@ BEGIN
     'chat',
     NEW.chat_id::text,
     left(NEW.body, 140),
-    -- A generic fallback, not a deep link to this specific conversation —
-    -- the frontend NotificationBell resolves the real, role-prefixed inbox
-    -- path for `object_type = 'chat'` at click time.
+    -- Fallback only; NotificationBell resolves the real chat path on click.
     '/chat'
   )
   RETURNING id INTO new_event_id;
@@ -146,9 +123,7 @@ BEGIN
     ) AS r(user_id)
     WHERE r.user_id IS DISTINCT FROM NEW.user_id
   LOOP
-    -- One unread notification per (user, chat) — a chat's Nth message while
-    -- the (N-1)th is still unread re-points the existing notification at
-    -- this newest event instead of piling up another row.
+    -- One unread notification per (user, chat): re-point instead of adding rows.
     SELECT n.id INTO existing_notification_id
     FROM portal.notifications n
     JOIN portal.events e ON e.id = n.event_id

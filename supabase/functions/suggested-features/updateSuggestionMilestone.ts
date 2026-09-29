@@ -5,15 +5,7 @@ import { GET_MILESTONES_QUERY } from "../issues/updateIsste.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
 // PATCH /suggested-features/milestone — { id, milestoneId, actorEmail }.
-// Lets an admin/customer/stakeholder override the AI-picked milestone before
-// accepting or declining. `milestoneId: null` clears it back to "no
-// milestone" (same as the AI deciding none fit, in generateSuggestion.ts).
-//
-// The chosen milestone is re-validated against the suggestion's own
-// linear_project_id here — never trust a milestoneId blindly just because a
-// request included it, whether it came from the AI (see
-// handleGenerateSuggestion's own matchedMilestone check) or from a client
-// request body.
+// Overrides the milestone; null clears it. Validated against the suggestion's project.
 export async function handleUpdateSuggestionMilestone(req: Request): Promise<Response> {
   const schema = "portal";
   const { id, milestoneId, actorEmail } = await req.json();

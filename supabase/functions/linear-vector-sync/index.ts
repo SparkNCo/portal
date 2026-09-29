@@ -1,15 +1,10 @@
 // @ts-nocheck
-// Cron target (see supabase/migrations/..._schedule_linear_vector_sync_cron.sql):
-// catches issue edits made directly in Linear (not through this app, which already
-// upserts inline on save — see issues/updateIsste.ts's handleUpdateIssue). Pulls each
-// customer's issues updated since their last checkpoint and upserts them (via
-// lib/vector.ts's router — Upstash or pgvector, per that customer's
-// systems.vector) into the issues vector index/table.
+// Cron target (..._schedule_linear_vector_sync_cron.sql). Catches issue edits made
+// directly in Linear (edits made in-app already upsert on save): upserts each
+// customer's issues updated since their checkpoint, and removes trashed ones.
 //
-// Manual backfill: GET ?slug={clientName}&full=true re-scans every issue for
-// that one customer regardless of the checkpoint — for a customer whose
-// issues predate this feature (or the 1-day catch-up cap) and never made it
-// into portal.issue_vectors / the Upstash index otherwise.
+// Manual: ?slug={clientName} scopes to one customer; add &full=true to ignore the
+// checkpoint and backfill every issue.
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
 import { getAllCustomers } from "../issueMetrics/db.ts";
@@ -18,17 +13,8 @@ import { runWithConcurrency } from "../utils/concurrency.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector, deleteIssueVectors, deriveIssueKind } from "../lib/vector.ts";
 
-// Caps how far back a catch-up run will ever look, in case last_synced_at is
-// missing or very stale (first run, or a gap after an outage) — NOT a floor
-// that widens every normal run. getSinceForCustomer below uses last_synced_at
-// directly whenever it's within this many days, so an hourly cron that's
-// keeping up only ever re-scans the last ~hour, not this whole window every
-// single time. (An earlier version of this comparison was inverted — it
-// always returned the wide window even when last_synced_at was recent,
-// meaning every hourly run re-scanned a full multi-day backlog forever. That,
-// stacked with upsertIssueVector's two-vectors-per-issue change, is what
-// tipped Upstash into "vector store backend is currently unavailable"
-// rate-limit errors during routine runs, not just real catch-ups.)
+// Max look-back when last_synced_at is missing or older than this (first run,
+// outage). A cron that's keeping up only re-scans since its checkpoint.
 const CATCH_UP_CAP_DAYS = 1;
 const SCHEMA = "portal";
 
@@ -41,23 +27,11 @@ const ISSUES_UPDATED_SINCE_QUERY = `
   }
 `;
 
-// Linear soft-deletes ("trash") rather than actually removing an issue, so a
-// deleted ticket just silently stops showing up in the query above — normal
-// `issues` results exclude trashed items by default, and nothing tells this
-// sync to go clean up its now-stale vector. `includeArchived: true` is what
-// makes trashed issues visible to the query at all.
-//
-// `trashed` is NOT a filterable field on Linear's `IssueFilter` input type
-// (verified against the schema — it only exposes `archivedAt`, no `trashed`
-// comparator) even though it IS a real field on the `Issue` *output* type.
-// An earlier version of this query filtered by `trashed: { eq: true }`
-// directly, which Linear's API rejects as an unknown input field — every
-// call threw, which (via runWithConcurrency's Promise.all) failed the
-// *entire* batch for *every* customer, so deletions never actually ran, not
-// even once, since this feature shipped. Fixed by requesting `trashed` as an
-// output field instead and filtering for it in JS below. Reuses the same
-// `updatedAt`-since checkpoint as the query above (trashing an issue bumps
-// its updatedAt like any other edit) rather than tracking a second cursor.
+// Deleted Linear issues are soft-deleted ("trashed") and excluded from normal
+// queries; `includeArchived: true` makes them visible. `trashed` can't be used
+// in IssueFilter (Linear rejects it as an unknown input field), so it's
+// requested as an output field and filtered in JS. Trashing bumps updatedAt,
+// so the same checkpoint works here.
 const TRASHED_ISSUE_IDS_QUERY = `
   query TrashedIssueIds($filter: IssueFilter, $after: String) {
     issues(first: 250, filter: $filter, after: $after, includeArchived: true) {
@@ -81,10 +55,6 @@ async function getSinceForCustomer(linearSlug: string): Promise<Date> {
   const cap = new Date(Date.now() - CATCH_UP_CAP_DAYS * 24 * 60 * 60 * 1000);
   const lastSynced = data?.last_synced_at ? new Date(data.last_synced_at) : null;
 
-  // Trust the checkpoint whenever it's within the cap (the normal, steady-
-  // state case for an hourly cron that's keeping up) — only fall back to the
-  // capped window when there's no checkpoint yet, or it's older than the cap
-  // (e.g. this customer's sync was broken/paused for longer than that).
   return lastSynced && lastSynced > cap ? lastSynced : cap;
 }
 
@@ -110,20 +80,14 @@ async function fetchIssuesUpdatedSince(projectIds: string[], since: Date) {
 
 type TrashedIssue = { id: string; identifier: string; title: string };
 
-// Returns identifier/title alongside id — never needed by the actual
-// Upstash delete call (that only takes ids), but logged before deleting so
-// a manual test run (or anyone reading the logs) can visually confirm
-// "yes, SPA-123 is what's being removed" instead of trusting a bare UUID.
+// identifier/title are only for readable logs; the delete itself only needs ids.
 async function fetchTrashedIssues(projectIds: string[], since: Date): Promise<TrashedIssue[]> {
   const trashed: TrashedIssue[] = [];
   let after: string | undefined;
 
   do {
-    // `includeArchived: true` widens results to everything archived, not
-    // just trashed — a lighter "archived but not trashed" issue would
-    // otherwise get its vector deleted too, so `trashed` is filtered here
-    // in JS against the field requested in the query above rather than in
-    // the (nonexistent) IssueFilter comparator.
+    // includeArchived also returns archived-but-not-trashed issues — those
+    // must keep their vectors, hence the `trashed === true` filter below.
     const data = await linearRequest(TRASHED_ISSUE_IDS_QUERY, {
       filter: {
         project: { id: { in: projectIds } },
@@ -143,10 +107,7 @@ async function fetchTrashedIssues(projectIds: string[], since: Date): Promise<Tr
 async function syncCustomer(
   customer: { linear_slug: string; linear_projects: string[] },
   syncStartedAt: Date,
-  // Manual-trigger-only (?full=true) — ignores the checkpoint entirely and
-  // re-scans every issue ever, not just what changed since last_synced_at.
-  // For backfilling a customer whose issues predate this feature (or the
-  // 1-day catch-up cap, whichever came first) into portal.issue_vectors.
+  // ?full=true: ignore the checkpoint and re-scan every issue (backfill).
   full = false,
 ) {
   const { linear_slug, linear_projects } = customer;
@@ -155,17 +116,9 @@ async function syncCustomer(
   const since = full ? new Date(0) : await getSinceForCustomer(linear_slug);
   const allIssues = await fetchIssuesUpdatedSince(linear_projects, since);
 
-  // Embedding an issue (upsertIssueVector) runs the gte-small model twice —
-  // real CPU cost, unlike deleteIssueVectors below (a plain DELETE/REST
-  // call, no inference at all). A big batch of *edits* landing in one
-  // window — a bulk cleanup day, or a `full=true` backfill — can add up to
-  // more CPU than a single edge function invocation gets, which is exactly
-  // what WORKER_RESOURCE_LIMIT means. Oldest-first + a per-run cap turns
-  // that into a hard failure processing nothing into steady, bounded
-  // progress: this run does the oldest MAX_ISSUES_PER_RUN, and — since the
-  // checkpoint below only advances to the last one actually processed when
-  // there's a leftover — the next run (or the next cron tick) picks up
-  // right where this one stopped instead of re-scanning the same backlog.
+  // Embedding is CPU-heavy (pgvector runs gte-small in-process); a large batch
+  // exceeds the function's CPU budget (WORKER_RESOURCE_LIMIT). Process the
+  // oldest N per run; the checkpoint below resumes from there next run.
   const MAX_ISSUES_PER_RUN = 30;
   const sortedIssues = [...allIssues].sort(
     (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
@@ -178,13 +131,8 @@ async function syncCustomer(
     );
   }
 
-  // upsertIssueVector/deleteIssueVectors are both "best-effort" (they catch
-  // their own Upstash errors and never throw — a vector-sync hiccup must
-  // never fail the actual issue write elsewhere in the app) but now report
-  // back whether they actually succeeded, specifically so this loop can
-  // track it: advancing the checkpoint below despite a real write failure
-  // would let that issue's `updatedAt` age out of the next run's `since`
-  // filter, silently orphaning it in Upstash forever instead of retrying.
+  // Any failed write blocks the checkpoint from advancing, so the window is
+  // retried instead of the issue aging out of `since` forever.
   let allWritesSucceeded = true;
   for (const issue of issues) {
     const ok = await upsertIssueVector(linear_slug, {
@@ -196,15 +144,8 @@ async function syncCustomer(
     if (!ok) allWritesSucceeded = false;
   }
 
-  // Cleans up vectors for tickets deleted directly in Linear since the last
-  // checkpoint — see this file's own TRASHED_ISSUE_IDS_QUERY comment for why
-  // this is a separate query rather than something the update-sync above
-  // already catches. The Linear-query half is wrapped in its own try/catch:
-  // runWithConcurrency's Promise.all fails the *entire* batch (every
-  // customer) the instant any one call throws (exactly what silently broke
-  // this for every customer for a while — see TRASHED_ISSUE_IDS_QUERY's
-  // comment), so a problem here must never take down the update-sync above
-  // or another customer's run.
+  // Own try/catch: runWithConcurrency uses Promise.all, so a throw here
+  // would fail every customer's run, not just this one.
   let trashedCount = 0;
   try {
     const trashed = await fetchTrashedIssues(linear_projects, since);
@@ -222,13 +163,8 @@ async function syncCustomer(
     console.error(`[linear-vector-sync] ${linear_slug}: trash cleanup failed (non-fatal):`, err);
   }
 
-  // A truncated run only actually processed up through the last (oldest of
-  // the leftover) issue's own updatedAt — advancing all the way to
-  // syncStartedAt would skip everything past MAX_ISSUES_PER_RUN and never
-  // come back for it. Landing exactly on that issue's updatedAt (not one ms
-  // after) is deliberate: the `gt` comparison in fetchIssuesUpdatedSince
-  // excludes it next run (already processed) while still including
-  // whatever comes after.
+  // Truncated run: checkpoint = last processed issue's updatedAt (the `gt`
+  // filter excludes it next run). Otherwise, the run's start time.
   const lastProcessed = issues.at(-1);
   const nextCheckpoint = truncated && lastProcessed ? new Date(lastProcessed.updatedAt) : syncStartedAt;
 
@@ -258,18 +194,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Captured before querying Linear so an issue edited mid-run just gets picked up
-    // again next run, rather than risking a gap from using "last issue's updatedAt".
+    // Captured before querying Linear so issues edited mid-run are picked up next run.
     const syncStartedAt = new Date();
 
-    // The cron itself never sends this — it's a manual-trigger convenience
-    // (e.g. from Insomnia while testing) to scope one run to a single
-    // customer by clientName instead of every customer in the project.
     const url = new URL(req.url);
     const slug = url.searchParams.get("slug");
-    // Requires `slug` — a full re-scan of every issue for every customer at
-    // once isn't what "manual backfill for one customer" is for, and would
-    // hit Linear's API a lot harder than the incremental cron ever does.
+    // Only allowed with `slug` — a full re-scan of every customer is too heavy on Linear.
     const full = url.searchParams.get("full") === "true" && !!slug;
     let customers;
     if (slug) {
@@ -290,12 +220,8 @@ Deno.serve(async (req) => {
       customers = await getAllCustomers(SCHEMA);
     }
 
-    // Lowered from 3 → 2: Upstash is one shared vector store behind every
-    // customer's namespace, not a per-customer resource, so this concurrency
-    // adds directly to Upstash's load rather than parallelizing independent
-    // work. Paired with upsertIssueVector's now-sequential (not Promise.all)
-    // pair of upserts per issue as the other lever against the "vector store
-    // backend is currently unavailable" throttling seen during catch-up runs.
+    // Kept at 2: every customer shares one Upstash store, so more workers
+    // just get us throttled.
     await runWithConcurrency(customers, 2, (customer) => syncCustomer(customer, syncStartedAt, full));
 
     return new Response(JSON.stringify({ success: true, customersProcessed: customers.length, full }), {

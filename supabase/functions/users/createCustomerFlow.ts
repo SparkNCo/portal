@@ -62,15 +62,11 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   if (!linear_slug) throw new Error("linear_slug required");
   if (!clientName) throw new Error("clientName required");
 
-  // Reject up front if this email already belongs to someone — in either the
-  // app's own users table or Supabase Auth — instead of silently reusing the
-  // existing Auth account and overwriting that person's users row (and
-  // creating an unrelated new customer record pointed at their account).
+  // Reject emails already in `users` or Auth — otherwise we'd hijack that
+  // person's account and overwrite their users row.
   await assertEmailNotTaken(schema, email);
 
-  // Stripe Customer ID is optional at creation time — admins can add or
-  // update it later from Settings/Billing. Normalize blank/whitespace input
-  // to null so "not set" is represented consistently everywhere (never "").
+  // Optional (can be set later in Billing); blank becomes null, never "".
   const normalizedStripeId =
     typeof stripeCustomerId === "string" && stripeCustomerId.trim()
       ? stripeCustomerId.trim()
@@ -78,10 +74,7 @@ export const createCustomerFlow = async (body: any, schema: string) => {
 
   console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
 
-  // clientName doubles as the URL slug and is matched case-insensitively
-  // everywhere — two customers differing only by case would collide on every
-  // .maybeSingle() lookup, so reject the duplicate up front instead of
-  // creating a broken pair.
+  // clientName is the URL slug, matched case-insensitively — reject case-only duplicates.
   const { data: existingClient, error: existingClientError } = await supabase.schema(schema)
     .from("customers")
     .select("customer_id")
@@ -91,8 +84,7 @@ export const createCustomerFlow = async (body: any, schema: string) => {
   if (existingClientError) throw new Error(existingClientError.message);
   if (existingClient) throw new Error(`A customer named "${clientName}" already exists`);
 
-  // Never trust a client-supplied origin for the redirect URL (open-redirect /
-  // token-leak risk) — always use the server-configured portal origin.
+  // Never trust a client-supplied redirect origin (open redirect / token leak).
   const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
   const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
     type: "invite",

@@ -45,11 +45,7 @@ export async function uploadStorageData(req: Request, schema: string) {
     const { file, bucket, path, email, category, project_slug, owner_email, shared_with_emails } =
       parsedInput.data;
 
-    /**
-     * ---------------------------------------
-     * ✅ 1. Get user from DB
-     * ---------------------------------------
-     */
+    // 1. Get user from DB
     const { data: matchedUser, error: supabaseUserError } = await supabase.schema(schema)
       .from("users")
       .select("id")
@@ -65,10 +61,7 @@ export async function uploadStorageData(req: Request, schema: string) {
 
     const uploader_id = matchedUser.id;
 
-    // Owner defaults to the uploader (the normal Upload Document panel
-    // never sets owner_email) — only differs when fulfilling a Document
-    // Request, where the requester should own what they asked for, not
-    // whoever happened to upload it.
+    // Owner = uploader, except when fulfilling a Document Request (owner = requester).
     let owner_id = uploader_id;
     if (owner_email && owner_email !== email) {
       const { data: ownerUser, error: ownerError } = await supabase.schema(schema)
@@ -86,11 +79,7 @@ export async function uploadStorageData(req: Request, schema: string) {
       owner_id = ownerUser.id;
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 2. Upload file to storage
-     * ---------------------------------------
-     */
+    // 2. Upload file to storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(path, file, {
@@ -107,22 +96,14 @@ export async function uploadStorageData(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 3. Get public URL
-     * ---------------------------------------
-     */
+    // 3. Get public URL
     const { data: publicUrlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(uploadData.path);
 
     const fileUrl = publicUrlData.publicUrl;
 
-    /**
-     * ---------------------------------------
-     * ✅ 4. Insert Document
-     * ---------------------------------------
-     */
+    // 4. Insert Document
     const { data: document, error: dbError } = await supabase.schema(schema)
       .from("documents")
       .insert({
@@ -144,11 +125,7 @@ export async function uploadStorageData(req: Request, schema: string) {
       });
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 5. 🔥 INSERT PERMISSION (NEW)
-     * ---------------------------------------
-     */
+    // 5. Insert owner permission
     const { error: permissionError } = await supabase.schema(schema)
       .from("document_permissions")
       .insert({
@@ -160,7 +137,7 @@ export async function uploadStorageData(req: Request, schema: string) {
     if (permissionError) {
       console.error("[Permission Insert Error]", permissionError);
 
-      // Optional rollback (recommended)
+      // Roll back the document so it isn't left without an owner.
       await supabase.schema(schema).from("documents").delete().eq("id", document.id);
 
       return new Response(
@@ -172,15 +149,8 @@ export async function uploadStorageData(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 5a. Vectorize (SPA-513-Cycle20: AI document search) — same Upstash
-     * index issues/tests already use, namespaced by project_slug. Skipped
-     * when there's no project_slug (nothing to namespace it under) or Deno
-     * lacks EdgeRuntime (only real in a deployed function, not local runs).
-     * Fire-and-forget so indexing never delays the upload response.
-     * ---------------------------------------
-     */
+    // 5a. Vectorize for document search, fire-and-forget. Skipped without
+    // project_slug (the namespace) or EdgeRuntime (local runs).
     if (project_slug && typeof EdgeRuntime !== "undefined") {
       EdgeRuntime.waitUntil(
         (async () => {
@@ -197,16 +167,8 @@ export async function uploadStorageData(req: Request, schema: string) {
       );
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 5b. Grant "write" to everyone else who should have it — the
-     * uploader (when they're not the owner, e.g. fulfilling a request) plus
-     * anyone in shared_with_emails (the initiative's assigned developers, so
-     * the rest of the team isn't locked out of a document filed under their
-     * own project). Best-effort per-user — one bad email shouldn't undo the
-     * document that already exists.
-     * ---------------------------------------
-     */
+    // 5b. Grant "write" to the uploader (if not the owner) and shared_with_emails
+    // (the initiative's developers). Best-effort per user.
     const writeEmails = new Set(
       (shared_with_emails ?? "")
         .split(",")
@@ -241,11 +203,7 @@ export async function uploadStorageData(req: Request, schema: string) {
       }
     }
 
-    /**
-     * ---------------------------------------
-     * ✅ 6. Response
-     * ---------------------------------------
-     */
+    // 6. Response
     const responsePayload = {
       success: true,
       storage: {

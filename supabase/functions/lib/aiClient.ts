@@ -1,31 +1,12 @@
 // @ts-nocheck
-// Shared AI client for every function that calls an LLM (debounce's
-// analyze-idea/analyze-current-state, suggested-features' generateSuggestion).
-// Config — provider label, model, base URL, and key — all come from env
-// vars, per the ticket ("Pull config (model, provider, base url and key)
-// from env vars"). No AI_API_KEY configured means AI features are off:
-// requestJson throws a clear, typed error instead of attempting a network
-// call, which every existing caller's own try/catch already turns into a
-// graceful fallback (see e.g. analyze-idea.ts's all-false response).
+// Shared LLM client for every edge function (debounce analyzers, suggested-features).
+// Config comes from AI_PROVIDER / AI_MODEL / AI_BASE_URL / AI_API_KEY — see
+// docs/PORTAL_DOCS.md §12. No AI_API_KEY = AI disabled: requestJson throws and
+// callers fall back gracefully.
 //
-// This talks the OpenAI-compatible Chat Completions wire format directly
-// (POST {base_url}/chat/completions) rather than going through the actual
-// `aisuite` npm package the ticket's sample code names — verified while
-// building this that aisuite's OpenAI adapter (aisuite-js/src/providers/
-// openai/adapters.ts, `adaptRequest`) silently drops `response_format`
-// before forwarding to the real OpenAI SDK, so the strict schema-enforced
-// JSON every caller here depends on wouldn't survive the trip through it.
-// A raw fetch keeps that guarantee and still satisfies the actual ask
-// (config-driven, provider-swappable, gracefully disabled without a key) —
-// this is also exactly the shape that already proved out against Hugging
-// Face's Inference Providers router for generateSuggestion.ts.
-//
-// `AI_BASE_URL` is what actually makes this swappable — same idea as the
-// ticket's own sample ("Point to a custom internal server address,
-// self-hosted vLLM, or Ollama instance"), since vLLM/Ollama/HF's router are
-// all OpenAI-compatible at the wire level. Defaults to OpenAI's own API when
-// unset, so setting just AI_API_KEY + AI_MODEL is enough to point at OpenAI
-// directly.
+// Raw fetch against the OpenAI-compatible /chat/completions API on purpose:
+// the `aisuite` package drops `response_format`, and every caller here needs
+// strict schema-enforced JSON.
 const AI_PROVIDER = (Deno.env.get("AI_PROVIDER") || "openai").trim();
 const AI_MODEL = Deno.env.get("AI_MODEL")?.trim();
 const AI_BASE_URL = (Deno.env.get("AI_BASE_URL")?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");

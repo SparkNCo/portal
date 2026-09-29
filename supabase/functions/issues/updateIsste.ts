@@ -15,8 +15,7 @@ const GET_ISSUE_TEAM_QUERY = `
   }
 `;
 
-// Exported for supabase/functions/suggested-features/acceptSuggestion.ts, which
-// needs to resolve "Backlog"'s stateId the same way handleUpdateState does here.
+// Also used by suggested-features/acceptSuggestion.ts.
 export const GET_STATE_ID_QUERY = `
   query GetStateId($teamId: ID!, $stateName: String!) {
     workflowStates(filter: {
@@ -172,21 +171,11 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   return Response.json(data.issueUpdate);
 }
 
-// Powers the "similar issue" hint shown while typing a title in the Feature Request /
-// Bug Report panels — a lightweight read over the issues vector index, scoped to the
-// customer's namespace, so we can nudge users toward an existing ticket instead of a
-// duplicate. Matching is fuzzy/semantic, so a confidence threshold still
-// applies on top (see components/shared/similar-issues-hint.tsx's own 0.7 —
-// kept as a client-side safety net), but the real cutoff lives here now,
-// per provider: Upstash's mxbai-embed-large-v1 was calibrated at 0.7
-// (see the frontend's own comment for that history), but pgvector's
-// built-in gte-small model compresses cosine similarity into a much
-// narrower, higher band for short/technical text — real data from the
-// document-search feature showed *unrelated* short documents scoring
-// 0.79-0.82, so 0.7 let essentially everything through for pgvector
-// customers. 0.8 is a first pass informed by that same compression
-// pattern, not independently calibrated against real duplicate issues —
-// revisit if it's still too loose or starts hiding real duplicates.
+// "Similar issue" hint on the Feature Request / Bug Report panels. Thresholds
+// are per provider: Upstash (mxbai-embed-large-v1) was calibrated at 0.7;
+// pgvector's gte-small scores unrelated short text ~0.8, so it needs a higher
+// cutoff. The pgvector value isn't calibrated on real duplicates yet — revisit.
+// (similar-issues-hint.tsx keeps a 0.7 client-side safety net.)
 const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.7, pgvector: 0.8 } as const;
 
 export async function handleGetSimilarIssues(req: Request): Promise<Response> {
@@ -260,8 +249,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
 
   await markIssueUpdated(issueId, ownerEmail);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
+    // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: ownerEmail,
@@ -406,8 +394,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
 
   await markIssueUpdated(row.issue_id, decisionEmail);
   if (slug) {
-    // Fire-and-forget: the fan-out to every recipient shouldn't hold up the
-    // response the user is waiting on for their save to complete.
+    // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
       slug,
       actorEmail: decisionEmail,
@@ -424,10 +411,8 @@ export async function handleSetDecision(req: Request): Promise<Response> {
   return Response.json(row);
 }
 
-// Admins/developers only, and only while the question is still unanswered —
-// once a client has decided, the thread is part of the record. Requirement
-// updates (statements, no answer flow) aren't covered by this: the ticket
-// that asked for this only mentioned "questions".
+// Admins/developers only, and only while the question is unanswered — once
+// answered it's part of the record. Questions only, not requirement updates.
 export async function handleDeleteDecision(req: Request): Promise<Response> {
   const schema = "portal";
   const { decisionId, requesterEmail } = await req.json();
@@ -482,9 +467,7 @@ export async function handleDeleteDecision(req: Request): Promise<Response> {
 
 // ─── Projects & Milestones ───────────────────────────────────────────────────
 
-// Exported for supabase/functions/suggested-features/updateSuggestionProject.ts,
-// which resolves+validates a customer/admin's project override the same way
-// handleGetProjects already resolves the project picker's own list.
+// Also used by suggested-features/updateSuggestionProject.ts.
 export const GET_PROJECTS_BY_IDS_QUERY = `
   query GetProjectsByIds($filter: ProjectFilter) {
     projects(filter: $filter, first: 50) {
@@ -493,11 +476,7 @@ export const GET_PROJECTS_BY_IDS_QUERY = `
   }
 `;
 
-// Exported for supabase/functions/suggested-features/updateSuggestionMilestone.ts,
-// which validates a customer/admin's milestone override against the
-// suggestion's own project the same way handleGenerateSuggestion already
-// validates the AI's own milestone pick (just against
-// PROJECT_CONTEXT_QUERY's embedded list there instead of this query).
+// Also used by suggested-features/updateSuggestionMilestone.ts.
 export const GET_MILESTONES_QUERY = `
   query GetMilestones($projectId: String!) {
     project(id: $projectId) {

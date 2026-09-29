@@ -3,21 +3,15 @@ import { supabase } from "../client.ts";
 import { resolveAuthUser } from "./resolveAuthUser.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 
-// Admin action: resend the password-setup / account-validation email for an
-// EXISTING user, without touching `customers`/`users` at all — this only
-// reads the user's email and re-triggers the Supabase Auth email flow, so it
-// can never create a duplicate customer record (unlike the old workaround of
-// re-running customer creation with the same email).
+// Admin action: resend the setup/validation email for an existing user.
+// Read-only on customers/users, so it can't create duplicate records.
 export const resendAccountEmail = async (body: any, schema: string) => {
   const { id, emailType, testRedirectOrigin } = body;
 
   if (!id) throw new Error("User id is required");
 
-  // The admin picks which copy to send — independent of whether Supabase
-  // ends up generating an "invite" or "recovery" link under the hood (both
-  // redirect to the same set-password page). Defaults to invite copy since
-  // that's also what a brand-new user needs, and lets an admin resend it
-  // as many times as needed if the 24h link expired before the user opened it.
+  // Email copy only — both link types land on set-password. Defaults to invite
+  // (e.g. resending after the 24h link expired).
   const sendAsInvite = emailType !== "reset";
 
   const { data: appUser, error: userError } = await supabase.schema(schema)
@@ -30,13 +24,8 @@ export const resendAccountEmail = async (body: any, schema: string) => {
   if (!appUser) throw new Error("User not found");
   if (!appUser.email) throw new Error("This user has no email on file");
 
-  // `users.id` is the same id as the Supabase Auth user (see createUser.ts),
-  // so it can be looked up directly — `last_sign_in_at` gets stamped the
-  // moment the invite link is opened (Supabase authenticates the recipient
-  // as part of verifying the link), so a non-null value means this invite
-  // was already accepted. Only blocks the invite flavor — resending a
-  // password-reset email to an already-active user is a normal, separate
-  // action.
+  // users.id = Auth user id. last_sign_in_at is set when the invite link is
+  // opened, so non-null means already accepted. Only blocks invites, not resets.
   if (sendAsInvite) {
     const { data: authUser, error: authLookupError } =
       await supabase.auth.admin.getUserById(id);
@@ -50,14 +39,10 @@ export const resendAccountEmail = async (body: any, schema: string) => {
 
   console.log("[resendAccountEmail] resolving auth user", { id });
 
-  // Never trust a client-supplied origin for the redirect URL (open-redirect /
-  // token-leak risk) — always use the server-configured portal origin.
+  // Never trust a client-supplied redirect origin (open redirect / token leak).
   //
-  // TEMPORARY TEST-ONLY OVERRIDE (remove after local invite-link testing):
-  // allows the admin panel to request a localhost redirect instead of the
-  // prod APP_URL, so a resent invite link can be verified against a local
-  // dev server. Restricted to literal localhost/127.0.0.1 origins so it
-  // can't be abused as an open redirect even while this is in place.
+  // TEMPORARY TEST-ONLY OVERRIDE — remove after local invite-link testing:
+  // allows a localhost/127.0.0.1 redirect (only those) for testing against a dev server.
   const isLocalTestOrigin =
     typeof testRedirectOrigin === "string" &&
     /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(testRedirectOrigin);

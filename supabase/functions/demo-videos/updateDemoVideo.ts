@@ -41,10 +41,7 @@ const removeOldStorageObject = async (storagePath: string | null) => {
   }
 };
 
-// Same as above, but first checks no *other* demo_videos row still points
-// at this storage path — "select an existing demo video" lets several
-// issues' rows share one uploaded file, so blindly deleting it here would
-// silently break playback on every other ticket that video was attached to.
+// Only deletes the file if no other row shares it (attached to other tickets).
 const removeOldStorageObjectIfUnused = async (
   storagePath: string | null,
   currentDemoId: string,
@@ -180,8 +177,7 @@ export const updateDemoVideoWithExisting = async (
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
       updated_at: new Date().toISOString(),
-      // This row now points at the source demo's content, so it adopts its
-      // identity too — same reasoning as createDemoVideoFromExisting.
+      // Same content, so adopt the source demo's identity too.
       title: source.title,
       demo_number: source.demo_number,
     })

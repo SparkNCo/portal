@@ -4,14 +4,10 @@ import { corsHeaders } from "../utils/headers.ts";
 import { resolveCustomerUserIdBySlug } from "../utils/slug.ts";
 import { resolveParticipants, seedParticipants } from "./resolveParticipants.ts";
 
-// Realtime equivalent of CometChat's getOrCreateIssueGroup.ts. Mirrors its
-// two-step shape: GET looks up an existing issue chat without creating one
-// (the Chat tab shouldn't spin up a chat — and add every assignee to it —
-// just from being opened; only sending the first message should), POST
-// creates it lazily. Idempotent via idx_chats_issue_id_unique (see
-// 20260922100000_add_issue_id_to_chats.sql) — a unique-violation on insert
-// means someone else's request won the race, so this just re-selects
-// whatever they created instead of erroring.
+// Realtime equivalent of CometChat's getOrCreateIssueGroup.ts. GET only looks
+// up (opening the tab must not create a chat); POST creates lazily on first
+// message. A unique violation on insert means another request won the race —
+// re-select instead of erroring.
 export const getExistingIssueChat = async (req: Request) => {
   try {
     const url = new URL(req.url);
@@ -71,10 +67,7 @@ export const getOrCreateIssueChat = async (req: Request) => {
       });
     }
 
-    // Developer/admin have no customerId of their own for this issue — only
-    // the project route's slug — so resolve it the same way notifyProject
-    // does. A customer/stakeholder's own resolution doesn't need it at all
-    // (resolveParticipants derives it from their own role/id).
+    // Developers/admins have no customerId, so resolve it from the slug.
     const customerId =
       profile.role === "developer" || profile.role === "admin"
         ? await resolveCustomerUserIdBySlug(schema, slug ?? "")

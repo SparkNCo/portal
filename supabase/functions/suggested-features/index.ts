@@ -8,12 +8,7 @@ import { handleDeclineSuggestion } from "./declineSuggestion.ts";
 import { handleUpdateSuggestionMilestone } from "./updateSuggestionMilestone.ts";
 import { handleUpdateSuggestionProject } from "./updateSuggestionProject.ts";
 
-// /generate-all is the weekly cron target (see
-// supabase/migrations/..._schedule_suggested_features_cron.sql); /generate
-// stays available as a manual, single-project trigger (e.g. from Insomnia).
-//
-// Table-driven instead of an if/else chain — keeps adding a route a one-line
-// change instead of growing the branch count SonarQube flags on this handler.
+// /generate-all = weekly cron target; /generate = manual, single project.
 const ROUTES: { method: string; suffix: string; handle: (req: Request) => Promise<Response> }[] = [
   { method: "POST", suffix: "/generate-all", handle: handleGenerateAllSuggestions },
   { method: "POST", suffix: "/generate", handle: handleGenerateSuggestion },

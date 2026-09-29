@@ -2,9 +2,7 @@
 import { supabase } from "../client.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
-// POST /suggested-features/decline — { id, actorEmail }. No Linear issue is
-// ever created for a declined suggestion; this just records the status so it
-// drops out of handleListSuggestions' pending-only view.
+// POST /suggested-features/decline — { id, actorEmail }. Only records the status.
 export async function handleDeclineSuggestion(req: Request): Promise<Response> {
   const schema = "portal";
   const { id, actorEmail } = await req.json();

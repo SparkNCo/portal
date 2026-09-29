@@ -1,18 +1,7 @@
--- Notification bell: one row per recipient per event (chat message, decision
--- requested/answered, demo uploaded, design resource added). A single event
--- fans out into N rows (one per recipient) rather than an event+audience
--- join table, since the bell only ever needs "my unread notifications" —
--- exactly what this shape answers with one indexed query, no join.
---
--- Populated two different ways depending on where the underlying event is
--- written:
---   - Chat messages are inserted directly by the browser (see
---     components/chat/Realtime/useRealtimeMessages.ts), so a trigger below
---     fans them out to the chat's other participants — no client INSERT
---     grant on notifications is needed or given.
---   - Decisions/demos/design resources are written by edge functions
---     (service role, bypasses RLS), which insert the recipient rows
---     themselves once they've resolved who's assigned to that project.
+-- Notification bell: one row per recipient per event.
+-- Populated by:
+--   - a trigger on chat messages (inserted by the browser), below;
+--   - edge functions (service role) for decisions/demos/design resources.
 
 CREATE TABLE IF NOT EXISTS portal.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,9 +24,7 @@ CREATE TABLE IF NOT EXISTS portal.notifications (
   -- design_resources id) — opaque here, interpreted by the frontend
   -- alongside `link`.
   object_id text NOT NULL,
-  -- Short content preview (message body, decision question, demo/design
-  -- title) — not required by the ticket, but an empty-looking bell item
-  -- list isn't useful; kept nullable since not every event has one.
+  -- Short content preview; nullable since not every event has one.
   preview text,
   -- Where clicking the notification navigates to.
   link text NOT NULL,
@@ -55,20 +42,16 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_created
 -- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
--- Same reasoning as portal.chats/portal.messages: the bell reads/subscribes
--- directly from the browser, so RLS has to actually scope it — matched by
--- email for the same reason (see 20260921140000_fix_chat_rls_match_by_email.sql):
--- portal.users.auth_id is unpopulated in practice, email is what every other
--- caller-identity check in this app actually uses.
+-- Read directly by the browser, so RLS is required. Matched by email, since
+-- users.auth_id is unpopulated (see 20260921140000_fix_chat_rls_match_by_email.sql).
 
 ALTER TABLE portal.notifications ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY notifications_select ON portal.notifications
   FOR SELECT USING (user_id = portal.current_portal_user_id());
 
--- Marking as read is the only client-side write — no INSERT policy, so
--- notifications can only ever be created server-side (service role) or by
--- the trigger below (SECURITY DEFINER, bypasses RLS on its own).
+-- Marking as read is the only client write; inserts come from the service
+-- role or the SECURITY DEFINER trigger below.
 CREATE POLICY notifications_update_own ON portal.notifications
   FOR UPDATE USING (user_id = portal.current_portal_user_id())
   WITH CHECK (user_id = portal.current_portal_user_id());
@@ -92,12 +75,7 @@ BEGIN
     'chat',
     NEW.chat_id::text,
     left(NEW.body, 140),
-    -- A generic fallback, not a deep link to this specific conversation —
-    -- the chat pages have no "open chat <id> from a URL" support yet
-    -- (separate gap; the frontend NotificationBell resolves the real,
-    -- role-prefixed inbox path for `object_type = 'chat'` at click time,
-    -- since only it reliably knows the viewer's role/slug, not this
-    -- trigger).
+    -- Fallback only; NotificationBell resolves the real chat path on click.
     '/chat'
   FROM portal.chat_participants cp
   WHERE cp.chat_id = NEW.chat_id

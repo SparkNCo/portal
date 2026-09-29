@@ -4,21 +4,9 @@ import { linearRequest } from "../issues/linearClient.ts";
 import { GET_PROJECTS_BY_IDS_QUERY } from "../issues/updateIsste.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
-// PATCH /suggested-features/project — { id, projectId, actorEmail }. Lets an
-// admin/customer/stakeholder move a suggestion to a different project within
-// the same customer/initiative.
-//
-// `projectId` is re-validated against that customer's own
-// customers.linear_projects — the same scoping handleGetProjects already
-// enforces for the project picker's own list — never trust a projectId
-// blindly just because it's *a* real Linear project id; it has to actually
-// belong to this suggestion's customer.
-//
-// Clears the milestone when the project changes — a milestone belongs to one
-// specific project, so whatever was picked for the old project can't carry
-// over. The admin/customer picks a fresh one via the milestone picker
-// afterward (same UX as generateSuggestion.ts leaving milestone null when
-// the AI doesn't have one that fits).
+// PATCH /suggested-features/project — { id, projectId, actorEmail }.
+// projectId must belong to this customer's customers.linear_projects.
+// Clears the milestone, since it belonged to the old project.
 export async function handleUpdateSuggestionProject(req: Request): Promise<Response> {
   const schema = "portal";
   const { id, projectId, actorEmail } = await req.json();
@@ -45,8 +33,7 @@ export async function handleUpdateSuggestionProject(req: Request): Promise<Respo
     return Response.json({ error: "Suggestion already resolved" }, { status: 409 });
   }
 
-  // `project_slug` is the customer's linear_slug (see generateSuggestion.ts) —
-  // resolve back to that customer's row to get its allowed project ids.
+  // project_slug = linear_slug; look up the customer's allowed project ids.
   const { data: customer, error: customerError } = await supabase
     .schema(schema)
     .from("customers")

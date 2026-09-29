@@ -278,10 +278,7 @@ async function processIssueMetricsForCustomer(
   }
 }
 
-// DORA metrics are no longer triggered from here — they run on their own
-// cron against dora's `allCustomers` method, since GitHub's API is slow/rate
-// -limited relative to Linear's and shouldn't share a run (or timeout
-// budget) with these Linear-only metrics.
+// DORA metrics run on their own cron (dora/index.ts), not from here.
 const CUSTOMER_CONCURRENCY = 5;
 
 async function handlePost(schema: string) {

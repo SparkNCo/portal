@@ -5,11 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS portal.hours_logged (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- References portal.users(id), not portal.developers(id) — developers.id is a
-  -- separate, independently-generated PK that no frontend/edge-function code ever
-  -- reads (the users<->developers link is developers.user_id instead). What we
-  -- actually have on hand at write time is profile.id from UserContext, which is
-  -- portal.users.id, so that's what this FK has to point at.
+  -- portal.users(id), not developers(id): the app only has profile.id (users.id).
   developer_id uuid NOT NULL REFERENCES portal.users(id),
   developer_email text NOT NULL,
   -- Matches the developer dashboard's own `projects` entries ({ clientName, slug }),
@@ -17,9 +13,7 @@ CREATE TABLE IF NOT EXISTS portal.hours_logged (
   project_slug text NOT NULL,
   project_name text NOT NULL,
   hours integer NOT NULL CHECK (hours > 0),
-  -- The day the hours were actually worked, chosen by the developer in the form
-  -- (defaults to today, but can be backdated) — distinct from `created_at`/
-  -- `updated_at`, which are just the row's own audit trail.
+  -- Day worked (can be backdated), not the row's created_at.
   worked_on date NOT NULL DEFAULT current_date,
   issue_ids text[] NOT NULL DEFAULT '{}',
   summary text,

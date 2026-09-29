@@ -79,21 +79,13 @@ const handleGet = async (url: URL, schema: string) => {
     return jsonResponse(data);
   }
 
-  // Scoped, read-only lookup by clientName — powers the Preview Links shown
-  // at the top of every Demo tab (see components/client/demo-tab.tsx and
-  // app/dev/demos/page.tsx). Deliberately narrower than `type=customers`
-  // above (which returns every customer, Stripe id included, and is only
-  // ever called from the admin Users page) — any role viewing a ticket
-  // already knows its customer's slug, so this just resolves that one
-  // customer's links without exposing anyone else's data.
+  // Preview Links for one customer, readable by any role. Deliberately narrower
+  // than `type=customers` (admin-only, includes Stripe ids).
   if (type === "customer-preview-links") {
     const slug = url.searchParams.get("slug");
     if (!slug) return jsonResponse({ error: "slug is required" }, 400);
 
-    // customer_id rides along so an admin/developer viewer can save straight
-    // back to PATCH /users?type=customer from wherever this banner renders
-    // (Demo tab, Demos dashboard) without a second round-trip just to look
-    // it up — see PreviewLinksBanner's inline editor.
+    // customer_id lets PreviewLinksBanner's inline editor save without another lookup.
     const { data, error } = await supabase.schema(schema)
       .from("customers")
       .select("customer_id, preview_links")
@@ -131,10 +123,7 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   }
 
   if (url.searchParams.get("type") === "customer") {
-    // Never trust body.customer_id for authorization — a customer editing
-    // their own record (e.g. set-password) and an admin editing any
-    // customer's billing info hit this same endpoint, so the caller's real
-    // identity has to come from their own session, not a client-supplied id.
+    // Authorize by the session's identity, never body.customer_id.
     const caller = await resolveCaller(req, schema);
     if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
 
@@ -161,9 +150,7 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
   }
 
   if (type === "resend-account-email") {
-    // Never trust a client-supplied identity (e.g. body.requestedBy) for an
-    // authorization check — resolve the caller from their bearer token so a
-    // spoofed email can't be used to trigger resends for arbitrary users.
+    // Authorize by the bearer token, never body.requestedBy (spoofable).
     const caller = await resolveCaller(req, schema);
     if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
     if (caller.role !== "admin") return jsonResponse({ error: "Unauthorized" }, 403);
