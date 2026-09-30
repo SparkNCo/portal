@@ -1,0 +1,49 @@
+flowchart TD
+    subgraph Router ["architect/index.ts (Deno.serve)"]
+        REQ([POST /architect/*]) --> OPT{OPTIONS?}
+        OPT -->|Yes| CORS[204 CORS preflight]
+        OPT -->|No| ROUTE{pathname}
+        ROUTE -->|/prefill| PF[prefill]
+        ROUTE -->|/recommend| RC[recommend]
+        ROUTE -->|/send-report| SR[sendReport]
+        ROUTE -->|else| NF[404 Not found]
+    end
+
+    subgraph Prefill ["prefill.ts — free text to form"]
+        PF --> PFV{productIdea >= 10 chars?}
+        PFV -->|No| PF400[400 error]
+        PFV -->|Yes| PFAI["callStructuredOpenAI\nmodel: gpt-4.1-mini\nenum-constrained catalogues"]
+        PFAI --> PFSAN[sanitizeToCatalogue + clampPriority]
+        PFSAN --> PFOUT[200 buildTypes/functionalities/languages/frameworks/hosting/priority]
+        PFAI -.->|error| PFFALL[200 empty selections + neutral priority]
+    end
+
+    subgraph Recommend ["recommend.ts — answers to stack"]
+        RC --> RCN[normalizeAnswers]
+        RCN --> RCAI["callStructuredOpenAI\nmodel: gpt-4.1\nstack + reasoning + writeup"]
+        RCAI --> RCID[mint stack.id = crypto.randomUUID]
+        RCID --> RCOUT[200 stack + reasoning + writeup]
+        RCAI -.->|error| RC500[500 error]
+    end
+
+    subgraph SendReport ["send-report.ts — deliver report"]
+        SR --> SRV{valid email + stackName?}
+        SRV -->|No| SR400[400 error]
+        SRV -->|Yes| SRAI["callStructuredOpenAI\nmodel: gpt-4.1\nsubject + bodyHtml + bodyText"]
+        SRAI --> SRSEND{RESEND_KEY + FROM_EMAIL?}
+        SRSEND -->|Yes| RESEND[Resend emails.send]
+        RESEND --> SROUT[200 ok:true, delivered:true/false]
+        SRSEND -->|No| SRSKIP[200 ok:true, delivered:false]
+    end
+
+    PFAI --> OPENAI[("OpenAI Responses API\nOPENAI_API_KEY")]
+    RCAI --> OPENAI
+    SRAI --> OPENAI
+
+    style REQ fill:#e1f5ff
+    style PFOUT fill:#d4edda
+    style RCOUT fill:#d4edda
+    style SROUT fill:#d4edda
+    style PF400 fill:#f8d7da
+    style RC500 fill:#f8d7da
+    style SR400 fill:#f8d7da
