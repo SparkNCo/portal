@@ -749,7 +749,12 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           was the actual source of "characters lag behind typing on mobile":
           every keystroke re-rendered all of DemoTab. */}
       {currentDemo && (
-        <DemoFeedbackThread demoId={currentDemo.id} demoVersion={currentDemo.version} />
+        <DemoFeedbackThread
+          demoId={currentDemo.id}
+          demoVersion={currentDemo.version}
+          issue={issue}
+          slug={slug}
+        />
       )}
     </div>
   );
@@ -758,9 +763,13 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 function DemoFeedbackThread({
   demoId,
   demoVersion,
+  issue,
+  slug,
 }: {
   demoId: string;
   demoVersion: number;
+  issue: Issue;
+  slug?: string;
 }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
@@ -795,6 +804,11 @@ function DemoFeedbackThread({
             demo_video_id: demoId,
             email: profile.email,
             body,
+            // Same issue context the upload sends — lets the backend
+            // notify the demo's uploader with a link back to this ticket.
+            slug,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );

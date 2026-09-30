@@ -201,7 +201,7 @@ const handleGetComments = async (url: URL) => {
 };
 
 const handlePostComment = async (req: Request) => {
-  const { demo_video_id, email, body } = await req.json();
+  const { demo_video_id, email, body, slug, issue_code, issue_type } = await req.json();
 
   if (!demo_video_id) {
     return jsonResponse({ error: "demo_video_id is required" }, 400);
@@ -209,5 +209,8 @@ const handlePostComment = async (req: Request) => {
   if (!email) return jsonResponse({ error: "email is required" }, 400);
   if (!body) return jsonResponse({ error: "body is required" }, 400);
 
-  return jsonResponse(await createComment(demo_video_id, email, body), 201);
+  return jsonResponse(
+    await createComment(demo_video_id, email, body, slug, issue_code, issue_type),
+    201,
+  );
 };

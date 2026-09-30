@@ -43,6 +43,7 @@ export function PriorityTasks({
   initialModalTab,
   openIssueId,
   openIssueTab,
+  onDeepLinkClose,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -94,7 +95,10 @@ export function PriorityTasks({
     <IssueDetailModal
       issue={selectedIssue}
       slug={slug ?? (selectedIssue as any)._project}
-      onClose={() => setSelectedIssue(null)}
+      onClose={() => {
+        if (selectedIssue.id === openIssueId) onDeepLinkClose?.();
+        setSelectedIssue(null);
+      }}
       onEdit={
         onEditIssue && canEditIssue(selectedIssue)
           ? () => onEditIssue(selectedIssue)

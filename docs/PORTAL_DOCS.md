@@ -550,7 +550,7 @@ A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_
 
 **Playback:** uploads get a fresh 1-hour signed URL on every `GET` (private bucket, no public URLs). Embeds render in an `<iframe>`; Loom share links (`loom.com/share/{id}`) are rewritten to the embeddable `loom.com/embed/{id}` form, other providers embed as-is.
 
-**Feedback:** scoped to `demo_video_id`, not the issue — switching the Version dropdown switches which thread is shown. Anyone posts via `POST /demo-videos?type=comments` with `{ demo_video_id, email, body }`.
+**Feedback:** scoped to `demo_video_id`, not the issue — switching the Version dropdown switches which thread is shown. Anyone posts via `POST /demo-videos?type=comments` with `{ demo_video_id, email, body, slug, issue_code, issue_type }`. Each comment sends a bell notification (`demo_comment_added`) to the version's uploader, plus the other side of the project: admin feedback → the customer + assigned stakeholders; customer/stakeholder feedback → every admin; developer feedback (including the uploader's own) → admins, customer and stakeholders. The commenter is never notified. Full rules: `FEATURES_FLOWS.md` §7f.
 
 ### 4.7 File Map
 
@@ -573,7 +573,7 @@ A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_
 | `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version from an upload or an embed link |
 | `supabase/functions/demo-videos/updateDemoVideo.ts` | Replaces an existing version's content in place, cleaning up the old storage object if needed |
 | `supabase/functions/demo-videos/listDemoVideos.ts` | Lists all versions for an issue with freshly signed playback URLs |
-| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD |
+| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD; `createComment` also sends feedback notifications |
 | `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `SCHEMA`/`BUCKET` constants |
 
 ---
