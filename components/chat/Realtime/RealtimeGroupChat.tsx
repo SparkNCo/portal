@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { Send, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ChatSpinner } from "../CometChat/ChatSpinner";
 import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
+import { DateDivider, markDayStarts } from "../DateDivider";
 import { useRealtimeMessages } from "./useRealtimeMessages";
 import type { Chat } from "./useRealtimeChat";
 import { useState } from "react";
@@ -34,6 +35,8 @@ export default function RealtimeGroupChat({
 
   if (loading) return <ChatSpinner label="Loading messages..." />;
 
+  const dayStarts = markDayStarts(messages, (msg) => new Date(msg.created_at));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
       <div className="flex items-center gap-3 px-4 py-3 border-b">
@@ -53,13 +56,15 @@ export default function RealtimeGroupChat({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <RealtimeMessageBubble
-            key={msg.id}
-            msg={msg}
-            currentUserId={currentUserId}
-            senderName={(msg.user_id && userNameById.get(msg.user_id)) ?? "Unknown"}
-          />
+        {messages.map((msg, i) => (
+          <Fragment key={msg.id}>
+            {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+            <RealtimeMessageBubble
+              msg={msg}
+              currentUserId={currentUserId}
+              senderName={(msg.user_id && userNameById.get(msg.user_id)) ?? "Unknown"}
+            />
+          </Fragment>
         ))}
         <div ref={bottomRef} />
       </div>
