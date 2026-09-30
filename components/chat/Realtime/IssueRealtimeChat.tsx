@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useUser } from "context/UserContext";
@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChatSpinner } from "../CometChat/ChatSpinner";
 import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
+import { DateDivider, markDayStarts } from "../DateDivider";
 import { useRealtimeMessages } from "./useRealtimeMessages";
 import type { Chat } from "./useRealtimeChat";
 
@@ -120,6 +121,8 @@ export function IssueRealtimeChat({
 
   const showLoadingMessages = !!chat && loadingMessages;
 
+  const dayStarts = markDayStarts(messages, (msg) => new Date(msg.created_at));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
@@ -138,14 +141,16 @@ export function IssueRealtimeChat({
           )
         )}
         {!showLoadingMessages &&
-          messages.map((msg) => (
-            <RealtimeMessageBubble
-              key={msg.id}
-              msg={msg}
-              currentUserId={profile.id}
-              senderName={msg.user_id === profile.id ? "You" : "Team"}
-              compact
-            />
+          messages.map((msg, i) => (
+            <Fragment key={msg.id}>
+              {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+              <RealtimeMessageBubble
+                msg={msg}
+                currentUserId={profile.id}
+                senderName={msg.user_id === profile.id ? "You" : "Team"}
+                compact
+              />
+            </Fragment>
           ))}
         <div ref={bottomRef} />
       </div>

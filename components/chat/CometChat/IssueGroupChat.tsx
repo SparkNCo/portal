@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
+import { getMessageDate } from "./chatUtils";
+import { DateDivider, markDayStarts } from "../DateDivider";
 import { Input } from "@/components/ui/input";
 
 export function IssueGroupChat({
@@ -105,6 +107,8 @@ export function IssueGroupChat({
 
   if (loading) return <ChatSpinner size="sm" />;
 
+  const dayStarts = markDayStarts(messages, getMessageDate);
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
@@ -121,7 +125,10 @@ export function IssueGroupChat({
           )
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={msg.getId?.() ?? i} msg={msg} index={i} user={user} compact />
+          <Fragment key={msg.getId?.() ?? i}>
+            {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+            <MessageBubble msg={msg} index={i} user={user} compact />
+          </Fragment>
         ))}
         <div ref={bottomRef} />
       </div>

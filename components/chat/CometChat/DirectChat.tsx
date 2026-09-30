@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Send, Bot } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
-import { extractChatMessage, formatMessageTime } from "./chatUtils";
+import { extractChatMessage, formatMessageTime, getMessageDate } from "./chatUtils";
+import { DateDivider, markDayStarts } from "../DateDivider";
 import { Input } from "@/components/ui/input";
 
 type Props = Readonly<{
@@ -90,6 +91,8 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
 
   if (loading) return <ChatSpinner label="Loading messages..." />;
 
+  const dayStarts = markDayStarts(messages, getMessageDate);
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
       {/* Header */}
@@ -119,32 +122,32 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
           const isMe = senderUid === user.getUid();
 
           return (
-            <div
-              key={id}
-              className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}
-            >
-              {!isMe && (
-                <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4 text-accent" />
-                </div>
-              )}
-              <div className={`flex flex-col max-w-[65%] ${isMe ? "items-end" : "items-start"}`}>
-                <div
-                  className={`px-3 py-2 rounded-2xl text-sm md:smalltext leading-relaxed ${
-                    isMe
-                      ? "bg-primary text-primary-foreground rounded-tr-sm"
-                      : "bg-secondary text-secondary-foreground rounded-tl-sm"
-                  }`}
-                >
-                  {text}
-                </div>
-                {!!sentAt && (
-                  <span className="text-xs md:smalltext text-muted-foreground mt-1 px-1">
-                    {formatMessageTime(sentAt)}
-                  </span>
+            <Fragment key={id}>
+              {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+              <div className={`flex gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                {!isMe && (
+                  <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Bot className="w-4 h-4 text-accent" />
+                  </div>
                 )}
+                <div className={`flex flex-col max-w-[65%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div
+                    className={`px-3 py-2 rounded-2xl text-sm md:smalltext leading-relaxed ${
+                      isMe
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : "bg-secondary text-secondary-foreground rounded-tl-sm"
+                    }`}
+                  >
+                    {text}
+                  </div>
+                  {!!sentAt && (
+                    <span className="text-xs md:smalltext text-muted-foreground mt-1 px-1">
+                      {formatMessageTime(sentAt)}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            </Fragment>
           );
         })}
         <div ref={bottomRef} />
