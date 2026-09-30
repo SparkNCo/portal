@@ -262,4 +262,8 @@ export type PriorityTasksProps = {
   // manually afterward in this same PriorityTasks instance.
   openIssueId?: string | null;
   openIssueTab?: IssueDetailTab;
+  // Called when the deep-linked issue's modal is closed, so the page can
+  // drop the deep link (see hooks/use-issue-deep-link.ts) — otherwise the
+  // effect that opened it would reopen it on the next issuesData refetch.
+  onDeepLinkClose?: () => void;
 };

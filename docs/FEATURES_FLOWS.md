@@ -355,8 +355,30 @@ Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) wi
 Switching the **Version** dropdown switches the feedback thread shown below the player — comments are scoped to `demo_video_id`, not to the issue as a whole, so feedback on v1 doesn't show up while viewing v2.
 
 1. Anyone (customer/stakeholder/developer/admin) opens the Demo tab, picks a version, types in the feedback box, clicks **"Post feedback"**.
-2. `POST /demo-videos?type=comments` with `{ demo_video_id, email, body }`.
+2. `POST /demo-videos?type=comments` with `{ demo_video_id, email, body, slug, issue_code, issue_type }`.
 3. Comment appears with the author's name, role badge, and timestamp — same list for every role.
+4. The relevant people get a bell notification (see 7f).
+
+### 7f. Feedback notifications
+
+Posting feedback on a demo version sends an in-app notification (the header bell). Who gets it depends on who commented. The version's uploader (`demo_videos.uploaded_by`, normally the developer who uploaded it) is always notified unless they wrote the comment, plus the other side of the project:
+
+| Commenter | Notified |
+|---|---|
+| Admin | Uploader + the initiative's customer + its assigned stakeholders |
+| Customer / Stakeholder | Uploader + every admin |
+| Developer (not the uploader) | Uploader + every admin + the initiative's customer + its assigned stakeholders |
+| Developer (the uploader) | Every admin + the initiative's customer + its assigned stakeholders |
+
+- The commenter is never notified of their own comment.
+- Other developers assigned to the initiative are **not** notified (unlike `demo_uploaded`, which goes to the whole project).
+- "Stakeholders" means users with role `stakeholder` in `portal.assignments` for the initiative's customer.
+- The notification reads *"&lt;email&gt; left feedback on a demo on SPA-123"* (action `demo_comment_added`, object type `demo_comment`, `MessageSquare` icon). The comment text (up to 200 characters) is stored as the event's `preview`.
+- Clicking it opens the ticket on the **Demo** tab (`?issueId=…&tab=demo`).
+- Repeat comments on the same ticket collapse into one unread notification per recipient, updated to the latest comment.
+- It's sent in the background (`EdgeRuntime.waitUntil`), so it never delays or fails the comment itself. If the request has no `slug` (it's needed to build the link), the comment is saved but no notification is sent.
+
+**Code:** `createComment.ts` decides the recipients by the commenter's role; `notifyUsers` in `supabase/functions/utils/notify.ts` resolves admins (`includeAdmins`) and the customer + stakeholders (`includeClientOf: slug`), drops the commenter, and writes the `portal.events` / `portal.notifications` rows.
 
 ### API — `supabase/functions/demo-videos`
 
@@ -367,7 +389,7 @@ Switching the **Version** dropdown switches the feedback thread shown below the 
 | `POST /demo-videos` (multipart) | Add a new version from a file | `file`, `issue_id`, `email` |
 | `POST /demo-videos` (JSON) | Add a new version from an embed link | `issue_id`, `email`, `embed_url` |
 | `POST /demo-videos` (JSON) | Add a new version pointing at an already-uploaded demo — no re-upload | `issue_id`, `email`, `source_demo_id` |
-| `POST /demo-videos?type=comments` | Post feedback on a version | `demo_video_id`, `email`, `body` |
+| `POST /demo-videos?type=comments` | Post feedback on a version; sends feedback notifications (see 7f) | `demo_video_id`, `email`, `body`, `slug`, `issue_code`, `issue_type` |
 | `PUT /demo-videos` (multipart) | Replace the selected version's content with a file | `demo_id`, `email`, `file` |
 | `PUT /demo-videos` (JSON) | Replace the selected version's content with an embed link | `demo_id`, `email`, `embed_url` |
 | `PUT /demo-videos` (JSON) | Replace the selected version's content with an already-uploaded demo — no re-upload | `demo_id`, `email`, `source_demo_id` |
@@ -488,7 +510,7 @@ Vectors/embeddings are written from three places, regardless of provider (the ro
 | `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version from an upload, an embed link, or an existing demo (`createDemoVideoFromExisting`, no re-upload) — `getNextVersion` = max + 1 |
 | `supabase/functions/demo-videos/updateDemoVideo.ts` | Replaces an existing version's content in place (file, embed, or another existing demo via `updateDemoVideoWithExisting`); only deletes the old storage object once nothing else references it (`removeOldStorageObjectIfUnused`) |
 | `supabase/functions/demo-videos/listDemoVideos.ts` | Lists all versions for one issue, or across a whole set of issue ids (`listDemoVideosByIssueIds`), with freshly signed playback URLs |
-| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD |
+| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD; `createComment` also sends feedback notifications (7f) |
 | `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `getDemoSourceFields`/`isStoragePathInUseElsewhere` (existing-demo attach + shared-storage safety), `SCHEMA`/`BUCKET` constants |
 | `app/dev/demos/page.tsx` | Demos sidebar page — see `app/docs/DEMOS_FLOWS.md` |
 | `components/shared/similar-issues-hint.tsx` | `SimilarIssuesHint` — debounced semantic search under the Title field on Request a Feature / Report a Bug |

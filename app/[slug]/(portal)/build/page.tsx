@@ -7,8 +7,8 @@ import { SuggestedFeaturesRow } from "@/components/build/suggested-features-row"
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { IssueDetailTab } from "@/components/client/issues.types";
+import { useParams } from "next/navigation";
+import { useIssueDeepLink } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -40,17 +40,13 @@ export default function BuildPage() {
 function BuildPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx). This page only ever fetches Business Review/UAT/
   // Backlog issues (see the issuesData query below) — for anything else,
   // the fallback query further down fetches that one issue directly by id
   // and opens it in its own modal instead of silently landing here with
   // nothing open.
-  const openIssueId = searchParams.get("issueId");
-  const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
+  const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
   // Aliased — this page already has its own `selectedProject` state below
   // for the Linear sub-project filter buttons, a different concept.
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
@@ -199,6 +195,7 @@ function BuildPageContent() {
                 lightCard
                 openIssueId={openIssueId}
                 openIssueTab={openIssueTab}
+                onDeepLinkClose={clearDeepLink}
               />
             </div>
           </div>
@@ -215,6 +212,7 @@ function BuildPageContent() {
                 lightCard
                 openIssueId={openIssueId}
                 openIssueTab={openIssueTab}
+                onDeepLinkClose={clearDeepLink}
               />
             </div>
           </div>
@@ -233,6 +231,7 @@ function BuildPageContent() {
               lightCard
               openIssueId={openIssueId}
               openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
             />
           </div>
         </div>
@@ -242,7 +241,7 @@ function BuildPageContent() {
         <IssueDetailModal
           issue={fallbackIssue}
           slug={slug}
-          onClose={() => router.replace(pathname)}
+          onClose={clearDeepLink}
           initialTab={openIssueTab}
         />
       )}
