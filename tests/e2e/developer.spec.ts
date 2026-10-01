@@ -123,10 +123,20 @@ test.describe('Developer — panels', () => {
 
   // ── Access guard ───────────────────────────────────────────────────────────
 
+  // The test developer is only assigned to Spark-Portal; LuaLink is a real
+  // client they aren't on.
   test('opening an initiative they are not assigned to sends them back with a message', async ({ page }) => {
-    await page.goto('/no-such-initiative-e2e/build');
+    await page.goto('/lualink/build');
     await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 20_000 });
-    await expect(page).toHaveURL(/\/(?!no-such-initiative-e2e\/)[^/]+\/developer$/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/(?!lualink\/)[^/]+\/developer$/, { timeout: 20_000 });
+  });
+
+  test('a client that does not exist shows a 404 with no sidebar and a link home', async ({ page }) => {
+    const ownSlug = new URL(page.url()).pathname.split('/')[1];
+    await page.goto('/no-such-initiative-e2e/build');
+    await expect(page.getByRole('heading', { name: "This client doesn't exist" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: 'Logout' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Go to your home page' })).toHaveAttribute('href', `/${ownSlug}/developer`);
   });
 
   test('Settings is not available to developers, even on their own initiative', async ({ page }) => {

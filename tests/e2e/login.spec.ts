@@ -68,6 +68,14 @@ test.describe('Login page', () => {
     await testLoginRedirect(page, 'TEST_DEVELOPER_EMAIL', '/developer');
   });
 
+  // ── Client that doesn't exist ────────────────────────────────────────────
+
+  test('a client URL that does not exist shows a 404 with a link to login when signed out', async ({ page }) => {
+    await page.goto('/no-such-initiative-e2e/dashboard');
+    await expect(page.getByRole('heading', { name: "This client doesn't exist" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/');
+  });
+
   // ── Profile can't be loaded after a successful sign-in ───────────────────
   // The profile request (GET /users?email=) is intercepted, so these don't
   // need a real broken account.

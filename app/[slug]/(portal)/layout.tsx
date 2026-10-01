@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
@@ -12,6 +13,8 @@ import { useSelectedProject } from "@/lib/selected-project-context";
 import { checkSlugAccess } from "@/lib/route-access";
 import { LoadingDataPanel } from "@/components/loader";
 import { AccountNotSetUp } from "@/components/account-not-set-up";
+import { ClientNotFound } from "@/components/client-not-found";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 import type React from "react";
 
 function LayoutContent({ children }: { readonly children: React.ReactNode }) {
@@ -80,16 +83,52 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   );
 }
 
+type ClientSummary = { clientName: string | null; linear_slug: string | null };
+
+// Resolves the URL's client before anything else renders — before the
+// sign-in check too, so a mistyped or outdated /{slug} shows a 404 for
+// everyone instead of a page full of empty or failing panels. Matches the
+// client's clientName (the route slug) or linear_slug (older links),
+// ignoring case since stored slugs have mixed casing.
+function ClientExistenceGate({ children }: { readonly children: React.ReactNode }) {
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug).trim().toLowerCase() : "";
+
+  const { data: clients, isLoading, isError } = useQuery<ClientSummary[]>({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`, {
+        headers: API_JSON_HEADERS,
+      });
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json();
+    },
+  });
+
+  if (isLoading) return <LoadingDataPanel />;
+  // If the lookup itself fails, don't block the page on it — the page's own
+  // requests will surface the error.
+  if (isError || !clients) return <>{children}</>;
+
+  const exists = clients.some(
+    (c) => c.clientName?.trim().toLowerCase() === urlSlug || c.linear_slug?.trim().toLowerCase() === urlSlug,
+  );
+  if (!exists) return <ClientNotFound slug={rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : ""} />;
+  return <>{children}</>;
+}
+
 export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <AuthGate>
-      <SidebarProvider>
-        <LayoutContent>{children}</LayoutContent>
-      </SidebarProvider>
-    </AuthGate>
+    <ClientExistenceGate>
+      <AuthGate>
+        <SidebarProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </SidebarProvider>
+      </AuthGate>
+    </ClientExistenceGate>
   );
 }
