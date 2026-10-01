@@ -89,12 +89,25 @@ test.describe('Stakeholder — panels', () => {
   test('sidebar shows the correct nav items for a stakeholder', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Monitor' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Demos' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
 
     // Stakeholders must NOT have Settings or Developer links
     await expect(page.getByRole('link', { name: 'Settings' })).not.toBeVisible();
     await expect(page.getByRole('link', { name: 'Developer' })).not.toBeVisible();
+  });
+
+  // ── Demos panel ────────────────────────────────────────────────────────────
+
+  test('Demos page opens under the client slug, without upload controls', async ({ page }) => {
+    await page.getByRole('link', { name: 'Demos' }).click();
+    await expect(page).toHaveURL(/\/[^/]+\/demos$/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Demos', level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Loading/)).toHaveCount(0, { timeout: 20_000 });
+
+    // Viewing is open to every role; uploading is developers/admins only.
+    await expect(page.getByRole('button', { name: 'Upload Demo' })).toHaveCount(0);
   });
 
   // ── Roadmap panel ──────────────────────────────────────────────────────────

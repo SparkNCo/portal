@@ -1,14 +1,31 @@
 # Demos — Flows & How It Works
 
-> Reference for the developer-only "Demos" sidebar tab. For the per-ticket Demo tab itself (versions, playback, feedback), see `app/docs/FEATURES_FLOWS.md` section 7 — this page is a project-wide lens on top of the same `portal.demo_videos` data, not a separate feature.
+> Reference for the "Demos" sidebar page. For the per-ticket Demo tab itself (versions, playback, feedback), see `app/docs/FEATURES_FLOWS.md` section 7 — this page is a project-wide lens on top of the same `portal.demo_videos` data, not a separate feature.
 
 ---
 
 ## Who sees this page
 
-Developer-only, at the fixed route **`/dev/demos`** (`app/dev/demos/page.tsx`). Added to the sidebar (`components/sidebar.tsx` → `developerNavItems`) alongside Build/Bugs. There is no customer/admin/stakeholder equivalent — unlike Build/Bugs/Documents/Chat, this page has no dual-purpose `app/[slug]/(portal)/...` implementation to re-export; it lives directly under `app/dev/`.
+Every role, at **`/{slug}/demos`** (`app/[slug]/(portal)/demos/page.tsx`), scoped to the initiative in the URL. It's in the sidebar for all four roles (`components/sidebar.tsx`):
 
-Like every other developer page, it's scoped to **whichever project is selected in the sidebar dropdown** (`lib/selected-project-context.tsx`, `useSelectedProject()`), falling back to the developer's first assignment if nothing's been picked yet.
+| Role | How they get there |
+|---|---|
+| Customer / Stakeholder | "Demos" in their menu, under their own `/{slug}` |
+| Admin | "Demos" among the customer pages, once an initiative is picked in the Initiative dropdown |
+| Developer | "Demos" links to `/{selected project}/demos` (the project chosen in "Working on"). Switching project while on the page keeps them on Demos for the new one; landing on a `/{slug}/demos` link selects that project in the dropdown. |
+
+The old **`/dev/demos`** route only redirects to the developer's selected project's `/{slug}/demos` (or shows "No assigned projects yet" if they have none).
+
+**What each role can do:**
+
+| Action | Customer | Stakeholder | Developer | Admin |
+|---|---|---|---|---|
+| View demos and preview links | ✓ | ✓ | ✓ | ✓ |
+| Comment on a version (ticket's Demo tab) | ✓ | ✓ | ✓ | ✓ |
+| "Upload Demo" on this page | | | ✓ | ✓ |
+| Create / Update Version in a ticket's Demo tab (upload, link, attach existing) | | | ✓ | ✓ |
+
+The upload and version controls are hidden for customers and stakeholders, and `demo-videos` rejects create/replace requests from them with a 403 (`canManageDemos` in `supabase/functions/demo-videos/helpers.ts`). That check looks the role up from the request's `email`, so it guards the portal's own UI rather than replacing real caller authentication.
 
 ---
 
@@ -32,25 +49,19 @@ The page then filters the full issue list down to `issuesWithDemos` — only tic
 
 ---
 
-## Listing — reuses the developer dashboard's own components
+## Listing
 
-`issuesWithDemos` is rendered with the **same `PriorityTasks`/`IssueCard` components** the developer dashboard, Build, and Bugs pages use (`components/client/priority-tasks.tsx`) — not a bespoke video-grid. This was a deliberate simplification over an earlier version of this page that rendered its own grid of video-preview cards grouped by shared content; that got replaced because it duplicated filter/search/pagination logic `PriorityTasks` already has, and its "linked tickets" badges didn't fit the card cleanly.
+The page shows a grid with **one card per distinct demo** (`DemoCard`), not one per `demo_videos` row: `groupDemosByContent` collapses rows that point at the same file or link (the same video attached to several tickets) into one card, listing every ticket it's attached to.
 
-That means this page gets, for free:
-
-- **Search** by ticket title or code (`getIssueCode`).
-- The **Filter** popover (status/label/priority).
-- The scrollable, capped list with a **"View all"** expand toggle — the built-in answer to "too many demos loading at once," rather than a separate page-size limit.
-
-Clicking a card opens the same **Issue Detail Modal** as everywhere else — except it's told to open straight on the **Demo tab** via a new `initialTab` prop (`IssueDetailModal`) / `initialModalTab` prop (`PriorityTasks`), since that's the entire reason this page linked to the ticket. Versions stay grouped per-ticket exactly like they do from any other entry point into the modal.
-
-The pencil/edit affordance works the same as elsewhere too — `onEditIssue` opens `EditIssueModal`, and saving invalidates the `["project-demos", slug]` query.
+- **Search** by demo title, demo id, or ticket code.
+- Clicking a card opens the **Issue Detail Modal** for the first linked ticket, straight on the **Demo tab** (`initialTab="demo"`).
+- The modal's edit action opens `EditIssueModal` (for tickets not in Done); saving invalidates the `["project-demos", slug]` query.
 
 ---
 
 ## Uploading — one upload, many tickets
 
-The **"Upload Demo"** button reveals an inline form (`UploadDemoForm`, in `app/dev/demos/page.tsx`):
+The **"Upload Demo"** button (developers and admins only) reveals an inline form (`UploadDemoForm`, in `app/[slug]/(portal)/demos/page.tsx`):
 
 1. Pick a mode: **Upload file** (`accept="video/*,image/*"`) or **Video link** (embed URL, e.g. Loom).
 2. **"Related features & bugs"** — a searchable, checkbox list of every issue in the project. Pick as many as apply.
@@ -72,9 +83,10 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 
 | Condition | What's shown |
 |---|---|
-| Developer has no assignments yet | "No assigned projects yet" |
-| Project has issues but none have a demo attached | "No demos uploaded yet for this project." |
-| A search/filter in `PriorityTasks` matches nothing | `PriorityTasks`'s own "No issues match the current filters." |
+| No initiative in the URL | "No initiative selected" |
+| Developer opens `/dev/demos` with no assignments | "No assigned projects yet" |
+| Project has issues but none have a demo attached | "No demos uploaded yet for this project." (plus "Upload Demo" for developers/admins) |
+| The search matches nothing | "No demos match "{search}"." |
 
 ---
 
@@ -82,13 +94,13 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 
 | File | Responsibility |
 |---|---|
-| `app/dev/demos/page.tsx` | The page itself — fetches project issues + demos, filters to `issuesWithDemos`, renders `PriorityTasks`, and owns the `UploadDemoForm` |
+| `app/[slug]/(portal)/demos/page.tsx` | The page itself — fetches project issues + demos, groups them into `DemoCard`s, owns the `UploadDemoForm`, and hides upload for customers/stakeholders |
+| `app/dev/demos/page.tsx` | Redirect from the old developer-only route to `/{selected project}/demos` |
+| `components/client/demo-tab.tsx` | The ticket's Demo tab — Create/Update Version are hidden for customers/stakeholders |
 | `lib/demo-video-utils.ts` | `fetchProjectDemos` (issues + demos for a project), `fetchPreviewLinks`, `groupDemosByContent`/`DemoGroup` (dedupe by actual content, used by `DemoPicker`), shared `Demo`/`DemoUser` types and display helpers |
 | `components/client/preview-links-banner.tsx` | `PreviewLinksBanner` — the customer's admin-set Preview Links, shown at the top of this page |
-| `components/client/priority-tasks.tsx` | Issue list — search, filter, sort, and the `initialModalTab` passthrough to `IssueDetailModal` |
-| `components/client/issue-cards.tsx` | `IssueCard`/`IssueListRow` — same cards as every other issue list in the app |
 | `components/client/issue-detail-modal.tsx` | `IssueDetailModal` — accepts `initialTab` to open straight on a given tab (here, `"demo"`) |
 | `components/build/edit-issue-modal.tsx` | Quick-edit modal opened from a card's pencil icon |
-| `components/sidebar.tsx` | `developerNavItems` — adds the "Demos" tab |
-| `lib/selected-project-context.tsx` | Source of the sidebar-selected project this page (and every other developer page) is scoped to |
-| `supabase/functions/demo-videos/` | Backend — see `app/docs/FEATURES_FLOWS.md` §7's API table and File Map for the full endpoint list |
+| `components/sidebar.tsx` | "Demos" in every role's menu; the developer link and project switch for `/{slug}/demos` |
+| `lib/selected-project-context.tsx` | The developer's selected project, used for their Demos link and the `/dev/demos` redirect |
+| `supabase/functions/demo-videos/` | Backend — `canManageDemos` (helpers.ts) gates create/replace; see `app/docs/FEATURES_FLOWS.md` §7 for the full endpoint list |

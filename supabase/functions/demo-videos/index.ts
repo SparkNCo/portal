@@ -1,7 +1,8 @@
 // @ts-nocheck
 
 import { corsHeaders } from "../utils/headers.ts";
-import { jsonResponse } from "./helpers.ts";
+import { supabase } from "../client.ts";
+import { canManageDemos, jsonResponse } from "./helpers.ts";
 import { listDemoVideos, listDemoVideosByIssueIds } from "./listDemoVideos.ts";
 import {
   createDemoVideoFromEmbed,
@@ -60,6 +61,9 @@ Deno.serve(async (req) => {
 // Videos
 // ============================================================
 
+const forbidden = () =>
+  jsonResponse({ error: "Only developers and admins can add or change demo versions" }, 403);
+
 const handleGetVideos = async (url: URL) => {
   const issueIdsParam = url.searchParams.get("issue_ids");
 
@@ -107,6 +111,7 @@ const handlePostVideo = async (req: Request) => {
     if (!title || typeof title !== "string" || !title.trim()) {
       return jsonResponse({ error: "title is required" }, 400);
     }
+    if (!(await canManageDemos(supabase, email))) return forbidden();
 
     return jsonResponse(
       await createDemoVideoFromUpload(
@@ -126,6 +131,7 @@ const handlePostVideo = async (req: Request) => {
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+  if (!(await canManageDemos(supabase, email))) return forbidden();
 
   if (source_demo_id) {
     return jsonResponse(
@@ -164,6 +170,7 @@ const handlePutVideo = async (req: Request) => {
     if (!email || typeof email !== "string") {
       return jsonResponse({ error: "email is required" }, 400);
     }
+    if (!(await canManageDemos(supabase, email))) return forbidden();
 
     return jsonResponse(await updateDemoVideoWithUpload(demoId, email, file));
   }
@@ -172,6 +179,7 @@ const handlePutVideo = async (req: Request) => {
 
   if (!demo_id) return jsonResponse({ error: "demo_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
+  if (!(await canManageDemos(supabase, email))) return forbidden();
 
   if (source_demo_id) {
     return jsonResponse(

@@ -86,11 +86,25 @@ test.describe('Developer — panels', () => {
 
   test('sidebar shows the correct nav items for a developer', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Developer' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Demos' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
 
     // Settings should NOT be in the sidebar for developers
     await expect(page.getByRole('link', { name: 'Settings' })).not.toBeVisible();
+  });
+
+  // ── Demos panel ────────────────────────────────────────────────────────────
+
+  test('Demos link opens /{slug}/demos for the selected project, with upload controls', async ({ page }) => {
+    await page.getByRole('link', { name: 'Demos' }).click();
+    await expect(page).toHaveURL(/\/[^/]+\/demos$/, { timeout: 10_000 });
+    expect(new URL(page.url()).pathname.startsWith('/dev/')).toBe(false);
+    await expect(page.getByRole('heading', { name: 'Demos', level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Upload Demo' }).first()).toBeVisible({ timeout: 20_000 });
+
+    // The developer menu still leads back to their own /dev pages from here.
+    await expect(page.getByRole('link', { name: 'Developer' })).toHaveAttribute('href', /^\/dev\/developer/);
   });
 
   // ── Chat panel ─────────────────────────────────────────────────────────────
