@@ -216,4 +216,4 @@ allIssues (merged, Done removed, sorted by question count)
 | `components/ui/PolicyApprovalModal.tsx` | Blocking policy agreement modal shown on first access |
 | `context/UserContext.tsx` | Provides `profile` including `assignment_id[]` |
 
-> The developer sidebar also has **Build**, **Bugs**, and **Demos** tabs (`app/dev/build`, `app/dev/bugs`, `app/dev/demos`) — each scoped to whichever project is selected in the sidebar dropdown (`lib/selected-project-context.tsx`), not to `assignment_id[]` merged across all of them like this dashboard. See `app/docs/BUILD_AND_BUGS_FLOWS.md` and `app/docs/DEMOS_FLOWS.md`.
+> The developer sidebar also has **Build**, **Bugs**, and **Demos** tabs (`app/dev/build`, `app/dev/bugs`, and `/{selected project}/demos`) — each scoped to whichever project is selected in the sidebar dropdown (`lib/selected-project-context.tsx`), not to `assignment_id[]` merged across all of them like this dashboard. See `app/docs/BUILD_AND_BUGS_FLOWS.md` and `app/docs/DEMOS_FLOWS.md`.

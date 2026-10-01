@@ -40,6 +40,9 @@ type DemoComment = {
 
 export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const { profile } = useUser();
+  // Viewing and feedback are open to every role; adding or changing
+  // versions is developers/admins only (demo-videos enforces it too).
+  const canManageVersions = profile?.role === "developer" || profile?.role === "admin";
   const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -398,26 +401,28 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           </div>
         )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          className={`gap-1.5 ${
-            createOpen
-              ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
-              : ""
-          }`}
-          onClick={() => {
-            setCreateOpen((v) => !v);
-            resetCreateForm();
-            setUpdateOpen(false);
-            setShowReplaceEmbedForm(false);
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Create Version
-        </Button>
+        {canManageVersions && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={`gap-1.5 ${
+              createOpen
+                ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                : ""
+            }`}
+            onClick={() => {
+              setCreateOpen((v) => !v);
+              resetCreateForm();
+              setUpdateOpen(false);
+              setShowReplaceEmbedForm(false);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Create Version
+          </Button>
+        )}
 
-        {currentDemo && (
+        {canManageVersions && currentDemo && (
           <Button
             size="sm"
             variant="outline"

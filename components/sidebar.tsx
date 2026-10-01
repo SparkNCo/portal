@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -40,19 +40,23 @@ const clientNavItems = [
   { href: "monitor", label: "Monitor", icon: Map },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
+  { href: "demos", label: "Demos", icon: Video },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
+// Absolute, so they still work while a developer is on a /{slug} page
+// (Demos lives at /{slug}/demos). DEVELOPER_DEMOS_HREF is swapped for the
+// selected project's /{slug}/demos at render time.
+const DEVELOPER_DEMOS_HREF = "/dev/demos";
 const developerNavItems = [
-  /* { href: "dashboards", label: "Assignments", icon: LayoutGrid }, */
-  { href: "developer", label: "Developer", icon: Code2 },
-  { href: "build", label: "Build", icon: Hammer },
-  { href: "bugs", label: "Bugs", icon: Bug },
-  { href: "demos", label: "Demos", icon: Video },
-  { href: "chat", label: "Chat", icon: MessageCircle },
-  { href: "documents", label: "Documents", icon: FileText },
+  { href: "/dev/developer", label: "Developer", icon: Code2 },
+  { href: "/dev/build", label: "Build", icon: Hammer },
+  { href: "/dev/bugs", label: "Bugs", icon: Bug },
+  { href: DEVELOPER_DEMOS_HREF, label: "Demos", icon: Video },
+  { href: "/dev/chat", label: "Chat", icon: MessageCircle },
+  { href: "/dev/documents", label: "Documents", icon: FileText },
 ];
 
 // Absolute, unlike the other roles' items: admins reach these from inside a
@@ -68,8 +72,6 @@ const adminNavItems = [
 const adminCustomerNavItems = clientNavItems.filter((item) => item.href !== "chat");
 
 type InitiativeOption = { value: string; label: string };
-
-const ADMIN_INITIATIVE_STORAGE_KEY = "portal:admin-initiative";
 
 // Same list (and cache key) as the customers query elsewhere in the admin UI.
 type CustomerSummary = { clientName: string | null; linear_slug: string | null };
@@ -116,35 +118,19 @@ function InitiativeSelect({
   );
 }
 
-// `href: null` renders the item greyed out and not clickable — e.g. an
-// admin's customer pages before any initiative has been picked.
 function NavLink({
   href,
   label,
   icon: Icon,
   isActive,
   onClick,
-  disabledHint,
 }: {
-  readonly href: string | null;
+  readonly href: string;
   readonly label: string;
   readonly icon: typeof Shield;
   readonly isActive: boolean;
   readonly onClick: () => void;
-  readonly disabledHint?: string;
 }) {
-  if (!href) {
-    return (
-      <span
-        aria-disabled="true"
-        title={disabledHint}
-        className="flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium text-muted-foreground/40 cursor-not-allowed"
-      >
-        <Icon className="h-4 w-4" />
-        {label}
-      </span>
-    );
-  }
   return (
     <Link
       href={href}
@@ -167,6 +153,7 @@ const stakeholderNavItems = [
   { href: "monitor", label: "Monitor", icon: Map },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
+  { href: "demos", label: "Demos", icon: Video },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
   // Previously missing entirely — a stakeholder had no way to reach
@@ -247,6 +234,25 @@ export function Sidebar() {
   // project is always selected rather than an "all projects" state.
   const selectedDeveloperProject = selectedProject ?? developerProjects[0] ?? "";
 
+  // On a /{slug} page (Demos), switching project keeps the developer on the
+  // same page for the new project; on /dev pages the selection alone drives
+  // what's shown.
+  const handleDeveloperProjectChange = (clientName: string) => {
+    setSelectedProject(clientName);
+    if (urlSlug) {
+      const panel = pathname.split("/")[2] ?? "demos";
+      router.push(`/${encodeURIComponent(clientName.toLowerCase())}/${panel}`);
+    }
+  };
+  // Landing on a /{slug} page directly (link, bookmark) selects that project
+  // in the dropdown too, so the two never disagree.
+  useEffect(() => {
+    if (portalType !== "developer" || !urlSlug) return;
+    const match = developerProjects.find((p) => p.toLowerCase() === urlSlug.toLowerCase());
+    if (match && match !== selectedProject) setSelectedProject(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portalType, urlSlug, developerProjects.join("|")]);
+
   // Admins pick from every customer. A customer's route slug is its
   // clientName lowercased (customers without one have no pages to open).
   const { data: customers = [] } = useQuery<CustomerSummary[]>({
@@ -264,34 +270,8 @@ export function Sidebar() {
     .filter((c) => c.clientName)
     .map((c) => ({ value: c.clientName!.toLowerCase(), label: c.clientName! }))
     .sort((a, b) => a.label.localeCompare(b.label));
-
-  // The admin's customer pages stay in the sidebar on /admin pages too,
-  // pointing at the last initiative they picked — remembered per browser,
-  // like the developers' "Working on" choice. Only the URL decides which
-  // customer a page shows; this just fills in the links when there's no
-  // slug in it.
-  const [rememberedInitiative, setRememberedInitiative] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      setRememberedInitiative(localStorage.getItem(ADMIN_INITIATIVE_STORAGE_KEY));
-    } catch {
-      // Storage unavailable (private mode etc.) — links stay disabled until a pick.
-    }
-  }, []);
-  const rememberInitiative = (routeSlug: string) => {
-    setRememberedInitiative(routeSlug);
-    try {
-      localStorage.setItem(ADMIN_INITIATIVE_STORAGE_KEY, routeSlug);
-    } catch {
-      // Not persisted; still used for this session.
-    }
-  };
-  useEffect(() => {
-    if (isAdmin && urlSlug) rememberInitiative(urlSlug.toLowerCase());
-  }, [isAdmin, urlSlug]);
-
-  const adminInitiative = urlSlug?.toLowerCase() ?? rememberedInitiative;
-  const adminSelectedInitiative = adminInitiativeOptions.find((o) => o.value === adminInitiative)?.value ?? "";
+  const adminSelectedInitiative =
+    adminInitiativeOptions.find((o) => o.value === urlSlug?.toLowerCase())?.value ?? "";
 
   // Switching initiative keeps the admin on the same page (e.g.
   // /lualink/build → /beassured/build); from an /admin page it opens the
@@ -299,7 +279,6 @@ export function Sidebar() {
   const handleAdminInitiativeChange = (routeSlug: string) => {
     const currentPanel = urlSlug ? pathname.split("/")[2] : undefined;
     const panel = adminCustomerNavItems.some((item) => item.href === currentPanel) ? currentPanel : "dashboard";
-    rememberInitiative(routeSlug);
     router.push(`/${encodeURIComponent(routeSlug)}/${panel}`);
     close();
   };
@@ -340,7 +319,7 @@ export function Sidebar() {
           label="Working on"
           value={selectedDeveloperProject}
           options={developerProjects.map((clientName) => ({ value: clientName, label: clientName }))}
-          onChange={setSelectedProject}
+          onChange={handleDeveloperProjectChange}
         />
       )}
       {isAdmin && (
@@ -382,23 +361,22 @@ export function Sidebar() {
           </>
         ) : isAdmin ? (
           <>
-            {adminCustomerNavItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={adminSelectedInitiative ? `/${encodeURIComponent(adminSelectedInitiative)}/${item.href}` : null}
-                label={item.label}
-                icon={item.icon}
-                isActive={
-                  isAdminViewingCustomerSlug &&
-                  (pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`))
-                }
-                onClick={close}
-                disabledHint="Pick an initiative first"
-              />
-            ))}
-            <p className="px-3 pt-4 pb-1 smalltext font-medium uppercase tracking-wide text-sidebar-foreground/50">
-              Admin
-            </p>
+            {isAdminViewingCustomerSlug &&
+              adminCustomerNavItems.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={`/${encodeURIComponent(urlSlug)}/${item.href}`}
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`)}
+                  onClick={close}
+                />
+              ))}
+            {isAdminViewingCustomerSlug && (
+              <p className="px-3 pt-4 pb-1 smalltext font-medium uppercase tracking-wide text-sidebar-foreground/50">
+                Admin
+              </p>
+            )}
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.href}
@@ -412,12 +390,14 @@ export function Sidebar() {
           </>
         ) : (
           navItems.map((item) => {
-            const isActive =
-              pathname.endsWith(`/${item.href}`) ||
-              pathname.includes(`/${item.href}/`);
-            const hrefWithParams = params
-              ? `${item.href}?${params}`
-              : item.href;
+            const href =
+              item.href === DEVELOPER_DEMOS_HREF && selectedDeveloperProject
+                ? `/${encodeURIComponent(selectedDeveloperProject.toLowerCase())}/demos`
+                : item.href;
+            const isActive = href.startsWith("/")
+              ? pathname === href || pathname.startsWith(`${href}/`)
+              : pathname.endsWith(`/${href}`) || pathname.includes(`/${href}/`);
+            const hrefWithParams = params ? `${href}?${params}` : href;
             return (
               <Link
                 key={item.href}
