@@ -5,7 +5,7 @@
 > Developer's own page: `app/dev/chat/page.tsx` → `DevChatPage`
 > Admin's own page: `app/admin/chats/page.tsx` → `AdminChatPage` (unscoped inbox across every customer)
 
-All three pages render the same `ChatLayout` component — they only differ in what slug/customer scope gets passed in. **Admin and developer routes carry no customer slug at all** (`/admin/chats`, `/dev/chat` — fixed paths, not `/{slug}/chat`), matching the same slug-less routing used for their dashboards (see `app/docs/LOGIN_FLOWS.md` and `app/docs/DEVELOPER_DASHBOARD_FLOWS.md`). Only customer/stakeholder chat is slug-based, since only those roles are scoped to one customer.
+All three pages render the same `ChatLayout` component — they only differ in what slug/customer scope gets passed in. **Admin and developer routes carry no customer slug at all** (`/admin/chats`, `/dev/chat` — fixed paths, not `/{slug}/chat`). Chat hasn't moved under `/{slug}` yet; developers' other pages and admins' customer pages already live there (see `app/docs/LOGIN_FLOWS.md` and `app/docs/DEVELOPER_DASHBOARD_FLOWS.md`). Only customer/stakeholder chat is slug-based, since only those roles are scoped to one customer.
 
 ---
 

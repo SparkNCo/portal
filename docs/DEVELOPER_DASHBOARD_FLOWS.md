@@ -7,7 +7,7 @@
 
 ## Who sees this dashboard
 
-The developer dashboard is the landing page for users with `role === "developer"` after login, at **`/{slug}/developer`** for their last-picked initiative (or their first assignment). A developer can be assigned to several initiatives; the dashboard fetches issues for all of them (the hours chart compares them) and shows the one in the URL.
+The developer dashboard is the landing page for users with `role === "developer"` after login, at **`/{slug}/developer`** for their last-picked initiative (or their first assignment — see `app/docs/LOGIN_FLOWS.md` → "Developers with more than one assignment"). A developer can be assigned to several initiatives; the dashboard fetches issues for all of them (the hours chart compares them) and shows the one in the URL.
 
 Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. The only developer page outside `/{slug}` is `/dev/chat`. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents` and `/dev/demos` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`).
 
