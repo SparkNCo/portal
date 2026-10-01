@@ -52,32 +52,42 @@ test.describe('Admin — panels', () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  // ── Dashboards panel ───────────────────────────────────────────────────────
+  // ── Initiative dropdown ────────────────────────────────────────────────────
+  //
+  // Admins pick a customer from the sidebar's Initiative dropdown (the same
+  // picker developers use) — there's no separate Dashboards page anymore.
 
-  test('Dashboards panel shows the customer list', async ({ page }) => {
-    await page.getByRole('link', { name: 'Dashboards' }).click();
-    await page.waitForURL('**/dashboards', { timeout: 10_000 });
+  test('Initiative dropdown lists customers and has no Dashboards link', async ({ page }) => {
+    await expect(page.getByRole('link', { name: 'Dashboards' })).toHaveCount(0);
 
-    await expect(page.getByText('Dashboards').first()).toBeVisible();
-    await expect(page.locator('text=Loading')).not.toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.locator('p').filter({ hasText: /@/ }).first()
-    ).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('combobox').filter({ hasText: 'Select an initiative' }).click();
+    await expect(page.getByRole('option').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('clicking a customer card opens their dashboard', async ({ page }) => {
-    await page.getByRole('link', { name: 'Dashboards' }).click();
-    await page.waitForURL('**/dashboards', { timeout: 10_000 });
+  test('picking an initiative opens its dashboard, and switching keeps the page', async ({ page }) => {
+    await page.getByRole('combobox').filter({ hasText: 'Select an initiative' }).click();
+    const options = page.getByRole('option');
+    await expect(options.first()).toBeVisible({ timeout: 15_000 });
+    const optionCount = await options.count();
+    await options.first().click();
 
-    // Admins adopt the customer's own top-level route (e.g. /acme/dashboard)
-    // instead of a nested /admin/dashboards/... path — see CustomerCard in
-    // components/dashboard/dashboards-content.tsx.
-    const firstCard = page.locator('a[href$="/dashboard"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 15_000 });
-    await firstCard.click();
-
+    // Admins use the customer's own top-level route (e.g. /acme/dashboard).
     await expect(page).toHaveURL(/\/[^/]+\/dashboard$/, { timeout: 10_000 });
     await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible({ timeout: 10_000 });
+
+    // The Admin section stays reachable from inside a customer's pages.
+    await expect(page.getByRole('link', { name: 'Users' })).toBeVisible();
+
+    if (optionCount < 2) return;
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page).toHaveURL(/\/[^/]+\/build$/, { timeout: 10_000 });
+    const firstSlug = new URL(page.url()).pathname.split('/')[1];
+
+    await page.getByRole('combobox').first().click();
+    await page.getByRole('option').nth(1).click();
+    // Still on /build, but under the other customer's slug.
+    await expect(page).not.toHaveURL(new RegExp(`/${firstSlug}/`), { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/[^/]+\/build$/);
   });
 
   // ── Create user modals ─────────────────────────────────────────────────────
