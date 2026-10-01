@@ -9,7 +9,7 @@
 
 The developer dashboard is the landing page for users with `role === "developer"` after login, at **`/{slug}/developer`** for their last-picked initiative (or their first assignment — see `app/docs/LOGIN_FLOWS.md` → "Developers with more than one assignment"). A developer can be assigned to several initiatives; the dashboard fetches issues for all of them (the hours chart compares them) and shows the one in the URL.
 
-Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. The only developer page outside `/{slug}` is `/dev/chat`. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents` and `/dev/demos` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`).
+Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents`, `/dev/demos` and `/dev/chat` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`, `components/chat/chat-route-redirect.tsx`).
 
 > **Routing history:** this was `/{clientName}/developer`, then moved to a slug-less `/dev/developer` (with the project kept only in the dropdown), and is now back under `/{slug}/developer` so every role shares one route tree. See `app/docs/LOGIN_FLOWS.md` for the redirect-history note and `app/docs/CHAT_FLOWS.md` for the equivalent change on the Chat page (`/dev/chat`).
 
@@ -208,7 +208,7 @@ allIssues (merged, Done removed, sorted by question count)
 | `app/dev/developer/page.tsx` | Redirect from the old `/dev/developer` to `/{slug}/developer` |
 | `lib/developer-routes.ts` | Which initiative a developer's pages and login redirect use (URL → last pick → first assignment) |
 | `app/[slug]/(portal)/developer/page.tsx` | `DeveloperDashboard` implementation. Also still reused directly by `panel-renderer.tsx`'s `case "developer"`, for the older/dormant nested `/{devSlug}/dashboards/[customer]/[panel]` flow (its Sidebar nav entry is commented out, but the route and panel case still exist) |
-| `app/dev/layout.tsx` | Layout for `/dev/chat` and the old `/dev/*` redirects — AuthGate, Sidebar, and a `role !== "developer"` redirect-home guard |
+| `app/dev/layout.tsx` | Layout for the old `/dev/*` redirects (including `/dev/chat`) — AuthGate, Sidebar, and a `role !== "developer"` redirect-home guard |
 | `app/[slug]/(portal)/layout.tsx` | Shared layout for slug-based routes — AuthGate, Sidebar, ConsentProvider |
 | `app/[slug]/(portal)/dashboard/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |
 | `components/developer/quick-links.tsx` | Quick Links card with Airtable form links |

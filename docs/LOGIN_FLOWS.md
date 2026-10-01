@@ -45,7 +45,7 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
-**Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below. The only developer page outside `/{slug}` is `/dev/chat`.
+**Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below.
 
 #### Developers with more than one assignment
 

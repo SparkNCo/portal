@@ -59,6 +59,8 @@ test.describe('Admin — panels', () => {
 
   test('Initiative dropdown lists customers and has no Dashboards link', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Dashboards' })).toHaveCount(0);
+    // No admin-wide chat either until an initiative is picked.
+    await expect(page.getByRole('link', { name: 'Chat' })).toHaveCount(0);
 
     await page.getByRole('combobox').filter({ hasText: 'Select an initiative' }).click();
     await expect(page.getByRole('option').first()).toBeVisible({ timeout: 15_000 });
@@ -191,11 +193,33 @@ test.describe('Admin — panels', () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+
+  test('notification popup always offers See all, which opens the Unread/Seen modal', async ({ page }) => {
+    await page.getByRole('button', { name: /^Notifications/ }).click();
+    await page.getByRole('button', { name: /^See all/ }).click();
+
+    const dialog = page.getByRole('dialog', { name: /All notifications/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Unread' })).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Seen' })).toBeVisible();
+  });
+
   // ── Chat panel ─────────────────────────────────────────────────────────────
+  //
+  // Chat is /{slug}/chat for admins too: pick an initiative first, then open
+  // its Chat (there's no /admin/chats inbox anymore).
+
+  async function openFirstInitiativeChat(page: any) {
+    await page.getByRole('combobox').filter({ hasText: 'Select an initiative' }).click();
+    await page.getByRole('option').first().click();
+    await expect(page).toHaveURL(/\/[^/]+\/dashboard$/, { timeout: 15_000 });
+    await page.getByRole('link', { name: 'Chat' }).click();
+    await expect(page).toHaveURL(/\/(?!admin\/)[^/]+\/chat$/, { timeout: 15_000 });
+  }
 
   test('Chat panel loads and shows the sidebar', async ({ page }) => {
-    await page.getByRole('link', { name: 'Chat' }).click();
-    await page.waitForURL('**/chats', { timeout: 10_000 });
+    await openFirstInitiativeChat(page);
 
     await expect(page.getByRole('heading', { name: 'Chat', level: 1 })).toBeVisible({ timeout: 15_000 });
     // exact: true — an actual chat group in the test data happens to be
@@ -205,8 +229,7 @@ test.describe('Admin — panels', () => {
   });
 
   test('Chat panel initialises CometChat and shows the group list or empty state', async ({ page }) => {
-    await page.getByRole('link', { name: 'Chat' }).click();
-    await page.waitForURL('**/chats', { timeout: 10_000 });
+    await openFirstInitiativeChat(page);
 
     await expect(page.locator('text=Loading chat...')).not.toBeVisible({ timeout: 20_000 });
 

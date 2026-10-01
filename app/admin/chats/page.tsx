@@ -1,28 +1,8 @@
 "use client";
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { Header } from "@/components/headerDashboard";
-import ChatProvider from "@/components/chat/ChatProvider";
-import { LoadingDataPanel } from "@/components/loader";
 
-function ChatContent() {
-  const searchParams = useSearchParams();
-  const initialTitle = searchParams.get("newChat") ?? undefined;
+import { ChatRouteRedirect } from "@/components/chat/chat-route-redirect";
 
-  return (
-    <div className="flex flex-col h-screen">
-      <Header title="Chat" subtitle="Messages and AI Assistant" subtitleClassName="smalltext" />
-      <div className="flex flex-1 overflow-hidden">
-        <ChatProvider initialTitle={initialTitle} />
-      </div>
-    </div>
-  );
-}
-
-export default function AdminChatPage() {
-  return (
-    <Suspense fallback={<LoadingDataPanel />}>
-      <ChatContent />
-    </Suspense>
-  );
+// Moved to /{slug}/chat — see components/chat/chat-route-redirect.tsx.
+export default function AdminChatsRedirect() {
+  return <ChatRouteRedirect />;
 }
