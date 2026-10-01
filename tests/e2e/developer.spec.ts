@@ -121,6 +121,14 @@ test.describe('Developer — panels', () => {
     await expect(page.getByRole('heading', { name: 'Chat', level: 1 })).toBeVisible({ timeout: 15_000 });
   });
 
+  // ── Access guard ───────────────────────────────────────────────────────────
+
+  test('opening an initiative they are not assigned to sends them back with a message', async ({ page }) => {
+    await page.goto('/no-such-initiative-e2e/build');
+    await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/(?!no-such-initiative-e2e\/)[^/]+\/developer$/, { timeout: 20_000 });
+  });
+
   // ── Chat panel ─────────────────────────────────────────────────────────────
 
   test('Chat panel loads and shows the sidebar', async ({ page }) => {

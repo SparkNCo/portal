@@ -1,18 +1,42 @@
 "use client";
-import { useParams } from "next/navigation";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
 import { useUser } from "context/UserContext";
 import { CustomerSlugProvider } from "context/CustomerSlugContext";
 import { safeDecodeURIComponent } from "@/lib/utils";
+import { useSelectedProject } from "@/lib/selected-project-context";
+import { checkSlugAccess } from "@/lib/route-access";
+import { LoadingDataPanel } from "@/components/loader";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 import type React from "react";
 
 function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   const { isOpen, close } = useSidebar();
-  const { profile } = useUser();
+  const { profile, loading } = useUser();
+  const { selectedProject } = useSelectedProject();
+  const router = useRouter();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
+
+  // Who may open this initiative (lib/route-access.ts): admins any; customers
+  // their own; stakeholders and developers their assignments. Everyone else
+  // is sent to their own home page; users without a usable profile/role see
+  // "account not set up". Front-end only — the API doesn't check yet.
+  const access = loading ? null : checkSlugAccess(profile, urlSlug, selectedProject);
+  const redirectTo = access?.kind === "redirect" ? access.to : null;
+
+  useEffect(() => {
+    if (!redirectTo) return;
+    toast.error("You don't have access to that initiative", {
+      id: "slug-access-denied",
+      description: "You've been taken back to your own pages.",
+    });
+    router.replace(redirectTo);
+  }, [redirectTo, router]);
 
   const content = (
     <div className="min-h-screen bg-background">
@@ -28,6 +52,9 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
       <main className="lg:pl-60">{children}</main>
     </div>
   );
+
+  if (!access || access.kind === "redirect") return <LoadingDataPanel />;
+  if (access.kind === "not-set-up") return <AccountNotSetUp />;
 
   // An admin browsing a customer's own routes directly (e.g. /lualink/...)
   // has no CustomerSlugProvider wrapping them the way the old nested

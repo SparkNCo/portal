@@ -98,6 +98,14 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByRole('link', { name: 'Developer' })).not.toBeVisible();
   });
 
+  // ── Access guard ───────────────────────────────────────────────────────────
+
+  test('opening another initiative sends them back to their own dashboard with a message', async ({ page }) => {
+    await page.goto('/no-such-initiative-e2e/dashboard');
+    await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/(?!no-such-initiative-e2e\/)[^/]+\/dashboard$/, { timeout: 20_000 });
+  });
+
   // ── Demos panel ────────────────────────────────────────────────────────────
 
   test('Demos page opens under the client slug, without upload controls', async ({ page }) => {
