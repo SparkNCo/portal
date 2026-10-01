@@ -47,6 +47,15 @@ export default function LoginForm({
         }
         return;
       }
+      // Unknown role, or a customer with no linked client: there's no page
+      // to send them to (it used to be /undefined/dashboard).
+      const knownRole = customer?.role === "admin" || customer?.role === "developer" || customer?.role === "customer";
+      if (!knownRole || (customer.role === "customer" && !customer.clientName)) {
+        setErrorMessage("Your account isn't set up yet. Contact your administrator.");
+        setLoading(false);
+        supabase.auth.signOut();
+        return;
+      }
       if (customer?.role === "admin") {
         router.push("/admin/users");
       } else if (customer?.role === "developer") {

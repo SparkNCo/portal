@@ -47,6 +47,24 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 **Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below.
 
+#### Who can open which `/{slug}` page
+
+Every `/{slug}/…` page goes through an access check in its layout (`app/[slug]/(portal)/layout.tsx`, rules in `lib/route-access.ts`) before anything renders:
+
+| Role | Can open |
+|---|---|
+| `admin` | Any `/{slug}` |
+| `customer` | Only their own initiative (`clientName`) |
+| `stakeholder` | Only initiatives they're assigned to |
+| `developer` | Only initiatives they're assigned to |
+
+- **No access:** the user is sent to their own home page (customer/stakeholder dashboard, developer's `/{slug}/developer`) with the toast _"You don't have access to that initiative."_
+- **No portal profile, an unrecognised role, or nowhere valid to land** (e.g. a customer with no linked client): an _"Your account isn't set up yet"_ screen with a Log out button, instead of the page (`components/account-not-set-up.tsx`).
+- Slugs are compared case-insensitively, against the initiative's `clientName` (or `linear_slug`, for older links).
+- **Front-end only:** this controls what the app shows. The edge functions don't check who is calling yet, so the data itself isn't protected by this.
+
+**Login with an unrecognised role, or as a customer with no linked client,** shows _"Your account isn't set up yet. Contact your administrator."_ on the login form and signs the user out, instead of redirecting to `/undefined/dashboard`.
+
 #### Developers with more than one assignment
 
 A developer can be assigned to several initiatives, so login has to pick one. `app/login/Login.tsx` calls `developerPanelPath(profile, "developer", selectedProject)` (`lib/developer-routes.ts`), which resolves the initiative in this order:
