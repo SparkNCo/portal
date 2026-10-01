@@ -193,6 +193,14 @@ test.describe('Admin — panels', () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  // ── Role-specific pages ────────────────────────────────────────────────────
+
+  test('the developer-only page sends an admin to the initiative dashboard', async ({ page }) => {
+    await page.goto('/spark-portal/developer');
+    await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/spark-portal\/dashboard$/, { timeout: 20_000 });
+  });
+
   // ── Notifications ──────────────────────────────────────────────────────────
 
   test('notification popup always offers See all, which opens the Unread/Seen modal', async ({ page }) => {

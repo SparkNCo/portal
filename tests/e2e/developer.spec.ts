@@ -129,6 +129,13 @@ test.describe('Developer — panels', () => {
     await expect(page).toHaveURL(/\/(?!no-such-initiative-e2e\/)[^/]+\/developer$/, { timeout: 20_000 });
   });
 
+  test('Settings is not available to developers, even on their own initiative', async ({ page }) => {
+    const slug = new URL(page.url()).pathname.split('/')[1];
+    await page.goto(`/${slug}/settings`);
+    await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp(`/${slug}/developer$`), { timeout: 20_000 });
+  });
+
   // ── Chat panel ─────────────────────────────────────────────────────────────
 
   test('Chat panel loads and shows the sidebar', async ({ page }) => {
