@@ -47,6 +47,19 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 **Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below.
 
+#### When the profile can't be loaded
+
+After a successful sign-in, `UserContext` loads the portal profile (`GET /users?email=`) and reports the result as `profileStatus`: `ok`, `not-found` (the request returned `null` — the auth account has no `portal.users` row), `failed` (the request errored or the network failed) or `signed-out`. `reloadUser()` returns the same value.
+
+| Result | Login form shows | Then |
+|---|---|---|
+| `not-found` | _"Your account isn't set up yet. Contact your administrator."_ | Signed out |
+| `failed` | _"We couldn't load your account. Please try again."_ | Signed out; logging in again retries |
+
+- **Set-password** does the same after saving: if the profile can't be loaded, it shows _"Password set, but …"_ with the same message and signs out instead of redirecting.
+- **Portal pages** (`/{slug}/…`) show "We couldn't load your account" with a **Try again** button when the load failed, and "Your account isn't set up yet" otherwise (`components/account-not-set-up.tsx`).
+- **The email lookup is case-insensitive** (`ilike` in `fetchUser`, `supabase/functions/users/index.ts`), so `Jane@Company.com` in Auth matches `jane@company.com` in `portal.users`.
+
 #### Who can open which `/{slug}` page
 
 Every `/{slug}/…` page goes through an access check in its layout (`app/[slug]/(portal)/layout.tsx`, rules in `lib/route-access.ts`) before anything renders:
