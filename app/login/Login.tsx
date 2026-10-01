@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
-import { getStakeholderClientSlug, useUser } from "context/UserContext";
+import { getStakeholderClientSlug, PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { developerPanelPath } from "@/lib/developer-routes";
 
@@ -31,7 +31,7 @@ export default function LoginForm({
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  const { profile: customer, loading: customerLoading } = useUser();
+  const { profile: customer, loading: customerLoading, profileStatus } = useUser();
   const { selectedProject } = useSelectedProject();
 
   useEffect(() => {
@@ -67,6 +67,16 @@ export default function LoginForm({
       onLoginSuccess(customer.email);
     }
   }, [customer]);
+
+  // Signed in, but the portal profile couldn't be loaded (no portal.users
+  // row, or the request failed): say so and sign out, rather than leaving a
+  // silent form over a half-signed-in session. Logging in again retries.
+  useEffect(() => {
+    if (profileStatus !== "not-found" && profileStatus !== "failed") return;
+    setErrorMessage(PROFILE_ERROR_MESSAGES[profileStatus]);
+    setLoading(false);
+    supabase.auth.signOut();
+  }, [profileStatus]);
 
   const login = async (e?: React.FormEvent) => {
     e?.preventDefault();

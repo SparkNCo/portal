@@ -16,7 +16,7 @@ import type React from "react";
 
 function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   const { isOpen, close } = useSidebar();
-  const { profile, loading } = useUser();
+  const { profile, loading, profileStatus } = useUser();
   const { selectedProject } = useSelectedProject();
   const router = useRouter();
   const pathname = usePathname();
@@ -65,7 +65,7 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   );
 
   if (!access || access.kind === "redirect") return <LoadingDataPanel />;
-  if (access.kind === "not-set-up") return <AccountNotSetUp />;
+  if (access.kind === "not-set-up") return <AccountNotSetUp loadFailed={profileStatus === "failed"} />;
 
   // An admin browsing a customer's own routes directly (e.g. /lualink/...)
   // has no CustomerSlugProvider wrapping them the way the old nested
