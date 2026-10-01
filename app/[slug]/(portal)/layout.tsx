@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/sidebar";
@@ -19,24 +19,35 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   const { profile, loading } = useUser();
   const { selectedProject } = useSelectedProject();
   const router = useRouter();
+  const pathname = usePathname();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
 
-  // Who may open this initiative (lib/route-access.ts): admins any; customers
-  // their own; stakeholders and developers their assignments. Everyone else
-  // is sent to their own home page; users without a usable profile/role see
+  // Who may open this initiative and page (lib/route-access.ts): admins any
+  // initiative; customers their own; stakeholders and developers their
+  // assignments. Some pages are role-specific (Developer: developers only;
+  // Settings: not developers). Users without a usable profile/role see
   // "account not set up". Front-end only — the API doesn't check yet.
-  const access = loading ? null : checkSlugAccess(profile, urlSlug, selectedProject);
+  const page = pathname.split("/")[2] ?? null;
+  const access = loading ? null : checkSlugAccess(profile, urlSlug, selectedProject, page);
   const redirectTo = access?.kind === "redirect" ? access.to : null;
+  const redirectReason = access?.kind === "redirect" ? access.reason : null;
 
   useEffect(() => {
     if (!redirectTo) return;
-    toast.error("You don't have access to that initiative", {
-      id: "slug-access-denied",
-      description: "You've been taken back to your own pages.",
-    });
+    if (redirectReason === "page") {
+      toast.error("That page isn't available for your role", {
+        id: "slug-access-denied",
+        description: "You've been taken to this initiative's main page.",
+      });
+    } else {
+      toast.error("You don't have access to that initiative", {
+        id: "slug-access-denied",
+        description: "You've been taken back to your own pages.",
+      });
+    }
     router.replace(redirectTo);
-  }, [redirectTo, router]);
+  }, [redirectTo, redirectReason, router]);
 
   const content = (
     <div className="min-h-screen bg-background">

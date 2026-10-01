@@ -15,8 +15,22 @@ const KNOWN_ROLES = new Set(["admin", "customer", "stakeholder", "developer"]);
 
 export type SlugAccess =
   | { kind: "allowed" }
-  | { kind: "redirect"; to: string }
+  // reason "initiative": not one of theirs; "page": theirs, but a page their
+  // role doesn't use (see PAGE_ROLES).
+  | { kind: "redirect"; to: string; reason: "initiative" | "page" }
   | { kind: "not-set-up" };
+
+// Pages under /{slug} that only some roles use; every other page is open to
+// any role that can open the initiative.
+const PAGE_ROLES: Record<string, string[]> = {
+  developer: ["developer"],
+  settings: ["admin", "customer", "stakeholder"],
+};
+
+// Where a role starts inside an initiative it can open.
+function initiativeHomePath(role: string, slug: string): string {
+  return `/${routeSlugFor(slug)}/${role === "developer" ? "developer" : "dashboard"}`;
+}
 
 function sameSlug(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -59,15 +73,25 @@ export function homePathFor(profile: ProfileForAccess, selectedProject?: string 
   }
 }
 
+// `page` is the segment after the slug (e.g. "build" in /acme/build).
 export function checkSlugAccess(
   profile: ProfileForAccess,
   slug: string | null | undefined,
   selectedProject?: string | null,
+  page?: string | null,
 ): SlugAccess {
   if (!profile?.role || !KNOWN_ROLES.has(profile.role)) return { kind: "not-set-up" };
-  if (profile.role === "admin") return { kind: "allowed" };
-  if (slug && ownSlugs(profile).some((s) => sameSlug(s, slug))) return { kind: "allowed" };
 
-  const home = homePathFor(profile, selectedProject);
-  return home ? { kind: "redirect", to: home } : { kind: "not-set-up" };
+  const canOpenInitiative =
+    profile.role === "admin" || (!!slug && ownSlugs(profile).some((s) => sameSlug(s, slug)));
+  if (!canOpenInitiative) {
+    const home = homePathFor(profile, selectedProject);
+    return home ? { kind: "redirect", to: home, reason: "initiative" } : { kind: "not-set-up" };
+  }
+
+  const pageRoles = page ? PAGE_ROLES[page] : undefined;
+  if (slug && pageRoles && !pageRoles.includes(profile.role)) {
+    return { kind: "redirect", to: initiativeHomePath(profile.role, slug), reason: "page" };
+  }
+  return { kind: "allowed" };
 }

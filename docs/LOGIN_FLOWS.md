@@ -59,6 +59,15 @@ Every `/{slug}/…` page goes through an access check in its layout (`app/[slug]
 | `developer` | Only initiatives they're assigned to |
 
 - **No access:** the user is sent to their own home page (customer/stakeholder dashboard, developer's `/{slug}/developer`) with the toast _"You don't have access to that initiative."_
+
+Some pages inside an initiative are also limited by role (`PAGE_ROLES` in `lib/route-access.ts`); every other page is open to anyone who can open the initiative:
+
+| Page | Roles |
+|---|---|
+| `/{slug}/developer` | `developer` only |
+| `/{slug}/settings` | `admin`, `customer`, `stakeholder` (not developers) |
+
+Opening one of those with another role sends the user to that initiative's main page (`/{slug}/developer` for developers, `/{slug}/dashboard` for everyone else) with the toast _"That page isn't available for your role."_
 - **No portal profile, an unrecognised role, or nowhere valid to land** (e.g. a customer with no linked client): an _"Your account isn't set up yet"_ screen with a Log out button, instead of the page (`components/account-not-set-up.tsx`).
 - Slugs are compared case-insensitively, against the initiative's `clientName` (or `linear_slug`, for older links).
 - **Front-end only:** this controls what the app shows. The edge functions don't check who is calling yet, so the data itself isn't protected by this.
