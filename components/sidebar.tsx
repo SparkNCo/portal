@@ -208,8 +208,10 @@ export function Sidebar() {
     developer: developerNavItems,
     stakeholder: stakeholderNavItems,
   };
-  const portalType = profile?.role ?? "developer";
-  const navItems = roleNavMap[portalType] ?? developerNavItems;
+  // An unrecognised or missing role gets no navigation at all (it used to
+  // fall back to the developer menu).
+  const portalType = profile?.role ?? "";
+  const navItems = roleNavMap[portalType] ?? [];
 
   // Developers can be assigned to several customers at once — "Working on"
   // picks which one. On /{slug} pages the URL decides it; elsewhere (the old
