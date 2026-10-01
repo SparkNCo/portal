@@ -197,7 +197,7 @@ function searchableText(n: Notification): string {
     .toLowerCase();
 }
 
-// Same list (and cache key) admin/dashboards uses for its customer cards.
+// Same list (and cache key) as the admin sidebar's Initiative dropdown.
 type CustomerSummary = { clientName: string | null; linear_slug: string | null };
 
 const ALL_CUSTOMERS = "__all__";

@@ -37,10 +37,10 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 **What they can do:**
 - Access the **Admin Panel** (`/users`) to create and manage all other users (developers, customers, stakeholders).
 - Assign developers and stakeholders to customers.
-- Preview any customer's full portal (Dashboard, Roadmap, Documents, Chat, Settings) via the Dashboards view.
+- Open any customer's full portal (Dashboard, Monitor, Build, Bugs, Documents, Settings) by picking it from the sidebar's **Initiative** dropdown — the same picker developers use, listing every customer. Switching customer keeps the current page (e.g. `/lualink/build` → `/beassured/build`).
 - Ask questions on issues (same permissions as developers). Cannot change issue state directly (see 4.2).
 
-**Sidebar:** Users, Dashboards, Chat
+**Sidebar:** Initiative dropdown; the selected customer's pages (Dashboard, Monitor, Build, Bugs, Documents, Settings); then an **Admin** section with Users and Chat (`/admin/users`, `/admin/chats`), reachable from anywhere. There is no separate Dashboards page — "Add Customer" lives on `/admin/users`.
 
 ---
 

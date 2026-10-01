@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { cn, safeDecodeURIComponent } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -12,7 +14,6 @@ import {
   Building2,
   LogOut,
   Shield,
-  LayoutGrid,
   ChevronLeft,
   MessageCircle,
   Hammer,
@@ -32,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const clientNavItems = [
   { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -53,11 +55,112 @@ const developerNavItems = [
   { href: "documents", label: "Documents", icon: FileText },
 ];
 
+// Absolute, unlike the other roles' items: admins reach these from inside a
+// customer's /{slug} pages too, where a relative href would resolve under
+// the slug.
 const adminNavItems = [
-  { href: "users", label: "Users", icon: Shield },
-  { href: "dashboards", label: "Dashboards", icon: LayoutGrid },
-  { href: "chats", label: "Chat", icon: MessageCircle },
+  { href: "/admin/users", label: "Users", icon: Shield },
+  { href: "/admin/chats", label: "Chat", icon: MessageCircle },
 ];
+
+// Customer pages an admin sees for the initiative picked in the dropdown.
+// Chat is left out: admins use their own /admin/chats inbox.
+const adminCustomerNavItems = clientNavItems.filter((item) => item.href !== "chat");
+
+type InitiativeOption = { value: string; label: string };
+
+const ADMIN_INITIATIVE_STORAGE_KEY = "portal:admin-initiative";
+
+// Same list (and cache key) as the customers query elsewhere in the admin UI.
+type CustomerSummary = { clientName: string | null; linear_slug: string | null };
+
+// The initiative picker shared by developers ("Working on", their own
+// assignments) and admins (every customer).
+function InitiativeSelect({
+  label,
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly options: InitiativeOption[];
+  readonly placeholder?: string;
+  readonly onChange: (value: string) => void;
+}) {
+  return (
+    <div className="px-4 py-3 border-b border-sidebar-border">
+      <label className="mb-1.5 block px-0.5 smalltext font-medium text-sidebar-foreground/50">{label}</label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate">
+          <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent className="rounded-lg">
+          {options.map((option) => (
+            <SelectItem
+              key={option.value}
+              value={option.value}
+              // Hide the default checkmark indicator for the selected
+              // option — the trigger above already shows it, so repeating
+              // it in every row here is just noise.
+              className="smalltext pr-2 [&>span:first-child]:hidden"
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// `href: null` renders the item greyed out and not clickable — e.g. an
+// admin's customer pages before any initiative has been picked.
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  isActive,
+  onClick,
+  disabledHint,
+}: {
+  readonly href: string | null;
+  readonly label: string;
+  readonly icon: typeof Shield;
+  readonly isActive: boolean;
+  readonly onClick: () => void;
+  readonly disabledHint?: string;
+}) {
+  if (!href) {
+    return (
+      <span
+        aria-disabled="true"
+        title={disabledHint}
+        className="flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium text-muted-foreground/40 cursor-not-allowed"
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
+        isActive
+          ? "bg-sidebar-accent text-primary font-semibold"
+          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
+  );
+}
 
 const stakeholderNavItems = [
   { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -96,11 +199,12 @@ export function Sidebar() {
   const isViewingCustomer =
     profile?.role === "developer" && !!selectedCustomer;
   const dashboardsBasePath = `/${urlSlug}`;
-  // Admins browsing a customer's own dashboard directly (e.g. /lualink/...)
-  // — the exact same route tree the customer itself uses. Their own pages
-  // live under the slug-less /admin, so any `[slug]` segment here means
-  // they're viewing a customer.
-  const isAdminViewingCustomerSlug = profile?.role === "admin" && !!urlSlug;
+  // Admins browse a customer's own pages directly (e.g. /lualink/...) — the
+  // exact same route tree the customer itself uses. Their own pages live
+  // under the slug-less /admin, so any `[slug]` segment here means they're
+  // viewing a customer.
+  const isAdmin = profile?.role === "admin";
+  const isAdminViewingCustomerSlug = isAdmin && !!urlSlug;
 
   const customerPanelItems = [
     { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -138,9 +242,67 @@ export function Sidebar() {
     ),
   ];
   const { selectedProject, setSelectedProject } = useSelectedProject();
+  const { isOpen, close } = useSidebar();
   // Falls back to the first assignment when nothing's been picked yet, so a
   // project is always selected rather than an "all projects" state.
   const selectedDeveloperProject = selectedProject ?? developerProjects[0] ?? "";
+
+  // Admins pick from every customer. A customer's route slug is its
+  // clientName lowercased (customers without one have no pages to open).
+  const { data: customers = [] } = useQuery<CustomerSummary[]>({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`, {
+        headers: API_JSON_HEADERS,
+      });
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+  const adminInitiativeOptions: InitiativeOption[] = customers
+    .filter((c) => c.clientName)
+    .map((c) => ({ value: c.clientName!.toLowerCase(), label: c.clientName! }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  // The admin's customer pages stay in the sidebar on /admin pages too,
+  // pointing at the last initiative they picked — remembered per browser,
+  // like the developers' "Working on" choice. Only the URL decides which
+  // customer a page shows; this just fills in the links when there's no
+  // slug in it.
+  const [rememberedInitiative, setRememberedInitiative] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setRememberedInitiative(localStorage.getItem(ADMIN_INITIATIVE_STORAGE_KEY));
+    } catch {
+      // Storage unavailable (private mode etc.) — links stay disabled until a pick.
+    }
+  }, []);
+  const rememberInitiative = (routeSlug: string) => {
+    setRememberedInitiative(routeSlug);
+    try {
+      localStorage.setItem(ADMIN_INITIATIVE_STORAGE_KEY, routeSlug);
+    } catch {
+      // Not persisted; still used for this session.
+    }
+  };
+  useEffect(() => {
+    if (isAdmin && urlSlug) rememberInitiative(urlSlug.toLowerCase());
+  }, [isAdmin, urlSlug]);
+
+  const adminInitiative = urlSlug?.toLowerCase() ?? rememberedInitiative;
+  const adminSelectedInitiative = adminInitiativeOptions.find((o) => o.value === adminInitiative)?.value ?? "";
+
+  // Switching initiative keeps the admin on the same page (e.g.
+  // /lualink/build → /beassured/build); from an /admin page it opens the
+  // customer's dashboard.
+  const handleAdminInitiativeChange = (routeSlug: string) => {
+    const currentPanel = urlSlug ? pathname.split("/")[2] : undefined;
+    const panel = adminCustomerNavItems.some((item) => item.href === currentPanel) ? currentPanel : "dashboard";
+    rememberInitiative(routeSlug);
+    router.push(`/${encodeURIComponent(routeSlug)}/${panel}`);
+    close();
+  };
 
   /* -------------------------
      Logout
@@ -149,8 +311,6 @@ export function Sidebar() {
     await supabase.auth.signOut();
     router.push("/");
   };
-
-  const { isOpen, close } = useSidebar();
 
   if (!profile) return null;
 
@@ -176,36 +336,21 @@ export function Sidebar() {
         </button>
       </div>
       {portalType === "developer" && developerProjects.length > 1 && (
-        <div className="px-4 py-3 border-b border-sidebar-border">
-          <label className="mb-1.5 block px-0.5 smalltext font-medium text-sidebar-foreground/50">
-            Working on
-          </label>
-          <Select
-            value={selectedDeveloperProject}
-            onValueChange={setSelectedProject}
-          >
-            <SelectTrigger
-              className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate"
-            >
-              <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-lg">
-              {developerProjects.map((clientName) => (
-                <SelectItem
-                  key={clientName}
-                  value={clientName}
-                  // Hide the default checkmark indicator for the selected
-                  // project — the trigger above already shows it, so
-                  // repeating it in every row here is just noise.
-                  className="smalltext pr-2 [&>span:first-child]:hidden"
-                >
-                  {clientName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <InitiativeSelect
+          label="Working on"
+          value={selectedDeveloperProject}
+          options={developerProjects.map((clientName) => ({ value: clientName, label: clientName }))}
+          onChange={setSelectedProject}
+        />
+      )}
+      {isAdmin && (
+        <InitiativeSelect
+          label="Initiative"
+          value={adminSelectedInitiative}
+          options={adminInitiativeOptions}
+          placeholder="Select an initiative"
+          onChange={handleAdminInitiativeChange}
+        />
       )}
       <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
         {isViewingCustomer ? (
@@ -235,39 +380,35 @@ export function Sidebar() {
               </Link>
             ))}
           </>
-        ) : isAdminViewingCustomerSlug ? (
+        ) : isAdmin ? (
           <>
-            <Link
-              href="/admin/dashboards"
-              onClick={close}
-              className="flex items-center gap-2 rounded-md px-3 py-2 smalltext text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
-            >
-              <ChevronLeft className="h-3 w-3" />
-              All customers
-            </Link>
-            {clientNavItems
-              .filter((item) => item.href !== "chat")
-              .map((item) => {
-                const isActive =
-                  pathname.endsWith(`/${item.href}`) ||
-                  pathname.includes(`/${item.href}/`);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={close}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
-                      isActive
-                        ? "bg-sidebar-accent text-primary font-semibold"
-                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+            {adminCustomerNavItems.map((item) => (
+              <NavLink
+                key={item.href}
+                href={adminSelectedInitiative ? `/${encodeURIComponent(adminSelectedInitiative)}/${item.href}` : null}
+                label={item.label}
+                icon={item.icon}
+                isActive={
+                  isAdminViewingCustomerSlug &&
+                  (pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`))
+                }
+                onClick={close}
+                disabledHint="Pick an initiative first"
+              />
+            ))}
+            <p className="px-3 pt-4 pb-1 smalltext font-medium uppercase tracking-wide text-sidebar-foreground/50">
+              Admin
+            </p>
+            {adminNavItems.map((item) => (
+              <NavLink
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                isActive={pathname.startsWith(item.href)}
+                onClick={close}
+              />
+            ))}
           </>
         ) : (
           navItems.map((item) => {
