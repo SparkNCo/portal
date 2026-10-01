@@ -95,7 +95,7 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/demos/page.tsx` | The page itself — fetches project issues + demos, groups them into `DemoCard`s, owns the `UploadDemoForm`, and hides upload for customers/stakeholders |
-| `app/dev/demos/page.tsx` | Redirect from the old developer-only route to `/{selected project}/demos` |
+| `app/dev/demos/page.tsx` | Redirect from the old developer-only route to `/{slug}/demos` (`components/dev-route-redirect.tsx`) |
 | `components/client/demo-tab.tsx` | The ticket's Demo tab — Create/Update Version are hidden for customers/stakeholders |
 | `lib/demo-video-utils.ts` | `fetchProjectDemos` (issues + demos for a project), `fetchPreviewLinks`, `groupDemosByContent`/`DemoGroup` (dedupe by actual content, used by `DemoPicker`), shared `Demo`/`DemoUser` types and display helpers |
 | `components/client/preview-links-banner.tsx` | `PreviewLinksBanner` — the customer's admin-set Preview Links, shown at the top of this page |

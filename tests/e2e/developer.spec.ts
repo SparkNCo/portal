@@ -29,7 +29,8 @@ test.describe('Developer — login', () => {
     }
 
     await performLogin(page, email!, password!, '/developer');
-    expect(page.url()).toContain('/developer');
+    // Developers land on /{slug}/developer for their initiative, not /dev/.
+    expect(new URL(page.url()).pathname).toMatch(/^\/(?!dev\/)[^/]+\/developer$/);
   });
 
 });
@@ -103,8 +104,15 @@ test.describe('Developer — panels', () => {
     await expect(page.getByRole('heading', { name: 'Demos', level: 1 })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('button', { name: 'Upload Demo' }).first()).toBeVisible({ timeout: 20_000 });
 
-    // The developer menu still leads back to their own /dev pages from here.
-    await expect(page.getByRole('link', { name: 'Developer' })).toHaveAttribute('href', /^\/dev\/developer/);
+    // The rest of the developer menu stays on the same /{slug}.
+    const slug = new URL(page.url()).pathname.split('/')[1];
+    await expect(page.getByRole('link', { name: 'Developer' })).toHaveAttribute('href', new RegExp(`^/${slug}/developer`));
+  });
+
+  test('old /dev/* links redirect to the same /{slug} page, keeping the query string', async ({ page }) => {
+    await page.goto('/dev/build?tab=demo');
+    await expect(page).toHaveURL(/\/(?!dev\/)[^/]+\/build\?tab=demo$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
   });
 
   // ── Chat panel ─────────────────────────────────────────────────────────────

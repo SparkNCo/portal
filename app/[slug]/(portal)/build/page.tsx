@@ -52,10 +52,9 @@ function BuildPageContent() {
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  // Developers have no `[slug]` route segment under `/dev/build` — fall back
-  // to whichever project is selected in the sidebar dropdown (see
-  // components/sidebar.tsx), defaulting to their first assignment the same
-  // way that dropdown does.
+  // Only used if there's no slug to go on: developers reach this page at
+  // /{slug}/build (old /dev/build links redirect there), so the URL's slug
+  // normally wins below.
   const developerProject =
     profile?.role === "developer"
       ? (selectedSidebarProject ?? profile?.assignment_id?.[0]?.clientName ?? null)

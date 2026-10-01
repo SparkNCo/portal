@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/lib/tanstack/providers";
 import { UserProvider } from "../context/UserContext";
+import { SelectedProjectProvider } from "@/lib/selected-project-context";
 import { ResetZoomOnNavigate } from "@/components/shared/reset-zoom-on-navigate";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -48,9 +49,13 @@ export default function RootLayout({
         >
           <Providers>
             <UserProvider>
-              <main className="flex flex-col min-h-screen w-full">
-                {children}
-              </main>
+              {/* Root-level so developers keep their "Working on" project
+                  across /{slug} pages, /dev/chat and the login redirect. */}
+              <SelectedProjectProvider>
+                <main className="flex flex-col min-h-screen w-full">
+                  {children}
+                </main>
+              </SelectedProjectProvider>
 
               <Suspense>
                 <Toaster expand={false} closeButton />
