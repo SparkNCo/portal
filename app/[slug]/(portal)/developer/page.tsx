@@ -15,6 +15,9 @@ import { Clock, History } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
+import { pickDeveloperProject } from "@/lib/developer-routes";
+import { useParams } from "next/navigation";
+import { safeDecodeURIComponent } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
@@ -27,6 +30,8 @@ export default function DeveloperDashboard() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const { selectedProject: selectedProjectFromSidebar } = useSelectedProject();
+  const { slug: rawUrlSlug } = useParams<{ slug?: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : null;
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
@@ -66,11 +71,11 @@ export default function DeveloperDashboard() {
       allocation: (a.allocation ?? null) as number | null,
     }));
 
-  // Which project to work on is picked from the sidebar dropdown (see
-  // components/sidebar.tsx) and lives in SelectedProjectContext, rather than
-  // local state, so it's shared with the rest of the /dev/* nav. Falls back
-  // to the first assignment so a project is always selected.
-  const selectedProject = selectedProjectFromSidebar ?? projects[0]?.clientName ?? null;
+  // The initiative in the URL (/{slug}/developer); the sidebar's last pick
+  // and then the first assignment only fill in if the URL's slug isn't one
+  // of theirs. Issues are still fetched for every assignment (the hours
+  // chart compares all of them), then filtered to this one.
+  const selectedProject = pickDeveloperProject(profile, urlSlug, selectedProjectFromSidebar);
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],

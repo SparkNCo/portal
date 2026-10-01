@@ -33,11 +33,9 @@ export default function DocumentsPage() {
         (a) => a.clientName === selectedDeveloperProject,
       )
     : undefined;
-  // Developers have no `linear_slug` of their own (that's a customer-account
-  // field) and, under `/dev/documents`, no `[slug]` route segment either —
-  // fall back to the sidebar-selected assignment, then the first one, same
-  // customer this page would have resolved to via the old
-  // `/{assignedClientName}/documents` URL.
+  // Developers reach this page at /{slug}/documents (old /dev/documents links
+  // redirect there), so the URL's slug normally wins; the assignment
+  // fallbacks only apply if there's no slug at all.
   const slug =
     customerSlug ??
     urlSlug ??

@@ -40,14 +40,14 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 |---|---|---|
 | `admin` | `/admin/users` | Always |
 | `customer` | `/{clientName}/dashboard` | Always |
-| `developer` | `/dev/developer` | Always |
+| `developer` | `/{slug}/developer` — last initiative picked in "Working on", else their first assignment (`/dev/developer` if they have none) | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard` | Requires at least one customer assignment |
 
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
 **Admin and developer routes carry no customer slug at all** — they're fixed paths (`/admin/*`, `/dev/*`) rather than `/{slug}/*`, since neither role is tied to a single customer. Customer and stakeholder routes are still slug-based, because those roles *are* scoped to one customer's data (`clientName`, taken from the profile directly for customers, or from `assignment_id[0].clientName`/`assignment_id[0].linear_slug` for stakeholders).
 
-> **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `` /${customer.clientName}/admin `` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `customer.userName` as a stand-in slug (`/{userName}/admin` → `/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Both were replaced by the fixed, slug-less routes in the table above — `app/admin/users/page.tsx` and `app/dev/developer/page.tsx` (a thin wrapper re-exporting the same `DeveloperDashboard` component that used to live only under `app/[slug]/(portal)/developer/page.tsx`). See `app/docs/DEVELOPER_DASHBOARD_FLOWS.md` and `app/docs/CHAT_FLOWS.md` for how this ripples into the developer dashboard and chat.
+> **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `` /${customer.clientName}/admin `` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `customer.userName` as a stand-in slug (`/{userName}/admin` → `/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Admin's was replaced by the fixed `/admin/users`. Developer's moved to a slug-less `/dev/developer` for a while and is now `/{slug}/developer` again, picked by `lib/developer-routes.ts` (last "Working on" choice, else first assignment). See `app/docs/DEVELOPER_DASHBOARD_FLOWS.md` and `app/docs/CHAT_FLOWS.md` for how this ripples into the developer dashboard and chat.
 
 ---
 
@@ -123,13 +123,13 @@ Three things happen in sequence:
 
 The slugified name from step 2 is what's used to build the redirect URL.
 
-**Redirect after setup** — same fixed/slug-based split as the regular login redirect (see section 1's "Admin/developer redirect history" for why admin/developer are slug-less):
+**Redirect after setup** — same destinations as the regular login redirect (see section 1's "Admin/developer redirect history"):
 
 | Role | Redirect |
 |---|---|
 | `customer` | `/{clientName}/dashboard` |
 | `admin` | `/admin/users` |
-| `developer` | `/dev/developer` |
+| `developer` | `/dev/developer`, which forwards to `/{slug}/developer` for their first initiative once the profile loads |
 | Anyone else (e.g. `stakeholder`) | `/{clientName}/dashboard/dashboards` |
 
 After redirecting, `reloadUser()` is called to refresh the global user context so the rest of the app has the updated profile immediately.

@@ -7,6 +7,8 @@ import { SparkButton } from "@/components/ui/spark-button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
 import { getStakeholderClientSlug, useUser } from "context/UserContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
+import { developerPanelPath } from "@/lib/developer-routes";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -30,6 +32,7 @@ export default function LoginForm({
   const [resetError, setResetError] = useState("");
 
   const { profile: customer, loading: customerLoading } = useUser();
+  const { selectedProject } = useSelectedProject();
 
   useEffect(() => {
     if (customer) {
@@ -47,7 +50,8 @@ export default function LoginForm({
       if (customer?.role === "admin") {
         router.push("/admin/users");
       } else if (customer?.role === "developer") {
-        router.push("/dev/developer");
+        // Their last-picked initiative (or first assignment) — see lib/developer-routes.ts.
+        router.push(developerPanelPath(customer, "developer", selectedProject));
       } else {
         router.push(`/${customer.clientName?.toLowerCase()}/dashboard`);
       }

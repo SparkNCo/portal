@@ -160,14 +160,14 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 |---|---|---|
 | `admin` | `/admin/users` | Always |
 | `customer` | `/{clientName}/dashboard` | Always |
-| `developer` | `/dev/developer` | Always |
+| `developer` | `/{slug}/developer` — last initiative picked in "Working on", else their first assignment | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard` | Requires at least one customer assignment |
 
 > **Important:** Stakeholders with no assignment cannot log in — they see "No client assigned to this account. Contact your administrator." The admin must assign them to a customer first (see Admin Panel section).
 
 **Admin and developer routes carry no customer slug at all** — fixed paths (`/admin/*`, `/dev/*`) rather than `/{slug}/*`, since neither role is tied to a single customer. Customer/stakeholder routes stay slug-based.
 
-> **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `/{clientName}/admin` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `userName` as a stand-in slug (`/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Both were replaced by the fixed, slug-less routes above — `app/admin/users/page.tsx` and `app/dev/developer/page.tsx` (a thin wrapper re-exporting the same `DeveloperDashboard` that used to live only under `app/[slug]/(portal)/developer/page.tsx`).
+> **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `/{clientName}/admin` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `userName` as a stand-in slug (`/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Admin's was replaced by the fixed `/admin/users`. Developer's is `/{slug}/developer` again (it was briefly the slug-less `/dev/developer`), picked by `lib/developer-routes.ts`.
 
 ### 2.2 Forgot Password Flow
 
@@ -701,11 +701,11 @@ User lands on /{slug}/dashboard
 
 ## 6. Developer Dashboard
 
-> Main page: `app/dev/developer/page.tsx` → re-exports `DeveloperDashboard` (the component itself lives at `app/[slug]/(portal)/developer/page.tsx`)
+> Main page: `app/[slug]/(portal)/developer/page.tsx` → `DeveloperDashboard`, at `/{slug}/developer`
 
 ### Who sees it
 
-Users with `role === "developer"` after login, at the fixed route **`/dev/developer`** — no customer slug, since a developer isn't tied to one customer (unlike customer/stakeholder, whose routes stay `/{clientName}/...`).
+Users with `role === "developer"` after login, at **`/{slug}/developer`** for the initiative selected in "Working on". Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. The only developer page outside `/{slug}` is `/dev/chat`. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents` and `/dev/demos` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`).
 
 ### Key difference from Client Dashboard
 
@@ -774,8 +774,8 @@ Full-width `PriorityTasks` with all active issues. Title changes to the selected
 ### 6.6 Data flow
 
 ```
-User lands on /dev/developer
-  ├── AuthGate → session check (app/dev/layout.tsx also redirects home if role !== "developer")
+User lands on /{slug}/developer
+  ├── AuthGate → session check
   ├── profile.assignment_id[] → projects list
   ├── Promise.all → GET /issues per customer (parallel)
   ├── GET /decisions/counts  (refetches every 30s)
@@ -915,7 +915,7 @@ User lands on /{slug}/monitor
 ## 8. Documents
 
 > Customer/stakeholder (and admin previewing a customer): `app/[slug]/(portal)/documents/page.tsx`
-> Developer's own page: `app/dev/documents/page.tsx` (no slug) — re-exports the same component
+> Developers use the same `/{slug}/documents` page; old `/dev/documents` links redirect there
 
 See `app/docs/DOCUMENTS_FLOWS.md` for the full write-up — this section is a summary.
 
@@ -1017,7 +1017,7 @@ Only rendered for developer/admin (`canUpload`) — see 8.1.
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/documents/page.tsx` | Page shell — slug/projectSlug resolution, role-based panel composition |
-| `app/dev/documents/page.tsx` | Developer's own entry point — re-exports the same page |
+| `app/dev/documents/page.tsx` | Redirect from the old `/dev/documents` to `/{slug}/documents` |
 | `components/documents/documents-list.tsx` | Document list with search, filter, grouping |
 | `components/documents/document-list-panel.tsx` | Document rows with all actions |
 | `components/documents/ShareDocumentModal.tsx` | Share modal |

@@ -147,6 +147,9 @@ function SetPasswordForm() {
     } else if (role === "admin") {
       redirectPath = "/admin/users";
     } else if (role === "developer") {
+      // The profile with their assignments isn't loaded yet at this point;
+      // /dev/developer forwards to /{slug}/developer for their first
+      // initiative once it is (components/dev-route-redirect.tsx).
       redirectPath = "/dev/developer";
     }
 

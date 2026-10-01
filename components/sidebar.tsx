@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
 import { useSelectedProject } from "@/lib/selected-project-context";
+import { developerProjectNames, pickDeveloperProject, routeSlugFor } from "@/lib/developer-routes";
 import {
   Select,
   SelectContent,
@@ -46,17 +47,16 @@ const clientNavItems = [
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
-// Absolute, so they still work while a developer is on a /{slug} page
-// (Demos lives at /{slug}/demos). DEVELOPER_DEMOS_HREF is swapped for the
-// selected project's /{slug}/demos at render time.
-const DEVELOPER_DEMOS_HREF = "/dev/demos";
+// Relative items resolve to /{slug}/{item} for the initiative selected in
+// "Working on" (see lib/developer-routes.ts); Chat is the one developer page
+// outside /{slug}.
 const developerNavItems = [
-  { href: "/dev/developer", label: "Developer", icon: Code2 },
-  { href: "/dev/build", label: "Build", icon: Hammer },
-  { href: "/dev/bugs", label: "Bugs", icon: Bug },
-  { href: DEVELOPER_DEMOS_HREF, label: "Demos", icon: Video },
+  { href: "developer", label: "Developer", icon: Code2 },
+  { href: "build", label: "Build", icon: Hammer },
+  { href: "bugs", label: "Bugs", icon: Bug },
+  { href: "demos", label: "Demos", icon: Video },
   { href: "/dev/chat", label: "Chat", icon: MessageCircle },
-  { href: "/dev/documents", label: "Documents", icon: FileText },
+  { href: "documents", label: "Documents", icon: FileText },
 ];
 
 // Absolute, unlike the other roles' items: admins reach these from inside a
@@ -215,33 +215,22 @@ export function Sidebar() {
   const portalType = profile?.role ?? "developer";
   const navItems = roleNavMap[portalType] ?? developerNavItems;
 
-  // Developers can be assigned to several customers at once — this lets
-  // them pick which one to work on. Selection lives in SelectedProjectContext
-  // (localStorage-backed, see lib/selected-project-context.tsx) rather than
-  // the URL, so the customer's name never ends up in the address bar,
-  // browser history, or a copied/shared link.
-  const assignments: any[] = Array.isArray(profile?.assignment_id)
-    ? (profile.assignment_id as any[])
-    : [];
-  const developerProjects = [
-    ...new Set(
-      assignments.map((a) => a.clientName as string).filter(Boolean),
-    ),
-  ];
+  // Developers can be assigned to several customers at once — "Working on"
+  // picks which one. On /{slug} pages the URL decides it; elsewhere
+  // (/dev/chat) the last pick is used (lib/selected-project-context.tsx),
+  // then the first assignment.
+  const developerProjects = developerProjectNames(profile);
   const { selectedProject, setSelectedProject } = useSelectedProject();
   const { isOpen, close } = useSidebar();
-  // Falls back to the first assignment when nothing's been picked yet, so a
-  // project is always selected rather than an "all projects" state.
-  const selectedDeveloperProject = selectedProject ?? developerProjects[0] ?? "";
+  const selectedDeveloperProject = pickDeveloperProject(profile, urlSlug, selectedProject) ?? "";
 
-  // On a /{slug} page (Demos), switching project keeps the developer on the
-  // same page for the new project; on /dev pages the selection alone drives
-  // what's shown.
+  // Switching project on a /{slug} page keeps the developer on the same
+  // page for the new initiative; on /dev/chat it only changes the selection.
   const handleDeveloperProjectChange = (clientName: string) => {
     setSelectedProject(clientName);
     if (urlSlug) {
-      const panel = pathname.split("/")[2] ?? "demos";
-      router.push(`/${encodeURIComponent(clientName.toLowerCase())}/${panel}`);
+      const panel = pathname.split("/")[2] ?? "developer";
+      router.push(`/${routeSlugFor(clientName)}/${panel}`);
     }
   };
   // Landing on a /{slug} page directly (link, bookmark) selects that project
@@ -390,10 +379,14 @@ export function Sidebar() {
           </>
         ) : (
           navItems.map((item) => {
-            const href =
-              item.href === DEVELOPER_DEMOS_HREF && selectedDeveloperProject
-                ? `/${encodeURIComponent(selectedDeveloperProject.toLowerCase())}/demos`
-                : item.href;
+            // Developers' relative items point at their selected initiative
+            // (or /dev/{item}, which explains there's none yet).
+            let href = item.href;
+            if (portalType === "developer" && !href.startsWith("/")) {
+              href = selectedDeveloperProject
+                ? `/${routeSlugFor(selectedDeveloperProject)}/${href}`
+                : `/dev/${href}`;
+            }
             const isActive = href.startsWith("/")
               ? pathname === href || pathname.startsWith(`${href}/`)
               : pathname.endsWith(`/${href}`) || pathname.includes(`/${href}/`);

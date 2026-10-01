@@ -120,29 +120,17 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
 // `event.link` is baked in server-side as `/${projectSlug}/build`,
 // `/${projectSlug}/bugs`, or `/${projectSlug}/documents` (see
 // resolveIssueDashboardLink/resolveDocumentsLink in
-// supabase/functions/utils/notify.ts) — correct for a customer/stakeholder/
-// admin, whose own pages really are slug-scoped. A developer's equivalent
-// pages (`/dev/build`, `/dev/bugs`, `/dev/documents`) have no slug at all
-// (they pick their project from the sidebar instead, see
-// app/dev/build/page.tsx) — sending them through the customer-facing slug
-// URL instead landed them on a different page than their own portal, with
-// the "Working on" project selector not applying there (it isn't that
-// page's concept of a project), which is what looked like being stuck on
-// the wrong customer.
-const DEVELOPER_SAFE_SUFFIXES = ["bugs", "build", "documents"];
-function resolveDeveloperSafePath(role: string | undefined, eventLink: string): string {
-  if (role !== "developer") return eventLink;
-  const suffix = DEVELOPER_SAFE_SUFFIXES.find((s) => eventLink.endsWith(`/${s}`)) ?? "build";
-  return `/dev/${suffix}`;
-}
+// supabase/functions/utils/notify.ts). Every role, developers included, uses
+// those /{slug} pages, so the link is used as-is; the sidebar's "Working on"
+// dropdown follows the slug when a developer lands there.
 
 function resolveLink(n: Notification, role: string | undefined, ownSlug: string | undefined): string {
   const { event } = n;
   if (event.object_type === "chat") {
     return `${resolveChatBasePath(role, ownSlug)}?chatId=${event.object_id}`;
   }
-  if (!event.issue_id) return resolveDeveloperSafePath(role, event.link);
-  const base = resolveDeveloperSafePath(role, event.link);
+  if (!event.issue_id) return event.link;
+  const base = event.link;
   const tab = OBJECT_TYPE_TABS[event.object_type];
   const tabParam = tab ? `&tab=${tab}` : "";
   return `${base}?issueId=${event.issue_id}${tabParam}`;

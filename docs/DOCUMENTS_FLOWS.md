@@ -2,7 +2,7 @@
 
 > Reference for the Documents page, document requests, and all their panels.
 > Customer/stakeholder (and admin previewing a customer): `app/[slug]/(portal)/documents/page.tsx` → `DocumentsPage`
-> Developer's own page: `app/dev/documents/page.tsx` → re-exports the same `DocumentsPage` (no slug)
+> Developers use the same `/{slug}/documents` page; `app/dev/documents/page.tsx` only redirects old links there
 
 Both routes render the identical component — same slug-less-for-admin/developer pattern used by the Developer Dashboard and Chat (see `app/docs/DEVELOPER_DASHBOARD_FLOWS.md`, `app/docs/CHAT_FLOWS.md`).
 
@@ -258,7 +258,7 @@ Documents uploaded by a user have `owner` permission for that user. Documents sh
 ## Full data flow
 
 ```
-User lands on /{slug}/documents or /dev/documents
+User lands on /{slug}/documents
           │
           ├── Resolve `slug` (previewed customer → URL param → profile → assignment fallbacks)
           ├── Resolve `projectSlug` (admin: customers lookup; else: assignment/profile linear_slug)
@@ -299,7 +299,7 @@ User lands on /{slug}/documents or /dev/documents
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/documents/page.tsx` | Page shell — slug/projectSlug resolution, role-based panel composition |
-| `app/dev/documents/page.tsx` | Developer's own entry point (`/dev/documents`) — re-exports the same page |
+| `app/dev/documents/page.tsx` | Redirect from the old `/dev/documents` to `/{slug}/documents` |
 | `components/documents/documents-list.tsx` | Document list with search, category filter, project grouping |
 | `components/documents/document-list-panel.tsx` | Individual document rows with all actions (open, download, share, category, delete) |
 | `components/documents/ShareDocumentModal.tsx` | Share modal and `useShareDocument` mutation |
