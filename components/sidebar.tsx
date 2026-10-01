@@ -47,29 +47,25 @@ const clientNavItems = [
   { href: "settings", label: "Settings", icon: Settings },
 ];
 
-// Relative items resolve to /{slug}/{item} for the initiative selected in
-// "Working on" (see lib/developer-routes.ts); Chat is the one developer page
-// outside /{slug}.
+// Resolve to /{slug}/{item} for the initiative selected in "Working on"
+// (see lib/developer-routes.ts).
 const developerNavItems = [
   { href: "developer", label: "Developer", icon: Code2 },
   { href: "build", label: "Build", icon: Hammer },
   { href: "bugs", label: "Bugs", icon: Bug },
   { href: "demos", label: "Demos", icon: Video },
-  { href: "/dev/chat", label: "Chat", icon: MessageCircle },
+  { href: "chat", label: "Chat", icon: MessageCircle },
   { href: "documents", label: "Documents", icon: FileText },
 ];
 
 // Absolute, unlike the other roles' items: admins reach these from inside a
 // customer's /{slug} pages too, where a relative href would resolve under
 // the slug.
-const adminNavItems = [
-  { href: "/admin/users", label: "Users", icon: Shield },
-  { href: "/admin/chats", label: "Chat", icon: MessageCircle },
-];
+const adminNavItems = [{ href: "/admin/users", label: "Users", icon: Shield }];
 
-// Customer pages an admin sees for the initiative picked in the dropdown.
-// Chat is left out: admins use their own /admin/chats inbox.
-const adminCustomerNavItems = clientNavItems.filter((item) => item.href !== "chat");
+// Customer pages an admin sees for the initiative picked in the dropdown
+// (Chat included — it's /{slug}/chat for every role).
+const adminCustomerNavItems = clientNavItems;
 
 type InitiativeOption = { value: string; label: string };
 
@@ -216,8 +212,8 @@ export function Sidebar() {
   const navItems = roleNavMap[portalType] ?? developerNavItems;
 
   // Developers can be assigned to several customers at once — "Working on"
-  // picks which one. On /{slug} pages the URL decides it; elsewhere
-  // (/dev/chat) the last pick is used (lib/selected-project-context.tsx),
+  // picks which one. On /{slug} pages the URL decides it; elsewhere (the old
+  // /dev/* redirects) the last pick is used (lib/selected-project-context.tsx),
   // then the first assignment.
   const developerProjects = developerProjectNames(profile);
   const { selectedProject, setSelectedProject } = useSelectedProject();
@@ -225,7 +221,7 @@ export function Sidebar() {
   const selectedDeveloperProject = pickDeveloperProject(profile, urlSlug, selectedProject) ?? "";
 
   // Switching project on a /{slug} page keeps the developer on the same
-  // page for the new initiative; on /dev/chat it only changes the selection.
+  // page for the new initiative.
   const handleDeveloperProjectChange = (clientName: string) => {
     setSelectedProject(clientName);
     if (urlSlug) {

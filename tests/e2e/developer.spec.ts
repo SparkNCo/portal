@@ -115,6 +115,12 @@ test.describe('Developer — panels', () => {
     await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
   });
 
+  test('old /dev/chat links redirect to /{slug}/chat', async ({ page }) => {
+    await page.goto('/dev/chat');
+    await expect(page).toHaveURL(/\/(?!dev\/)[^/]+\/chat$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Chat', level: 1 })).toBeVisible({ timeout: 15_000 });
+  });
+
   // ── Chat panel ─────────────────────────────────────────────────────────────
 
   test('Chat panel loads and shows the sidebar', async ({ page }) => {

@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { safeDecodeURIComponent } from "@/lib/utils";
+import { resolveChatRouteSlug } from "@/lib/chat-links";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { fetchAllNotifications, fetchChatProjectSlugs, useNotifications, type Notification } from "./useNotifications";
@@ -91,6 +92,10 @@ function formatRelativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
+// Admins and developers have no slug of their own, so for them a chat link
+// first goes to the old /admin/chats or /dev/chat route, which redirects to
+// the chat's own /{slug}/chat (components/chat/chat-route-redirect.tsx).
+// handleOpen resolves that slug directly where it can and skips the hop.
 // `notifications.link` is a role-agnostic best-effort page (see
 // 20260921150000_create_notifications.sql's notify_chat_message trigger and
 // supabase/functions/utils/notify.ts) — this resolves it to the actual
@@ -224,26 +229,29 @@ function AllNotificationsModal({
   onOpenChange,
   onOpen,
   isAdmin,
+  startTab = "unread",
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onOpen: (n: Notification) => void;
   readonly isAdmin: boolean;
+  // Tab the modal opens on; "seen" when an admin has nothing unread.
+  readonly startTab?: NotificationsTab;
 }) {
   const [all, setAll] = useState<Notification[]>([]);
   const [chatSlugs, setChatSlugs] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [customerFilter, setCustomerFilter] = useState(ALL_CUSTOMERS);
-  const [tab, setTab] = useState<NotificationsTab>("unread");
+  const [tab, setTab] = useState<NotificationsTab>(startTab);
 
-  // Reset on close, so reopening always starts clean on Unread (resetting on
-  // open instead would first fetch the stale tab, then refetch).
+  // Reset on close, so reopening always starts clean on `startTab`
+  // (resetting on open instead would first fetch the stale tab, then refetch).
   useEffect(() => {
     if (open) return;
-    setTab("unread");
+    setTab(startTab);
     setQuery("");
-  }, [open]);
+  }, [open, startTab]);
 
   const { data: customers = [] } = useQuery<CustomerSummary[]>({
     queryKey: ["customers"],
@@ -420,18 +428,32 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [seeAllOpen, setSeeAllOpen] = useState(false);
 
-  const handleOpen = (n: Notification) => {
+  const handleOpen = async (n: Notification) => {
     // Already-read ones come from the modal's "Seen" tab — re-marking them
     // would make the realtime UPDATE handler decrement the unread count again.
     if (!n.read) markAsRead(n.id);
     setOpen(false);
     setSeeAllOpen(false);
-    router.push(resolveLink(n, profile?.role, customerSlug ?? profile?.linear_slug));
+
+    const { event } = n;
+    const needsChatSlug =
+      event.object_type === "chat" && (profile?.role === "admin" || profile?.role === "developer");
+    const chatSlug = needsChatSlug ? await resolveChatRouteSlug(event.object_id, profile).catch(() => null) : null;
+    router.push(
+      chatSlug
+        ? `/${chatSlug}/chat?chatId=${event.object_id}`
+        : resolveLink(n, profile?.role, customerSlug ?? profile?.linear_slug),
+    );
   };
 
   const isSmallScreen = useIsSmallScreen();
   const hasNotifications = !loading && notifications.length > 0;
-  const showSeeAll = !loading && totalUnreadCount > notifications.length && totalUnreadCount > 3;
+  const isAdmin = profile?.role === "admin";
+  // Admins always get "See all" — it's also their way into older, already
+  // seen notifications (the modal's Seen tab). Everyone else only needs it
+  // when there are more unread than the popup shows.
+  const showSeeAll =
+    !loading && (isAdmin || (totalUnreadCount > notifications.length && totalUnreadCount > 3));
 
   const openSeeAll = () => {
     setOpen(false);
@@ -443,7 +465,7 @@ export function NotificationBell() {
       onClick={openSeeAll}
       className="w-full flex-shrink-0 border-t px-3 py-2 text-center smalltext font-medium text-primary hover:bg-accent/5"
     >
-      See all ({totalUnreadCount})
+      {totalUnreadCount > 0 ? `See all (${totalUnreadCount})` : "See all"}
     </button>
   );
 
@@ -452,7 +474,8 @@ export function NotificationBell() {
       open={seeAllOpen}
       onOpenChange={setSeeAllOpen}
       onOpen={handleOpen}
-      isAdmin={profile?.role === "admin"}
+      isAdmin={isAdmin}
+      startTab={isAdmin && totalUnreadCount === 0 ? "seen" : "unread"}
     />
   );
 

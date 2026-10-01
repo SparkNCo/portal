@@ -40,7 +40,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Open any customer's full portal (Dashboard, Monitor, Build, Bugs, Documents, Settings) by picking it from the sidebar's **Initiative** dropdown — the same picker developers use, listing every customer. Switching customer keeps the current page (e.g. `/lualink/build` → `/beassured/build`).
 - Ask questions on issues (same permissions as developers). Cannot change issue state directly (see 4.2).
 
-**Sidebar:** Initiative dropdown; the selected customer's pages (Dashboard, Monitor, Build, Bugs, Documents, Settings); then an **Admin** section with Users and Chat (`/admin/users`, `/admin/chats`), reachable from anywhere. There is no separate Dashboards page — "Add Customer" lives on `/admin/users`.
+**Sidebar:** Initiative dropdown; the selected customer's pages (Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings); then an **Admin** section with Users (`/admin/users`), reachable from anywhere. There is no separate Dashboards page — "Add Customer" lives on `/admin/users`.
 
 ---
 
@@ -165,7 +165,7 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 
 > **Important:** Stakeholders with no assignment cannot log in — they see "No client assigned to this account. Contact your administrator." The admin must assign them to a customer first (see Admin Panel section).
 
-**Admin pages carry no customer slug** — fixed paths (`/admin/*`); admins open a customer's pages from the sidebar's Initiative dropdown. Customers, stakeholders and developers land on `/{slug}/*` routes (developers: `/dev/chat` is the only exception).
+**Admin pages carry no customer slug** — fixed paths (`/admin/*`); admins open a customer's pages from the sidebar's Initiative dropdown. Customers, stakeholders and developers land on `/{slug}/*` routes.
 
 **Developers with more than one assignment** land on `/{slug}/developer` for the initiative they last worked on in this browser (the "Working on" dropdown, stored in `localStorage` as `dev-selected-project`, also updated whenever they open a `/{slug}` page), if it's still one of their assignments; otherwise their first assignment; with none, `/dev/developer` ("No assigned projects yet"). The choice is per browser, and "first assignment" has no guaranteed order (the assignments query has no `order by`). Full details: `app/docs/LOGIN_FLOWS.md` → "Developers with more than one assignment".
 
@@ -707,7 +707,7 @@ User lands on /{slug}/dashboard
 
 ### Who sees it
 
-Users with `role === "developer"` after login, at **`/{slug}/developer`** for the initiative selected in "Working on". Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. The only developer page outside `/{slug}` is `/dev/chat`. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents` and `/dev/demos` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`).
+Users with `role === "developer"` after login, at **`/{slug}/developer`** for the initiative selected in "Working on". Developers use the same `/{slug}/…` routes as customers and admins, for the initiative selected in the sidebar's **"Working on"** dropdown (`lib/developer-routes.ts`). The URL decides the initiative; switching it in the dropdown moves to the same page for the new one. Old `/dev/developer`, `/dev/build`, `/dev/bugs`, `/dev/documents`, `/dev/demos` and `/dev/chat` links redirect to the matching `/{slug}/…` page, keeping their query string (`components/dev-route-redirect.tsx`, `components/chat/chat-route-redirect.tsx`).
 
 ### Key difference from Client Dashboard
 
@@ -1039,14 +1039,13 @@ Only rendered for developer/admin (`canUpload`) — see 8.1.
 ## 9. Chat
 
 > Customer/stakeholder page: `app/[slug]/(portal)/chat/page.tsx` → `CometChatPage`
-> Developer's own page: `app/dev/chat/page.tsx` → `DevChatPage` (no slug)
-> Admin's own page: `app/admin/chats/page.tsx` → `AdminChatPage` (no slug, unscoped inbox)
+> Every role uses `/{slug}/chat`; `app/dev/chat/page.tsx` and `app/admin/chats/page.tsx` only redirect old links there
 
 All three render the same `ChatLayout`. See `app/docs/CHAT_FLOWS.md` for the full write-up — this section is a summary.
 
 ### Who sees it
 
-`customer`, `developer`, `stakeholder`, and `admin`. Admin and developer chat routes carry no customer slug (`/admin/chats`, `/dev/chat`); chat hasn't moved under `/{slug}` yet, unlike the rest of the developer pages.
+`customer`, `developer`, `stakeholder`, and `admin`. All roles open chat at `/{slug}/chat`, scoped to the initiative in the URL (admins: Initiative dropdown; developers: "Working on"). Admins' New Chat is locked to that customer. Old `/admin/chats` and `/dev/chat` links redirect to the right `/{slug}/chat` (see `app/docs/CHAT_FLOWS.md`).
 
 Two distinct chat surfaces exist:
 - **The standalone page** — full chat with a sidebar and conversation view. The admin Dashboards preview (`panel-renderer.tsx`, `case "chat"`) renders the `/[slug]/(portal)/chat` version scoped to whichever customer is being previewed.
@@ -1075,7 +1074,7 @@ Two-panel split: sidebar (left) + chat area (right).
 
 **Mobile:** one panel at a time. Sidebar by default; selecting a chat hides it. A "Back to chats" button returns to the sidebar.
 
-**Scoping to one customer:** `customerId` passed to `useCometChat` comes from `useCustomerSlug()` + `usePinnedPanelsOwnerId()` — empty on a plain `/chat`/`/dev/chat`/`/admin/chats` visit (unscoped inbox), resolved to the previewed customer's id inside the Dashboards preview. Separately, admins also get a manual dropdown filter (fetches all `role === "customer"` users) to narrow their own unscoped `/admin/chats` inbox to one customer at a time.
+**Scoping to one customer:** the inbox is always the URL's initiative. Admins: `useCustomerSlug()` + `usePinnedPanelsOwnerId()` resolve the slug to the customer's user id, passed as `controlledCustomerId` (no separate customer filter inside chat anymore). Developers: the assignment matching the slug. Customers/stakeholders: their own chats.
 
 **Auto-open `CreateChatModal`** when `ready` fires **only** if the URL has `?newChat={title}` — there is no longer an auto-open for "customer with no chats".
 
@@ -1114,7 +1113,7 @@ Unlike the standalone page, `IssueCometChat` never creates a group or adds membe
 ### 9.7 Data flow
 
 ```
-User lands on /{slug}/chat, /dev/chat, or /admin/chats
+User lands on /{slug}/chat
   ├── initCometChatUser() → init, resolve Supabase user, login/create-if-missing
   ├── customerId = customerSlug ? resolve-slug-to-id : undefined
   ├── fetchGroups(customerId) (paginated; joined-only unless admin; filtered if customerId set)
@@ -1128,8 +1127,7 @@ User lands on /{slug}/chat, /dev/chat, or /admin/chats
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/chat/page.tsx` | Customer/stakeholder entry (and admin previewing a customer) — reads `?newChat`, passes `fallbackProjectSlug` |
-| `app/dev/chat/page.tsx` | Developer's own unscoped Chat page |
-| `app/admin/chats/page.tsx` | Admin's own unscoped Chat page |
+| `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, customer scoping/filter, selection state, auto-open logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — groups, direct chats (unreachable), projectSlug grouping, admin customer filter |
 | `components/chat/CometChat/useCometChat.ts` | Group fetch/pagination, group creation, `leaveGroup` |
