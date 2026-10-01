@@ -165,7 +165,9 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 
 > **Important:** Stakeholders with no assignment cannot log in — they see "No client assigned to this account. Contact your administrator." The admin must assign them to a customer first (see Admin Panel section).
 
-**Admin and developer routes carry no customer slug at all** — fixed paths (`/admin/*`, `/dev/*`) rather than `/{slug}/*`, since neither role is tied to a single customer. Customer/stakeholder routes stay slug-based.
+**Admin pages carry no customer slug** — fixed paths (`/admin/*`); admins open a customer's pages from the sidebar's Initiative dropdown. Customers, stakeholders and developers land on `/{slug}/*` routes (developers: `/dev/chat` is the only exception).
+
+**Developers with more than one assignment** land on `/{slug}/developer` for the initiative they last worked on in this browser (the "Working on" dropdown, stored in `localStorage` as `dev-selected-project`, also updated whenever they open a `/{slug}` page), if it's still one of their assignments; otherwise their first assignment; with none, `/dev/developer` ("No assigned projects yet"). The choice is per browser, and "first assignment" has no guaranteed order (the assignments query has no `order by`). Full details: `app/docs/LOGIN_FLOWS.md` → "Developers with more than one assignment".
 
 > **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `/{clientName}/admin` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `userName` as a stand-in slug (`/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Admin's was replaced by the fixed `/admin/users`. Developer's is `/{slug}/developer` again (it was briefly the slug-less `/dev/developer`), picked by `lib/developer-routes.ts`.
 
@@ -1044,7 +1046,7 @@ All three render the same `ChatLayout`. See `app/docs/CHAT_FLOWS.md` for the ful
 
 ### Who sees it
 
-`customer`, `developer`, `stakeholder`, and `admin`. Admin and developer routes carry no customer slug (`/admin/chats`, `/dev/chat`), matching their slug-less dashboards (section 6, section 2's redirect table).
+`customer`, `developer`, `stakeholder`, and `admin`. Admin and developer chat routes carry no customer slug (`/admin/chats`, `/dev/chat`); chat hasn't moved under `/{slug}` yet, unlike the rest of the developer pages.
 
 Two distinct chat surfaces exist:
 - **The standalone page** — full chat with a sidebar and conversation view. The admin Dashboards preview (`panel-renderer.tsx`, `case "chat"`) renders the `/[slug]/(portal)/chat` version scoped to whichever customer is being previewed.

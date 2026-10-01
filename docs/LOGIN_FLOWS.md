@@ -45,7 +45,31 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
-**Admin and developer routes carry no customer slug at all** — they're fixed paths (`/admin/*`, `/dev/*`) rather than `/{slug}/*`, since neither role is tied to a single customer. Customer and stakeholder routes are still slug-based, because those roles *are* scoped to one customer's data (`clientName`, taken from the profile directly for customers, or from `assignment_id[0].clientName`/`assignment_id[0].linear_slug` for stakeholders).
+**Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below. The only developer page outside `/{slug}` is `/dev/chat`.
+
+#### Developers with more than one assignment
+
+A developer can be assigned to several initiatives, so login has to pick one. `app/login/Login.tsx` calls `developerPanelPath(profile, "developer", selectedProject)` (`lib/developer-routes.ts`), which resolves the initiative in this order:
+
+1. **The initiative they last worked on in this browser.** It's the value of the sidebar's "Working on" dropdown, stored in `localStorage` under `dev-selected-project` (`lib/selected-project-context.tsx`). It's saved when the developer picks a project in the dropdown, and also whenever they open any `/{slug}/…` page of one of their initiatives (the sidebar syncs the dropdown with the URL). It's only used if it's still one of their current assignments; the match ignores case.
+2. **Otherwise, their first assignment.**
+3. **No assignments:** `/dev/developer`, which shows "No assigned projects yet".
+
+The destination is `/{clientName lowercased}/developer`, e.g. `/spark-portal/developer`.
+
+| Situation | Lands on |
+|---|---|
+| Assigned to Spark-Portal and LuaLink, last worked on LuaLink in this browser | `/lualink/developer` |
+| First login in this browser (or another computer, or cleared site data) | `/{first assignment}/developer` |
+| No longer assigned to the stored initiative | `/{first assignment}/developer` |
+| No assignments | `/dev/developer` → "No assigned projects yet" |
+
+**Caveats:**
+
+- **Remembered per browser, not per user.** Another device or a cleared browser falls back to the first assignment.
+- **"First assignment" has no guaranteed order.** The assignments come from `GET /users?email=`, which loads them with `.in("id", assignment_id)` and no `order by` (`supabase/functions/users/index.ts`). In practice the order is stable, but the database doesn't promise it. Ordering that query (e.g. by `joined` or `allocation`) would make it predictable.
+- **After set-password** the profile with assignments isn't loaded yet, so the redirect goes to `/dev/developer`, which forwards to `/{slug}/developer` once it is (`components/dev-route-redirect.tsx`), using the same order as above.
+
 
 > **Admin/developer redirect history:** admin's redirect used to be slug-based too — first `` /${customer.clientName}/admin `` (broken: `clientName` only populates when a user has a `customer_id`, which admins never do, so it always resolved to `/null/admin`), then `customer.userName` as a stand-in slug (`/{userName}/admin` → `/{userName}/users`, requiring every admin account to have a `userName` set). Developer's redirect was similarly `/{assignment[0].clientName}/developer`. Admin's was replaced by the fixed `/admin/users`. Developer's moved to a slug-less `/dev/developer` for a while and is now `/{slug}/developer` again, picked by `lib/developer-routes.ts` (last "Working on" choice, else first assignment). See `app/docs/DEVELOPER_DASHBOARD_FLOWS.md` and `app/docs/CHAT_FLOWS.md` for how this ripples into the developer dashboard and chat.
 
