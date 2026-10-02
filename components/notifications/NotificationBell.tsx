@@ -13,6 +13,8 @@ import {
   Palette,
   FileEdit,
   FileText,
+  FileCheck2,
+  FileX,
   Search,
   X,
 } from "lucide-react";
@@ -47,6 +49,9 @@ const ACTION_PHRASES: Record<string, string> = {
   design_resource_added: "added a design resource",
   requirement_update_added: "posted a requirement update",
   document_request_created: "requested a document",
+  document_request_claimed: "is working on the document request",
+  document_request_released: "unassigned the document request",
+  document_request_completed: "delivered the document request",
 };
 
 const OBJECT_TYPE_LABELS: Record<string, string> = {
@@ -79,6 +84,9 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   design_resource_added: Palette,
   requirement_update_added: FileEdit,
   document_request_created: FileText,
+  document_request_claimed: FileText,
+  document_request_released: FileX,
+  document_request_completed: FileCheck2,
 };
 
 function formatRelativeTime(iso: string): string {

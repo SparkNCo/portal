@@ -249,6 +249,37 @@ test.describe('Admin — panels', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
+  // Opens Share, checks the people picker, and cancels — never shares, so it
+  // doesn't change any document's permissions.
+  test('Documents — Share lists the initiative people to pick from', async ({ page }) => {
+    await page.goto('/spark-portal/documents');
+
+    const shareButton = page.locator('button[aria-label^="Share "]').first();
+    const emptyState = page.getByText('No documents found');
+    await expect(shareButton.or(emptyState)).toBeVisible({ timeout: 25_000 });
+    if (!(await shareButton.isVisible())) {
+      test.skip(true, 'No shareable documents in this environment');
+    }
+    await shareButton.click();
+
+    const dialog = page.getByRole('dialog', { name: 'Share Document' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Loading people…')).not.toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByRole('textbox')).toHaveCount(0);
+
+    const shareSubmit = dialog.getByRole('button', { name: /^Share/ });
+    await expect(shareSubmit).toBeDisabled();
+
+    const people = dialog.getByRole('listitem').getByRole('checkbox');
+    if ((await people.count()) > 0) {
+      await people.first().click();
+      await expect(dialog.getByRole('button', { name: 'Share with 1' })).toBeEnabled();
+    }
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).not.toBeVisible();
+  });
+
   // ── Role-specific pages ────────────────────────────────────────────────────
 
   test('the developer-only page sends an admin to the initiative dashboard', async ({ page }) => {

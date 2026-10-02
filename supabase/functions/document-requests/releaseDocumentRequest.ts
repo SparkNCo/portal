@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { notifyRequestUpdate } from "./notifyRequest.ts";
 
 // PATCH /document-requests { action: "release" } — frees up a claimed request
 // (e.g. the developer/admin closed the upload modal without finishing, or an
@@ -19,6 +20,15 @@ export async function releaseDocumentRequest(
   if (!id || !releasedBy) {
     return Response.json({ error: "Missing id or releasedBy" }, { status: 400 });
   }
+
+  // Who held it — the update below clears it, and an admin unassigning
+  // someone else should let that person know too.
+  const { data: before } = await supabase
+    .schema(schema)
+    .from("document_requests")
+    .select("claimed_by")
+    .eq("id", id)
+    .maybeSingle();
 
   const { data: requester } = await supabase
     .schema(schema)
@@ -52,6 +62,12 @@ export async function releaseDocumentRequest(
       { error: "Request is not claimed by you" },
       { status: 409 },
     );
+  }
+
+  // Nothing to tell anyone if it wasn't actually claimed.
+  if (before?.claimed_by) {
+    const previousClaimer = before.claimed_by !== releasedBy ? before.claimed_by : null;
+    notifyRequestUpdate(data, releasedBy, "document_request_released", [previousClaimer]);
   }
 
   return Response.json(data);
