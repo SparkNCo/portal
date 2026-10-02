@@ -1,29 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase-client";
+import { useUser } from "context/UserContext";
 import { AuthContext } from "./AuthContext";
 
+// Reads the signed-in user from the root UserContext rather than asking
+// Supabase again: each section (/admin, /{slug}, /dev) has its own layout and
+// AuthGate, and a fresh lookup on every switch between them blanked the whole
+// screen, sidebar included, while it waited.
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user, loading } = useUser();
 
   if (loading) {
     return null;

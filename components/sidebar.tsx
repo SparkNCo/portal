@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -67,6 +67,9 @@ const adminNavItems = [{ href: "/admin/users", label: "Users", icon: Shield }];
 // (Chat included — it's /{slug}/chat for every role).
 const adminCustomerNavItems = clientNavItems;
 
+// The admin's last opened initiative, preselected on /admin pages.
+const ADMIN_LAST_INITIATIVE_KEY = "admin-last-initiative";
+
 type InitiativeOption = { value: string; label: string };
 
 // Same list (and cache key) as the customers query elsewhere in the admin UI.
@@ -119,14 +122,30 @@ function NavLink({
   label,
   icon: Icon,
   isActive,
+  disabled = false,
   onClick,
 }: {
   readonly href: string;
   readonly label: string;
   readonly icon: typeof Shield;
   readonly isActive: boolean;
+  readonly disabled?: boolean;
   readonly onClick: () => void;
 }) {
+  // Kept in place (not hidden) so the menu doesn't change shape — e.g. an
+  // admin's customer pages before an initiative is picked.
+  if (disabled) {
+    return (
+      <span
+        aria-disabled="true"
+        title="Select an initiative first"
+        className="flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium text-muted-foreground/50"
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </span>
+    );
+  }
   return (
     <Link
       href={href}
@@ -257,14 +276,48 @@ export function Sidebar() {
     .filter((c) => c.clientName)
     .map((c) => ({ value: c.clientName!.toLowerCase(), label: c.clientName! }))
     .sort((a, b) => a.label.localeCompare(b.label));
-  const adminSelectedInitiative =
-    adminInitiativeOptions.find((o) => o.value === urlSlug?.toLowerCase())?.value ?? "";
+  // Picked from an /admin page: only enables the customer items below, the
+  // admin opens one of them when ready. On a customer page the URL decides.
+  // Defaults to the last initiative opened in this browser, else the first.
+  const [adminPickedInitiative, setAdminPickedInitiative] = useState("");
+  useEffect(() => {
+    try {
+      const last = localStorage.getItem(ADMIN_LAST_INITIATIVE_KEY);
+      if (last) setAdminPickedInitiative(last);
+    } catch {
+      // Storage unavailable — fall back to the first initiative.
+    }
+  }, []);
+  const rememberAdminInitiative = (routeSlug: string) => {
+    setAdminPickedInitiative(routeSlug);
+    try {
+      localStorage.setItem(ADMIN_LAST_INITIATIVE_KEY, routeSlug);
+    } catch {
+      // Not remembered across visits, still selected for now.
+    }
+  };
+  useEffect(() => {
+    if (isAdmin && urlSlug) rememberAdminInitiative(safeDecodeURIComponent(urlSlug).toLowerCase());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, urlSlug]);
+  const adminSelectedInitiative = urlSlug
+    ? adminInitiativeOptions.find((o) => o.value === urlSlug.toLowerCase())?.value ?? ""
+    : adminInitiativeOptions.find((o) => o.value === adminPickedInitiative)?.value ??
+      adminInitiativeOptions[0]?.value ??
+      "";
+  // What the customer items link to — the URL's own slug as-is, so they work
+  // before the customers list has loaded.
+  const adminNavSlug = urlSlug ?? adminSelectedInitiative;
 
-  // Switching initiative keeps the admin on the same page (e.g.
-  // /lualink/build → /beassured/build); from an /admin page it opens the
-  // customer's dashboard.
+  // Switching initiative on a customer page keeps the admin on the same
+  // page (e.g. /lualink/build → /beassured/build); from an /admin page it
+  // just selects it, without navigating.
   const handleAdminInitiativeChange = (routeSlug: string) => {
-    const currentPanel = urlSlug ? pathname.split("/")[2] : undefined;
+    if (!urlSlug) {
+      rememberAdminInitiative(routeSlug);
+      return;
+    }
+    const currentPanel = pathname.split("/")[2];
     const panel = adminCustomerNavItems.some((item) => item.href === currentPanel) ? currentPanel : "dashboard";
     router.push(`/${encodeURIComponent(routeSlug)}/${panel}`);
     close();
@@ -348,22 +401,25 @@ export function Sidebar() {
           </>
         ) : isAdmin ? (
           <>
-            {isAdminViewingCustomerSlug &&
-              adminCustomerNavItems.map((item) => (
-                <NavLink
-                  key={item.href}
-                  href={`/${encodeURIComponent(urlSlug)}/${item.href}`}
-                  label={item.label}
-                  icon={item.icon}
-                  isActive={pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`)}
-                  onClick={close}
-                />
-              ))}
-            {isAdminViewingCustomerSlug && (
-              <p className="px-3 pt-4 pb-1 smalltext font-medium uppercase tracking-wide text-sidebar-foreground/50">
-                Admin
-              </p>
-            )}
+            {/* Always listed so the menu keeps the same items; disabled
+                until an initiative is selected. */}
+            {adminCustomerNavItems.map((item) => (
+              <NavLink
+                key={item.href}
+                href={adminNavSlug ? `/${encodeURIComponent(adminNavSlug)}/${item.href}` : "#"}
+                label={item.label}
+                icon={item.icon}
+                isActive={
+                  isAdminViewingCustomerSlug &&
+                  (pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`))
+                }
+                disabled={!adminNavSlug}
+                onClick={close}
+              />
+            ))}
+            <p className="px-3 pt-4 pb-1 smalltext font-medium text-sidebar-foreground/50">
+              Admin
+            </p>
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.href}
