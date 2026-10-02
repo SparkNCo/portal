@@ -153,7 +153,7 @@ export type Issue = {
       | "UAT"
       | "Planning";
   };
-  cycle?: { number: number; isActive: boolean; name?: string };
+  cycle?: { id?: string; number: number; isActive: boolean; name?: string | null } | null;
   comments?: { nodes: Comment[] };
   description?: string | null;
   labels?: { nodes: { id: string; name: string; color: string }[] };
@@ -208,9 +208,10 @@ export type FilterState = {
   onToggleStatus: (s: string) => void;
   onToggleActive: () => void;
   onClearFilters: () => void;
-  selectedLabels?: string[];
-  availableLabels?: string[];
-  onToggleLabel?: (l: string) => void;
+  // Specific cycles ("Cycle 12", "No cycle") — separate from onlyActive.
+  selectedCycles?: string[];
+  availableCycles?: string[];
+  onToggleCycle?: (c: string) => void;
   selectedPriorities?: string[];
   availablePriorities?: string[];
   onTogglePriority?: (p: string) => void;

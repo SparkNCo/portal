@@ -120,6 +120,30 @@ const UPDATE_ISSUE_MUTATION = `
   }
 `;
 
+// The cycles a ticket can be put in: its team's current and upcoming ones
+// (cycles belong to a team in Linear), plus which one it's in now.
+const GET_ISSUE_CYCLES_QUERY = `
+  query GetIssueCycles($id: String!) {
+    issue(id: $id) {
+      cycle { id }
+      team {
+        cycles(first: 20, filter: { isPast: { eq: false } }) {
+          nodes { id number name startsAt endsAt isActive }
+        }
+      }
+    }
+  }
+`;
+
+export async function handleGetIssueCycles(req: Request): Promise<Response> {
+  const issueId = new URL(req.url).searchParams.get("issueId");
+  if (!issueId) return Response.json({ error: "Missing issueId" }, { status: 400 });
+
+  const data = await linearRequest(GET_ISSUE_CYCLES_QUERY, { id: issueId });
+  const cycles = [...(data.issue?.team?.cycles?.nodes ?? [])].sort((a, b) => a.number - b.number);
+  return Response.json({ currentCycleId: data.issue?.cycle?.id ?? null, cycles });
+}
+
 const EDIT_PRIORITY_MAP: Record<string, number> = {
   urgent: 1,
   high: 2,
@@ -142,6 +166,8 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   if (priority !== undefined && priority !== null) {
     input.priority = EDIT_PRIORITY_MAP[String(priority).toLowerCase()] ?? 0;
   }
+  // null takes the ticket out of its cycle.
+  if ("cycleId" in body) input.cycleId = body.cycleId ?? null;
 
   if (Object.keys(input).length === 0) {
     return Response.json({ error: "No fields to update" }, { status: 400 });

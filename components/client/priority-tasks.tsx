@@ -65,7 +65,7 @@ export function PriorityTasks({
   const {
     selectedStatuses,
     onlyActive,
-    selectedLabels = [],
+    selectedCycles = [],
     selectedPriorities = [],
     dateFrom = "",
     dateTo = "",
@@ -73,7 +73,7 @@ export function PriorityTasks({
 
   const activeFilters =
     selectedStatuses.length +
-    selectedLabels.length +
+    selectedCycles.length +
     selectedPriorities.length +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0) +

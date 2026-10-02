@@ -26,6 +26,8 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+const NO_CYCLE_LABEL = "No cycle";
+
 export default function DeveloperDashboard() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
@@ -36,7 +38,7 @@ export default function DeveloperDashboard() {
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedCycles, setSelectedCycles] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
@@ -95,11 +97,9 @@ export default function DeveloperDashboard() {
     .filter((i: any) => i?.state?.name !== "Done");
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
-  const availableLabels = [
-    ...new Set(
-      allIssues.flatMap((i: any) => (i.labels?.nodes ?? []).map((l: any) => l.name)),
-    ),
-  ] as string[];
+  // "Cycle N" labels of the cycles the listed tickets are in, newest first,
+  // plus "No cycle" when some ticket isn't in one.
+  const cycleOf = (i: any): string => (i.cycle?.number != null ? `Cycle ${i.cycle.number}` : NO_CYCLE_LABEL);
   const availablePriorities = [
     ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
   ] as string[];
@@ -114,15 +114,19 @@ export default function DeveloperDashboard() {
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
 
-  const labelFiltered = selectedLabels.length > 0
-    ? statusFiltered.filter((i: any) =>
-        (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
-      )
+  const availableCycles = [...new Set(projectFiltered.map(cycleOf))].sort((a, b) => {
+    if (a === NO_CYCLE_LABEL) return 1;
+    if (b === NO_CYCLE_LABEL) return -1;
+    return Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, ""));
+  });
+
+  const cycleFiltered = selectedCycles.length > 0
+    ? statusFiltered.filter((i: any) => selectedCycles.includes(cycleOf(i)))
     : statusFiltered;
 
   const priorityFiltered = selectedPriorities.length > 0
-    ? labelFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
-    : labelFiltered;
+    ? cycleFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
+    : cycleFiltered;
 
   const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
     if (sortBy === "priority")
@@ -141,11 +145,11 @@ export default function DeveloperDashboard() {
         prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
       ),
     onToggleActive: () => {},
-    selectedLabels,
-    availableLabels,
-    onToggleLabel: (l: string) =>
-      setSelectedLabels((prev) =>
-        prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l],
+    selectedCycles,
+    availableCycles,
+    onToggleCycle: (c: string) =>
+      setSelectedCycles((prev) =>
+        prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
       ),
     selectedPriorities,
     availablePriorities,
@@ -155,7 +159,7 @@ export default function DeveloperDashboard() {
       ),
     onClearFilters: () => {
       setSelectedStatuses([]);
-      setSelectedLabels([]);
+      setSelectedCycles([]);
       setSelectedPriorities([]);
     },
   };
