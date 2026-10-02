@@ -4,6 +4,8 @@ query Issues($filter: IssueFilter) {
     nodes {
       state { name }
       cycle {
+        id
+        name
         endsAt
         startsAt
         isActive

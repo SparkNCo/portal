@@ -82,6 +82,27 @@ test.describe('Developer — panels', () => {
     await expect(page.getByRole('combobox').filter({ hasText: 'Priority' })).toBeVisible({ timeout: 5_000 });
   });
 
+  test('ticket filters offer Cycle instead of Labels, and a picked cycle shows as an active filter', async ({ page }) => {
+    await page.getByRole('button', { name: 'Filter' }).click();
+    const panel = page.getByRole('dialog').filter({ hasText: 'Filters' });
+    await expect(panel.getByText('Labels', { exact: true })).toHaveCount(0);
+
+    const cycleHeading = panel.getByText('Cycle', { exact: true });
+    if ((await cycleHeading.count()) === 0) {
+      test.skip(true, 'No tickets to filter in this environment');
+    }
+    await expect(cycleHeading).toBeVisible();
+
+    // Pick the first cycle option and check it shows up as an active chip.
+    const firstCycle = panel.getByRole('button', { name: /^(Cycle \d+|No cycle)$/ }).first();
+    const cycleName = (await firstCycle.innerText()).trim();
+    await firstCycle.click();
+    await page.getByRole('button', { name: /^Filter/ }).click();
+    await expect(panel).not.toBeVisible();
+    // The active-filter chip in the toolbar.
+    await expect(page.getByRole('button', { name: cycleName, exact: true })).toBeVisible();
+  });
+
   // ── Sidebar navigation ─────────────────────────────────────────────────────
 
   test('sidebar shows the correct nav items for a developer', async ({ page }) => {

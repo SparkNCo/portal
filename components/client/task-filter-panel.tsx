@@ -19,9 +19,9 @@ export function TaskFilterPanel({
     onToggleStatus,
     onToggleActive,
     onClearFilters,
-    selectedLabels = [],
-    availableLabels = [],
-    onToggleLabel,
+    selectedCycles = [],
+    availableCycles = [],
+    onToggleCycle,
     selectedPriorities = [],
     availablePriorities = [],
     onTogglePriority,
@@ -45,7 +45,7 @@ export function TaskFilterPanel({
         )}
       </div>
 
-      {/* Long status/label lists (e.g. the developer dashboard's merged
+      {/* Long status/cycle lists (e.g. the developer dashboard's merged
           multi-customer view) can otherwise push this panel past the
           viewport — cap it and let it scroll instead. */}
       <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
@@ -64,6 +64,32 @@ export function TaskFilterPanel({
             >
               Active cycle only
             </button>
+          </div>
+        )}
+
+        {availableCycles.length > 0 && onToggleCycle && (
+          <div>
+            <p className="smalltext font-semibold text-primary mb-2">
+              Cycle
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {availableCycles.map((cycle) => {
+                const active = selectedCycles.includes(cycle);
+                return (
+                  <button
+                    key={cycle}
+                    onClick={() => onToggleCycle(cycle)}
+                    className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
+                        : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    {cycle}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -155,31 +181,6 @@ export function TaskFilterPanel({
           </div>
         )}
 
-        {availableLabels.length > 0 && onToggleLabel && (
-          <div>
-            <p className="smalltext font-semibold text-primary mb-2">
-              Labels
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {availableLabels.map((label) => {
-                const active = selectedLabels.includes(label);
-                return (
-                  <button
-                    key={label}
-                    onClick={() => onToggleLabel(label)}
-                    className={`smalltext px-2.5 py-1 rounded-md border font-medium transition-all ${
-                      active
-                        ? "bg-primary text-primary-foreground border-primary/40 opacity-100"
-                        : "bg-muted/40 text-muted-foreground border-border/40 hover:bg-muted opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -195,8 +196,8 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
     onToggleStatus,
     onlyActive,
     onToggleActive,
-    selectedLabels = [],
-    onToggleLabel,
+    selectedCycles = [],
+    onToggleCycle,
     selectedPriorities = [],
     onTogglePriority,
     dateFrom = "",
@@ -208,7 +209,7 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
   // Colored per filter type instead of one flat gray — status/priority chips
   // reuse the exact same colors as their toggle buttons in the panel above
   // (statusColors/priorityColors), so a chip reads as "the same Status/
-  // Priority you picked," not a generic tag. Labels and dates have no
+  // Priority you picked," not a generic tag. Cycles and dates have no
   // per-value color of their own, so they get one consistent accent each
   // instead, still distinct from status/priority chips.
   const chips: { key: string; label: string; onRemove: () => void; className: string }[] = [
@@ -234,11 +235,11 @@ export function ActiveFilterChips({ filterState }: { filterState: FilterState })
       onRemove: () => onTogglePriority?.(p),
       className: priorityColors[p as keyof typeof priorityColors] ?? "bg-primary/20 text-primary border-primary/30",
     })),
-    ...selectedLabels.map((l) => ({
-      key: `label:${l}`,
-      label: l,
-      onRemove: () => onToggleLabel?.(l),
-      className: "bg-secondary/60 text-secondary-foreground border-border",
+    ...selectedCycles.map((c) => ({
+      key: `cycle:${c}`,
+      label: c,
+      onRemove: () => onToggleCycle?.(c),
+      className: "bg-primary/15 text-primary border-primary/30",
     })),
     ...(dateFrom
       ? [
