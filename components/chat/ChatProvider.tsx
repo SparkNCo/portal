@@ -17,26 +17,40 @@ type CustomerSystemsRow = {
   systems: { chat?: string; vector?: string } | null;
 };
 
-type Assignment = { customer_id: string; clientName?: string | null };
+type Assignment = { customer_id: string; clientName?: string | null; linear_slug?: string | null };
 
 // Chat lives at /{slug}/chat for every role, so the slug decides whose chat
 // this is:
 // - admin: the customer in the URL (CustomerSlugContext, set by the [slug]
 //   layout for admins)
 // - developer: the assigned initiative matching the URL slug
-// - customer: their own account (stakeholders have no customer of their own
-//   and keep the default provider)
+// - customer: their own account
+// - stakeholder: the assigned customer matching the URL slug
 function resolveRelevantCustomerUserId(args: {
   isAdmin: boolean;
   viewedCustomerId: string | undefined;
   developerCustomerId: string | undefined;
+  stakeholderCustomerId: string | undefined;
   isCustomer: boolean;
   ownProfileId: string | undefined;
 }): string | undefined {
   if (args.isAdmin) return args.viewedCustomerId;
   if (args.developerCustomerId) return args.developerCustomerId;
+  if (args.stakeholderCustomerId) return args.stakeholderCustomerId;
   if (args.isCustomer) return args.ownProfileId;
   return undefined;
+}
+
+// A stakeholder's assignment for the URL's initiative (route slugs are the
+// clientName lowercased; older links used linear_slug), else their first.
+function pickStakeholderCustomerId(assignments: Assignment[] | undefined, urlSlug: string | undefined) {
+  const slug = urlSlug?.trim().toLowerCase();
+  const match = slug
+    ? assignments?.find(
+        (a) => a.clientName?.trim().toLowerCase() === slug || a.linear_slug?.trim().toLowerCase() === slug,
+      )
+    : undefined;
+  return (match ?? assignments?.[0])?.customer_id;
 }
 
 // SPA-513: reads the relevant customer's `customers.systems.chat` (see
@@ -64,11 +78,14 @@ export default function ChatProvider({
   const developerCustomerId = developerProject
     ? assignments?.find((a) => a.clientName === developerProject)?.customer_id
     : undefined;
+  const stakeholderCustomerId =
+    profile?.role === "stakeholder" ? pickStakeholderCustomerId(assignments, fallbackProjectSlug) : undefined;
 
   const relevantCustomerUserId = resolveRelevantCustomerUserId({
     isAdmin,
     viewedCustomerId: customerSlug ? viewedCustomerId : undefined,
     developerCustomerId,
+    stakeholderCustomerId,
     isCustomer: profile?.role === "customer",
     ownProfileId: profile?.id,
   });

@@ -96,9 +96,10 @@ test.describe('Login page', () => {
     await expect(page.locator('#email')).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/');
 
-    // The session was cleared: a portal page asks them to log in again.
+    // The session was cleared: a portal page asks them to log in again. (A
+    // real client — a made-up one shows the 404 before the sign-in check.)
     await page.unroute('**/functions/v1/users?email=*');
-    await page.goto('/any-initiative/dashboard');
+    await page.goto('/spark-portal/dashboard');
     await expect(page.getByRole('link', { name: 'Login / Sign up' })).toBeVisible({ timeout: 15_000 });
   });
 

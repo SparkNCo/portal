@@ -63,10 +63,9 @@ test.describe('Developer — panels', () => {
     await expect(page.getByText('GitHub')).toBeVisible();
   });
 
-  test('issue list loads and sort controls are visible', async ({ page }) => {
-    // Sort buttons are always rendered
-    await expect(page.getByRole('button', { name: 'Last Updated' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Priority' })).toBeVisible();
+  test('issue list loads and the sort control is visible', async ({ page }) => {
+    // Sort is a dropdown (Last Updated / Priority), not two buttons.
+    await expect(page.getByRole('combobox').filter({ hasText: 'Last Updated' })).toBeVisible({ timeout: 15_000 });
 
     // Issue list title is either "All Tasks" or a project name
     await expect(page.getByText('All Tasks').or(
@@ -75,12 +74,12 @@ test.describe('Developer — panels', () => {
   });
 
   test('switching sort to Priority works', async ({ page }) => {
-    const priorityBtn = page.getByRole('button', { name: 'Priority' });
-    await expect(priorityBtn).toBeVisible();
-    await priorityBtn.click();
+    const sort = page.getByRole('combobox').filter({ hasText: 'Last Updated' });
+    await expect(sort).toBeVisible({ timeout: 15_000 });
+    await sort.click();
+    await page.getByRole('option', { name: 'Priority' }).click();
 
-    // Button should now be active (accent background)
-    await expect(priorityBtn).toHaveClass(/bg-accent/, { timeout: 5_000 });
+    await expect(page.getByRole('combobox').filter({ hasText: 'Priority' })).toBeVisible({ timeout: 5_000 });
   });
 
   // ── Sidebar navigation ─────────────────────────────────────────────────────
@@ -144,6 +143,26 @@ test.describe('Developer — panels', () => {
     await page.goto(`/${slug}/settings`);
     await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
     await expect(page).toHaveURL(new RegExp(`/${slug}/developer$`), { timeout: 20_000 });
+  });
+
+  for (const page_ of ['dashboard', 'monitor']) {
+    test(`the initiative's ${page_} is not available to developers`, async ({ page }) => {
+      const slug = new URL(page.url()).pathname.split('/')[1];
+      await page.goto(`/${slug}/${page_}`);
+      await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
+      await expect(page).toHaveURL(new RegExp(`/${slug}/developer$`), { timeout: 20_000 });
+    });
+  }
+
+  test('Build and Bugs have no Pin to Dashboard buttons', async ({ page }) => {
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Backlog').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Bugs' }).click();
+    await expect(page.getByRole('heading', { name: 'Bugs', level: 1 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
   });
 
   // ── Chat panel ─────────────────────────────────────────────────────────────
@@ -212,7 +231,8 @@ test.describe('Developer — panels', () => {
     const emptyState   = page.getByText('No documents found');
     // Documents render as a flat list (no per-project folder wrapper) — an
     // "Open <name>" button on a row is a reliable signal one rendered.
-    const anyDocument  = page.locator('button[aria-label^="Open "]').first();
+    // (Not the header's mobile "Open menu" button.)
+    const anyDocument  = page.locator('button[aria-label^="Open "]:not([aria-label="Open menu"])').first();
 
     // Wait until either state resolves
     await expect(emptyState.or(anyDocument)).toBeVisible({ timeout: 25_000 });
