@@ -87,6 +87,30 @@ export async function handleRequestUpload(req: Request): Promise<Response> {
   return Response.json({ name: file.name, url: uploadFile.assetUrl });
 }
 
+const GET_ISSUE_ATTACHMENTS_QUERY = `
+  query IssueAttachments($id: String!) {
+    issue(id: $id) {
+      attachments(first: 50) {
+        nodes { id title url createdAt creator { displayName } }
+      }
+    }
+  }
+`;
+
+// GET /issues/attachments?issueId= — the files (and links) attached to an
+// issue, newest first. Fetched on demand by the ticket's Description tab
+// rather than with every issue list.
+export async function handleGetAttachments(req: Request): Promise<Response> {
+  const issueId = new URL(req.url).searchParams.get("issueId");
+  if (!issueId) return Response.json({ error: "Missing issueId" }, { status: 400 });
+
+  const data = await linearRequest(GET_ISSUE_ATTACHMENTS_QUERY, { id: issueId });
+  const attachments = [...(data.issue?.attachments?.nodes ?? [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  return Response.json(attachments);
+}
+
 // POST /issues/attachment — attaches an already-uploaded file (by its Linear assetUrl) to an issue
 export async function handleCreateAttachment(req: Request): Promise<Response> {
   const { issueId, url, title } = await req.json();

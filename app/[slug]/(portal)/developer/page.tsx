@@ -20,13 +20,37 @@ import { useParams } from "next/navigation";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
-import type { Issue } from "@/components/client/issues.types";
+import type { Issue, IssueViewMode } from "@/components/client/issues.types";
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 const NO_CYCLE_LABEL = "No cycle";
+
+// A small per-browser preference (falls back to `initial` when storage is
+// unavailable or holds something unexpected).
+function useStoredChoice<T extends string>(key: string, initial: T, allowed: readonly T[]) {
+  const [value, setValue] = useState<T>(initial);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(key) as T | null;
+      if (stored && allowed.includes(stored)) setValue(stored);
+    } catch {
+      // Storage unavailable — keep the default.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const update = (next: T) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      // Not remembered, still applied.
+    }
+  };
+  return [value, update] as const;
+}
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
@@ -41,6 +65,18 @@ export default function DeveloperDashboard() {
   const [selectedCycles, setSelectedCycles] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
+  // Remembered in this browser; default to the developer's own tickets in a
+  // grid.
+  const [assigneeScope, setAssigneeScope] = useStoredChoice<"mine" | "all">(
+    "developer-tickets-scope",
+    "mine",
+    ["mine", "all"],
+  );
+  const [viewMode, setViewMode] = useStoredChoice<IssueViewMode>(
+    "developer-tickets-view",
+    "grid",
+    ["grid", "board", "list"],
+  );
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [showLogHours, setShowLogHours] = useState(false);
   const [showMyHours, setShowMyHours] = useState(false);
@@ -104,9 +140,15 @@ export default function DeveloperDashboard() {
     ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
   ] as string[];
 
-  const projectFiltered = selectedProject
+  const projectIssues = selectedProject
     ? allIssues.filter((i: any) => i._project === selectedProject)
     : allIssues;
+
+  // "My tickets" = assigned to this developer in Linear (matched by email).
+  const myEmail = profile?.email?.toLowerCase();
+  const isMine = (i: any) => !!myEmail && i.assignee?.email?.toLowerCase() === myEmail;
+  const myCount = projectIssues.filter(isMine).length;
+  const projectFiltered = assigneeScope === "mine" ? projectIssues.filter(isMine) : projectIssues;
 
   const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
@@ -225,6 +267,43 @@ export default function DeveloperDashboard() {
               title={selectedProject ?? "All Tasks"}
               sortBy={sortBy}
               onSortByChange={setSortBy}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              headerAction={
+                <div className="flex items-center rounded-md border border-input p-0.5" role="group" aria-label="Whose tickets">
+                  {([
+                    ["mine", `My tickets (${myCount})`],
+                    ["all", `All (${projectIssues.length})`],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setAssigneeScope(value)}
+                      aria-pressed={assigneeScope === value}
+                      className={`h-6 rounded px-2 smalltext font-medium transition-colors ${
+                        assigneeScope === value
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              }
+              emptyState={
+                assigneeScope === "mine" && myCount === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <p className="smalltext font-medium text-foreground">No open tickets assigned to you</p>
+                    <p className="smalltext text-muted-foreground">
+                      Tickets assigned to {profile?.email} in Linear show up here.
+                    </p>
+                    <Button size="sm" variant="outline" className="smalltext" onClick={() => setAssigneeScope("all")}>
+                      Show all tickets
+                    </Button>
+                  </div>
+                ) : undefined
+              }
             />
           )}
         </div>

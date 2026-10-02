@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -20,6 +20,8 @@ import {
   Paperclip,
   Trash2,
   Loader2,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
@@ -61,7 +63,7 @@ import {
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 import { TestPicker } from "@/components/shared/test-picker";
-import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
+import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-image-url";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
@@ -112,6 +114,156 @@ async function uploadTestAttachment(file: File) {
   if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
   const { name, url } = await res.json();
   return { name: name as string, url: url as string };
+}
+
+// ── Issue attachments ───────────────────────────────────────────────────────
+
+type IssueAttachment = {
+  id: string;
+  title: string | null;
+  url: string;
+  createdAt: string;
+  creator?: { displayName: string } | null;
+};
+
+async function fetchIssueAttachments(issueId: string): Promise<IssueAttachment[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachments?issueId=${encodeURIComponent(issueId)}`,
+    { headers: API_JSON_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to load attachments");
+  return res.json();
+}
+
+function isLinearUpload(url: string) {
+  try {
+    return new URL(url).hostname === LINEAR_UPLOAD_HOST;
+  } catch {
+    return false;
+  }
+}
+
+// Linear-hosted files need our proxy (and its auth header), so they can't be
+// a plain link: open a tab right away (so it isn't popup-blocked), fetch the
+// file, then point the tab at it. Anything else (e.g. a linked PR) opens as-is.
+async function openAttachment(attachment: IssueAttachment) {
+  if (!isLinearUpload(attachment.url)) {
+    window.open(attachment.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const tab = window.open("", "_blank");
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(attachment.url)}`,
+      { headers: API_HEADERS },
+    );
+    if (!res.ok) throw new Error("Failed to load file");
+    const objectUrl = URL.createObjectURL(await res.blob());
+    if (tab) tab.location.href = objectUrl;
+    else window.location.href = objectUrl;
+  } catch {
+    tab?.close();
+    toast.error(`Couldn't open ${attachment.title ?? "the attachment"}.`);
+  }
+}
+
+function isImageAttachment(a: IssueAttachment) {
+  return IMAGE_EXT_RE.test(a.title ?? "") || IMAGE_EXT_RE.test(a.url.split("?")[0] ?? "");
+}
+
+// Collapsed by default; the attachments are only fetched once it's opened.
+// Images show inline (through the Linear proxy, see ProxiedImage); anything
+// else is a row that opens the file.
+function AttachmentsSection({ issue }: { issue: Issue }) {
+  const [open, setOpen] = useState(false);
+  const { data: attachments = [], isLoading, isError } = useQuery({
+    queryKey: ["issue-attachments", issue.id],
+    queryFn: () => fetchIssueAttachments(issue.id),
+    enabled: open,
+  });
+  const images = attachments.filter(isImageAttachment);
+  const files = attachments.filter((a) => !isImageAttachment(a));
+  const panelId = `attachments-panel-${issue.id}`;
+
+  return (
+    <section className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors rounded-lg"
+      >
+        <ChevronRight
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+        />
+        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="smalltext font-semibold text-foreground">Attachments</span>
+        {open && !isLoading && !isError && (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 smalltext font-medium text-muted-foreground">
+            {attachments.length}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div id={panelId} className="border-t border-border px-3 py-3 space-y-3">
+          {isLoading ? (
+            <p className="smalltext text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading attachments…
+            </p>
+          ) : isError ? (
+            <p className="smalltext text-destructive">Couldn't load attachments.</p>
+          ) : attachments.length === 0 ? (
+            <p className="smalltext text-muted-foreground italic">This ticket has no attachments.</p>
+          ) : (
+            <>
+              {images.length > 0 && (
+                <div className="grid grid-cols-1 gap-3">
+                  {images.map((a) => (
+                    <figure key={a.id} className="min-w-0 space-y-1">
+                      <ProxiedImage
+                        src={a.url}
+                        alt={a.title ?? "Attachment"}
+                        linkable
+                        className="h-[512px] max-h-[70vh] w-full rounded-md border border-border object-contain bg-muted/40"
+                      />
+                      <figcaption className="truncate smalltext text-muted-foreground" title={a.title ?? undefined}>
+                        {a.title}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
+              {files.length > 0 && (
+                <ul className="divide-y divide-border rounded-md border border-border">
+                  {files.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        onClick={() => openAttachment(a)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate smalltext font-medium text-foreground">{a.title || a.url}</span>
+                          <span className="block truncate smalltext text-muted-foreground">
+                            {new Date(a.createdAt).toLocaleDateString()}
+                            {a.creator?.displayName ? ` · ${a.creator.displayName}` : ""}
+                          </span>
+                        </span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 // ── Tab button ──────────────────────────────────────────────────────────────
@@ -191,6 +343,11 @@ function DescriptionTab({ issue }: { issue: Issue }) {
         <p className="smalltext text-muted-foreground italic">
           No description yet.
         </p>
+      )}
+      {/* Hidden when the ticket is known to have none. Issues loaded
+          without that info (e.g. from older cached lists) still show it. */}
+      {(issue.attachments == null || issue.attachments.nodes.length > 0) && (
+        <AttachmentsSection issue={issue} />
       )}
     </div>
   );

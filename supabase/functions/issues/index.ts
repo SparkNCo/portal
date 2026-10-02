@@ -7,6 +7,7 @@ import {
   handleCreateProject,
   handleRequestUpload,
   handleCreateAttachment,
+  handleGetAttachments,
 } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
@@ -26,6 +27,8 @@ Deno.serve(async (req) => {
       res = await handleGetLabels(req);
     } else if (req.method === "GET" && pathname.endsWith("/similar")) {
       res = await handleGetSimilarIssues(req);
+    } else if (req.method === "GET" && pathname.endsWith("/attachments")) {
+      res = await handleGetAttachments(req);
     } else if (req.method === "GET" && pathname.endsWith("/cycles")) {
       res = await handleGetIssueCycles(req);
     } else if (req.method === "GET" && pathname.endsWith("/by-id")) {

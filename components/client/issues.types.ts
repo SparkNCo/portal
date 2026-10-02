@@ -155,6 +155,8 @@ export type Issue = {
   };
   cycle?: { id?: string; number: number; isActive: boolean; name?: string | null } | null;
   comments?: { nodes: Comment[] };
+  // Only the first one (see ISSUES_QUERY) — enough to know if there are any.
+  attachments?: { nodes: { id: string }[] };
   description?: string | null;
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
@@ -221,6 +223,8 @@ export type FilterState = {
   onDateToChange?: (date: string) => void;
 };
 
+export type IssueViewMode = "grid" | "board" | "list";
+
 export type IssueDetailTab =
   | "description"
   | "chat"
@@ -267,4 +271,10 @@ export type PriorityTasksProps = {
   // drop the deep link (see hooks/use-issue-deep-link.ts) — otherwise the
   // effect that opened it would reopen it on the next issuesData refetch.
   onDeepLinkClose?: () => void;
+  // Grid / board (columns by status) / compact list. Pass both to show the
+  // view switcher in the toolbar; omit them to keep the plain grid.
+  viewMode?: IssueViewMode;
+  onViewModeChange?: (mode: IssueViewMode) => void;
+  // Replaces the default "No issues match the current filters." text.
+  emptyState?: ReactNode;
 };
