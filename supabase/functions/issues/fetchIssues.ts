@@ -117,6 +117,7 @@ const GET_ISSUE_BY_ID_QUERY = `
       priorityLabel
       state { name }
       labels { nodes { id name color } }
+      attachments(first: 1) { nodes { id } }
     }
   }
 `;

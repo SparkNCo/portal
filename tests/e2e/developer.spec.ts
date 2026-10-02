@@ -83,6 +83,7 @@ test.describe('Developer — panels', () => {
   });
 
   test('ticket filters offer Cycle instead of Labels, and a picked cycle shows as an active filter', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
     await page.getByRole('button', { name: 'Filter' }).click();
     const panel = page.getByRole('dialog').filter({ hasText: 'Filters' });
     await expect(panel.getByText('Labels', { exact: true })).toHaveCount(0);
@@ -101,6 +102,45 @@ test.describe('Developer — panels', () => {
     await expect(panel).not.toBeVisible();
     // The active-filter chip in the toolbar.
     await expect(page.getByRole('button', { name: cycleName, exact: true })).toBeVisible();
+  });
+
+  // ── Tickets: whose, and how they're laid out ────────────────────────────────
+
+  test('tickets start on My tickets, and All shows every ticket of the initiative', async ({ page }) => {
+    const mine = page.getByRole('button', { name: /^My tickets \(\d+\)$/ });
+    const all = page.getByRole('button', { name: /^All \(\d+\)$/ });
+    await expect(mine).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+
+    const mineCount = Number((await mine.innerText()).match(/\d+/)![0]);
+    const allCount = Number((await all.innerText()).match(/\d+/)![0]);
+    expect(allCount).toBeGreaterThanOrEqual(mineCount);
+    if (mineCount === 0) {
+      await expect(page.getByText('No open tickets assigned to you')).toBeVisible();
+      await page.getByRole('button', { name: 'Show all tickets' }).click();
+    } else {
+      await all.click();
+    }
+    await expect(all).toHaveAttribute('aria-pressed', 'true');
+
+    // Remembered after a reload.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^All \(\d+\)$/ })).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+  });
+
+  test('tickets can be shown as a board by status, or as a compact list', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
+
+    await page.getByRole('button', { name: 'Board view' }).click();
+    for (const column of ['Planning', 'Development', 'QA', 'UAT', 'Backlog']) {
+      await expect(page.getByRole('region', { name: new RegExp(`^${column}, \\d+ tickets?$`) })).toBeVisible();
+    }
+
+    await page.getByRole('button', { name: 'List view' }).click();
+    await expect(page.getByRole('region', { name: /^Planning, / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('button', { name: 'Grid view' }).click();
+    await expect(page.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   // ── Sidebar navigation ─────────────────────────────────────────────────────
