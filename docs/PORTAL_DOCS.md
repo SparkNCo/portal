@@ -989,7 +989,7 @@ Actions appear on hover:
 
 ### 8.5 Share Document Modal
 
-Comma-separated email input → `POST /storage/share` with `{ document_id, emails[], user_id }`. On success the modal closes. Also how a fulfilled document request delivers its file (8.2 step 4).
+Checkbox list of everyone on the document's initiative (customer, stakeholders, developers — resolved from the document's `project_slug`), multiple selection with Select all → `POST /storage/share` with `{ document_id, emails[], user_id }`. Grants `read`, skipping anyone who already has access. On success the modal closes. A fulfilled document request doesn't use Share: the upload makes the requester the owner (8.2 step 4).
 
 ### 8.6 Upload Document — `UploadDocument`
 

@@ -30,15 +30,15 @@ Two different slug-like values get resolved on every load, and they are **not th
 
 ## Role-based panels
 
-| Panel | Customer / Stakeholder | Developer / Admin |
-|---|---|---|
-| "Wiki — coming soon" banner + **Request Report or Documentation** button | ✅ | — |
-| Their own requests (`DocumentRequestsList`, read-only) | ✅ | — |
-| Requests they can fulfill (`DeveloperDocumentRequests` → `DocumentRequestsList` with `canManage`) | — | ✅ |
-| **Project Documents** list | ✅ (full width) | ✅ (2/3 width) |
-| **Upload Document** panel | — | ✅ (1/3 width) |
+| Panel | Customer / Stakeholder | Developer | Admin |
+|---|---|---|---|
+| **Request Report or Documentation** button (`canRequest`) | ✅ | — | ✅ |
+| The initiative's requests (`DocumentRequestsList`, no `canManage`) | ✅ | — | — |
+| Requests they can fulfill (`DeveloperDocumentRequests` → `DocumentRequestsList` with `canManage`) | — | ✅ | ✅ |
+| **Project Documents** list | ✅ (full width) | ✅ (2/3 width) | ✅ (2/3 width) |
+| **Upload Document** panel | — | ✅ (1/3 width) | ✅ (1/3 width) |
 
-Customers/stakeholders no longer upload documents directly — they **request** one (see below) and a developer/admin fulfills it. This is a real behavior change from the old direct-upload-for-everyone model; the "Wiki — coming soon" banner explains the reasoning in-page ("request a report or technical document below, or browse what's already been uploaded").
+Customers/stakeholders don't upload documents directly — they **request** one (see below) and a developer/admin fulfills it. Admins can do both: request a document and fulfill requests. An admin only gets the `canManage` list (it already shows everything the plain list would), so their own requests appear there, with Edit/Delete like anyone else's own requests.
 
 ---
 
@@ -59,37 +59,41 @@ Customers/stakeholders no longer upload documents directly — they **request** 
 | `claimed_by` / `claimed_at` | Set when a developer starts fulfilling it (see Claiming below) |
 | `completed_at` | Set when marked done |
 
-### 1. Requesting (customer/stakeholder)
+### 1. Requesting (customer/stakeholder/admin)
 
 1. Click **"Request Report or Documentation"** → `RequestDocumentDialog`.
-2. Fill in title (required), an optional project (from `fetchProjects(customerSlug)`, the same Linear-projects lookup Feature Request uses), an optional link to a past request of their own, and optional details in a `RichTextEditor` (Tiptap, markdown-backed — same component used elsewhere in the app).
+2. Fill in title (required), an optional project (from `fetchProjects(customerSlug)`, the same Linear-projects lookup Feature Request uses), an optional link to an earlier request for the same initiative (anyone's, not only their own), and optional details in a `RichTextEditor` (Tiptap, markdown-backed — same component used elsewhere in the app).
 3. The dialog can be expanded to a larger size (`ExpandableDialogChrome`'s enlarge toggle) for more room to write, e.g. on a long description.
 4. `POST /document-requests` with `{ customerSlug, requestedBy, title, description?, projectId?, projectName?, relatedRequestId? }`.
-5. Appears immediately in their own `DocumentRequestsList` under **"Document Requests"** (pending). Developers/admins assigned to that customer (plus every admin) get notified (`notifyProject`, `action: "document_request_created"`), landing them on `/{slug}/documents`.
+5. Appears immediately under **"Document Requests"** (pending). The customer, everyone assigned to the initiative (developers and stakeholders) and every admin get notified, minus whoever made the request (`notifyProject`, `action: "document_request_created"`), landing them on `/{slug}/documents`.
 
 ### 2. Viewing requests — `DocumentRequestsList`
 
 Two panels, each paginated 3-at-a-time with a "Show More" button:
 - **"Document Requests"** — pending requests.
-- **"Documents Received"** — done requests.
+- **"Requests Fulfilled"** — done requests.
 
 Clicking a row opens a detail modal (title, status, project, related request if any, requester + date, and completion info once done), description rendered as markdown (`ReactMarkdown` + `remarkBreaks`) since it's authored with the rich-text editor. The modal supports the same enlarge toggle as the request dialog. Requests are fetched via `useDocumentRequests(customerSlug)` — Supabase queried directly from the client (`portal.document_requests`, no edge function for reads), optionally filtered by `customer_slug`.
 
 **Scoping differs from the documents list above:**
-- Customer/stakeholder: their own customer's requests only (`customerSlug` = the resolved `slug`).
-- Admin (`DeveloperDocumentRequests`): whichever customer they're currently previewing (`customerSlug` passed through), with `canManage`.
-- Developer (`DeveloperDocumentRequests`): **all customers they're assigned to**, not just the one project the Documents list itself is scoped to — computed client-side as `assignedSlugs` from `profile.assignment_id[].clientName`, then filtered against every request (`useDocumentRequests()` called with no `customerSlug`, i.e. fetches everything, then narrowed locally). `canManage` is set here too.
+- Customer/stakeholder: every request for their initiative, their own and other people's (`customerSlug` = the resolved `slug`).
+- Admin (`DeveloperDocumentRequests`): the initiative in the URL (`customerSlug` passed through), with `canManage`.
+- Developer (`DeveloperDocumentRequests`): **only the initiative selected in the sidebar's "Working on" dropdown** (the URL's `/{slug}`), passed as `assignedSlugs = [customerSlug]`. Falls back to every assigned initiative only if no slug resolved. It still calls `useDocumentRequests()` with no `customerSlug` — i.e. fetches every request it's allowed to read, then narrows locally. `canManage` is set here too.
 
 ### 3. Claiming and fulfilling (developer/admin, `canManage`)
 
 1. A pending, unclaimed request shows a **"Claim"** button.
 2. Clicking it: `PATCH /document-requests { action: "claim", id, claimedBy }` — optimistic lock (`UPDATE ... WHERE status = 'pending' AND claimed_by IS NULL`). Returns `409` if someone else claimed it first (`"Request was already claimed by someone else"`), in which case the row shows a **"Claimed by {email}"** badge and the button disappears for everyone else. This step only claims — it does *not* open the upload modal.
 3. Once claimed (by the current user), the button relabels itself to **"Upload & Share"**; clicking it opens `FulfillDocumentRequestModal`. Claiming and opening the upload modal are deliberately two separate clicks, not one action that silently claims as a side effect.
-4. In the modal: drag-and-drop or browse for **one file**, then **"Upload & Share"** does three calls in sequence:
-   - `POST /storage` (multipart) — uploads the file, `project_slug` = the request's `customer_slug`.
-   - `POST /storage/share` — shares the newly uploaded document with `request.requested_by`'s email (grants them `read` permission — see Permission model below).
+4. In the modal: drag-and-drop or browse for **one file**, then **"Upload & Share"** does two calls in sequence:
+   - `POST /storage` (multipart) — uploads the file under the customer's `linear_slug` (resolved from `request.customer_slug` via the customers list), with:
+     - `owner_email` = `request.requested_by` — the requester becomes the document's **owner** (see Permission model below);
+     - `shared_with_emails` = the customer's email plus every stakeholder on the initiative — they get **write**.
+     The uploader also gets **write** (when they aren't the owner). Other developers on the initiative get no permission row, so they don't see it in Project Documents.
    - `PATCH /document-requests` (no `action`, i.e. "complete") — marks the request `done`, `completed_by` = current user's email.
-5. On success, both the `document-requests` and `documents` queries are invalidated, so the requester sees the new document in their Project Documents list and the request move to "Documents Received".
+5. On success, both the `document-requests` and `documents` queries are invalidated, so the requester sees the new document in their Project Documents list and the request move to "Requests Fulfilled". If the second call fails, the file is already uploaded but the request stays pending and claimed; retrying uploads a second copy.
+
+**Notifications:** claiming (`document_request_claimed`), releasing/unassigning (`document_request_released`, only if it was actually claimed) and completing (`document_request_completed`) each notify the requester and every admin, minus whoever did it (`supabase/functions/document-requests/notifyRequest.ts`). An admin unassigning someone else's claim also notifies that developer. Note the automatic release on cancelling the upload modal notifies too.
 
 **Completing a claimed request:** `markDocumentRequestDone` (the PATCH's default branch) rejects with `409` if the request is claimed by someone other than the caller — unless the caller is an `admin`, who can complete any request regardless of who claimed it.
 
@@ -106,7 +110,7 @@ Pencil (edit) and Trash2 (delete) icon buttons appear on a request row **only wh
 
 **Edit:** clicking Pencil reopens `RequestDocumentDialog` in edit mode (`editingRequest` prop), prefilled with the existing title/description/project/related request, same rich-text description field and enlarge toggle as creating a new one. Saving calls `PATCH /document-requests { action: "edit", id, editedBy, title, description?, projectId?, projectName?, relatedRequestId? }`. The backend (`editDocumentRequest.ts`) re-checks the same three conditions server-side (`403` if not the requester, `400` if done or claimed) — the UI hides the button, but the API doesn't trust that alone.
 
-**Delete:** clicking Trash2 opens a confirmation dialog ("Delete Request? This can't be undone."). Confirming calls `PATCH /document-requests { action: "delete", id, deletedBy }`. The backend (`deleteDocumentRequest.ts`) applies the same guards, then nulls out `related_request_id` on any other request that pointed at this one (no FK to cascade it — it's a plain column) before deleting the row.
+**Delete:** clicking Trash2 opens a confirmation dialog ("Delete Request? This can't be undone."). Confirming calls `PATCH /document-requests { action: "delete", id, deletedBy }`. The backend (`deleteDocumentRequest.ts`) applies the same guards, then nulls out `related_request_id` on any other request that pointed at this one before deleting the row. This is required: `related_request_id` has a foreign key to `document_requests(id)` (migration `20260707120000_add_related_request_to_document_requests.sql`) with no `ON DELETE` action, so deleting a request that's still referenced would fail.
 
 ---
 
@@ -177,9 +181,14 @@ Both Open and Download fetch a fresh **signed URL** from the backend each time t
 
 **Source:** `components/documents/ShareDocumentModal.tsx`
 
-Opened by clicking the Share icon on a document row. Only available for documents with `permission` equal to `"write"` or `"owner"`.
+Opened by clicking the Share icon on a document row. Only available for documents with `permission` equal to `"write"` or `"owner"` (admins: any document).
 
-The user types one or more email addresses, separated by commas. Clicking **Share** calls `POST /storage/share` with:
+Instead of typing emails, the modal lists **everyone on the document's initiative** to pick from, with checkboxes (multiple selection, plus **Select all**):
+- The initiative is resolved from the document's own `project_slug` → the customer whose `linear_slug` matches (`GET /users?type=customers`) → `GET /assignments?customer_id=` for its developers and stakeholders. It works the same for every role, since it doesn't depend on who's viewing.
+- The list shows the customer, then stakeholders, then developers, each with name, email and role. The current user is left out.
+- **Share with N** stays disabled until at least one person is picked.
+
+Clicking it calls `POST /storage/share` with:
 
 ```json
 {
@@ -189,7 +198,7 @@ The user types one or more email addresses, separated by commas. Clicking **Shar
 }
 ```
 
-On success the modal closes and the email input resets. The backend handles sending the share notification and granting `read` access to the recipients — this is also how a fulfilled document request delivers its file (see "Claiming and fulfilling" above, step 4).
+On success the modal closes, the selection resets and a toast says how many people it was shared with. The backend grants `read` access to the recipients, **skipping anyone who already has a permission on that document** (the owner, people with write, or someone it was already shared with), so their access is never duplicated or downgraded. The response lists both: `{ success, shared_with: [...], already_had_access: [...] }`. A fulfilled document request doesn't go through Share — the upload itself makes the requester the owner (see "Claiming and fulfilling" above, step 4).
 
 **Backend permission check** (`supabase/functions/storage/shareDocument.ts`): the request is rejected with `403 { error: "Unauthorized" }` unless the caller's `document_permissions` row for that document has `permission` equal to `"write"` or `"owner"`. This must match the frontend's gating condition above — if they ever diverge (e.g. backend only allowed `"write"` while the frontend showed Share for `"owner"` too), document owners would get an `"Unauthorized"` error when trying to share.
 
@@ -251,7 +260,7 @@ The `permission` field on each document determines what a user can do with it:
 | `write` | ✅ | ✅ | ✅ | ✅ | ✗ |
 | `owner` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-Documents uploaded by a user have `owner` permission for that user. Documents shared with a user (directly via Share, or via a fulfilled document request) have `read` permission.
+Documents uploaded by a user have `owner` permission for that user. Documents shared with a user via Share have `read` permission. A document delivered for a request is the exception: the **requester** is its `owner`, and the uploader, the customer and the initiative's stakeholders get `write`.
 
 ---
 
@@ -264,10 +273,12 @@ User lands on /{slug}/documents
           ├── Resolve `projectSlug` (admin: customers lookup; else: assignment/profile linear_slug)
           │     → admin waits (projectSlugPending) until this resolves
           │
-          ├── if canRequest (customer/stakeholder):
-          │     Wiki banner + RequestDocumentDialog + DocumentRequestsList (own requests)
+          ├── if canRequest (customer/stakeholder/admin):
+          │     RequestDocumentDialog
+          ├── if customer/stakeholder:
+          │     DocumentRequestsList (the initiative's requests)
           ├── if developer/admin:
-          │     DeveloperDocumentRequests → DocumentRequestsList (canManage, scoped to assignments or previewed customer)
+          │     DeveloperDocumentRequests → DocumentRequestsList (canManage; developer: selected initiative, admin: URL's initiative)
           │
           ├── GET /storage?user_id={documentsOwnerId}&project_slug={projectSlug}
           │     → all accessible documents loaded, grouped by project_slug
@@ -284,10 +295,10 @@ User lands on /{slug}/documents
           │     → POST /storage (multipart) → status tracked per file
           │
           └── Document Requests (independent of the list above):
-                ├── POST /document-requests → new pending request → notifies assigned developers + admins
+                ├── POST /document-requests → new pending request → notifies the initiative (customer, developers, stakeholders) + admins
                 ├── PATCH /document-requests { action: "claim" } → optimistic lock, 409 if already claimed
                 ├── PATCH /document-requests { action: "release" } → clears the claim (self, or admin on anyone's)
-                ├── Fulfill: POST /storage (upload) → POST /storage/share (deliver) → PATCH /document-requests (mark done)
+                ├── Fulfill: POST /storage (upload; requester = owner) → PATCH /document-requests (mark done)
                 ├── PATCH /document-requests { action: "edit" } → requester only, unclaimed + not done, no admin bypass
                 └── PATCH /document-requests { action: "delete" } → requester only, unclaimed + not done, no admin bypass
 ```
@@ -306,14 +317,15 @@ User lands on /{slug}/documents
 | `components/documents/upload-document.tsx` | Upload panel with drag & drop and file picker (developer/admin only) |
 | `components/documents/update-document-entry.ts` | `useUpdateDocument` (category change) and `useDeleteDocument` mutations |
 | `components/documents/use-document-requests.ts` | Shared `useDocumentRequests` hook + `DocumentRequest` type |
-| `components/documents/request-document-dialog.tsx` | Customer/stakeholder "Request Report or Documentation" dialog — also doubles as the edit dialog (`editingRequest` prop), rich-text description (`RichTextEditor`), enlarge toggle (`ExpandableDialogChrome`) |
+| `components/documents/request-document-dialog.tsx` | Customer/stakeholder/admin "Request Report or Documentation" dialog — also doubles as the edit dialog (`editingRequest` prop), rich-text description (`RichTextEditor`), enlarge toggle (`ExpandableDialogChrome`) |
 | `components/documents/document-requests-list.tsx` | Pending/done request panels, detail modal (markdown description), claim button, admin-only "Unassign" button, requester-only Edit/Delete buttons + delete confirmation dialog |
 | `components/documents/developer-document-requests.tsx` | Role gate + scoping wrapper around `DocumentRequestsList` for developer/admin |
 | `components/documents/fulfill-document-request-modal.tsx` | Upload-and-share-in-one-step modal used to fulfill a claimed request |
 | `supabase/functions/document-requests/index.ts` | Router — `POST` create, `PATCH` claim/release/edit/delete/complete |
-| `supabase/functions/document-requests/createDocumentRequest.ts` | Inserts a new pending request, notifies assigned developers + admins |
+| `supabase/functions/document-requests/createDocumentRequest.ts` | Inserts a new pending request, notifies the initiative + admins |
 | `supabase/functions/document-requests/claimDocumentRequest.ts` | Optimistic claim (`WHERE status='pending' AND claimed_by IS NULL`) |
 | `supabase/functions/document-requests/releaseDocumentRequest.ts` | Clears a claim — self always allowed, someone else's only if caller is `admin` |
 | `supabase/functions/document-requests/editDocumentRequest.ts` | Updates title/description/project/related request — requester only, unclaimed + not done, no admin bypass |
 | `supabase/functions/document-requests/deleteDocumentRequest.ts` | Deletes the request (nulling any `related_request_id` pointing at it) — same guards as edit |
 | `supabase/functions/document-requests/markDocumentRequestDone.ts` | Marks done; blocks non-claimer/non-admin completion |
+| `supabase/functions/document-requests/notifyRequest.ts` | Claimed / released / completed notifications to the requester + admins |

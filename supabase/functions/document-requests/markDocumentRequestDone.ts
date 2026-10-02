@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { notifyRequestUpdate } from "./notifyRequest.ts";
 
 // PATCH /document-requests { action: "complete" } — developer marks a request
 // as fulfilled. If the request is claimed, only the claimer (or an admin) may
@@ -65,6 +66,8 @@ export async function markDocumentRequestDone(
       { status: 500 },
     );
   }
+
+  notifyRequestUpdate(data, completedBy, "document_request_completed");
 
   return Response.json(data);
 }
