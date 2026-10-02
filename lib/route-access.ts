@@ -25,6 +25,10 @@ export type SlugAccess =
 const PAGE_ROLES: Record<string, string[]> = {
   developer: ["developer"],
   settings: ["admin", "customer", "stakeholder"],
+  // The client-facing overview pages; developers work from their own
+  // Developer page instead.
+  dashboard: ["admin", "customer", "stakeholder"],
+  monitor: ["admin", "customer", "stakeholder"],
 };
 
 // Where a role starts inside an initiative it can open.
