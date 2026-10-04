@@ -2,12 +2,15 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
-import { Send, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate } from "./chatUtils";
+import { getMessageDate, sendGroupMessages } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
-import { Input } from "@/components/ui/input";
+import { ChatComposer } from "../ChatComposer";
+
+// Who sent a CometChat message (SDK object or raw payload).
+const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
 
 export function IssueGroupChat({
   user,
@@ -22,7 +25,6 @@ export function IssueGroupChat({
   readonly onGroupCreated: (group: CometChat.Group) => void;
 }) {
   const [messages, setMessages] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -43,6 +45,11 @@ export function IssueGroupChat({
       listenerId,
       new CometChat.MessageListener({
         onTextMessageReceived: (msg: CometChat.TextMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => [...prev, msg]);
+          }
+        },
+        onMediaMessageReceived: (msg: CometChat.MediaMessage) => {
           if (msg.getReceiverId() === guid) {
             setMessages((prev) => [...prev, msg]);
           }
@@ -79,8 +86,7 @@ export function IssueGroupChat({
     }
   };
 
-  const sendMessage = async () => {
-    if (!message.trim() || sending) return;
+  const sendMessage = async (text: string, files: File[]) => {
     setSending(true);
     try {
       let activeGuid = guid;
@@ -89,17 +95,11 @@ export function IssueGroupChat({
         onGroupCreated(created);
         activeGuid = created.getGuid();
       }
-
-      const textMsg = new CometChat.TextMessage(
-        activeGuid,
-        message.trim(),
-        CometChat.RECEIVER_TYPE.GROUP,
-      );
-      const sent = await CometChat.sendMessage(textMsg);
-      setMessages((prev) => [...prev, sent]);
-      setMessage("");
+      const sent = await sendGroupMessages(activeGuid, text, files);
+      setMessages((prev) => [...prev, ...sent]);
     } catch (err) {
       console.error("Send issue message error:", err);
+      throw err;
     } finally {
       setSending(false);
     }
@@ -127,33 +127,21 @@ export function IssueGroupChat({
         {messages.map((msg, i) => (
           <Fragment key={msg.getId?.() ?? i}>
             {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
-            <MessageBubble msg={msg} index={i} user={user} compact />
+            <MessageBubble
+              msg={msg}
+              index={i}
+              user={user}
+              compact
+              isLast={i === messages.length - 1}
+              continuesGroup={i > 0 && !dayStarts[i] && senderUidOf(messages[i - 1]) === senderUidOf(msg)}
+            />
           </Fragment>
         ))}
         <div ref={bottomRef} />
       </div>
 
       <div className="px-3 py-2 border-t border-border">
-        <div className="flex items-center gap-1.5 bg-card/90 border border-border rounded-lg px-2.5 py-1.5">
-          <div className="min-w-0 flex-1">
-            <Input
-              aria-label="Type a message"
-              className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message…"
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            />
-          </div>
-          <button
-            onClick={sendMessage}
-            disabled={!message.trim() || sending}
-            aria-label="Send message"
-            className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
-          >
-            <Send className="w-3 h-3" />
-          </button>
-        </div>
+        <ChatComposer onSend={sendMessage} compact placeholder="Type a message…" />
       </div>
     </div>
   );

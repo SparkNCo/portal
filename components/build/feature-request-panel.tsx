@@ -11,6 +11,7 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   TitleContinueRow,
   ProjectField,
+  ListItemsField,
   MilestoneField,
   PriorityField,
   SubmitButton,
@@ -53,10 +54,15 @@ async function attachFileToIssue(issueId: string, url: string, title: string) {
   return res.json();
 }
 
-function buildFeatureDescription(description: string, requirements: string) {
+function buildFeatureDescription(description: string, criteria: string[]) {
+  const criteriaList = criteria
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => `- ${c}`)
+    .join("\n");
   return [
     description.trim() ? `### Feature Description\n${description.trim()}` : null,
-    requirements.trim() ? `### Requirement\n${requirements.trim()}` : null,
+    criteriaList ? `### Criteria\n${criteriaList}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -66,7 +72,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [requirements, setRequirements] = useState("");
+  const [criteria, setCriteria] = useState<string[]>([""]);
   const [priority, setPriority] = useState("medium");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
@@ -98,7 +104,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
       const result = await postCreateIssue({
         title: title.trim(),
-        description: buildFeatureDescription(description, requirements),
+        description: buildFeatureDescription(description, criteria),
         priority,
         slug,
         type: "feature",
@@ -129,7 +135,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     setDetailsRevealed(false);
     setTitle("");
     setDescription("");
-    setRequirements("");
+    setCriteria([""]);
     setPriority("medium");
     setSelectedProjectId("");
     setSelectedMilestoneId("");
@@ -183,21 +189,21 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                 />
               </div>
 
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="feature-requirements" className="smalltext">
-                  Requirements{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <RichTextEditor
-                  id="feature-requirements"
-                  ariaLabel="Requirements (optional)"
-                  placeholder="How will you know this feature is working well?"
-                  value={requirements}
-                  onChange={setRequirements}
-                  className="border-0"
-                  minHeight="70px"
+              <div className="md:col-span-2">
+                <ListItemsField
+                  label={
+                    <>
+                      Criteria{" "}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </>
+                  }
+                  items={criteria}
+                  onChange={setCriteria}
+                  itemLabel="Criterion"
+                  placeholderFor={(i) =>
+                    i === 0 ? "e.g. Users can export the report as PDF" : "Another way to know it works..."
+                  }
+                  addLabel="Add criterion"
                 />
               </div>
 

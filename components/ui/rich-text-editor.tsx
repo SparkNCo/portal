@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useEditor,
   EditorContent,
@@ -21,8 +21,12 @@ import {
   Heading2,
   List,
   ListOrdered,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import type { EditorView } from "@tiptap/pm/view";
 import { cn } from "@/lib/utils";
+import { uploadIssueFile } from "@/lib/issues-api";
 import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
 
 // Linear-hosted image URLs (uploads.linear.app) require Linear's own API key to
@@ -56,6 +60,11 @@ const ProxiedImage = Image.extend({
     return ReactNodeViewRenderer(ProxiedImageNodeView);
   },
 });
+
+// Images in a paste or drop, if any (screenshots arrive as files).
+function imageFilesFrom(data: DataTransfer | null): File[] {
+  return Array.from(data?.files ?? []).filter((f) => f.type.startsWith("image/"));
+}
 
 function getMarkdown(editor: Editor): string {
   return (editor.storage as unknown as { markdown: MarkdownStorage }).markdown.getMarkdown();
@@ -148,6 +157,7 @@ export function RichTextEditor({
   minHeight = "90px",
   id,
   ariaLabel,
+  allowImages = true,
 }: Readonly<{
   value: string;
   onChange: (markdown: string) => void;
@@ -156,7 +166,31 @@ export function RichTextEditor({
   minHeight?: string;
   id?: string;
   ariaLabel?: string;
+  /** Paste or drop images to upload them (to Linear) and insert them inline. */
+  allowImages?: boolean;
 }>) {
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const allowImagesRef = useRef(allowImages);
+  allowImagesRef.current = allowImages;
+
+  // Uploads each image, then inserts it where the cursor (or drop point) was.
+  async function insertImages(view: EditorView, files: File[], pos?: number) {
+    setUploadingCount((n) => n + files.length);
+    for (const file of files) {
+      try {
+        const { url, name } = await uploadIssueFile(file);
+        const node = view.state.schema.nodes.image?.create({ src: url, alt: name });
+        if (!node) continue;
+        const at = pos ?? view.state.selection.from;
+        view.dispatch(view.state.tr.insert(Math.min(at, view.state.doc.content.size), node));
+      } catch {
+        toast.error(`Couldn't upload ${file.name}.`);
+      } finally {
+        setUploadingCount((n) => n - 1);
+      }
+    }
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -181,6 +215,23 @@ export function RichTextEditor({
         class:
           "prose prose-sm !text-smalltext max-w-none text-card-foreground focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2",
         style: `min-height: ${minHeight}`,
+      },
+      handlePaste: (view, event) => {
+        if (!allowImagesRef.current) return false;
+        const files = imageFilesFrom(event.clipboardData);
+        if (files.length === 0) return false;
+        event.preventDefault();
+        insertImages(view, files);
+        return true;
+      },
+      handleDrop: (view, event) => {
+        if (!allowImagesRef.current) return false;
+        const files = imageFilesFrom(event.dataTransfer);
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        insertImages(view, files, pos);
+        return true;
       },
     },
     onUpdate: ({ editor }) => {
@@ -209,6 +260,12 @@ export function RichTextEditor({
       )}
     >
       <Toolbar editor={editor} />
+      {uploadingCount > 0 && (
+        <p className="flex items-center gap-1.5 px-3 pt-2 smalltext text-muted-foreground" role="status">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Uploading {uploadingCount === 1 ? "image" : `${uploadingCount} images`}…
+        </p>
+      )}
       <EditorContent
         editor={editor}
         className="px-3 py-2 smalltext overflow-y-auto cursor-text"
