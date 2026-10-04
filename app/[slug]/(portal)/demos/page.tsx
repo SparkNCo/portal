@@ -29,6 +29,7 @@ import {
   groupDemosByContent,
 } from "@/lib/demo-video-utils";
 import type { Issue } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 
 async function createDemoFromUpload(issueId: string, email: string, file: File, title: string) {
   const formData = new FormData();
@@ -373,7 +374,7 @@ function DemoCard({
 }
 
 function canEditIssue(issue: Issue) {
-  return issue.state?.name !== "Done";
+  return !isClosedIssue(issue);
 }
 
 // Every role sees an initiative's demos and can comment on them (from the

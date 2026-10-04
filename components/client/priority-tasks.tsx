@@ -15,14 +15,14 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { getIssueCode } from "@/lib/utils";
-import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors } from "./issues.types";
+import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 import { TaskFilterPanel, ActiveFilterChips } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
-  return issue.state?.name !== "Done";
+  return !isClosedIssue(issue);
 }
 
 // Board columns in the order a ticket moves through them; these always show

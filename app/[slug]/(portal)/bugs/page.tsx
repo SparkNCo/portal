@@ -22,6 +22,7 @@ import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
 import { API_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -75,7 +76,7 @@ function BugsPageContent() {
   const bugIssues = allIssues.filter(
     (i: any) =>
       (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
-      i?.state?.name !== "Done",
+      !isClosedIssue(i),
   );
 
   // The deep-linked issue may no longer qualify for this list by the time
