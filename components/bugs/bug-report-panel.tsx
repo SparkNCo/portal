@@ -1,23 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bug, Plus, X, Paperclip, File as FileIcon } from "lucide-react";
+import { Bug, X, Paperclip, File as FileIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/components/ui/button";
 import {
   TitleContinueRow,
   ProjectField,
   MilestoneField,
+  ListItemsField,
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
 // (Linear's presigned GCS URLs aren't CORS-enabled for direct browser upload).
@@ -81,14 +81,6 @@ export function BugReportPanel({ slug }: { slug: string }) {
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const stepRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [focusStepIndex, setFocusStepIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (focusStepIndex === null) return;
-    stepRefs.current[focusStepIndex]?.focus();
-    setFocusStepIndex(null);
-  }, [focusStepIndex, steps.length]);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", slug],
@@ -159,27 +151,6 @@ export function BugReportPanel({ slug }: { slug: string }) {
     setAttachments((prev) => prev.filter((f) => f.name !== name));
   }
 
-  function updateStep(index: number, value: string) {
-    setSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
-  }
-
-  function addStep() {
-    setSteps((prev) => [...prev, ""]);
-  }
-
-  function removeStep(index: number) {
-    setSteps((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
-  }
-
-  function handleStepKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    if (index === steps.length - 1) {
-      setSteps((prev) => [...prev, ""]);
-    }
-    setFocusStepIndex(index + 1);
-  }
-
   function handleSubmit() {
     if (!title.trim()) return;
     mutation.mutate();
@@ -206,69 +177,40 @@ export function BugReportPanel({ slug }: { slug: string }) {
         {detailsRevealed && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>Steps to Reproduce</Label>
-                <div className="space-y-2">
-                  {steps.map((step, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-4 shrink-0 smalltext text-muted-foreground">
-                        {i + 1}.
-                      </span>
-                      <Input
-                        ref={(el) => { stepRefs.current[i] = el; }}
-                        aria-label={`Step ${i + 1}`}
-                        placeholder={i === 0 ? "Go to..." : "Click on..."}
-                        value={step}
-                        onChange={(e) => updateStep(i, e.target.value)}
-                        onKeyDown={(e) => handleStepKeyDown(e, i)}
-                        className="bg-card border-0 text-card-foreground placeholder:text-card-foreground/40"
-                      />
-                      {steps.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 flex-shrink-0"
-                          onClick={() => removeStep(i)}
-                          aria-label={`Remove step ${i + 1}`}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="ml-6"
-                    onClick={addStep}
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1.5" />
-                    Add step
-                  </Button>
-                </div>
+              <div className="md:col-span-2">
+                <ListItemsField
+                  label="Steps to Reproduce"
+                  items={steps}
+                  onChange={setSteps}
+                  itemLabel="Step"
+                  placeholderFor={(i) => (i === 0 ? "Go to..." : "Click on...")}
+                  addLabel="Add step"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="bug-expected">Expected</Label>
-                <Textarea
+                <RichTextEditor
                   id="bug-expected"
-                  placeholder="What should happen"
+                  ariaLabel="Expected"
+                  placeholder="What should happen (you can paste screenshots)"
                   value={expected}
-                  onChange={(e) => setExpected(e.target.value)}
-                  className="bg-card border-0 min-h-[60px] resize-none text-card-foreground placeholder:text-card-foreground/40"
+                  onChange={setExpected}
+                  className="border-0"
+                  minHeight="60px"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="bug-actual">Actual</Label>
-                <Textarea
+                <RichTextEditor
                   id="bug-actual"
-                  placeholder="What actually happened"
+                  ariaLabel="Actual"
+                  placeholder="What actually happened (you can paste screenshots)"
                   value={actual}
-                  onChange={(e) => setActual(e.target.value)}
-                  className="bg-card border-0 min-h-[60px] resize-none text-card-foreground placeholder:text-card-foreground/40"
+                  onChange={setActual}
+                  className="border-0"
+                  minHeight="60px"
                 />
               </div>
 
