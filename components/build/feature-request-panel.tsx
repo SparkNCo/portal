@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { useUser } from "context/UserContext";
 import {
   TitleContinueRow,
   ProjectField,
@@ -69,6 +70,7 @@ function buildFeatureDescription(description: string, criteria: string[]) {
 }
 
 export function FeatureRequestPanel({ slug }: { slug: string }) {
+  const { profile } = useUser();
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -107,6 +109,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
         description: buildFeatureDescription(description, criteria),
         priority,
         slug,
+        ...(profile?.email && { requestedBy: profile.email }),
         type: "feature",
         ...(selectedProjectId && { projectId: selectedProjectId }),
         ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),

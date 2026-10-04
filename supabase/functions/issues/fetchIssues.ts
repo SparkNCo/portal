@@ -5,6 +5,7 @@ import { escapeIlike } from "../utils/slug.ts";
 import { ISSUES_QUERY } from "./query.ts";
 import { IssuesResponseSchema } from "./zod.ts";
 import { syncCustomerLinearProjects } from "./syncLinearProjects.ts";
+import { attachRequesters } from "./issueRequests.ts";
 
 async function getCustomerBySlug(slug: string, schema: string) {
   console.log("getCustomerBySlug", slug);
@@ -118,6 +119,7 @@ const GET_ISSUE_BY_ID_QUERY = `
       state { name }
       labels { nodes { id name color } }
       attachments(first: 1) { nodes { id } }
+      createdAt
     }
   }
 `;
@@ -143,7 +145,8 @@ export async function handleGetIssueById(req: Request): Promise<Response> {
   if (json.errors) throw new Error(JSON.stringify(json.errors));
   if (!json.data?.issue) return Response.json({ error: "Issue not found" }, { status: 404 });
 
-  return Response.json(json.data.issue);
+  const [withRequester] = await attachRequesters([json.data.issue]);
+  return Response.json(withRequester);
 }
 
 export async function handleGetIssues(req: Request): Promise<Response> {
@@ -190,7 +193,7 @@ export async function handleGetIssues(req: Request): Promise<Response> {
     );
   }
 
-  const issues = await fetchIssuesFromLinear(projectIds, ticketStatuses);
+  const issues = await attachRequesters(await fetchIssuesFromLinear(projectIds, ticketStatuses));
 
   return Response.json(issues);
 }

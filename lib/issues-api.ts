@@ -27,6 +27,8 @@ export interface CreateIssuePayload {
   projectMilestoneId?: string;
   estimate?: number;
   labelIds?: string[];
+  /** Email of the portal user asking for the ticket (shown as "Requested by"). */
+  requestedBy?: string;
 }
 
 export async function postCreateIssue(payload: CreateIssuePayload) {
