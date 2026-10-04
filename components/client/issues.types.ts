@@ -21,6 +21,7 @@ export const statusColors = {
   Canceled: "bg-destructive/20 text-destructive",
   waiting: "bg-muted text-muted-foreground",
   Done: "bg-success/20 text-success",
+  Approved: "bg-success/20 text-success",
   Completed: "bg-success/20 text-success",
   QA: "bg-blue-700/20 text-blue-700",
   "Business Review": "bg-orange-500/20 text-orange-600",
@@ -36,8 +37,17 @@ export const STATUS_ORDER = [
   "Development",
   "QA",
   "UAT",
+  "Approved",
   "Done",
 ];
+
+// Finished tickets: approved in UAT, or done. Kept out of open-work lists and
+// counted as complete in progress charts.
+export const CLOSED_STATUSES = new Set(["Done", "Approved"]);
+
+export function isClosedIssue(issue: { state?: { name?: string } | null }): boolean {
+  return CLOSED_STATUSES.has(issue.state?.name ?? "");
+}
 
 // Raw color values (not Tailwind classes) for charts that need an actual
 // `fill`/`stroke` value — shared so "Project Stats" and "Issues by Status"
@@ -54,6 +64,7 @@ export const STATUS_ORDER = [
 export const CHART_STATUS_COLORS: Record<string, string> = {
   Completed: "hsl(var(--success))",
   Done: "hsl(var(--success))",
+  Approved: "hsl(var(--success))",
   "In Progress": "hsl(var(--warning))",
   "In Review": "#38bdf8", // sky-400
   Blocked: "hsl(var(--destructive))",
@@ -146,6 +157,7 @@ export type Issue = {
       | "Canceled"
       | "waiting"
       | "Done"
+      | "Approved"
       | "Completed"
       | "QA"
       | "Business Review"
@@ -198,6 +210,7 @@ export const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
   "Blocked",
   "Not Started",
   "Canceled",
+  "Approved",
   "Done",
   "Completed",
 ];

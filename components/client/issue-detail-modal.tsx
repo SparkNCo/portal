@@ -2240,7 +2240,7 @@ export function IssueDetailModal({
                   variant="success"
                   className="smalltext flex-1 sm:flex-none"
                   disabled={advancing}
-                  onClick={() => handleAdvanceState("Done")}
+                  onClick={() => handleAdvanceState("Approved")}
                 >
                   <Check className="h-3.5 w-3.5 mr-1.5" />
                   {advancing ? "Updating…" : "Approved"}

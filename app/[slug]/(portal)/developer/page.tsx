@@ -21,6 +21,7 @@ import { safeDecodeURIComponent } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue, IssueViewMode } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -130,7 +131,7 @@ export default function DeveloperDashboard() {
   });
 
   const allIssues: any[] = (issuesData ?? [])
-    .filter((i: any) => i?.state?.name !== "Done");
+    .filter((i: any) => !isClosedIssue(i));
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
   // "Cycle N" labels of the cycles the listed tickets are in, newest first,
