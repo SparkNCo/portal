@@ -20,7 +20,7 @@ import {
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { getIssueCode } from "@/lib/utils";
+import { getIssueCode, deriveIssueKind } from "@/lib/utils";
 import {
   type Issue,
   priorityColors,
@@ -51,11 +51,19 @@ async function patchIssue(payload: {
 // badges — kept here as separate PATCH calls (not batched with the
 // title/description save below) so a priority/status change sticks even if
 // the user then cancels out of the rest of the edit.
-async function patchStatus(issueId: string, stateName: string) {
+// The extra fields let the backend notify the initiative about the change.
+async function patchStatus(payload: {
+  issueId: string;
+  stateName: string;
+  actorEmail?: string;
+  slug?: string;
+  issueCode?: string;
+  issueType?: string | null;
+}) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
     method: "PATCH",
     headers: API_JSON_HEADERS,
-    body: JSON.stringify({ issueId, stateName }),
+    body: JSON.stringify(payload),
   });
   return res.json();
 }
@@ -173,7 +181,14 @@ export function EditIssueModal({
     if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
-      const data = await patchStatus(issue.id, targetState);
+      const data = await patchStatus({
+        issueId: issue.id,
+        stateName: targetState,
+        actorEmail: profile?.email,
+        slug,
+        issueCode: getIssueCode(issue.branchName),
+        issueType: deriveIssueKind(issue.labels?.nodes),
+      });
       if (data.success) {
         setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
         invalidateIssueLists();

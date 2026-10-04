@@ -15,6 +15,7 @@ import {
   FileText,
   FileCheck2,
   FileX,
+  ArrowRightLeft,
   Search,
   X,
 } from "lucide-react";
@@ -52,7 +53,14 @@ const ACTION_PHRASES: Record<string, string> = {
   document_request_claimed: "is working on the document request",
   document_request_released: "unassigned the document request",
   document_request_completed: "delivered the document request",
+  status_changed: "changed the status",
 };
+
+// Status changes carry the from/to in the preview ("from QA to UAT").
+function actionPhraseFor(event: { action: string; preview: string | null }): string {
+  const phrase = ACTION_PHRASES[event.action] ?? event.action;
+  return event.action === "status_changed" && event.preview ? `${phrase} ${event.preview}` : phrase;
+}
 
 const OBJECT_TYPE_LABELS: Record<string, string> = {
   chat: "in a chat",
@@ -87,6 +95,7 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   document_request_claimed: FileText,
   document_request_released: FileX,
   document_request_completed: FileCheck2,
+  status_changed: ArrowRightLeft,
 };
 
 function formatRelativeTime(iso: string): string {
@@ -164,7 +173,7 @@ function NotificationItem({
   const { event } = notification;
   const textColor = onDark ? "text-card" : "text-popover-foreground";
   const mutedTextColor = onDark ? "text-card/70" : "text-popover-foreground/70";
-  const actionPhrase = ACTION_PHRASES[event.action] ?? event.action;
+  const actionPhrase = actionPhraseFor(event);
   const Icon = ACTION_ICONS[event.action] ?? MessageCircle;
 
   return (
@@ -191,7 +200,7 @@ function NotificationItem({
 // and the message preview itself.
 function searchableText(n: Notification): string {
   const { event } = n;
-  const actionPhrase = ACTION_PHRASES[event.action] ?? event.action;
+  const actionPhrase = actionPhraseFor(event);
   return [event.actor_email, actionPhrase, formatObject(event), event.issue_code, event.object_title, event.preview]
     .filter(Boolean)
     .join(" ")

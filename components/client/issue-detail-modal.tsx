@@ -1993,7 +1993,14 @@ export function IssueDetailModal({
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
-          body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
+          body: JSON.stringify({
+            issueId: issue.id,
+            stateName: targetState,
+            actorEmail: profile?.email,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
+          }),
         },
       );
       const data = await res.json();

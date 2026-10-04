@@ -16,6 +16,7 @@ import {
 } from "./updateDemoVideo.ts";
 import { listComments } from "./listComments.ts";
 import { createComment } from "./createComment.ts";
+import { updateComment } from "./updateComment.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -42,6 +43,10 @@ Deno.serve(async (req) => {
 
     if (req.method === "PUT") {
       return await handlePutVideo(req);
+    }
+
+    if (req.method === "PATCH" && isComments) {
+      return await handlePatchComment(req);
     }
 
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -206,6 +211,21 @@ const handleGetComments = async (url: URL) => {
   }
 
   return jsonResponse(await listComments(demoVideoId));
+};
+
+// PATCH ?type=comments — { id, email, body }. Only the author can edit.
+const handlePatchComment = async (req: Request) => {
+  const { id, email, body } = await req.json();
+
+  if (!id) return jsonResponse({ error: "id is required" }, 400);
+  if (!email) return jsonResponse({ error: "email is required" }, 400);
+  if (!body?.trim()) return jsonResponse({ error: "body is required" }, 400);
+
+  const updated = await updateComment(id, email, body);
+  if (!updated) {
+    return jsonResponse({ error: "Only the person who wrote this feedback can edit it" }, 403);
+  }
+  return jsonResponse(updated);
 };
 
 const handlePostComment = async (req: Request) => {

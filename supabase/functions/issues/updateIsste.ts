@@ -11,6 +11,7 @@ const GET_ISSUE_TEAM_QUERY = `
   query GetIssueTeam($id: String!) {
     issue(id: $id) {
       team { id }
+      state { name }
     }
   }
 `;
@@ -41,7 +42,9 @@ export async function handleUpdateState(req: Request): Promise<Response> {
     const body = await req.json();
     console.log("📥 Incoming body:", body);
 
-    const { issueId, stateName } = body;
+    // actorEmail/slug/issueCode/issueType are for the status-change
+    // notification; without a slug nobody is notified.
+    const { issueId, stateName, actorEmail, slug, issueCode, issueType } = body;
 
     if (!issueId || !stateName) {
       console.log("❌ Missing params:", { issueId, stateName });
@@ -100,6 +103,26 @@ export async function handleUpdateState(req: Request): Promise<Response> {
     });
 
     console.log("✅ Update response:", JSON.stringify(updateData, null, 2));
+
+    const previousState = issueData.issue?.state?.name;
+    if (updateData.issueUpdate?.success && actorEmail) {
+      await markIssueUpdated(issueId, actorEmail);
+    }
+    if (updateData.issueUpdate?.success && slug && actorEmail && previousState !== stateName) {
+      // Fire-and-forget so notifications don't delay the response.
+      EdgeRuntime.waitUntil(notifyProject({
+        slug,
+        actorEmail,
+        action: "status_changed",
+        objectType: "issue_status",
+        objectId: issueId,
+        link: resolveIssueDashboardLink(slug, issueType),
+        // Read by the bell as "changed the status <preview>".
+        preview: previousState ? `from ${previousState} to ${stateName}` : `to ${stateName}`,
+        issueCode,
+        issueId,
+      }));
+    }
 
     return Response.json(updateData.issueUpdate);
   } catch (err) {
