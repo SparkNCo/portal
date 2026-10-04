@@ -18,6 +18,7 @@ import {
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { useUser } from "context/UserContext";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
 // (Linear's presigned GCS URLs aren't CORS-enabled for direct browser upload).
@@ -71,6 +72,7 @@ function buildBugDescription(steps: string[], expected: string, actual: string) 
 }
 
 export function BugReportPanel({ slug }: { slug: string }) {
+  const { profile } = useUser();
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [steps, setSteps] = useState<string[]>([""]);
@@ -110,6 +112,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
         description: buildBugDescription(steps, expected, actual),
         priority,
         slug,
+        ...(profile?.email && { requestedBy: profile.email }),
         type: "bug",
         ...(selectedProjectId && { projectId: selectedProjectId }),
         ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),

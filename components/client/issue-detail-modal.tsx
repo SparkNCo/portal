@@ -2206,6 +2206,17 @@ export function IssueDetailModal({
                 {issue.title}
               </DialogTitle>
             </div>
+            {issue.requestedBy !== undefined && (
+              <p className="smalltext italic text-muted-foreground">
+                {issue.requestedBy ? `Requested by ${issue.requestedBy.name}` : "Created by Spark & Co"}
+                {issue.createdAt &&
+                  ` on ${new Date(issue.createdAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}`}
+              </p>
+            )}
 
             {/* Guided stage transitions — visible on every tab (not just
                 Description) and to every role, since anyone reviewing the

@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector } from "../lib/vector.ts";
+import { recordIssueRequest } from "./issueRequests.ts";
 
 const GET_FIRST_TEAM_QUERY = `
   query GetFirstTeam {
@@ -298,7 +299,7 @@ async function resolveAutoLabelId(type: string, teamId: string): Promise<string 
 export async function handleCreateIssue(req: Request): Promise<Response> {
   const schema = "portal";
   const body = await req.json();
-  const { title, slug, type, teamId: bodyTeamId, labelIds } = body;
+  const { title, slug, type, teamId: bodyTeamId, labelIds, requestedBy } = body;
 
   if (!title?.trim()) {
     return Response.json({ error: "Missing title" }, { status: 400 });
@@ -328,6 +329,9 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
   const createdIssue = data.issueCreate?.issue;
+
+  // Who asked for it in the portal (shown in the ticket header).
+  await recordIssueRequest(createdIssue?.id, requestedBy);
 
   // Best-effort: makes the new ticket searchable right away.
   if (linearSlug && createdIssue) {

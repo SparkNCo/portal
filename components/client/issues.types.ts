@@ -173,6 +173,9 @@ export type Issue = {
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
   createdAt?: string;
+  // Who asked for it in the portal; null when it was created in Linear,
+  // undefined when the list it came from doesn't include this.
+  requestedBy?: { name: string; email: string } | null;
   project?: { id: string; name: string; slugId?: string };
   // Client-side tag (not from the API) added by pages that merge issues
   // across multiple customers, e.g. the developer dashboard — holds the
