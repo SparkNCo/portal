@@ -466,14 +466,16 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         />
       </div>
 
-      {/* Create Version: choose Upload Media, Add Link, or Select Existing */}
+      {/* Create Version: choose Upload Media, Add Link, or Select Existing.
+          Clicking the open option keeps it open; picking another one (or
+          opening Select Existing) switches to it. Cancel closes the form. */}
       {createOpen && (
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="ghost"
             className={`gap-1.5 ${createMode === "upload" ? "bg-muted" : ""}`}
-            onClick={() => setCreateMode(createMode === "upload" ? null : "upload")}
+            onClick={() => setCreateMode("upload")}
           >
             <Upload className="h-3.5 w-3.5" />
             Upload Media
@@ -482,7 +484,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             size="sm"
             variant="ghost"
             className={`gap-1.5 ${createMode === "embed" ? "bg-muted" : ""}`}
-            onClick={() => setCreateMode(createMode === "embed" ? null : "embed")}
+            onClick={() => setCreateMode("embed")}
           >
             <LinkIcon className="h-3.5 w-3.5" />
             Add Link
@@ -492,6 +494,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               slug={slug}
               disabled={attachExistingMutation.isPending}
               onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
+              onOpen={() => setCreateMode(null)}
             />
           )}
         </div>
@@ -596,7 +599,10 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             variant="ghost"
             className="gap-1.5"
             disabled={replaceWithFileMutation.isPending}
-            onClick={() => replaceFileInputRef.current?.click()}
+            onClick={() => {
+              setShowReplaceEmbedForm(false);
+              replaceFileInputRef.current?.click();
+            }}
           >
             {replaceWithFileMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -608,8 +614,8 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowReplaceEmbedForm((v) => !v)}
+            className={`gap-1.5 ${showReplaceEmbedForm ? "bg-muted" : ""}`}
+            onClick={() => setShowReplaceEmbedForm(true)}
           >
             <LinkIcon className="h-3.5 w-3.5" />
             Add Link
@@ -619,6 +625,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               slug={slug}
               disabled={replaceWithExistingMutation.isPending}
               onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
+              onOpen={() => setShowReplaceEmbedForm(false)}
             />
           )}
         </div>

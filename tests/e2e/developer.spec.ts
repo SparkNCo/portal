@@ -150,6 +150,47 @@ test.describe('Developer — panels', () => {
     await expect(page.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  // Read-only: only searches, never submits.
+  test('Request a Feature says when no similar tickets are found', async ({ page }) => {
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+
+    // The feature panel is the only issue form on Build.
+    await page.locator('#issue-title').first().fill('qzxv unmatched gibberish title 48213');
+    // Searches 3s after typing stops.
+    await expect(page.getByText('No similar tickets found')).toBeVisible({ timeout: 20_000 });
+  });
+
+  // Only opens and switches the forms — never adds a version.
+  test('Demo tab: Create Version options stay open when clicked again and switch between each other', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
+    const firstTicket = page.getByRole('main').locator('div.group > button[aria-label]').first();
+    await firstTicket.click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Demo', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Create Version' }).click();
+
+    const title = dialog.getByPlaceholder('e.g. Login flow walkthrough');
+    const linkUrl = dialog.getByPlaceholder('https://www.loom.com/share/...');
+
+    await dialog.getByRole('button', { name: 'Upload Media' }).click();
+    await expect(title).toBeVisible();
+    await dialog.getByRole('button', { name: 'Upload Media' }).click();
+    await expect(title).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Add Link' }).click();
+    await expect(linkUrl).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add Link' }).click();
+    await expect(linkUrl).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Select Existing' }).click();
+    await expect(title).toHaveCount(0);
+    const search = page.getByPlaceholder('Search by demo id or title…');
+    await expect(search).toBeVisible();
+    await dialog.getByRole('button', { name: 'Select Existing' }).click({ force: true });
+    await expect(search).toBeVisible();
+  });
+
   // ── Sidebar navigation ─────────────────────────────────────────────────────
 
   test('sidebar shows the correct nav items for a developer', async ({ page }) => {

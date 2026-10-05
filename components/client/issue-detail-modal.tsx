@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,6 +67,7 @@ import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-imag
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
+import { FilePreviewModal, previewFormatOf } from "@/components/documents/document-preview-modal";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -174,7 +175,32 @@ function isImageAttachment(a: IssueAttachment) {
 // Collapsed by default; the attachments are only fetched once it's opened.
 // Images show inline (through the Linear proxy, see ProxiedImage); anything
 // else is a row that opens the file.
-function AttachmentsSection({ issue }: { issue: Issue }) {
+// Text contents of a Linear-hosted file, through our proxy (same as images).
+async function fetchLinearFileText(url: string): Promise<string> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to load file");
+  return res.text();
+}
+
+// A Linear-hosted markdown/text/CSV file that can open in the in-app preview.
+type FilePreview = { name: string; format: string; url: string };
+
+function previewFor(name: string, url: string): FilePreview | null {
+  if (!isLinearUpload(url)) return null;
+  const format = previewFormatOf(name) ?? previewFormatOf(url);
+  return format ? { name, format, url } : null;
+}
+
+function AttachmentsSection({
+  issue,
+  onPreview,
+}: {
+  issue: Issue;
+  onPreview: (file: FilePreview) => void;
+}) {
   const [open, setOpen] = useState(false);
   const { data: attachments = [], isLoading, isError } = useQuery({
     queryKey: ["issue-attachments", issue.id],
@@ -241,7 +267,11 @@ function AttachmentsSection({ issue }: { issue: Issue }) {
                     <li key={a.id}>
                       <button
                         type="button"
-                        onClick={() => openAttachment(a)}
+                        onClick={() => {
+                          const preview = previewFor(a.title || a.url, a.url);
+                          if (preview) onPreview(preview);
+                          else openAttachment(a);
+                        }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
                       >
                         <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -314,6 +344,14 @@ function TabButton({
 // ── Tab components ──────────────────────────────────────────────────────────
 
 function DescriptionTab({ issue }: { issue: Issue }) {
+  // Markdown, text and CSV files (attached, or linked in the description)
+  // open in a preview instead of a new tab.
+  const [preview, setPreview] = useState<FilePreview | null>(null);
+  const previewFile = useMemo(
+    () => (preview ? { name: preview.name, format: preview.format } : null),
+    [preview],
+  );
+
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
@@ -334,6 +372,25 @@ function DescriptionTab({ issue }: { issue: Issue }) {
               img: ({ src, alt }) => (
                 <ProxiedImage src={typeof src === "string" ? src : undefined} alt={alt ?? ""} />
               ),
+              a: ({ href, children }) => {
+                const linked = typeof href === "string" ? previewFor(String(children ?? ""), href) : null;
+                if (linked) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setPreview(linked)}
+                      className="text-primary underline underline-offset-2 hover:opacity-80"
+                    >
+                      {children}
+                    </button>
+                  );
+                }
+                return (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                );
+              },
             }}
           >
             {issue.description}
@@ -347,8 +404,13 @@ function DescriptionTab({ issue }: { issue: Issue }) {
       {/* Hidden when the ticket is known to have none. Issues loaded
           without that info (e.g. from older cached lists) still show it. */}
       {(issue.attachments == null || issue.attachments.nodes.length > 0) && (
-        <AttachmentsSection issue={issue} />
+        <AttachmentsSection issue={issue} onPreview={setPreview} />
       )}
+      <FilePreviewModal
+        file={previewFile}
+        loadText={() => fetchLinearFileText(preview!.url)}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 }
@@ -1874,6 +1936,25 @@ export function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const role = profile?.role;
+  // "Requested by … on …": lists that don't carry who requested the ticket
+  // (Roadmap, cycle metrics, …) get it from the single-ticket endpoint.
+  const { data: fetchedOrigin } = useQuery({
+    queryKey: ["issue-origin", issue.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${encodeURIComponent(issue.id)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load ticket");
+      return (await res.json()) as Pick<Issue, "requestedBy" | "createdAt">;
+    },
+    enabled: issue.requestedBy === undefined,
+    staleTime: 5 * 60 * 1000,
+  });
+  const origin =
+    issue.requestedBy !== undefined
+      ? { requestedBy: issue.requestedBy, createdAt: issue.createdAt }
+      : { requestedBy: fetchedOrigin?.requestedBy, createdAt: issue.createdAt ?? fetchedOrigin?.createdAt };
   // Admins can do anything a customer can, on top of their own powers below.
   const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
@@ -2213,11 +2294,11 @@ export function IssueDetailModal({
                 {issue.title}
               </DialogTitle>
             </div>
-            {issue.requestedBy !== undefined && (
+            {origin.requestedBy !== undefined && (
               <p className="smalltext italic text-muted-foreground">
-                {issue.requestedBy ? `Requested by ${issue.requestedBy.name}` : "Created by Spark & Co"}
-                {issue.createdAt &&
-                  ` on ${new Date(issue.createdAt).toLocaleDateString(undefined, {
+                {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
+                {origin.createdAt &&
+                  ` on ${new Date(origin.createdAt).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
                     year: "numeric",

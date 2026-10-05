@@ -124,7 +124,7 @@ export function DocumentsList({
               so both card titles line up. The "how it works" note is a tooltip
               instead of an extra line under the input. */}
           <div className="relative w-full sm:w-64">
-            <Sparkles className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-accent" />
+            <Sparkles className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary" aria-hidden="true" />
             <Input
               aria-label="AI-powered document search"
               title="AI search — matches meaning, not just filenames"
@@ -132,12 +132,12 @@ export function DocumentsList({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "w-full bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground focus-visible:ring-accent",
+                "w-full bg-muted border-0 pl-8 smalltext text-foreground placeholder:text-muted-foreground focus-visible:ring-primary",
                 isFetching && debouncedSearch ? "pr-8" : "pr-3",
               )}
             />
             {isFetching && debouncedSearch && (
-              <div className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+              <div className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
             )}
           </div>
         </div>
