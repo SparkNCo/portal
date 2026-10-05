@@ -26,8 +26,10 @@ function canEditIssue(issue: Issue) {
 }
 
 // Board columns in the order a ticket moves through them; these always show
-// (even empty). Any other status a ticket is in gets its own column after.
-const BOARD_COLUMNS = ["Planning", "Development", "QA", "UAT", "Backlog"];
+// (even empty). Any other open status a ticket is in gets its own column after.
+const BOARD_COLUMNS = ["Backlog", "Planning", "Development", "QA", "UAT"];
+// Finished or dropped work isn't part of the board.
+const BOARD_HIDDEN_STATUSES = new Set(["Done", "Approved", "Canceled"]);
 
 const VIEW_OPTIONS: { value: IssueViewMode; label: string; Icon: typeof List }[] = [
   { value: "grid", label: "Grid", Icon: LayoutGrid },
@@ -67,6 +69,7 @@ function boardColumns(issues: Issue[], selectedStatuses: string[]) {
   const byStatus = new Map<string, Issue[]>();
   issues.forEach((i) => {
     const status = i.state?.name ?? "No status";
+    if (BOARD_HIDDEN_STATUSES.has(status)) return;
     byStatus.set(status, [...(byStatus.get(status) ?? []), i]);
   });
   const extra = [...byStatus.keys()].filter((s) => !BOARD_COLUMNS.includes(s));

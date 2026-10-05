@@ -213,15 +213,16 @@ const handleGetComments = async (url: URL) => {
   return jsonResponse(await listComments(demoVideoId));
 };
 
-// PATCH ?type=comments — { id, email, body }. Only the author can edit.
+// PATCH ?type=comments — { id, email, body, slug?, issue_code?, issue_type? }.
+// Only the author can edit; the issue context is for the notification.
 const handlePatchComment = async (req: Request) => {
-  const { id, email, body } = await req.json();
+  const { id, email, body, slug, issue_code, issue_type } = await req.json();
 
   if (!id) return jsonResponse({ error: "id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
   if (!body?.trim()) return jsonResponse({ error: "body is required" }, 400);
 
-  const updated = await updateComment(id, email, body);
+  const updated = await updateComment(id, email, body, slug, issue_code, issue_type);
   if (!updated) {
     return jsonResponse({ error: "Only the person who wrote this feedback can edit it" }, 403);
   }
