@@ -115,6 +115,30 @@ function useInitiativeUsers(projectSlug: string | null | undefined, enabled: boo
 
 const ROLE_ORDER: Record<string, number> = { customer: 0, stakeholder: 1, developer: 2 };
 
+const PERMISSION_LABELS: Record<string, string> = {
+  owner: "Owner",
+  write: "Can edit",
+  read: "Can view",
+};
+
+// Who already has access to the document, by lowercased email.
+function useDocumentAccess(documentId: number | undefined, callerId: string | undefined, enabled: boolean) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["document-permissions", documentId],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/permissions?document_id=${documentId}&user_id=${callerId}`,
+        { headers: API_JSON_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load who has access");
+      return res.json() as Promise<{ email: string; permission: string }[]>;
+    },
+    enabled: enabled && !!documentId && !!callerId,
+  });
+  const byEmail = new Map((data ?? []).map((p) => [p.email.toLowerCase(), p.permission]));
+  return { accessByEmail: byEmail, isLoading };
+}
+
 export function ShareDocumentModal({
   isOpen,
   onClose,
@@ -130,13 +154,18 @@ export function ShareDocumentModal({
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const shareMutation = useShareDocument();
-  const { users, isLoading, initiativeName } = useInitiativeUsers(document?.project_slug, isOpen);
+  const { users, isLoading: usersLoading, initiativeName } = useInitiativeUsers(document?.project_slug, isOpen);
+  const { accessByEmail, isLoading: accessLoading } = useDocumentAccess(document?.id, id, isOpen);
+  const isLoading = usersLoading || accessLoading;
+  const accessOf = (email: string) => accessByEmail.get(email.toLowerCase());
 
-  // You can't share with yourself.
+  // You can't share with yourself. People who already have access are listed
+  // (checked and locked) but can't be picked again.
   const options = users
     .filter((u) => u.email.toLowerCase() !== profile?.email?.toLowerCase())
     .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.name.localeCompare(b.name));
-  const allSelected = options.length > 0 && options.every((u) => selected.has(u.email));
+  const selectable = options.filter((u) => !accessOf(u.email));
+  const allSelected = selectable.length > 0 && selectable.every((u) => selected.has(u.email));
 
   const close = () => {
     setSelected(new Set());
@@ -151,7 +180,7 @@ export function ShareDocumentModal({
       return next;
     });
 
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(options.map((u) => u.email)));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectable.map((u) => u.email)));
 
   const handleShare = () => {
     shareMutation.mutate(
@@ -169,6 +198,7 @@ export function ShareDocumentModal({
               : "Everyone selected already has access",
           );
           queryClient.invalidateQueries({ queryKey: ["documents"] });
+          queryClient.invalidateQueries({ queryKey: ["document-permissions", document.id] });
           close();
         },
         onError: () => toast.error("Failed to share document. Please try again."),
@@ -196,24 +226,46 @@ export function ShareDocumentModal({
           ) : (
             <div className="rounded-md border border-border">
               <label className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 smalltext font-medium">
-                <Checkbox id="share-select-all" checked={allSelected} onCheckedChange={toggleAll} />
+                <Checkbox
+                  id="share-select-all"
+                  checked={allSelected}
+                  onCheckedChange={toggleAll}
+                  disabled={selectable.length === 0}
+                />
                 Select all
               </label>
               <ul className="max-h-64 overflow-y-auto">
-                {options.map((u) => (
+                {options.map((u) => {
+                  const access = accessOf(u.email);
+                  return (
                   <li key={u.email}>
-                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-secondary/30">
-                      <Checkbox checked={selected.has(u.email)} onCheckedChange={() => toggle(u.email)} />
+                    <label
+                      className={`flex items-center gap-3 px-3 py-2 ${
+                        access ? "cursor-default opacity-70" : "cursor-pointer hover:bg-secondary/30"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={!!access || selected.has(u.email)}
+                        disabled={!!access}
+                        onCheckedChange={() => toggle(u.email)}
+                        aria-label={access ? `${u.name} already has access` : `Share with ${u.name}`}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate smalltext font-medium text-foreground">{u.name}</span>
                         {u.name !== u.email && (
                           <span className="block truncate smalltext text-muted-foreground">{u.email}</span>
                         )}
                       </span>
-                      <span className="shrink-0 smalltext capitalize text-muted-foreground">{u.role}</span>
+                      <span className="shrink-0 text-right smalltext text-muted-foreground">
+                        <span className="block capitalize">{u.role}</span>
+                        {access && (
+                          <span className="block text-success">{PERMISSION_LABELS[access] ?? "Has access"}</span>
+                        )}
+                      </span>
                     </label>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           )}

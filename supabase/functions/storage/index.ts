@@ -3,6 +3,7 @@ import { corsHeaders } from "../utils/headers.ts";
 import { downloadDocument } from "./downloadDocument.ts";
 import { getStorageData } from "./fetch-storage-data.ts";
 import { shareDocument } from "./shareDocument.ts";
+import { getDocumentPermissions } from "./getDocumentPermissions.ts";
 import { transferOwnership } from "./transferOwnership.ts";
 import { deleteDocument } from "./delete-document.ts";
 import { updateDocumentCategory } from "./update-document-category.ts";
@@ -26,6 +27,9 @@ Deno.serve(async (req) => {
     // 🔹 GET /storage
     if (req.method === "GET" && pathname === "/storage") {
       return await getStorageData(req, schema);
+    }
+    if (req.method === "GET" && pathname === "/storage/permissions") {
+      return await getDocumentPermissions(req, schema);
     }
     if (req.method === "GET" && pathname === "/storage/download") {
       return await downloadDocument(req, schema);
