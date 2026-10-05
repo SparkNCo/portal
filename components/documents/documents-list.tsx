@@ -114,29 +114,31 @@ export function DocumentsList({
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:min-h-9 justify-between gap-3">
           <CardTitle className="body font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
             Project Documents
           </CardTitle>
 
-          <div className="w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
-              <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-accent" />
-              <Input
-                aria-label="AI-powered document search"
-                placeholder="Ask AI to find a document…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-muted border-0 pl-9 pr-8 smalltext text-foreground placeholder:text-muted-foreground focus-visible:ring-accent"
-              />
-              {isFetching && debouncedSearch && (
-                <div className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+          {/* Same single-row height as the Upload Document header next to it,
+              so both card titles line up. The "how it works" note is a tooltip
+              instead of an extra line under the input. */}
+          <div className="relative w-full sm:w-64">
+            <Sparkles className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-accent" />
+            <Input
+              aria-label="AI-powered document search"
+              title="AI search — matches meaning, not just filenames"
+              placeholder="Ask AI to find a document…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(
+                "w-full bg-muted border-0 pl-9 smalltext text-foreground placeholder:text-muted-foreground focus-visible:ring-accent",
+                isFetching && debouncedSearch ? "pr-8" : "pr-3",
               )}
-            </div>
-            <p className="mt-1 smalltext text-muted-foreground/70">
-              AI search — matches meaning, not just filenames.
-            </p>
+            />
+            {isFetching && debouncedSearch && (
+              <div className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
+            )}
           </div>
         </div>
 
