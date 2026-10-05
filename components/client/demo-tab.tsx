@@ -851,7 +851,15 @@ function DemoFeedbackThread({
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
-          body: JSON.stringify({ id, email: profile.email, body }),
+          body: JSON.stringify({
+            id,
+            email: profile.email,
+            body,
+            // Same issue context as posting — the edit notifies the same people.
+            slug,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
+          }),
         },
       );
       if (!res.ok) {

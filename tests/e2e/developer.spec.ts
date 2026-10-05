@@ -131,9 +131,16 @@ test.describe('Developer — panels', () => {
     await page.getByRole('button', { name: /^All \(/ }).click();
 
     await page.getByRole('button', { name: 'Board view' }).click();
-    for (const column of ['Planning', 'Development', 'QA', 'UAT', 'Backlog']) {
+    const columns = ['Backlog', 'Planning', 'Development', 'QA', 'UAT'];
+    for (const column of columns) {
       await expect(page.getByRole('region', { name: new RegExp(`^${column}, \\d+ tickets?$`) })).toBeVisible();
     }
+    // In that order, and no finished/dropped columns.
+    const shown = (await page.getByRole('region', { name: /, \d+ tickets?$/ }).evaluateAll((els) =>
+      els.map((el) => el.getAttribute('aria-label')?.split(',')[0]),
+    )) as string[];
+    expect(shown.slice(0, columns.length)).toEqual(columns);
+    for (const hidden of ['Canceled', 'Done', 'Approved']) expect(shown).not.toContain(hidden);
 
     await page.getByRole('button', { name: 'List view' }).click();
     await expect(page.getByRole('region', { name: /^Planning, / })).toHaveCount(0);
