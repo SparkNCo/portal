@@ -23,23 +23,27 @@ async function insertEvent(schema: string, fields: Record<string, unknown>): Pro
   return data.id;
 }
 
-// Keeps one unread notification per (user, issue): re-points an existing
-// unread one at the new event, or inserts a new row.
+// Keeps one unread notification per (user, issue) — or per (user, chat) for
+// chat messages, same as the Realtime notify_chat_message trigger: re-points
+// an existing unread one at the new event, or inserts a new row.
 async function upsertNotificationForEvent(
   schema: string,
   userId: string,
   eventId: string,
   objectType: string,
   issueId: string | undefined,
+  objectId: string,
 ): Promise<void> {
-  if (issueId) {
+  const threadKey = objectType === "chat" ? { column: "events.object_id", value: objectId } : issueId ? { column: "events.issue_id", value: issueId } : null;
+  if (threadKey) {
     const { data: existing, error: existingError } = await supabase.schema(schema)
       .from("notifications")
-      .select("id, events!inner(object_type, issue_id)")
+      .select("id, events!inner(object_type, issue_id, object_id)")
       .eq("user_id", userId)
       .eq("read", false)
       .eq("events.object_type", objectType)
-      .eq("events.issue_id", issueId)
+      .eq(threadKey.column, threadKey.value)
+      .limit(1)
       .maybeSingle();
     if (existingError) throw new Error(existingError.message);
 
@@ -98,7 +102,7 @@ async function notifyRecipients(
 
   await Promise.all(
     Array.from(recipientIds).map((user_id) =>
-      upsertNotificationForEvent(schema, user_id, eventId, objectType, issueId),
+      upsertNotificationForEvent(schema, user_id, eventId, objectType, issueId, objectId),
     ),
   );
 }

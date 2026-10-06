@@ -68,7 +68,7 @@ const adminNavItems = [{ href: "/admin/users", label: "Users", icon: Shield }];
 const adminCustomerNavItems = clientNavItems;
 
 // The admin's last opened initiative, preselected on /admin pages.
-const ADMIN_LAST_INITIATIVE_KEY = "admin-last-initiative";
+export const ADMIN_LAST_INITIATIVE_KEY = "admin-last-initiative";
 
 type InitiativeOption = { value: string; label: string };
 
@@ -187,10 +187,14 @@ export function Sidebar() {
   // just the ones this component's own layout owns — so `customer`/`panel`
   // show up here whenever the active page is the nested
   // `dashboards/[customer]/[panel]` route, alongside the outer `[slug]`.
-  const { slug: urlSlug, customer: selectedCustomerParam, panel: selectedPanelParam } =
+  const { slug: rawUrlSlug, customer: selectedCustomerParam, panel: selectedPanelParam } =
     useParams<{ slug: string; customer?: string; panel?: string }>();
-  // Not reliably decoded by useParams() — normalize before it's re-encoded
-  // into nav links below, or repeated navigation stacks encoding on encoding.
+  // Not reliably decoded by useParams() — normalize before comparing or
+  // re-encoding into nav links below. Names with spaces/apostrophes (e.g.
+  // "What You're Funding") arrive as "what%20you're%20funding": compared
+  // raw, the Initiative dropdown never matched them, and re-encoded they
+  // stacked encoding on encoding.
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const selectedCustomer = selectedCustomerParam
     ? safeDecodeURIComponent(selectedCustomerParam)
     : selectedCustomerParam;
@@ -200,7 +204,7 @@ export function Sidebar() {
   // entry is commented out below, but the route still exists).
   const isViewingCustomer =
     profile?.role === "developer" && !!selectedCustomer;
-  const dashboardsBasePath = `/${urlSlug}`;
+  const dashboardsBasePath = `/${rawUrlSlug}`;
   // Admins browse a customer's own pages directly (e.g. /lualink/...) — the
   // exact same route tree the customer itself uses. Their own pages live
   // under the slug-less /admin, so any `[slug]` segment here means they're
@@ -297,7 +301,7 @@ export function Sidebar() {
     }
   };
   useEffect(() => {
-    if (isAdmin && urlSlug) rememberAdminInitiative(safeDecodeURIComponent(urlSlug).toLowerCase());
+    if (isAdmin && urlSlug) rememberAdminInitiative(urlSlug.toLowerCase());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, urlSlug]);
   const adminSelectedInitiative = urlSlug
