@@ -17,6 +17,7 @@ import {
 import { listComments } from "./listComments.ts";
 import { createComment } from "./createComment.ts";
 import { updateComment } from "./updateComment.ts";
+import { planDemoCleanup, runDemoCleanup } from "./cleanupDemos.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,6 +27,11 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const isComments = url.searchParams.get("type") === "comments";
+    const isCleanup = url.searchParams.get("type") === "cleanup";
+
+    if (isCleanup && (req.method === "GET" || req.method === "DELETE")) {
+      return await handleCleanup(req, url);
+    }
 
     if (req.method === "GET") {
       if (isComments) {
@@ -211,6 +217,36 @@ const handleGetComments = async (url: URL) => {
   }
 
   return jsonResponse(await listComments(demoVideoId));
+};
+
+// Storage cleanup for an initiative (admins only):
+//   GET    ?type=cleanup&slug=<initiative>&email=<admin>  → what would be removed
+//   DELETE ?type=cleanup&slug=<initiative>&email=<admin>  → removes it
+// `customer_id=<id>` works instead of `slug`. See cleanupDemos.ts for which
+// files qualify (only ones whose tickets are all Done or deleted).
+const handleCleanup = async (req: Request, url: URL) => {
+  const slug = url.searchParams.get("slug");
+  const customerId = url.searchParams.get("customer_id");
+  const email = url.searchParams.get("email");
+
+  if (!slug && !customerId) return jsonResponse({ error: "slug or customer_id is required" }, 400);
+  if (!email) return jsonResponse({ error: "email is required" }, 400);
+
+  const { data: caller, error } = await supabase
+    .schema("portal")
+    .from("users")
+    .select("role")
+    .eq("email", email)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (caller?.role !== "admin") return jsonResponse({ error: "Admins only" }, 403);
+
+  const result =
+    req.method === "GET"
+      ? await planDemoCleanup({ slug, customerId })
+      : await runDemoCleanup({ slug, customerId });
+  if (!result) return jsonResponse({ error: "Initiative not found" }, 404);
+  return jsonResponse(result);
 };
 
 // PATCH ?type=comments — { id, email, body, slug?, issue_code?, issue_type? }.

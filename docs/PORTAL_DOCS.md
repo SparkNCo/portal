@@ -575,11 +575,12 @@ A demo is a **versioned** record per issue (`portal.demo_videos`, `UNIQUE(issue_
 | `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called for "crear nuevo") |
 | `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |
 | `components/client/demo-tab.tsx` | Demo tab — version picker, upload/embed forms (new version + replace-in-place), player, per-version feedback |
-| `supabase/functions/demo-videos/index.ts` | Router — `GET`/`POST`/`PUT` for demo videos and their comments |
+| `supabase/functions/demo-videos/index.ts` | Router — `GET`/`POST`/`PUT` for demo videos, `GET`/`POST`/`PATCH` for their comments, `GET`/`DELETE ?type=cleanup` for storage cleanup |
 | `supabase/functions/demo-videos/createDemoVideo.ts` | Adds a new version from an upload or an embed link |
 | `supabase/functions/demo-videos/updateDemoVideo.ts` | Replaces an existing version's content in place, cleaning up the old storage object if needed |
 | `supabase/functions/demo-videos/listDemoVideos.ts` | Lists all versions for an issue with freshly signed playback URLs |
-| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` | Per-version feedback thread CRUD; `createComment` also sends feedback notifications |
+| `supabase/functions/demo-videos/listComments.ts` / `createComment.ts` / `updateComment.ts` | Per-version feedback thread: list, post, and edit your own; posting and editing send feedback notifications |
+| `supabase/functions/demo-videos/cleanupDemos.ts` | Admin-only storage cleanup: lists (`GET ?type=cleanup`) and removes (`DELETE ?type=cleanup`) demo files of an initiative's Done/deleted tickets — see `FEATURES_FLOWS.md` §7g |
 | `supabase/functions/demo-videos/helpers.ts` | Video/embed-URL validation, signed URL helper, `SCHEMA`/`BUCKET` constants |
 
 ---

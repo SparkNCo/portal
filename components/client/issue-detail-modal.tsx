@@ -68,6 +68,7 @@ import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-imag
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
 import { FilePreviewModal, previewFormatOf } from "@/components/documents/document-preview-modal";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -293,6 +294,32 @@ function AttachmentsSection({
         </div>
       )}
     </section>
+  );
+}
+
+// Questions, answers and requirement updates are written in markdown.
+function ClarificationText({ text, className }: { text: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "smalltext prose prose-sm prose-invert max-w-none leading-relaxed [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_img]:max-w-full [&_img]:rounded-md [&_img]:my-2",
+        className,
+      )}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkBreaks]}
+        components={{
+          img: ({ src, alt }) => <ProxiedImage src={typeof src === "string" ? src : undefined} alt={alt ?? ""} linkable />,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -563,7 +590,7 @@ function DecisionsTab({
                 <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                   {isRequirementUpdate ? "Requirement Update" : "Question"}
                 </p>
-                <p className="smalltext text-foreground">{d.question}</p>
+                <ClarificationText text={d.question} className="text-foreground" />
               </div>
               {canDelete && !isRequirementUpdate && !d.decision && (
                 <button
@@ -582,9 +609,7 @@ function DecisionsTab({
                 <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
                   Decision
                 </p>
-                <p className="smalltext text-success whitespace-pre-wrap">
-                  {d.decision}
-                </p>
+                <ClarificationText text={d.decision} className="text-success" />
                 <p className="smalltext text-success/60">
                   {d.decision_by} ·{" "}
                   {d.decided_at
@@ -599,16 +624,14 @@ function DecisionsTab({
               !d.decision &&
               (activeAnswerForm === d.id ? (
                 <div className="flex flex-col gap-1.5">
-                  <textarea
-                    className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                    rows={3}
+                  <RichTextEditor
+                    ariaLabel="Your decision"
                     placeholder="Your decision…"
                     value={answerText}
-                    onChange={(e) => setAnswerText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                        handleSubmitAnswer(d.id);
-                    }}
+                    onChange={setAnswerText}
+                    minHeight="80px"
+                    resizable
+                    onSubmitShortcut={() => handleSubmitAnswer(d.id)}
                   />
                   <div className="flex gap-2 justify-end">
                     <Button
@@ -690,16 +713,14 @@ function DecisionsTab({
       {canAsk && showNewQuestionForm && (
         <div className="pt-1">
           <div className="flex flex-col gap-2">
-            <textarea
-              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
+            <RichTextEditor
+              ariaLabel="Question for the client"
               placeholder="Ask the client a question…"
               value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                  handleCreateEntry(questionText, "question");
-              }}
+              onChange={setQuestionText}
+              minHeight="80px"
+              resizable
+              onSubmitShortcut={() => handleCreateEntry(questionText, "question")}
             />
             <div className="flex gap-2 justify-end">
               <Button
@@ -727,16 +748,14 @@ function DecisionsTab({
       {showNewRequirementForm && (
         <div className="pt-1">
           <div className="flex flex-col gap-2">
-            <textarea
-              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
+            <RichTextEditor
+              ariaLabel="Requirement update"
               placeholder="Describe the requirement update…"
               value={requirementText}
-              onChange={(e) => setRequirementText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                  handleCreateEntry(requirementText, "requirement_update");
-              }}
+              onChange={setRequirementText}
+              minHeight="80px"
+              resizable
+              onSubmitShortcut={() => handleCreateEntry(requirementText, "requirement_update")}
             />
             <div className="flex gap-2 justify-end">
               <Button
