@@ -151,6 +151,9 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
 function resolveLink(n: Notification, role: string | undefined, ownSlug: string | undefined): string {
   const { event } = n;
   if (event.object_type === "chat") {
+    // CometChat chat events already carry their customer's /{slug}/chat page;
+    // Realtime ones only have the generic "/chat" and are resolved here.
+    if (event.link && event.link !== "/chat") return `${event.link}?chatId=${event.object_id}`;
     return `${resolveChatBasePath(role, ownSlug)}?chatId=${event.object_id}`;
   }
   if (!event.issue_id) return event.link;

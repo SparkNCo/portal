@@ -7,6 +7,7 @@ import { useSelectedProject } from "@/lib/selected-project-context";
 import { pickDeveloperProject, routeSlugFor } from "@/lib/developer-routes";
 import { resolveChatRouteSlug } from "@/lib/chat-links";
 import { LoadingDataPanel } from "@/components/loader";
+import { ADMIN_LAST_INITIATIVE_KEY } from "@/components/sidebar";
 
 // /admin/chats and /dev/chat moved to /{slug}/chat. Old links, bookmarks and
 // notifications land here: a ?chatId= link goes to that chat's own
@@ -28,6 +29,16 @@ function Redirect() {
       if (!slug && profile.role === "developer") {
         const project = pickDeveloperProject(profile, selectedProject);
         slug = project ? routeSlugFor(project) : null;
+      }
+      // Admins: the initiative they last opened (the sidebar remembers it) —
+      // e.g. a chat that can't be traced back to its customer here.
+      if (!slug && profile.role === "admin") {
+        try {
+          const last = localStorage.getItem(ADMIN_LAST_INITIATIVE_KEY);
+          slug = last ? encodeURIComponent(last) : null;
+        } catch {
+          slug = null;
+        }
       }
       if (cancelled) return;
       if (!slug) {

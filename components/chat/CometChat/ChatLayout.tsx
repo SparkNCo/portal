@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
@@ -170,6 +170,20 @@ export default function ChatLayout({
   const [selectedDirect, setSelectedDirect] = useState<DirectChatEntry | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Opens the conversation a chat notification links to (?chatId=<group
+  // guid>, see the cometchat webhook's notifyChatMessage) once the groups
+  // have loaded — once per link, so picking another chat afterwards sticks.
+  const chatIdParam = useSearchParams().get("chatId");
+  const openedChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready || !chatIdParam || openedChatIdRef.current === chatIdParam) return;
+    const match = groups.find((g) => g.getGuid() === chatIdParam);
+    if (!match) return;
+    openedChatIdRef.current = chatIdParam;
+    setSelectedGroup(match);
+    setSelectedDirect(null);
+  }, [ready, chatIdParam, groups]);
 
   useEffect(() => {
     if (!ready) return;
