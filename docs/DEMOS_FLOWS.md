@@ -79,6 +79,28 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 
 ---
 
+## Freeing storage — removing demos of finished tickets
+
+Uploaded demo videos are the heaviest thing in Storage. Admins can remove the ones belonging to an initiative's **Done or deleted** tickets with two backend routes (there's no button in the UI):
+
+1. **Review:** `GET /functions/v1/demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` — lists each file, its size, its demo title and the tickets using it, plus `totalFiles` / `totalBytes` / `skippedInUse`. Deletes nothing.
+2. **Remove:** `DELETE /functions/v1/demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` — removes those files from the `demo-videos` bucket and their demo rows (with their feedback).
+
+```bash
+KEY=<NEXT_PUBLIC_SUPABASE_KEY>
+URL=https://<project>.supabase.co/functions/v1/demo-videos
+
+curl "$URL?type=cleanup&slug=spark-portal&email=admin@example.com" \
+  -H "Authorization: Bearer $KEY" -H "apikey: $KEY"
+
+curl -X DELETE "$URL?type=cleanup&slug=spark-portal&email=admin@example.com" \
+  -H "Authorization: Bearer $KEY" -H "apikey: $KEY"
+```
+
+A file shared by several tickets (one upload, many tickets) is only removed when all of them are Done or deleted; embed links are never touched. The full rules, response shapes and caveats are in `FEATURES_FLOWS.md` §7g.
+
+---
+
 ## Empty states
 
 | Condition | What's shown |
@@ -104,3 +126,4 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 | `components/sidebar.tsx` | "Demos" in every role's menu; the developer link and project switch for `/{slug}/demos` |
 | `lib/selected-project-context.tsx` | The developer's selected project, used for their Demos link and the `/dev/demos` redirect |
 | `supabase/functions/demo-videos/` | Backend — `canManageDemos` (helpers.ts) gates create/replace; see `app/docs/FEATURES_FLOWS.md` §7 for the full endpoint list |
+| `supabase/functions/demo-videos/cleanupDemos.ts` | Admin storage cleanup — `planDemoCleanup` (what can go) and `runDemoCleanup` (removes files, then rows); routed as `?type=cleanup` in `index.ts` |

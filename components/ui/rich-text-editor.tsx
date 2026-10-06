@@ -158,6 +158,8 @@ export function RichTextEditor({
   id,
   ariaLabel,
   allowImages = true,
+  resizable = false,
+  onSubmitShortcut,
 }: Readonly<{
   value: string;
   onChange: (markdown: string) => void;
@@ -168,10 +170,16 @@ export function RichTextEditor({
   ariaLabel?: string;
   /** Paste or drop images to upload them (to Linear) and insert them inline. */
   allowImages?: boolean;
+  /** Lets the user drag the bottom-right corner to make the text area taller. */
+  resizable?: boolean;
+  /** Called on Ctrl/Cmd+Enter (e.g. to submit the form). */
+  onSubmitShortcut?: () => void;
 }>) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const allowImagesRef = useRef(allowImages);
   allowImagesRef.current = allowImages;
+  const submitShortcutRef = useRef(onSubmitShortcut);
+  submitShortcutRef.current = onSubmitShortcut;
 
   // Uploads each image, then inserts it where the cursor (or drop point) was.
   async function insertImages(view: EditorView, files: File[], pos?: number) {
@@ -224,6 +232,14 @@ export function RichTextEditor({
         insertImages(view, files);
         return true;
       },
+      handleKeyDown: (_view, event) => {
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && submitShortcutRef.current) {
+          event.preventDefault();
+          submitShortcutRef.current();
+          return true;
+        }
+        return false;
+      },
       handleDrop: (view, event) => {
         if (!allowImagesRef.current) return false;
         const files = imageFilesFrom(event.dataTransfer);
@@ -268,7 +284,10 @@ export function RichTextEditor({
       )}
       <EditorContent
         editor={editor}
-        className="px-3 py-2 smalltext overflow-y-auto cursor-text"
+        className={cn(
+          "px-3 py-2 smalltext overflow-y-auto cursor-text",
+          resizable && "resize-y max-h-[70vh]",
+        )}
         style={{ minHeight }}
         onClick={() => editor.chain().focus().run()}
       />
