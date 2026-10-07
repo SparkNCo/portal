@@ -142,12 +142,15 @@ export function IssueCard({
   completedAt,
   hasUpdate,
   lightCard = false,
+  statusAndCycleOnly = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   // Roadmap's cards need a quick-edit shortcut Bugs doesn't — omitted (no
   // button rendered) wherever the caller doesn't pass it.
   readonly onEdit?: () => void;
+  /** Only the status and cycle plates — no estimate or label pills (e.g. the board view). */
+  readonly statusAndCycleOnly?: boolean;
   readonly dueDate?: string | null;
   readonly completedAt?: string | null;
   readonly hasUpdate?: boolean;
@@ -271,12 +274,13 @@ export function IssueCard({
               </Badge>
             ))}
           <CycleChip cycle={issue.cycle} lightCard={lightCard} />
-          {issue.estimate != null && (
+          {!statusAndCycleOnly && issue.estimate != null && (
             <EstimateBadge estimate={issue.estimate} />
           )}
-          {otherLabels?.map((l) => (
-            <LabelPill key={l.id} label={l} />
-          ))}
+          {!statusAndCycleOnly &&
+            otherLabels?.map((l) => (
+              <LabelPill key={l.id} label={l} />
+            ))}
         </div>
         {(dueDate || completedAt) && (
           <div className="mt-1.5 space-y-0.5">

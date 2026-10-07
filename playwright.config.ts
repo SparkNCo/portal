@@ -46,6 +46,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['login'],
     },
+    // Every bell notification type against the real project — run on its own:
+    // npx playwright test --project=notifications
+    {
+      name: 'notifications',
+      testMatch: '**/notifications.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 
   /* Start the dev server before running tests */

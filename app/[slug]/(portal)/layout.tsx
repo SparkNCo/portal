@@ -46,7 +46,7 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
     } else {
       toast.error("You don't have access to that initiative", {
         id: "slug-access-denied",
-        description: "You've been taken back to your own pages.",
+        description: "You've been redirected to your home page.",
       });
     }
     router.replace(redirectTo);
