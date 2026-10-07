@@ -232,8 +232,8 @@ export async function queryTopIssueMatches(
 }
 
 // Documents: vector id = String(documents.id). `content` is only set for
-// plain-text formats (md/txt/csv/mmd); for pdf/docx/images we can't extract
-// text here, so those are embedded from file_name + category only.
+// plain-text formats (md/txt/csv/mmd) and Word (.docx) — see extractDocumentText
+// in utils/documentText.ts; pdf/images are embedded from file_name + category only.
 type DocumentVectorInput = {
   id: number | string;
   file_name: string;
