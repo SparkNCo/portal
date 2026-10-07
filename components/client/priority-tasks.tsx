@@ -326,6 +326,7 @@ export function PriorityTasks({
                         onOpen={() => setSelectedIssue(issue)}
                         hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                         lightCard={lightCard}
+                        statusAndCycleOnly
                       />
                     ))
                   )}
