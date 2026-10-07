@@ -53,6 +53,13 @@ export default defineConfig({
       testMatch: '**/notifications.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Documents flows through the UI (upload, share, requests) — creates and
+    // cleans up its own data: npx playwright test --project=documents
+    {
+      name: 'documents',
+      testMatch: '**/documents.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 
   /* Start the dev server before running tests */
