@@ -222,7 +222,7 @@ Each issue has its own CometChat **group** keyed to a deterministic GUID (`issue
 
 > The **Design** tab is hidden for Bug issues (`isBugIssue`, computed from `issue.labels.nodes` containing a label named "bug") — design resources/diagrams aren't relevant to a bug ticket, so the tab bar only shows Description / Chat / Tests / Clarifications / Demo for those. **Demo** (section 7) shows for both bugs and features — a bug fix can have a walkthrough video too.
 
-The tab has two independent sections, stacked top to bottom: **Design Resources** (external Figma/v0 links, per issue) and **Mermaid diagrams** (versioned per service, see 6b onward). Neither depends on the other.
+The tab has two independent sections, stacked top to bottom: **Design Resources** (external Figma/v0 links, per issue) and **Diagrams** — Mermaid or Markdown files, versioned per service (see 6b onward). Neither depends on the other.
 
 ### 6a. Design Resources (Figma / v0 links)
 
@@ -234,11 +234,11 @@ A lightweight way to attach external design links to an issue — no file upload
 4. **"Add Resource"** calls `POST /design-resources` with `{ issue_id, project_slug, resource_type, url, title, email }` (`resource_type` is `"figma"` or `"v0"`, from step 3).
 5. Figma links render as an inline embedded preview (`figma.com/embed?...` in an iframe); v0 links render as a plain link card. Either can be removed via a delete button, which calls `DELETE /design-resources` with `{ id }`.
 
-### 6b. Picking or creating a service (Mermaid diagrams)
+### 6b. Picking or creating a service (Diagrams)
 
 A **Service** is a Supabase-only concept — it has no link to Linear at all (an earlier version tied it to a Linear label; that was dropped). `portal.services` rows are scoped by `project_slug`, the same customer/workspace slug used everywhere else in the portal (`document.project_slug`, the `/{slug}/dashboard/...` URL param). The Design tab reads it from `CustomerSlugContext` (`useCustomerSlug()`) rather than from the issue, which is what makes it work identically regardless of the viewer's role — customer, stakeholder, developer, or an admin previewing a customer.
 
-Diagrams are **Mermaid** (`.mmd`) files, versioned per service, each one uploaded from a specific issue.
+Diagrams are **Mermaid** (`.mmd`/`.mermaid`) or **Markdown** (`.md`/`.markdown`) files, versioned per service, each one uploaded from a specific issue. There's no format column: the stored file's extension (`storage_path`, e.g. `diagrams/<service>/v2.md`) records which one it is (`supabase/functions/diagrams/diagramFormat.ts`); anything that isn't `.md`/`.markdown` is treated as Mermaid.
 
 1. Opening the Design tab loads `GET /diagrams?type=services&project_slug={slug}` into the **Service** dropdown — every service belonging to the current customer.
 2. Selecting **"+ Create new service"** swaps the second control to a plain text input for the new service's name. No Linear lookup involved.
@@ -250,25 +250,25 @@ For this to point at the actual most-recent upload, `GET /diagrams?issue_id=` so
 
 ### 6c. Uploading a new version
 
-1. **"Upload new version"** opens the file picker (`accept=".mmd,.mermaid,text/plain"`).
+1. **"Upload new version"** opens the file picker (`accept=".mmd,.mermaid,.md,.markdown,text/plain,text/markdown"`).
 2. On file select, `POST /diagrams` is called as `multipart/form-data` with `file`, `project_slug`, `issue_id`, `email`, and either `service_id` (existing service) or `service_name` (new service).
 3. Backend (`supabase/functions/diagrams/createDiagram.ts`):
    - If `service_id` was sent, fetches that row and validates it belongs to `project_slug` (`getService.ts`) — this stops one customer from uploading against another customer's service by guessing an id.
    - If `service_name` was sent instead, creates a brand-new `services` row directly (`createService.ts`) — no existence check needed, since the frontend only sends `service_name` when the user explicitly picked "create new" and typed a name, and `(project_slug, name)` is `UNIQUE` at the DB level as a backstop.
    - Computes the next `version` for that service (`max(version) + 1`).
    - Uploads the file to the **`diagrams_bucket`** Storage bucket (private, no public/RLS policies — only ever touched by this edge function via the service-role key, same access pattern as `downloadDocument.ts`'s signed URLs for `documents_bucket`).
-   - Inserts a `diagrams` row with `service_id`, `issue_id`, `version`, `storage_path`, and a cached `mermaid_source` text column (so rendering never has to read back from Storage).
+   - Inserts a `diagrams` row with `service_id`, `issue_id`, `version`, `storage_path` (`v{n}.mmd` or `v{n}.md`, by the uploaded file's extension), and a cached `mermaid_source` text column holding the file's text, Mermaid or Markdown (so rendering never has to read back from Storage).
 4. On success, the frontend selects the new service/version and invalidates the `diagram-services` and `diagram-versions` queries so both controls refresh.
 
 This is how a diagram ends up linked to **both** the issue (`issue_id`) and the service (`service_id`) from a single upload, as opposed to being two separate steps. A service only ever comes into existence together with its first diagram — there's no way to create an empty service.
 
 ### 6d. Replacing the selected version's file
 
-**"Update v{n}"** — shown once a version is selected — opens the same file picker, but instead of creating version N+1, it replaces the **currently-selected** version's content in place. Calls `PUT /diagrams` as `multipart/form-data` with `file`, `diagram_id`, `email`; the backend re-uploads to the same version's storage path and refreshes `mermaid_source`. Use this to fix a version that was uploaded wrong, rather than creating a new version for a correction.
+**"Update v{n}"** — shown once a version is selected — opens the same file picker, but instead of creating version N+1, it replaces the **currently-selected** version's content in place. Calls `PUT /diagrams` as `multipart/form-data` with `file`, `diagram_id`, `email`; the backend re-uploads the version's file and refreshes `mermaid_source`. The replacement can be the other format (`.mmd` ↔ `.md`): the file's extension changes in `storage_path` and the old file is removed. Use this to fix a version that was uploaded wrong, rather than creating a new version for a correction.
 
 ### Rendering
 
-The selected version's `mermaid_source` is rendered client-side with `mermaid.render()` (the `mermaid` npm package) into inline SVG. This was chosen over converting Mermaid syntax into ReactFlow nodes/edges — Mermaid already does its own parsing and layout, so there was no need to reimplement that on top of ReactFlow just to reuse the same diagram widget as the rest of the app.
+A Markdown version (`storage_path` ending in `.md`) renders as formatted Markdown (`react-markdown`); any ` ```mermaid ` code block inside it is drawn as a diagram, like on GitHub. A Mermaid version's `mermaid_source` is rendered client-side with `mermaid.render()` (the `mermaid` npm package) into inline SVG. This was chosen over converting Mermaid syntax into ReactFlow nodes/edges — Mermaid already does its own parsing and layout, so there was no need to reimplement that on top of ReactFlow just to reuse the same diagram widget as the rest of the app.
 
 ### API — `supabase/functions/design-resources`
 
@@ -292,7 +292,7 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 
 | Field | Required | Notes |
 |---|---|---|
-| `file` | ✅ Yes | The `.mmd` file |
+| `file` | ✅ Yes | The `.mmd` or `.md` file |
 | `project_slug` | ✅ Yes | Customer/workspace slug the service belongs to |
 | `service_id` | One of these two | Upload a new version to an existing service |
 | `service_name` | One of these two | Create a brand-new service, named by the user |
@@ -303,7 +303,7 @@ The selected version's `mermaid_source` is rendered client-side with `mermaid.re
 
 | Field | Required | Notes |
 |---|---|---|
-| `file` | ✅ Yes | The replacement `.mmd` file |
+| `file` | ✅ Yes | The replacement `.mmd` or `.md` file |
 | `diagram_id` | ✅ Yes | Which version's content to overwrite |
 | `email` | ✅ Yes | Editor — resolved server-side |
 
@@ -542,13 +542,14 @@ Vectors/embeddings are written from three places, regardless of provider (the ro
 | `components/client/issue-cards.tsx` | IssueCard (grid view) and IssueListRow (compact view) |
 | `components/client/priority-tasks.tsx` | Main list with filters and search |
 | `components/chat/CometChat/IssueCometChat.tsx` | Per-issue real-time chat |
-| `components/client/design-tab.tsx` | Design tab — Design Resources (Figma/v0 links) section, service/version dropdowns, Mermaid upload/replace, and `MermaidDiagram` SVG renderer |
+| `components/client/design-tab.tsx` | Design tab — Design Resources (Figma/v0 links) section, service/version dropdowns, diagram upload/replace (Mermaid or Markdown), the `MermaidDiagram` SVG renderer and `MarkdownDiagram` |
 | `components/client/design-resource-preview.tsx` | Renders a Figma (embedded iframe) or v0 (link card) design resource, with a delete button |
 | `lib/design-resource-utils.ts` | Figma/v0 URL validation, type detection, and auto-title generation |
 | `supabase/functions/design-resources/index.ts` | Router — `GET`/`POST`/`DELETE` for design resource links |
 | `supabase/functions/diagrams/index.ts` | Router — `GET`/`POST`/`PUT` for diagrams, hardcoded to the `portal` schema like `users/index.ts` |
 | `supabase/functions/diagrams/listDiagrams.ts` | Services-with-diagrams, version history by service, or diagrams by issue |
-| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd` to `diagrams_bucket` and inserts the `diagrams` row (new version) |
+| `supabase/functions/diagrams/createDiagram.ts` | Uploads a `.mmd`/`.md` to `diagrams_bucket` and inserts the `diagrams` row (new version) |
+| `supabase/functions/diagrams/diagramFormat.ts` | `diagramExtension` — which extension (`md` or `mmd`) a diagram file is stored with |
 | `supabase/functions/diagrams/updateDiagram.ts` | Replaces an existing version's file in place (`PUT`) |
 | `supabase/functions/diagrams/createService.ts` | Inserts a new `services` row (only called when the user picks "create new") |
 | `supabase/functions/diagrams/getService.ts` | Fetches an existing `services` row, scoped to `project_slug` |

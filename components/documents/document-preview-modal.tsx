@@ -14,16 +14,37 @@ import { cn } from "@/lib/utils";
 // there's nothing to configure here.
 import { MermaidDiagram } from "@/components/client/design-tab";
 
-// Formats this modal knows how to render — everything else keeps using the
-// existing "open in a new tab" behavior (see handleOpen in
-// document-list-panel.tsx), since building a renderer for every file type
-// (pdf, docx, images, ...) is a different, much bigger project.
-export const PREVIEWABLE_FORMATS = new Set(["md", "markdown", "txt", "text", "csv", "mmd", "mermaid"]);
+// Text formats this modal renders from the file's text.
+const TEXT_PREVIEW_FORMATS = new Set(["md", "markdown", "txt", "text", "csv", "mmd", "mermaid"]);
 
-// The previewable format of a file name ("notes.MD" → "md"), or null.
+// Formats Project Documents previews — the text ones plus Word (.docx),
+// converted to HTML in the browser (see docxToHtml). Everything else keeps
+// the "open in a new tab" behavior (see handleOpen in document-list-panel.tsx).
+export const PREVIEWABLE_FORMATS = new Set([...TEXT_PREVIEW_FORMATS, "docx"]);
+
+// The previewable text format of a file name ("notes.MD" → "md"), or null.
+// Text only: ticket attachments are loaded as text (see issue-detail-modal.tsx).
 export function previewFormatOf(fileName: string | null | undefined): string | null {
   const ext = fileName?.split("?")[0]?.split(".").pop()?.toLowerCase();
-  return ext && PREVIEWABLE_FORMATS.has(ext) ? ext : null;
+  return ext && TEXT_PREVIEW_FORMATS.has(ext) ? ext : null;
+}
+
+// A .docx as sanitized HTML. Loaded on demand — neither library is needed
+// anywhere else. The file was uploaded by a user, so its HTML (links, images)
+// goes through DOMPurify before it's rendered.
+async function docxToHtml(buffer: ArrayBuffer): Promise<string> {
+  const [{ default: mammoth }, { default: DOMPurify }] = await Promise.all([
+    import("mammoth"),
+    import("dompurify"),
+  ]);
+  try {
+    const { value } = await mammoth.convertToHtml({ arrayBuffer: buffer });
+    return DOMPurify.sanitize(value);
+  } catch {
+    // Not a real .docx (damaged, or another format renamed) — mammoth's own
+    // error is a zip-parsing message nobody can act on.
+    throw new Error("This file can't be previewed. Download it to open it.");
+  }
 }
 
 // Minimal RFC4180-ish CSV parser: quoted fields, embedded commas/newlines,
@@ -199,6 +220,7 @@ export function DocumentPreviewModal({
 
     const fileRes = await fetch(url);
     if (!fileRes.ok) throw new Error("Failed to load document contents");
+    if (doc!.format === "docx") return docxToHtml(await fileRes.arrayBuffer());
     return fileRes.text();
   };
 
@@ -321,6 +343,22 @@ export function FilePreviewModal({
               )}
 
               {file.format === "csv" && <CsvTable text={content} />}
+
+              {/* Already sanitized HTML (see docxToHtml). */}
+              {file.format === "docx" && (
+                <div
+                  data-testid="docx-preview"
+                  className="smalltext prose prose-sm prose-invert max-w-none leading-relaxed
+                  [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
+                  [&_h2]:smalltext [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+                  [&_h3]:smalltext [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
+                  [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4
+                  [&_a]:underline [&_img]:max-w-full [&_img]:rounded-md
+                  [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1.5
+                  [&_th]:border [&_th]:border-border [&_th]:p-1.5"
+                  dangerouslySetInnerHTML={{ __html: content }}
+                />
+              )}
 
               {(file.format === "mmd" || file.format === "mermaid") && (
                 <div className="space-y-2 flex flex-1 min-h-0 flex-col">
