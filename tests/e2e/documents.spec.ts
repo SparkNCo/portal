@@ -1,4 +1,5 @@
 import { test, expect, Browser, Page } from '@playwright/test';
+import JSZip from 'jszip';
 import { fillLoginForm } from './helpers';
 import { db, deleteEvents, missingEnv, sinceNow } from './notifications.helpers';
 
@@ -61,6 +62,35 @@ function textFile(name: string, content: string) {
   return { name, mimeType: name.endsWith('.md') ? 'text/markdown' : 'text/plain', buffer: Buffer.from(content) };
 }
 
+// A minimal Word document with a heading and a paragraph.
+async function docxFile(name: string, heading: string, paragraph: string) {
+  const zip = new JSZip();
+  zip.file(
+    '[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+  );
+  zip.file(
+    '_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+  );
+  zip.file(
+    'word/document.xml',
+    '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+      `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>${heading}</w:t></w:r></w:p>` +
+      `<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>${paragraph}</w:t></w:r></w:p>` +
+      '</w:body></w:document>',
+  );
+  return {
+    name,
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: await zip.generateAsync({ type: 'nodebuffer' }),
+  };
+}
+
 // Documents (and their files in storage) whose name has this run's stamp.
 async function removeTestDocuments() {
   const { data: docs } = await db().from('documents').select('id, file_name').ilike('file_name', `%${STAMP}%`);
@@ -68,10 +98,16 @@ async function removeTestDocuments() {
     await db().from('document_permissions').delete().in('document_id', docs.map((d) => d.id));
     await db().from('documents').delete().in('id', docs.map((d) => d.id));
   }
-  const { data: files } = await db().storage.from(BUCKET).list('uploads', { search: STAMP, limit: 100 });
-  if (files?.length) {
-    await db().storage.from(BUCKET).remove(files.map((f) => `uploads/${f.name}`));
-  }
+  const files = await uploadsMatching(STAMP);
+  if (files.length) await db().storage.from(BUCKET).remove(files);
+}
+
+// Paths under uploads/ whose name contains `text`. (Storage's own `search`
+// option only matches name prefixes, and uploads start with a timestamp.)
+async function uploadsMatching(text: string): Promise<string[]> {
+  const { data, error } = await db().storage.from(BUCKET).list('uploads', { limit: 1000 });
+  if (error) throw new Error(error.message);
+  return (data ?? []).filter((f) => f.name.includes(text)).map((f) => `uploads/${f.name}`);
 }
 
 test.beforeAll(() => {
@@ -103,6 +139,16 @@ test.describe('upload and manage a document', () => {
     );
     await expect(page.getByText('Uploaded Files')).toBeVisible();
     await expect(docButton(page, name)).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('several files dropped at once each end up marked as uploaded', async ({ browser }) => {
+    const page = await as(browser, 'developer');
+    const names = ['a', 'b', 'c'].map((n) => `batch-${n}-${STAMP}.txt`);
+    await page.getByLabel('Upload document files').setInputFiles(names.map((n) => textFile(n, `Batch ${n}`)));
+    for (const n of names) {
+      await expect(page.getByText(`${n} uploaded`, { exact: true })).toBeAttached({ timeout: 30_000 });
+      await expect(page.getByText(`Uploading ${n}`, { exact: true })).toHaveCount(0);
+    }
   });
 
   test('clicking it previews the rendered markdown', async ({ browser }) => {
@@ -146,6 +192,20 @@ test.describe('upload and manage a document', () => {
     await expect(page.getByRole('button', { name: `Change owner for ${name}` })).toHaveCount(0);
   });
 
+  test('a Word document (.docx) previews as formatted text', async ({ browser }) => {
+    const page = await as(browser, 'developer');
+    const docx = `brief-${STAMP}.docx`;
+    await page.getByLabel('Upload document files').setInputFiles(await docxFile(docx, `Brief ${STAMP}`, 'Important part'));
+    await expect(docButton(page, docx)).toBeVisible({ timeout: 30_000 });
+    await expect(docButton(page, docx)).toHaveAccessibleName(`Preview ${docx}`);
+
+    await docButton(page, docx).click();
+    const preview = page.getByTestId('docx-preview');
+    await expect(preview.getByRole('heading', { name: `Brief ${STAMP}` })).toBeVisible({ timeout: 20_000 });
+    await expect(preview.locator('strong', { hasText: 'Important part' })).toBeVisible();
+    await page.keyboard.press('Escape');
+  });
+
   test('the owner deletes it; it disappears for everyone and its file leaves storage', async ({ browser }) => {
     const page = await as(browser, 'developer');
     await page.getByRole('button', { name: `Delete ${name}` }).click();
@@ -153,7 +213,7 @@ test.describe('upload and manage a document', () => {
 
     // Uploads are stored as uploads/<timestamp>-<name>.
     await expect
-      .poll(async () => (await db().storage.from(BUCKET).list('uploads', { search: name })).data?.length ?? 0, {
+      .poll(async () => (await uploadsMatching(name)).length, {
         message: 'file still in documents_bucket',
         timeout: 15_000,
       })
