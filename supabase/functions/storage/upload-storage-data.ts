@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { upsertDocumentVector } from "../lib/vector.ts";
-import { isTextDocumentFormat, truncateDocumentContent } from "../utils/documentText.ts";
+import { extractDocumentText } from "../utils/documentText.ts";
 import {
   UploadStorageInputSchema,
   UploadStorageResponseSchema,
@@ -154,9 +154,7 @@ export async function uploadStorageData(req: Request, schema: string) {
     if (project_slug && typeof EdgeRuntime !== "undefined") {
       EdgeRuntime.waitUntil(
         (async () => {
-          const content = isTextDocumentFormat(file.name)
-            ? truncateDocumentContent(await file.text())
-            : null;
+          const content = await extractDocumentText(file.name, file);
           await upsertDocumentVector(project_slug, {
             id: document.id,
             file_name: file.name,
