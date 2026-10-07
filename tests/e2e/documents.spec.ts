@@ -146,10 +146,18 @@ test.describe('upload and manage a document', () => {
     await expect(page.getByRole('button', { name: `Change owner for ${name}` })).toHaveCount(0);
   });
 
-  test('the owner deletes it and it disappears for everyone', async ({ browser }) => {
+  test('the owner deletes it; it disappears for everyone and its file leaves storage', async ({ browser }) => {
     const page = await as(browser, 'developer');
     await page.getByRole('button', { name: `Delete ${name}` }).click();
     await expect(docButton(page, name)).toHaveCount(0, { timeout: 15_000 });
+
+    // Uploads are stored as uploads/<timestamp>-<name>.
+    await expect
+      .poll(async () => (await db().storage.from(BUCKET).list('uploads', { search: name })).data?.length ?? 0, {
+        message: 'file still in documents_bucket',
+        timeout: 15_000,
+      })
+      .toBe(0);
 
     const customer = await as(browser, 'customer');
     await customer.reload();
