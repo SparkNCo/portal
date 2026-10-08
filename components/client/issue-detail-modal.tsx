@@ -195,6 +195,20 @@ function previewFor(name: string, url: string): FilePreview | null {
   return format ? { name, format, url } : null;
 }
 
+// Whether the ticket has any attachments in Linear. Ticket lists include that
+// (`attachments(first: 1)`); issues opened from elsewhere (e.g. Monitor) don't,
+// so it's looked up — same query and cache key AttachmentsSection uses, so
+// opening the section afterwards doesn't fetch again. Hidden until known.
+function useHasAttachments(issue: Issue): boolean {
+  const known = issue.attachments?.nodes;
+  const { data } = useQuery({
+    queryKey: ["issue-attachments", issue.id],
+    queryFn: () => fetchIssueAttachments(issue.id),
+    enabled: known == null,
+  });
+  return known ? known.length > 0 : (data?.length ?? 0) > 0;
+}
+
 function AttachmentsSection({
   issue,
   onPreview,
@@ -378,6 +392,7 @@ function DescriptionTab({ issue }: { issue: Issue }) {
     () => (preview ? { name: preview.name, format: preview.format } : null),
     [preview],
   );
+  const hasAttachments = useHasAttachments(issue);
 
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
@@ -428,11 +443,8 @@ function DescriptionTab({ issue }: { issue: Issue }) {
           No description yet.
         </p>
       )}
-      {/* Hidden when the ticket is known to have none. Issues loaded
-          without that info (e.g. from older cached lists) still show it. */}
-      {(issue.attachments == null || issue.attachments.nodes.length > 0) && (
-        <AttachmentsSection issue={issue} onPreview={setPreview} />
-      )}
+      {/* Only for tickets that have attachments in Linear. */}
+      {hasAttachments && <AttachmentsSection issue={issue} onPreview={setPreview} />}
       <FilePreviewModal
         file={previewFile}
         loadText={() => fetchLinearFileText(preview!.url)}
