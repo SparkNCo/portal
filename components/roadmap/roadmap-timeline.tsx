@@ -660,10 +660,11 @@ export function RoadmapTimeline({
                   {selection.milestoneName ? ` · ${selection.milestoneName}` : ""}
                 </p>
               </div>
+              {/* Not on mobile — tapping the project/milestone again closes it there. */}
               <button
                 type="button"
                 onClick={() => setSelection(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="hidden sm:inline-flex text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Close cycle details"
               >
                 <X className="h-4 w-4" />

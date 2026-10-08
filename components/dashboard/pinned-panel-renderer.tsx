@@ -107,7 +107,7 @@ export function PinnedPanelRenderer({
   if (panelId === "metrics_panel") {
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
-        <MetricsPanel slug={slug} />
+        <MetricsPanel slug={slug} edgeToEdge />
       </PinnedPanelShell>
     );
   }
