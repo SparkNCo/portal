@@ -5,7 +5,7 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate, sendGroupMessages } from "./chatUtils";
+import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
 
@@ -46,12 +46,12 @@ export function IssueGroupChat({
       new CometChat.MessageListener({
         onTextMessageReceived: (msg: CometChat.TextMessage) => {
           if (msg.getReceiverId() === guid) {
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
         onMediaMessageReceived: (msg: CometChat.MediaMessage) => {
           if (msg.getReceiverId() === guid) {
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
       }),
@@ -78,7 +78,9 @@ export function IssueGroupChat({
         .setLimit(50)
         .build();
       const msgs = await req.fetchPrevious();
-      setMessages(msgs);
+      // Keep anything already shown that the history doesn't have yet — on a
+      // ticket's first message this fetch runs while that message is sending.
+      setMessages((prev) => mergeMessages(msgs, prev));
     } catch (err) {
       console.error("Fetch issue messages error:", err);
     } finally {
@@ -96,7 +98,9 @@ export function IssueGroupChat({
         activeGuid = created.getGuid();
       }
       const sent = await sendGroupMessages(activeGuid, text, files);
-      setMessages((prev) => [...prev, ...sent]);
+      // The first message creates the group, which also fetches its history —
+      // that may already include this message (see mergeMessages).
+      setMessages((prev) => mergeMessages(prev, sent));
     } catch (err) {
       console.error("Send issue message error:", err);
       throw err;

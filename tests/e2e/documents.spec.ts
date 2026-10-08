@@ -247,7 +247,10 @@ test.describe('sharing a document', () => {
     await expect(row(USERS.customer.email)).toContainText('Can edit');
     await expect(row(USERS.customer.email).getByRole('checkbox')).toBeDisabled();
 
-    // The developer isn't included automatically — pick them.
+    // The developer isn't included automatically — find them with the search
+    // and pick them.
+    await dialog.getByRole('searchbox', { name: 'Search people' }).fill(USERS.developer.email);
+    await expect(dialog.getByRole('listitem')).toHaveCount(1);
     const developer = row(USERS.developer.email);
     await expect(developer.getByRole('checkbox')).toBeEnabled();
     await developer.getByRole('checkbox').click();
