@@ -34,7 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={nunitoSans.variable} suppressHydrationWarning>
-      <body className="bg-background text-foreground min-h-screen">
+      <body className="bg-background text-foreground min-h-dvh">
         <ResetZoomOnNavigate />
         <script
           type="text/javascript"
@@ -52,7 +52,7 @@ export default function RootLayout({
               {/* Root-level so developers keep their "Working on" project
                   across /{slug} pages, /dev/chat and the login redirect. */}
               <SelectedProjectProvider>
-                <main className="flex flex-col min-h-screen w-full">
+                <main className="flex flex-col min-h-dvh w-full">
                   {children}
                 </main>
               </SelectedProjectProvider>

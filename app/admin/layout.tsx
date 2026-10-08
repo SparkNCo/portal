@@ -23,7 +23,7 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   if (profile?.role !== "admin") return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <Sidebar />
       {isOpen && (
         <button

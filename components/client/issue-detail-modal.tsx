@@ -22,6 +22,8 @@ import {
   Loader2,
   ChevronRight,
   ExternalLink,
+  Eye,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
@@ -67,7 +69,7 @@ import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-imag
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
-import { FilePreviewModal, previewFormatOf } from "@/components/documents/document-preview-modal";
+import { FilePreviewModal, docxToHtml, previewFormatOf } from "@/components/documents/document-preview-modal";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
@@ -176,23 +178,53 @@ function isImageAttachment(a: IssueAttachment) {
 // Collapsed by default; the attachments are only fetched once it's opened.
 // Images show inline (through the Linear proxy, see ProxiedImage); anything
 // else is a row that opens the file.
-// Text contents of a Linear-hosted file, through our proxy (same as images).
-async function fetchLinearFileText(url: string): Promise<string> {
+// A Linear-hosted file, through our proxy (same as images).
+async function fetchLinearFile(url: string): Promise<Response> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}`,
     { headers: API_HEADERS },
   );
   if (!res.ok) throw new Error("Failed to load file");
-  return res.text();
+  return res;
 }
 
-// A Linear-hosted markdown/text/CSV file that can open in the in-app preview.
+// What the preview shows: the text, or for a Word file its HTML.
+async function loadLinearFilePreview(file: FilePreview): Promise<string> {
+  const res = await fetchLinearFile(file.url);
+  return file.format === "docx" ? docxToHtml(await res.arrayBuffer()) : res.text();
+}
+
+// A Linear-hosted markdown/text/CSV/Word file that can open in the in-app preview.
 type FilePreview = { name: string; format: string; url: string };
+
+function isDocx(nameOrUrl: string) {
+  return /\.docx$/i.test(nameOrUrl.split("?")[0] ?? "");
+}
 
 function previewFor(name: string, url: string): FilePreview | null {
   if (!isLinearUpload(url)) return null;
-  const format = previewFormatOf(name) ?? previewFormatOf(url);
+  const format = previewFormatOf(name) ?? previewFormatOf(url) ?? (isDocx(name) || isDocx(url) ? "docx" : null);
   return format ? { name, format, url } : null;
+}
+
+// Saves an attachment to the computer. Linear-hosted files go through our
+// proxy (they need its auth header); anything else (e.g. a linked PR) opens.
+async function downloadAttachment(attachment: IssueAttachment) {
+  if (!isLinearUpload(attachment.url)) {
+    window.open(attachment.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  try {
+    const blob = await (await fetchLinearFile(attachment.url)).blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = attachment.title || "attachment";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+  } catch {
+    toast.error(`Couldn't download ${attachment.title ?? "the attachment"}.`);
+  }
 }
 
 // Whether the ticket has any attachments in Linear. Ticket lists include that
@@ -278,29 +310,46 @@ function AttachmentsSection({
               )}
               {files.length > 0 && (
                 <ul className="divide-y divide-border rounded-md border border-border">
-                  {files.map((a) => (
-                    <li key={a.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const preview = previewFor(a.title || a.url, a.url);
-                          if (preview) onPreview(preview);
-                          else openAttachment(a);
-                        }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
-                      >
-                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate smalltext font-medium text-foreground">{a.title || a.url}</span>
-                          <span className="block truncate smalltext text-muted-foreground">
-                            {new Date(a.createdAt).toLocaleDateString()}
-                            {a.creator?.displayName ? ` · ${a.creator.displayName}` : ""}
+                  {files.map((a) => {
+                    const name = a.title || a.url;
+                    // Previewable (md/txt/csv/docx) opens in the app; the rest opens in a new tab.
+                    const preview = previewFor(name, a.url);
+                    return (
+                      <li key={a.id} className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => (preview ? onPreview(preview) : openAttachment(a))}
+                          aria-label={preview ? `Preview ${name}` : `Open ${name}`}
+                          className="group flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate smalltext font-medium text-foreground group-hover:text-primary transition-colors">
+                              {name}
+                            </span>
+                            <span className="block truncate smalltext text-muted-foreground">
+                              {new Date(a.createdAt).toLocaleDateString()}
+                              {a.creator?.displayName ? ` · ${a.creator.displayName}` : ""}
+                            </span>
                           </span>
-                        </span>
-                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      </button>
-                    </li>
-                  ))}
+                          {preview ? (
+                            <Eye className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+                          ) : (
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(a)}
+                          aria-label={`Download ${name}`}
+                          title="Download"
+                          className="self-stretch px-3 text-muted-foreground hover:text-primary hover:bg-muted/40 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </>
@@ -447,7 +496,7 @@ function DescriptionTab({ issue }: { issue: Issue }) {
       {hasAttachments && <AttachmentsSection issue={issue} onPreview={setPreview} />}
       <FilePreviewModal
         file={previewFile}
-        loadText={() => fetchLinearFileText(preview!.url)}
+        loadText={() => loadLinearFilePreview(preview!)}
         onClose={() => setPreview(null)}
       />
     </div>

@@ -53,7 +53,7 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   }, [redirectTo, redirectReason, router]);
 
   const content = (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <Sidebar />
       {isOpen && (
         <button
