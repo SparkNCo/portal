@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Maximize2, Minimize2, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -113,6 +116,7 @@ function useInitiativeUsers(projectSlug: string | null | undefined, enabled: boo
   };
 }
 
+// Listed customer first, then stakeholders, then developers.
 const ROLE_ORDER: Record<string, number> = { customer: 0, stakeholder: 1, developer: 2 };
 
 const PERMISSION_LABELS: Record<string, string> = {
@@ -153,6 +157,8 @@ export function ShareDocumentModal({
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
   const shareMutation = useShareDocument();
   const { users, isLoading: usersLoading, initiativeName } = useInitiativeUsers(document?.project_slug, isOpen);
   const { accessByEmail, isLoading: accessLoading } = useDocumentAccess(document?.id, id, isOpen);
@@ -164,11 +170,19 @@ export function ShareDocumentModal({
   const options = users
     .filter((u) => u.email.toLowerCase() !== profile?.email?.toLowerCase())
     .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.name.localeCompare(b.name));
-  const selectable = options.filter((u) => !accessOf(u.email));
+  // The search only narrows what's listed — people picked before searching
+  // stay picked. "Select all" works on what's listed.
+  const term = search.trim().toLowerCase();
+  const visible = term
+    ? options.filter((u) => [u.name, u.email, u.role].some((v) => v.toLowerCase().includes(term)))
+    : options;
+  const selectable = visible.filter((u) => !accessOf(u.email));
   const allSelected = selectable.length > 0 && selectable.every((u) => selected.has(u.email));
 
   const close = () => {
     setSelected(new Set());
+    setSearch("");
+    setIsExpanded(false);
     onClose();
   };
 
@@ -180,7 +194,12 @@ export function ShareDocumentModal({
       return next;
     });
 
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectable.map((u) => u.email)));
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      selectable.forEach((u) => (allSelected ? next.delete(u.email) : next.add(u.email)));
+      return next;
+    });
 
   const handleShare = () => {
     shareMutation.mutate(
@@ -208,7 +227,20 @@ export function ShareDocumentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+      <DialogContent
+        className={cn("flex flex-col", isExpanded ? "max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh]" : "sm:max-w-md")}
+        aria-describedby={undefined}
+      >
+        {/* Same expand control as the document preview (document-preview-modal.tsx). */}
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="absolute right-12 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label={isExpanded ? "Exit full screen" : "Expand"}
+        >
+          {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+
         <DialogHeader>
           <DialogTitle>Share Document</DialogTitle>
         </DialogHeader>
@@ -225,6 +257,21 @@ export function ShareDocumentModal({
             <p className="smalltext text-muted-foreground py-4">There's nobody else on this initiative to share with.</p>
           ) : (
             <div className="rounded-md border border-border">
+              <div className="relative border-b border-border">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  type="search"
+                  aria-label="Search people"
+                  placeholder="Search by name, email or role…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-9 rounded-none border-0 bg-transparent pl-9 smalltext focus-visible:ring-0"
+                />
+              </div>
+              {visible.length === 0 && (
+                <p className="smalltext text-muted-foreground px-3 py-4">No one matches "{search.trim()}".</p>
+              )}
+              {visible.length > 0 && (
               <label className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 smalltext font-medium">
                 <Checkbox
                   id="share-select-all"
@@ -234,8 +281,9 @@ export function ShareDocumentModal({
                 />
                 Select all
               </label>
-              <ul className="max-h-64 overflow-y-auto">
-                {options.map((u) => {
+              )}
+              <ul className={cn("overflow-y-auto", isExpanded ? "max-h-[calc(90vh-17rem)]" : "max-h-64")}>
+                {visible.map((u) => {
                   const access = accessOf(u.email);
                   return (
                   <li key={u.email}>

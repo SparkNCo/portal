@@ -5,7 +5,7 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Users } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate, sendGroupMessages } from "./chatUtils";
+import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
 
@@ -34,12 +34,12 @@ export default function GroupChat({ user, group }: Props) {
       new CometChat.MessageListener({
         onTextMessageReceived: (msg: CometChat.TextMessage) => {
           if (msg.getReceiverId() === guid) {
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
         onMediaMessageReceived: (msg: CometChat.MediaMessage) => {
           if (msg.getReceiverId() === guid) {
-            setMessages((prev) => [...prev, msg]);
+            setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
       }),
@@ -75,7 +75,7 @@ export default function GroupChat({ user, group }: Props) {
   const sendMessage = async (text: string, files: File[]) => {
     try {
       const sent = await sendGroupMessages(guid, text, files);
-      setMessages((prev) => [...prev, ...sent]);
+      setMessages((prev) => mergeMessages(prev, sent));
     } catch (err) {
       console.error("Send group message error:", err);
       throw err;

@@ -64,6 +64,22 @@ export async function sendGroupMessages(guid: string, text: string, files: File[
   return sent;
 }
 
+// `prev` plus whichever of `incoming` it doesn't already have (by message id).
+// The same message can arrive twice — e.g. on a ticket's first message the
+// history fetched for the just-created group already includes it when the
+// send returns it too — and must only be shown once.
+export function mergeMessages(prev: any[], incoming: any[]): any[] {
+  const ids = new Set(prev.map((m) => m.getId?.() ?? m.id).filter(Boolean));
+  const added = incoming.filter((m) => {
+    const id = m.getId?.() ?? m.id;
+    if (!id) return true;
+    if (ids.has(id)) return false;
+    ids.add(id);
+    return true;
+  });
+  return added.length ? [...prev, ...added] : prev;
+}
+
 // CometChat's sentAt is in seconds; null while a message is still sending.
 export function getMessageDate(msg: any): Date | null {
   const sentAt = msg.getSentAt?.() ?? msg.sentAt;

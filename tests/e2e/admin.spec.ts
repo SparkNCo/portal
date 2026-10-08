@@ -265,16 +265,37 @@ test.describe('Admin — panels', () => {
     const dialog = page.getByRole('dialog', { name: 'Share Document' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('Loading people…')).not.toBeVisible({ timeout: 15_000 });
+    // A search over the people listed — no free-text email field.
     await expect(dialog.getByRole('textbox')).toHaveCount(0);
+    const search = dialog.getByRole('searchbox', { name: 'Search people' });
+    await expect(search).toBeVisible();
 
     const shareSubmit = dialog.getByRole('button', { name: /^Share/ });
     await expect(shareSubmit).toBeDisabled();
 
-    const people = dialog.getByRole('listitem').getByRole('checkbox');
+    // One list, customer first, then stakeholders, then developers.
+    const rank: Record<string, number> = { customer: 0, stakeholder: 1, developer: 2 };
+    const roles = (await dialog.getByRole('listitem').allInnerTexts())
+      .map((text) => Object.keys(rank).find((r) => text.toLowerCase().includes(r)))
+      .filter((r): r is string => !!r);
+    expect(roles).toEqual([...roles].sort((a, b) => rank[a]! - rank[b]!));
+
+    const people = dialog.getByRole('checkbox', { name: /^Share with / });
     if ((await people.count()) > 0) {
       await people.first().click();
       await expect(dialog.getByRole('button', { name: 'Share with 1' })).toBeEnabled();
     }
+
+    // Can be enlarged and back.
+    const normalWidth = (await dialog.boundingBox())!.width;
+    await dialog.getByRole('button', { name: 'Expand' }).click();
+    await expect.poll(async () => (await dialog.boundingBox())!.width).toBeGreaterThan(normalWidth * 1.5);
+    await dialog.getByRole('button', { name: 'Exit full screen' }).click();
+    await expect.poll(async () => (await dialog.boundingBox())!.width).toBeLessThan(normalWidth * 1.1);
+
+    await search.fill('zzz-nobody');
+    await expect(dialog.getByText('No one matches "zzz-nobody".')).toBeVisible();
+    await search.fill('');
 
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).not.toBeVisible();
