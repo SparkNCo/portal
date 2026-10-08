@@ -64,6 +64,7 @@ import {
   ALL_STATUS_OPTIONS,
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { useVisualViewportFit } from "@/hooks/use-visual-viewport-fit";
 import { TestPicker } from "@/components/shared/test-picker";
 import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-image-url";
 
@@ -2049,6 +2050,9 @@ export function IssueDetailModal({
   const canEditTicketMeta = role === "developer" || role === "admin";
 
   const [isExpanded, setIsExpanded] = useState(false);
+  // On phones, keeps the modal (and the chat input at its bottom) above the
+  // on-screen keyboard.
+  const visibleAreaStyle = useVisualViewportFit();
   const [advancing, setAdvancing] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
@@ -2062,6 +2066,9 @@ export function IssueDetailModal({
   const [activeTab, setActiveTab] = useState<IssueDetailTab>(
     initialTab ?? "description",
   );
+  // On small screens the stage buttons (Complete Review / Approved / Fixes
+  // Required) only show on Description, leaving the other tabs more room.
+  const compactHeader = activeTab !== "description";
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
@@ -2218,6 +2225,7 @@ export function IssueDetailModal({
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
             : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]",
         )}
+        style={visibleAreaStyle}
         aria-describedby={undefined}
       >
         <ExpandableDialogChrome
@@ -2242,6 +2250,9 @@ export function IssueDetailModal({
         <DialogHeader className="pt-4 pr-20 flex-shrink-0 text-left">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {issue.labels?.nodes?.map((l) => (
+                <LabelPill key={l.id} label={l} iconOnly />
+              ))}
               <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
               </span>
@@ -2366,14 +2377,9 @@ export function IssueDetailModal({
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {issue.labels?.nodes?.map((l) => (
-                <LabelPill key={l.id} label={l} iconOnly />
-              ))}
-              <DialogTitle className="text-base font-semibold leading-snug">
-                {issue.title}
-              </DialogTitle>
-            </div>
+            <DialogTitle className="text-base font-semibold leading-snug">
+              {issue.title}
+            </DialogTitle>
             {origin.requestedBy !== undefined && (
               <p className="smalltext italic text-muted-foreground">
                 {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
@@ -2394,7 +2400,7 @@ export function IssueDetailModal({
                 unanswered-question warning lives on the Decisions tab
                 itself now (see the orange X next to its label below). */}
             {currentStateName === "Business Review" && (
-              <div className="pt-3">
+              <div className={cn("pt-3", compactHeader && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
@@ -2413,7 +2419,7 @@ export function IssueDetailModal({
               // expand/close icons up in the top-right corner, irrelevant by
               // this row) below sm, so the two buttons reach the same right
               // margin as everything else instead of stopping short of it.
-              <div className="flex gap-2 pt-3 -mr-20 sm:mr-0">
+              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", compactHeader && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"

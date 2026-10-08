@@ -1,4 +1,5 @@
 import "./globals.css";
+import type { Viewport } from "next";
 import { Nunito_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Suspense } from "react";
@@ -19,6 +20,15 @@ export const metadata = {
   icons: {
     icon: "/icon.svg",
   },
+};
+
+// resizes-content: on Android/Chrome the on-screen keyboard shrinks the page
+// instead of covering it, so inputs at the bottom (chat) stay visible. iOS
+// ignores it — see hooks/use-visual-viewport-fit.ts for the modal side.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 const nunitoSans = Nunito_Sans({
