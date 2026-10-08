@@ -32,7 +32,7 @@ export function previewFormatOf(fileName: string | null | undefined): string | n
 // A .docx as sanitized HTML. Loaded on demand — neither library is needed
 // anywhere else. The file was uploaded by a user, so its HTML (links, images)
 // goes through DOMPurify before it's rendered.
-async function docxToHtml(buffer: ArrayBuffer): Promise<string> {
+export async function docxToHtml(buffer: ArrayBuffer): Promise<string> {
   const [{ default: mammoth }, { default: DOMPurify }] = await Promise.all([
     import("mammoth"),
     import("dompurify"),
