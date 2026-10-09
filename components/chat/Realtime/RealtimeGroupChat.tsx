@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Send, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Fragment, useEffect, useRef } from "react";
+import { Users } from "lucide-react";
+import { ChatComposer } from "../ChatComposer";
 import { ChatSpinner } from "../CometChat/ChatSpinner";
 import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
+import { DateDivider, markDayStarts } from "../DateDivider";
 import { useRealtimeMessages } from "./useRealtimeMessages";
 import type { Chat } from "./useRealtimeChat";
-import { useState } from "react";
 
 export default function RealtimeGroupChat({
   chat,
@@ -18,21 +18,16 @@ export default function RealtimeGroupChat({
   currentUserId: string;
   userNameById: Map<string, string>;
 }>) {
-  const { messages, loading, sending, sendMessage } = useRealtimeMessages(chat.id);
-  const [draft, setDraft] = useState("");
+  const { messages, loading, sendMessage } = useRealtimeMessages(chat.id);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = () => {
-    if (!draft.trim() || sending) return;
-    sendMessage(draft);
-    setDraft("");
-  };
-
   if (loading) return <ChatSpinner label="Loading messages..." />;
+
+  const dayStarts = markDayStarts(messages, (msg) => new Date(msg.created_at));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden bg-background">
@@ -53,38 +48,23 @@ export default function RealtimeGroupChat({
           </div>
         )}
 
-        {messages.map((msg) => (
-          <RealtimeMessageBubble
-            key={msg.id}
-            msg={msg}
-            currentUserId={currentUserId}
-            senderName={(msg.user_id && userNameById.get(msg.user_id)) ?? "Unknown"}
-          />
+        {messages.map((msg, i) => (
+          <Fragment key={msg.id}>
+            {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+            <RealtimeMessageBubble
+              msg={msg}
+              currentUserId={currentUserId}
+              senderName={(msg.user_id && userNameById.get(msg.user_id)) ?? "Unknown"}
+              isLast={i === messages.length - 1}
+              continuesGroup={i > 0 && !dayStarts[i] && messages[i - 1]?.user_id === msg.user_id}
+            />
+          </Fragment>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      <div className="h-[72px] flex items-center px-4 border-t">
-        <div className="w-full flex items-center gap-2 bg-secondary border rounded-xl px-3 py-2">
-          <div className="min-w-0 flex-1">
-            <Input
-              aria-label="Type a message"
-              className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 smalltext text-secondary-foreground placeholder:text-secondary-foreground/40"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Type a message..."
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            />
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={!draft.trim() || sending}
-            aria-label="Send message"
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="px-4 py-3 border-t">
+        <ChatComposer onSend={sendMessage} />
       </div>
     </div>
   );

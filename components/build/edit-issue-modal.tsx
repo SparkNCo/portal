@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
@@ -19,7 +20,7 @@ import {
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { getIssueCode } from "@/lib/utils";
+import { getIssueCode, deriveIssueKind } from "@/lib/utils";
 import {
   type Issue,
   priorityColors,
@@ -34,6 +35,8 @@ async function patchIssue(payload: {
   description: string;
   actorEmail?: string;
   slug?: string;
+  /** Only sent when changed; null takes the ticket out of its cycle. */
+  cycleId?: string | null;
 }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/edit`, {
     method: "PATCH",
@@ -48,11 +51,19 @@ async function patchIssue(payload: {
 // badges — kept here as separate PATCH calls (not batched with the
 // title/description save below) so a priority/status change sticks even if
 // the user then cancels out of the rest of the edit.
-async function patchStatus(issueId: string, stateName: string) {
+// The extra fields let the backend notify the initiative about the change.
+async function patchStatus(payload: {
+  issueId: string;
+  stateName: string;
+  actorEmail?: string;
+  slug?: string;
+  issueCode?: string;
+  issueType?: string | null;
+}) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues`, {
     method: "PATCH",
     headers: API_JSON_HEADERS,
-    body: JSON.stringify({ issueId, stateName }),
+    body: JSON.stringify(payload),
   });
   return res.json();
 }
@@ -64,6 +75,28 @@ async function patchPriority(payload: { issueId: string; priority: string; slug:
     body: JSON.stringify(payload),
   });
   return res.json();
+}
+
+type CycleOption = { id: string; number: number; name: string | null; startsAt: string; endsAt: string; isActive: boolean };
+
+// The ticket's team's current and upcoming cycles (see handleGetIssueCycles).
+async function fetchIssueCycles(issueId: string): Promise<{ currentCycleId: string | null; cycles: CycleOption[] }> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/cycles?issueId=${encodeURIComponent(issueId)}`,
+    { headers: API_JSON_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to load cycles");
+  return res.json();
+}
+
+const NO_CYCLE = "none";
+
+function formatCycleDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+export function cycleLabel(cycle: { number: number; name?: string | null }) {
+  return cycle.name ? `Cycle ${cycle.number} · ${cycle.name}` : `Cycle ${cycle.number}`;
 }
 
 export function EditIssueModal({
@@ -96,6 +129,18 @@ export function EditIssueModal({
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+
+  // Putting a ticket in a cycle is planning work — developers and admins only.
+  const cyclesQuery = useQuery({
+    queryKey: ["issue-cycles", issue.id],
+    queryFn: () => fetchIssueCycles(issue.id),
+    enabled: canEditTicketMeta,
+  });
+  const initialCycleId = cyclesQuery.data?.currentCycleId ?? issue.cycle?.id ?? null;
+  // undefined = untouched, so saving doesn't send a cycle change at all.
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null | undefined>(undefined);
+  const cycleValue = selectedCycleId === undefined ? initialCycleId : selectedCycleId;
+  const cycleChanged = selectedCycleId !== undefined && selectedCycleId !== initialCycleId;
 
   // Refetch every issue list this ticket could appear in, same as
   // issue-detail-modal.tsx's invalidateIssueLists — otherwise a list cached
@@ -136,7 +181,14 @@ export function EditIssueModal({
     if (!targetState || targetState === currentStateName || advancing) return;
     setAdvancing(true);
     try {
-      const data = await patchStatus(issue.id, targetState);
+      const data = await patchStatus({
+        issueId: issue.id,
+        stateName: targetState,
+        actorEmail: profile?.email,
+        slug,
+        issueCode: getIssueCode(issue.branchName),
+        issueType: deriveIssueKind(issue.labels?.nodes),
+      });
       if (data.success) {
         setCurrentStateName(targetState as NonNullable<Issue["state"]>["name"]);
         invalidateIssueLists();
@@ -155,6 +207,10 @@ export function EditIssueModal({
     onSuccess: () => {
       toast.success("Ticket updated");
       queryClient.invalidateQueries({ queryKey: ["linear-issues", slug] });
+      if (cycleChanged) {
+        invalidateIssueLists();
+        queryClient.invalidateQueries({ queryKey: ["issue-cycles", issue.id] });
+      }
       queryClient.invalidateQueries({ queryKey: ["issue-updates"] });
       onSaved?.();
       onClose();
@@ -170,6 +226,7 @@ export function EditIssueModal({
       description,
       slug,
       ...(profile?.email ? { actorEmail: profile.email } : {}),
+      ...(cycleChanged ? { cycleId: selectedCycleId ?? null } : {}),
     });
   }
 
@@ -331,6 +388,54 @@ export function EditIssueModal({
               ariaLabel="Description"
             />
           </div>
+
+          {canEditTicketMeta && (
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-issue-cycle" className="smalltext">Cycle</Label>
+              <Select
+                value={cycleValue ?? NO_CYCLE}
+                onValueChange={(v) => setSelectedCycleId(v === NO_CYCLE ? null : v)}
+                disabled={cyclesQuery.isLoading || cyclesQuery.isError}
+              >
+                <SelectTrigger
+                  id="edit-issue-cycle"
+                  className="bg-muted/40 border-0 smalltext text-foreground"
+                >
+                  <SelectValue
+                    placeholder={
+                      cyclesQuery.isLoading
+                        ? "Loading cycles…"
+                        : cyclesQuery.isError
+                          ? "Couldn't load cycles"
+                          : "No cycle"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CYCLE} className="smalltext">No cycle</SelectItem>
+                  {/* A ticket already in a past cycle keeps it listed, so the
+                      field still shows where it is. */}
+                  {issue.cycle?.id &&
+                    !cyclesQuery.data?.cycles.some((c) => c.id === issue.cycle?.id) && (
+                      <SelectItem value={issue.cycle.id} className="smalltext">
+                        {cycleLabel(issue.cycle)} (past)
+                      </SelectItem>
+                    )}
+                  {(cyclesQuery.data?.cycles ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="smalltext">
+                      {cycleLabel(c)} · {formatCycleDate(c.startsAt)} – {formatCycleDate(c.endsAt)}
+                      {c.isActive ? " (current)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cyclesQuery.isError && (
+                <p className="smalltext text-destructive">
+                  Couldn't load this team's cycles. Close and reopen to try again.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2 pt-1">
             <Button

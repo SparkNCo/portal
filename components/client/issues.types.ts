@@ -21,6 +21,7 @@ export const statusColors = {
   Canceled: "bg-destructive/20 text-destructive",
   waiting: "bg-muted text-muted-foreground",
   Done: "bg-success/20 text-success",
+  Approved: "bg-success/20 text-success",
   Completed: "bg-success/20 text-success",
   QA: "bg-blue-700/20 text-blue-700",
   "Business Review": "bg-orange-500/20 text-orange-600",
@@ -36,8 +37,17 @@ export const STATUS_ORDER = [
   "Development",
   "QA",
   "UAT",
+  "Approved",
   "Done",
 ];
+
+// Finished tickets: approved in UAT, or done. Kept out of open-work lists and
+// counted as complete in progress charts.
+export const CLOSED_STATUSES = new Set(["Done", "Approved"]);
+
+export function isClosedIssue(issue: { state?: { name?: string } | null }): boolean {
+  return CLOSED_STATUSES.has(issue.state?.name ?? "");
+}
 
 // Raw color values (not Tailwind classes) for charts that need an actual
 // `fill`/`stroke` value — shared so "Project Stats" and "Issues by Status"
@@ -54,6 +64,7 @@ export const STATUS_ORDER = [
 export const CHART_STATUS_COLORS: Record<string, string> = {
   Completed: "hsl(var(--success))",
   Done: "hsl(var(--success))",
+  Approved: "hsl(var(--success))",
   "In Progress": "hsl(var(--warning))",
   "In Review": "#38bdf8", // sky-400
   Blocked: "hsl(var(--destructive))",
@@ -146,6 +157,7 @@ export type Issue = {
       | "Canceled"
       | "waiting"
       | "Done"
+      | "Approved"
       | "Completed"
       | "QA"
       | "Business Review"
@@ -153,12 +165,17 @@ export type Issue = {
       | "UAT"
       | "Planning";
   };
-  cycle?: { number: number; isActive: boolean; name?: string };
+  cycle?: { id?: string; number: number; isActive: boolean; name?: string | null } | null;
   comments?: { nodes: Comment[] };
+  // Only the first one (see ISSUES_QUERY) — enough to know if there are any.
+  attachments?: { nodes: { id: string }[] };
   description?: string | null;
   labels?: { nodes: { id: string; name: string; color: string }[] };
   estimate?: number | null;
   createdAt?: string;
+  // Who asked for it in the portal; null when it was created in Linear,
+  // undefined when the list it came from doesn't include this.
+  requestedBy?: { name: string; email: string } | null;
   project?: { id: string; name: string; slugId?: string };
   // Client-side tag (not from the API) added by pages that merge issues
   // across multiple customers, e.g. the developer dashboard — holds the
@@ -196,6 +213,7 @@ export const ALL_STATUS_OPTIONS: NonNullable<Issue["state"]>["name"][] = [
   "Blocked",
   "Not Started",
   "Canceled",
+  "Approved",
   "Done",
   "Completed",
 ];
@@ -208,9 +226,10 @@ export type FilterState = {
   onToggleStatus: (s: string) => void;
   onToggleActive: () => void;
   onClearFilters: () => void;
-  selectedLabels?: string[];
-  availableLabels?: string[];
-  onToggleLabel?: (l: string) => void;
+  // Specific cycles ("Cycle 12", "No cycle") — separate from onlyActive.
+  selectedCycles?: string[];
+  availableCycles?: string[];
+  onToggleCycle?: (c: string) => void;
   selectedPriorities?: string[];
   availablePriorities?: string[];
   onTogglePriority?: (p: string) => void;
@@ -219,6 +238,8 @@ export type FilterState = {
   onDateFromChange?: (date: string) => void;
   onDateToChange?: (date: string) => void;
 };
+
+export type IssueViewMode = "grid" | "board" | "list";
 
 export type IssueDetailTab =
   | "description"
@@ -262,4 +283,14 @@ export type PriorityTasksProps = {
   // manually afterward in this same PriorityTasks instance.
   openIssueId?: string | null;
   openIssueTab?: IssueDetailTab;
+  // Called when the deep-linked issue's modal is closed, so the page can
+  // drop the deep link (see hooks/use-issue-deep-link.ts) — otherwise the
+  // effect that opened it would reopen it on the next issuesData refetch.
+  onDeepLinkClose?: () => void;
+  // Grid / board (columns by status) / compact list. Pass both to show the
+  // view switcher in the toolbar; omit them to keep the plain grid.
+  viewMode?: IssueViewMode;
+  onViewModeChange?: (mode: IssueViewMode) => void;
+  // Replaces the default "No issues match the current filters." text.
+  emptyState?: ReactNode;
 };

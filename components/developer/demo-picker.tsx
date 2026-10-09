@@ -32,12 +32,19 @@ export function DemoPicker({
   slug,
   onSelect,
   disabled,
+  onOpen,
 }: {
   readonly slug: string;
   readonly onSelect: (demo: Demo) => void;
   readonly disabled?: boolean;
+  /** Called when the picker opens — e.g. to close a sibling form. */
+  readonly onOpen?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    if (next) onOpen?.();
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["project-demos", slug],
@@ -61,7 +68,12 @@ export function DemoPicker({
           variant="ghost"
           size="sm"
           disabled={disabled}
-          className="gap-1.5"
+          className={`gap-1.5 ${open ? "bg-muted" : ""}`}
+          // Clicking it while open keeps it open (Radix skips its own toggle
+          // when the click is default-prevented); clicking elsewhere closes it.
+          onClick={(e) => {
+            if (open) e.preventDefault();
+          }}
         >
           <ChevronsUpDown className="h-3.5 w-3.5" />
           Select Existing

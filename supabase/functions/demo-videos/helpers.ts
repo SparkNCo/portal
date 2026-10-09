@@ -163,6 +163,22 @@ export const isStoragePathInUseElsewhere = async (
   return !!data;
 };
 
+// Adding or changing demo versions is limited to developers and admins;
+// every role can view and comment. The role is looked up from the request's
+// `email`, so this guards the portal's own UI — not a substitute for real
+// caller authentication.
+export const canManageDemos = async (supabase: any, email: string): Promise<boolean> => {
+  const { data: user, error } = await supabase
+    .schema(SCHEMA)
+    .from("users")
+    .select("role")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return user?.role === "developer" || user?.role === "admin";
+};
+
 export const getUserIdByEmail = async (
   supabase: any,
   email: string,

@@ -69,6 +69,13 @@ function useUploadFile() {
   });
 }
 
+// Read out next to each file's status icon (the icons themselves are hidden).
+function statusLabel(file: UploadedFile): string {
+  if (file.status === "complete") return `${file.name} uploaded`;
+  if (file.status === "error") return `${file.name} failed to upload`;
+  return `Uploading ${file.name}`;
+}
+
 /* -----------------------------
    Component
 --------------------------------*/
@@ -166,31 +173,24 @@ export function UploadDocument({
         },
       ]);
 
-      uploadMutation.mutate(
-        {
+      const setStatus = (status: UploadedFile["status"]) =>
+        setUploadedFiles((prev) =>
+          prev.map((f) => (f.name === file.name ? { ...f, status } : f)),
+        );
+
+      // mutateAsync, not mutate(…, { onSuccess }): React Query only runs
+      // mutate()'s own callbacks for the latest call, so with several files
+      // dropped at once only the last one ever left "uploading".
+      uploadMutation
+        .mutateAsync({
           file,
           userId: user!.id,
           email: user!.email!,
           projectSlug: targetProjectSlug,
           sharedWithEmails: initiativeEmails,
-        },
-        {
-          onSuccess: () => {
-            setUploadedFiles((prev) =>
-              prev.map((f) =>
-                f.name === file.name ? { ...f, status: "complete" } : f,
-              ),
-            );
-          },
-          onError: () => {
-            setUploadedFiles((prev) =>
-              prev.map((f) =>
-                f.name === file.name ? { ...f, status: "error" } : f,
-              ),
-            );
-          },
-        },
-      );
+        })
+        .then(() => setStatus("complete"))
+        .catch(() => setStatus("error"));
     });
   };
 
@@ -201,7 +201,8 @@ export function UploadDocument({
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
-        <CardTitle className="body font-semibold flex items-center gap-2">
+        {/* Same row height as Project Documents' header (title + search). */}
+        <CardTitle className="body font-semibold flex items-center gap-2 sm:min-h-9">
           <Upload className="h-4 w-4 text-primary" />
           Upload Document
         </CardTitle>
@@ -271,12 +272,16 @@ export function UploadDocument({
 
                 <div className="flex items-center gap-1">
                   {file.status === "complete" ? (
-                    <CheckCircle2 className="h-4 w-4 text-success" />
+                    <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
                   ) : file.status === "error" ? (
-                    <X className="h-4 w-4 text-destructive" />
+                    <X className="h-4 w-4 text-destructive" aria-hidden="true" />
                   ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    <div
+                      className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin"
+                      aria-hidden="true"
+                    />
                   )}
+                  <span className="sr-only">{statusLabel(file)}</span>
 
                   <Button
                     variant="ghost"

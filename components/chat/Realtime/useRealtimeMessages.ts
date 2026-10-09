@@ -15,6 +15,49 @@ export type ChatMessage = {
 
 const PAGE_SIZE = 50;
 
+export const CHAT_ATTACHMENTS_BUCKET = "chat-attachments";
+
+// A file attached to a message, as stored in messages.metadata.attachments.
+// `path` is inside the private chat-attachments bucket (see
+// 20261002120000_add_chat_attachments_bucket.sql).
+export type StoredChatAttachment = {
+  path: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
+
+export function messageAttachments(msg: ChatMessage): StoredChatAttachment[] {
+  const list = (msg.metadata as { attachments?: unknown })?.attachments;
+  return Array.isArray(list) ? (list as StoredChatAttachment[]) : [];
+}
+
+// Uploads the files under the chat's folder, then posts one message with the
+// text and the files' references. Throws on failure.
+export async function postRealtimeMessage(chatId: string, userId: string, body: string, files: File[] = []) {
+  const attachments: StoredChatAttachment[] = [];
+  for (const file of files) {
+    const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+    const path = `${chatId}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from(CHAT_ATTACHMENTS_BUCKET)
+      .upload(path, file, { contentType: file.type || "application/octet-stream" });
+    if (uploadError) throw uploadError;
+    attachments.push({ path, name: file.name, mimeType: file.type, size: file.size });
+  }
+
+  const { error } = await supabase
+    .schema("portal")
+    .from("messages")
+    .insert({
+      chat_id: chatId,
+      user_id: userId,
+      body: body.trim(),
+      ...(attachments.length ? { metadata: { attachments } } : {}),
+    });
+  if (error) throw error;
+}
+
 // Replaces the fetch-history + addMessageListener + sendMessage trio that
 // GroupChat.tsx/DirectChat.tsx/ConversationChat.tsx each duplicated for
 // CometChat. One hook per open chat: loads the last PAGE_SIZE messages,
@@ -106,21 +149,18 @@ export function useRealtimeMessages(chatId: string | null | undefined) {
     };
   }, [chatId]);
 
-  const sendMessage = async (body: string) => {
+  // Throws on failure so the composer keeps the draft and files.
+  const sendMessage = async (body: string, files: File[] = []) => {
     const trimmed = body.trim();
-    if (!chatId || !profile?.id || !trimmed || sendingRef.current) return;
+    if (!chatId || !profile?.id || (!trimmed && files.length === 0) || sendingRef.current) return;
 
     sendingRef.current = true;
     setSending(true);
     try {
-      const { error: sendError } = await supabase
-        .schema("portal")
-        .from("messages")
-        .insert({ chat_id: chatId, user_id: profile.id, body: trimmed });
-      if (sendError) throw sendError;
+      await postRealtimeMessage(chatId, profile.id, trimmed, files);
     } catch (err) {
       console.error("Send message error:", err);
-      setError("Failed to send message");
+      throw err;
     } finally {
       sendingRef.current = false;
       setSending(false);

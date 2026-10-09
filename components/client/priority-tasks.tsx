@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, ArrowRight, ArrowUpDown, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpDown, Columns3, LayoutGrid, List, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,19 +15,69 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { getIssueCode } from "@/lib/utils";
-import { type Issue, type PriorityTasksProps } from "./issues.types";
+import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
 import { TaskFilterPanel, ActiveFilterChips } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
-  return issue.state?.name !== "Done";
+  return !isClosedIssue(issue);
+}
+
+// Board columns in the order a ticket moves through them; these always show
+// (even empty). Any other open status a ticket is in gets its own column after.
+const BOARD_COLUMNS = ["Backlog", "Planning", "Development", "QA", "UAT"];
+// Finished or dropped work isn't part of the board.
+const BOARD_HIDDEN_STATUSES = new Set(["Done", "Approved", "Canceled"]);
+
+const VIEW_OPTIONS: { value: IssueViewMode; label: string; Icon: typeof List }[] = [
+  { value: "grid", label: "Grid", Icon: LayoutGrid },
+  { value: "board", label: "Board", Icon: Columns3 },
+  { value: "list", label: "List", Icon: List },
+];
+
+function ViewSwitcher({ value, onChange }: { readonly value: IssueViewMode; readonly onChange: (v: IssueViewMode) => void }) {
+  return (
+    <div className="flex items-center rounded-md border border-input p-0.5" role="group" aria-label="View">
+      {VIEW_OPTIONS.map(({ value: v, label, Icon }) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          aria-pressed={value === v}
+          aria-label={`${label} view`}
+          title={`${label} view`}
+          className={`flex h-6 w-7 items-center justify-center rounded transition-colors ${
+            value === v ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export type { Decision, Test, TestExecution, Issue, FilterState, PriorityTasksProps } from "./issues.types";
 export { STATUS_ORDER } from "./issues.types";
 export { IssueDetailModal } from "./issue-detail-modal";
+
+// Groups tickets into board columns. With a status filter on, only the
+// filtered statuses get a column.
+function boardColumns(issues: Issue[], selectedStatuses: string[]) {
+  const byStatus = new Map<string, Issue[]>();
+  issues.forEach((i) => {
+    const status = i.state?.name ?? "No status";
+    if (BOARD_HIDDEN_STATUSES.has(status)) return;
+    byStatus.set(status, [...(byStatus.get(status) ?? []), i]);
+  });
+  const extra = [...byStatus.keys()].filter((s) => !BOARD_COLUMNS.includes(s));
+  const statuses = [...BOARD_COLUMNS, ...extra].filter(
+    (s) => (selectedStatuses.length === 0 ? true : selectedStatuses.includes(s)),
+  );
+  return statuses.map((status) => ({ status, issues: byStatus.get(status) ?? [] }));
+}
 
 export function PriorityTasks({
   issuesData,
@@ -43,6 +93,10 @@ export function PriorityTasks({
   initialModalTab,
   openIssueId,
   openIssueTab,
+  onDeepLinkClose,
+  viewMode = "grid",
+  onViewModeChange,
+  emptyState,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -64,7 +118,7 @@ export function PriorityTasks({
   const {
     selectedStatuses,
     onlyActive,
-    selectedLabels = [],
+    selectedCycles = [],
     selectedPriorities = [],
     dateFrom = "",
     dateTo = "",
@@ -72,7 +126,7 @@ export function PriorityTasks({
 
   const activeFilters =
     selectedStatuses.length +
-    selectedLabels.length +
+    selectedCycles.length +
     selectedPriorities.length +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0) +
@@ -94,7 +148,10 @@ export function PriorityTasks({
     <IssueDetailModal
       issue={selectedIssue}
       slug={slug ?? (selectedIssue as any)._project}
-      onClose={() => setSelectedIssue(null)}
+      onClose={() => {
+        if (selectedIssue.id === openIssueId) onDeepLinkClose?.();
+        setSelectedIssue(null);
+      }}
       onEdit={
         onEditIssue && canEditIssue(selectedIssue)
           ? () => onEditIssue(selectedIssue)
@@ -151,17 +208,6 @@ export function PriorityTasks({
         </CardTitle>
         <div className="flex items-center gap-2 flex-wrap">
           {headerAction}
-          <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52">
-            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              type="text"
-              aria-label="Search by title or issue code"
-              placeholder="Search by title or code..."
-              value={titleFilter}
-              onChange={(e) => setTitleFilter(e.target.value)}
-              className="h-7 pl-8 bg-secondary/30 border-border smalltext"
-            />
-          </div>
           {sortBy && onSortByChange && (
             <Select
               value={sortBy}
@@ -209,6 +255,7 @@ export function PriorityTasks({
               <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
             </PopoverContent>
           </Popover>
+          {onViewModeChange && <ViewSwitcher value={viewMode} onChange={onViewModeChange} />}
           <Button
             variant="ghost"
             size="sm"
@@ -220,6 +267,18 @@ export function PriorityTasks({
               className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
             />
           </Button>
+          {/* Search sits on its own at the right; everything else stays left. */}
+          <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52 sm:ml-auto">
+            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              aria-label="Search by title or issue code"
+              placeholder="Search by title or code..."
+              value={titleFilter}
+              onChange={(e) => setTitleFilter(e.target.value)}
+              className="h-7 pl-8 bg-secondary/30 border-border smalltext"
+            />
+          </div>
         </div>
       </CardHeader>
       {activeFilters > 0 && (
@@ -229,9 +288,68 @@ export function PriorityTasks({
       )}
       <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
         {visibleIssues.length === 0 ? (
-          <p className="smalltext text-muted-foreground italic p-2">
-            No issues match the current filters.
-          </p>
+          emptyState ?? (
+            <p className="smalltext text-muted-foreground italic p-2">
+              No issues match the current filters.
+            </p>
+          )
+        ) : viewMode === "board" ? (
+          <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
+            {boardColumns(visibleIssues, selectedStatuses).map(({ status, issues }) => (
+              <section
+                key={status}
+                aria-label={`${status}, ${issues.length} ticket${issues.length === 1 ? "" : "s"}`}
+                className="flex w-72 shrink-0 flex-col rounded-lg bg-muted/30 p-2"
+              >
+                <header className="flex items-center justify-between px-1 pb-2">
+                  <span
+                    className={`smalltext rounded px-2 py-0.5 font-medium ${
+                      statusColors[status as keyof typeof statusColors] ?? "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {status}
+                  </span>
+                  <span className="smalltext tabular-nums text-muted-foreground">{issues.length}</span>
+                </header>
+                <div
+                  className={`flex flex-col gap-2 custom-scrollbar ${
+                    expanded ? "" : "max-h-[600px] overflow-y-auto"
+                  }`}
+                >
+                  {issues.length === 0 ? (
+                    <p className="smalltext text-muted-foreground italic px-1 py-3">No tickets</p>
+                  ) : (
+                    issues.map((issue) => (
+                      <IssueCard
+                        key={issue.id}
+                        issue={issue}
+                        onOpen={() => setSelectedIssue(issue)}
+                        hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                        lightCard={lightCard}
+                        statusAndCycleOnly
+                      />
+                    ))
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : viewMode === "list" ? (
+          <div
+            className={`flex flex-col gap-0.5 pt-3 custom-scrollbar ${
+              expanded ? "" : "max-h-[600px] overflow-y-auto"
+            }`}
+          >
+            {visibleIssues.map((issue) => (
+              <IssueListRow
+                key={issue.id}
+                issue={issue}
+                onOpen={() => setSelectedIssue(issue)}
+                hasUpdate={hasUnseenUpdate(issue, profile?.email)}
+                lightCard={lightCard}
+              />
+            ))}
+          </div>
         ) : (
           <div
             ref={scrollRef}

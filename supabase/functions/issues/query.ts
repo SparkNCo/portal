@@ -4,6 +4,8 @@ query Issues($filter: IssueFilter) {
     nodes {
       state { name }
       cycle {
+        id
+        name
         endsAt
         startsAt
         isActive
@@ -35,6 +37,7 @@ query Issues($filter: IssueFilter) {
       }
       project { id name slugId }
       creator { displayName }
+      attachments(first: 1) { nodes { id } }
       documents(last: 5) {
         nodes {
           url

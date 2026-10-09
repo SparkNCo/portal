@@ -29,7 +29,8 @@ test.describe('Developer — login', () => {
     }
 
     await performLogin(page, email!, password!, '/developer');
-    expect(page.url()).toContain('/developer');
+    // Developers land on /{slug}/developer for their initiative, not /dev/.
+    expect(new URL(page.url()).pathname).toMatch(/^\/(?!dev\/)[^/]+\/developer$/);
   });
 
 });
@@ -62,10 +63,9 @@ test.describe('Developer — panels', () => {
     await expect(page.getByText('GitHub')).toBeVisible();
   });
 
-  test('issue list loads and sort controls are visible', async ({ page }) => {
-    // Sort buttons are always rendered
-    await expect(page.getByRole('button', { name: 'Last Updated' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Priority' })).toBeVisible();
+  test('issue list loads and the sort control is visible', async ({ page }) => {
+    // Sort is a dropdown (Last Updated / Priority), not two buttons.
+    await expect(page.getByRole('combobox').filter({ hasText: 'Last Updated' })).toBeVisible({ timeout: 15_000 });
 
     // Issue list title is either "All Tasks" or a project name
     await expect(page.getByText('All Tasks').or(
@@ -74,23 +74,204 @@ test.describe('Developer — panels', () => {
   });
 
   test('switching sort to Priority works', async ({ page }) => {
-    const priorityBtn = page.getByRole('button', { name: 'Priority' });
-    await expect(priorityBtn).toBeVisible();
-    await priorityBtn.click();
+    const sort = page.getByRole('combobox').filter({ hasText: 'Last Updated' });
+    await expect(sort).toBeVisible({ timeout: 15_000 });
+    await sort.click();
+    await page.getByRole('option', { name: 'Priority' }).click();
 
-    // Button should now be active (accent background)
-    await expect(priorityBtn).toHaveClass(/bg-accent/, { timeout: 5_000 });
+    await expect(page.getByRole('combobox').filter({ hasText: 'Priority' })).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('ticket filters offer Cycle instead of Labels, and a picked cycle shows as an active filter', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
+    await page.getByRole('button', { name: 'Filter' }).click();
+    const panel = page.getByRole('dialog').filter({ hasText: 'Filters' });
+    await expect(panel.getByText('Labels', { exact: true })).toHaveCount(0);
+
+    const cycleHeading = panel.getByText('Cycle', { exact: true });
+    if ((await cycleHeading.count()) === 0) {
+      test.skip(true, 'No tickets to filter in this environment');
+    }
+    await expect(cycleHeading).toBeVisible();
+
+    // Pick the first cycle option and check it shows up as an active chip.
+    const firstCycle = panel.getByRole('button', { name: /^(Cycle \d+|No cycle)$/ }).first();
+    const cycleName = (await firstCycle.innerText()).trim();
+    await firstCycle.click();
+    await page.getByRole('button', { name: /^Filter/ }).click();
+    await expect(panel).not.toBeVisible();
+    // The active-filter chip in the toolbar.
+    await expect(page.getByRole('button', { name: cycleName, exact: true })).toBeVisible();
+  });
+
+  // ── Tickets: whose, and how they're laid out ────────────────────────────────
+
+  test('tickets start on My tickets, and All shows every ticket of the initiative', async ({ page }) => {
+    const mine = page.getByRole('button', { name: /^My tickets \(\d+\)$/ });
+    const all = page.getByRole('button', { name: /^All \(\d+\)$/ });
+    await expect(mine).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+
+    const mineCount = Number((await mine.innerText()).match(/\d+/)![0]);
+    const allCount = Number((await all.innerText()).match(/\d+/)![0]);
+    expect(allCount).toBeGreaterThanOrEqual(mineCount);
+    if (mineCount === 0) {
+      await expect(page.getByText('No open tickets assigned to you')).toBeVisible();
+      await page.getByRole('button', { name: 'Show all tickets' }).click();
+    } else {
+      await all.click();
+    }
+    await expect(all).toHaveAttribute('aria-pressed', 'true');
+
+    // Remembered after a reload.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^All \(\d+\)$/ })).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+  });
+
+  test('tickets can be shown as a board by status, or as a compact list', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
+
+    await page.getByRole('button', { name: 'Board view' }).click();
+    const columns = ['Backlog', 'Planning', 'Development', 'QA', 'UAT'];
+    for (const column of columns) {
+      await expect(page.getByRole('region', { name: new RegExp(`^${column}, \\d+ tickets?$`) })).toBeVisible();
+    }
+    // In that order, and no finished/dropped columns.
+    const shown = (await page.getByRole('region', { name: /, \d+ tickets?$/ }).evaluateAll((els) =>
+      els.map((el) => el.getAttribute('aria-label')?.split(',')[0]),
+    )) as string[];
+    expect(shown.slice(0, columns.length)).toEqual(columns);
+    for (const hidden of ['Canceled', 'Done', 'Approved']) expect(shown).not.toContain(hidden);
+
+    await page.getByRole('button', { name: 'List view' }).click();
+    await expect(page.getByRole('region', { name: /^Planning, / })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('button', { name: 'Grid view' }).click();
+    await expect(page.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  // Read-only: only searches, never submits.
+  test('Request a Feature says when no similar tickets are found', async ({ page }) => {
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+
+    // The feature panel is the only issue form on Build.
+    await page.locator('#issue-title').first().fill('qzxv unmatched gibberish title 48213');
+    // Searches 3s after typing stops.
+    await expect(page.getByText('No similar tickets found')).toBeVisible({ timeout: 20_000 });
+  });
+
+  // Only opens and switches the forms — never adds a version.
+  test('Demo tab: Create Version options stay open when clicked again and switch between each other', async ({ page }) => {
+    await page.getByRole('button', { name: /^All \(/ }).click();
+    const firstTicket = page.getByRole('main').locator('div.group > button[aria-label]').first();
+    await firstTicket.click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Demo', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Create Version' }).click();
+
+    const title = dialog.getByPlaceholder('e.g. Login flow walkthrough');
+    const linkUrl = dialog.getByPlaceholder('https://www.loom.com/share/...');
+
+    await dialog.getByRole('button', { name: 'Upload Media' }).click();
+    await expect(title).toBeVisible();
+    await dialog.getByRole('button', { name: 'Upload Media' }).click();
+    await expect(title).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Add Link' }).click();
+    await expect(linkUrl).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add Link' }).click();
+    await expect(linkUrl).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Select Existing' }).click();
+    await expect(title).toHaveCount(0);
+    const search = page.getByPlaceholder('Search by demo id or title…');
+    await expect(search).toBeVisible();
+    await dialog.getByRole('button', { name: 'Select Existing' }).click({ force: true });
+    await expect(search).toBeVisible();
   });
 
   // ── Sidebar navigation ─────────────────────────────────────────────────────
 
   test('sidebar shows the correct nav items for a developer', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Developer' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Demos' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
 
     // Settings should NOT be in the sidebar for developers
     await expect(page.getByRole('link', { name: 'Settings' })).not.toBeVisible();
+  });
+
+  // ── Demos panel ────────────────────────────────────────────────────────────
+
+  test('Demos link opens /{slug}/demos for the selected project, with upload controls', async ({ page }) => {
+    await page.getByRole('link', { name: 'Demos' }).click();
+    await expect(page).toHaveURL(/\/[^/]+\/demos$/, { timeout: 10_000 });
+    expect(new URL(page.url()).pathname.startsWith('/dev/')).toBe(false);
+    await expect(page.getByRole('heading', { name: 'Demos', level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Upload Demo' }).first()).toBeVisible({ timeout: 20_000 });
+
+    // The rest of the developer menu stays on the same /{slug}.
+    const slug = new URL(page.url()).pathname.split('/')[1];
+    await expect(page.getByRole('link', { name: 'Developer' })).toHaveAttribute('href', new RegExp(`^/${slug}/developer`));
+  });
+
+  test('old /dev/* links redirect to the same /{slug} page, keeping the query string', async ({ page }) => {
+    await page.goto('/dev/build?tab=demo');
+    await expect(page).toHaveURL(/\/(?!dev\/)[^/]+\/build\?tab=demo$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('old /dev/chat links redirect to /{slug}/chat', async ({ page }) => {
+    await page.goto('/dev/chat');
+    await expect(page).toHaveURL(/\/(?!dev\/)[^/]+\/chat$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'Chat', level: 1 })).toBeVisible({ timeout: 15_000 });
+  });
+
+  // ── Access guard ───────────────────────────────────────────────────────────
+
+  // The test developer is only assigned to Spark-Portal; LuaLink is a real
+  // client they aren't on.
+  test('opening an initiative they are not assigned to sends them back with a message', async ({ page }) => {
+    await page.goto('/lualink/build');
+    await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/(?!lualink\/)[^/]+\/developer$/, { timeout: 20_000 });
+  });
+
+  test('a client that does not exist shows a 404 with no sidebar and a link home', async ({ page }) => {
+    const ownSlug = new URL(page.url()).pathname.split('/')[1];
+    await page.goto('/no-such-initiative-e2e/build');
+    await expect(page.getByRole('heading', { name: "This client doesn't exist" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: 'Logout' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Go to your home page' })).toHaveAttribute('href', `/${ownSlug}/developer`);
+  });
+
+  test('Settings is not available to developers, even on their own initiative', async ({ page }) => {
+    const slug = new URL(page.url()).pathname.split('/')[1];
+    await page.goto(`/${slug}/settings`);
+    await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(new RegExp(`/${slug}/developer$`), { timeout: 20_000 });
+  });
+
+  for (const page_ of ['dashboard', 'monitor']) {
+    test(`the initiative's ${page_} is not available to developers`, async ({ page }) => {
+      const slug = new URL(page.url()).pathname.split('/')[1];
+      await page.goto(`/${slug}/${page_}`);
+      await expect(page.getByText("That page isn't available for your role")).toBeVisible({ timeout: 20_000 });
+      await expect(page).toHaveURL(new RegExp(`/${slug}/developer$`), { timeout: 20_000 });
+    });
+  }
+
+  test('Build and Bugs have no Pin to Dashboard buttons', async ({ page }) => {
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Backlog').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Bugs' }).click();
+    await expect(page.getByRole('heading', { name: 'Bugs', level: 1 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
   });
 
   // ── Chat panel ─────────────────────────────────────────────────────────────
@@ -159,7 +340,8 @@ test.describe('Developer — panels', () => {
     const emptyState   = page.getByText('No documents found');
     // Documents render as a flat list (no per-project folder wrapper) — an
     // "Open <name>" button on a row is a reliable signal one rendered.
-    const anyDocument  = page.locator('button[aria-label^="Open "]').first();
+    // (Not the header's mobile "Open menu" button.)
+    const anyDocument  = page.locator('button[aria-label^="Open "]:not([aria-label="Open menu"])').first();
 
     // Wait until either state resolves
     await expect(emptyState.or(anyDocument)).toBeVisible({ timeout: 25_000 });

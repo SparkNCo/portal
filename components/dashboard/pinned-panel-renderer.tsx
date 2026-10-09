@@ -1,5 +1,6 @@
 "use client";
 
+import { isClosedIssue } from "@/components/client/issues.types";
 import type { ReactNode } from "react";
 import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
@@ -106,7 +107,7 @@ export function PinnedPanelRenderer({
   if (panelId === "metrics_panel") {
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
-        <MetricsPanel slug={slug} />
+        <MetricsPanel slug={slug} edgeToEdge />
       </PinnedPanelShell>
     );
   }
@@ -192,7 +193,7 @@ export function PinnedPanelRenderer({
       .filter(
         (i) =>
           (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
-          i.state?.name !== "Done",
+          !isClosedIssue(i),
       )
       .sort((a, b) => {
         const rankA = PRIORITY_RANK[a.priorityLabel] ?? 0;

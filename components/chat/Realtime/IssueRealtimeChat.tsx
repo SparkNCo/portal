@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Send, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useUser } from "context/UserContext";
-import { supabase } from "@/lib/supabase-client";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChatSpinner } from "../CometChat/ChatSpinner";
 import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
-import { useRealtimeMessages } from "./useRealtimeMessages";
+import { DateDivider, markDayStarts } from "../DateDivider";
+import { postRealtimeMessage, useRealtimeMessages } from "./useRealtimeMessages";
+import { ChatComposer } from "../ChatComposer";
 import type { Chat } from "./useRealtimeChat";
 
 const CHATS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chats`;
@@ -35,7 +35,6 @@ export function IssueRealtimeChat({
   const [loadingChat, setLoadingChat] = useState(true);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { messages, loading: loadingMessages, sendMessage } = useRealtimeMessages(chat?.id);
@@ -69,14 +68,13 @@ export function IssueRealtimeChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    const trimmed = draft.trim();
-    if (!trimmed || creating || !profile) return;
+  // Throws on failure so the composer keeps the draft and files.
+  const handleSend = async (text: string, files: File[]) => {
+    if (creating || !profile) return;
 
     if (chat) {
       // Chat already exists — the hook's own sendMessage handles it.
-      setDraft("");
-      await sendMessage(trimmed);
+      await sendMessage(text, files);
       return;
     }
 
@@ -101,14 +99,10 @@ export function IssueRealtimeChat({
       const created: Chat = await res.json();
       setChat(created);
 
-      const { error } = await supabase
-        .schema("portal")
-        .from("messages")
-        .insert({ chat_id: created.id, user_id: profile.id, body: trimmed });
-      if (error) throw error;
-      setDraft("");
+      await postRealtimeMessage(created.id, profile.id, text, files);
     } catch (err) {
       console.error("Create issue chat error:", err);
+      throw err;
     } finally {
       setCreating(false);
     }
@@ -119,6 +113,8 @@ export function IssueRealtimeChat({
   if (!profile) return null;
 
   const showLoadingMessages = !!chat && loadingMessages;
+
+  const dayStarts = markDayStarts(messages, (msg) => new Date(msg.created_at));
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -138,39 +134,24 @@ export function IssueRealtimeChat({
           )
         )}
         {!showLoadingMessages &&
-          messages.map((msg) => (
-            <RealtimeMessageBubble
-              key={msg.id}
-              msg={msg}
-              currentUserId={profile.id}
-              senderName={msg.user_id === profile.id ? "You" : "Team"}
-              compact
-            />
+          messages.map((msg, i) => (
+            <Fragment key={msg.id}>
+              {dayStarts[i] && <DateDivider date={dayStarts[i]} />}
+              <RealtimeMessageBubble
+                msg={msg}
+                currentUserId={profile.id}
+                senderName={msg.user_id === profile.id ? "You" : "Team"}
+                compact
+                isLast={i === messages.length - 1}
+                continuesGroup={i > 0 && !dayStarts[i] && messages[i - 1]?.user_id === msg.user_id}
+              />
+            </Fragment>
           ))}
         <div ref={bottomRef} />
       </div>
 
       <div className="px-3 py-2 border-t border-border">
-        <div className="flex items-center gap-1.5 bg-card/90 border border-border rounded-lg px-2.5 py-1.5">
-          <div className="min-w-0 flex-1">
-            <Input
-              aria-label="Type a message"
-              className="h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 smalltext text-card-foreground placeholder:text-card-foreground/40"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Type a message…"
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            />
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={!draft.trim() || creating}
-            aria-label="Send message"
-            className="w-6 h-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0"
-          >
-            <Send className="w-3 h-3" />
-          </button>
-        </div>
+        <ChatComposer onSend={handleSend} disabled={creating} compact placeholder="Type a message…" />
       </div>
     </div>
   );

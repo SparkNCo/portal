@@ -75,6 +75,9 @@ export function SimilarIssuesHint({
   const [matchIssues, setMatchIssues] = useState<Record<string, Issue>>({});
   const [dismissed, setDismissed] = useState(false);
   const [searching, setSearching] = useState(false);
+  // A search finished for the current title (so "no matches" can be told
+  // apart from "hasn't searched yet").
+  const [searched, setSearched] = useState(false);
   const [loadingMatchId, setLoadingMatchId] = useState<string | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,6 +88,7 @@ export function SimilarIssuesHint({
     if (query.trim().length < MIN_QUERY_LENGTH) {
       setMatches([]);
       setSearching(false);
+      setSearched(false);
       return;
     }
 
@@ -93,11 +97,13 @@ export function SimilarIssuesHint({
     // screen for the full wait, looking like an instant, un-debounced search.
     setMatches([]);
     setSearching(true);
+    setSearched(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       const results = await fetchSimilarIssues(slug, query.trim(), kind);
       setMatches(results.filter((m) => m.score >= SIMILARITY_THRESHOLD));
       setSearching(false);
+      setSearched(true);
     }, DEBOUNCE_MS);
 
     return () => {
@@ -136,6 +142,20 @@ export function SimilarIssuesHint({
 
   return (
     <>
+      {!dismissed && searched && !searching && matches.length === 0 && (
+        <div className="flex items-center justify-between gap-2 smalltext text-muted-foreground" role="status">
+          <span>No similar tickets found</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setDismissed(true)}
+            className="shrink-0 hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {!dismissed && (searching || matches.length > 0) && (
         <div className="space-y-1.5 smalltext">
           <div className="flex items-center justify-between gap-2">

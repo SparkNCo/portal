@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
+import { pickDeveloperProject } from "@/lib/developer-routes";
 import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
@@ -115,8 +116,9 @@ export default function ChatLayout({
   // components/sidebar.tsx), defaulting to the first assignment the same
   // way that dropdown does. Used below to filter the group list down to
   // that one customer's chats.
+  // The initiative in the URL (/{slug}/chat), else the sidebar's last pick.
   const selectedProjectClientName = isDeveloper
-    ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    ? pickDeveloperProject(profile, fallbackProjectSlug, selectedProject)
     : null;
   const selectedProjectCustomerId = selectedProjectClientName
     ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)
@@ -168,6 +170,20 @@ export default function ChatLayout({
   const [selectedDirect, setSelectedDirect] = useState<DirectChatEntry | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Opens the conversation a chat notification links to (?chatId=<group
+  // guid>, see the cometchat webhook's notifyChatMessage) once the groups
+  // have loaded — once per link, so picking another chat afterwards sticks.
+  const chatIdParam = useSearchParams().get("chatId");
+  const openedChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!ready || !chatIdParam || openedChatIdRef.current === chatIdParam) return;
+    const match = groups.find((g) => g.getGuid() === chatIdParam);
+    if (!match) return;
+    openedChatIdRef.current = chatIdParam;
+    setSelectedGroup(match);
+    setSelectedDirect(null);
+  }, [ready, chatIdParam, groups]);
 
   useEffect(() => {
     if (!ready) return;
@@ -293,7 +309,9 @@ export default function ChatLayout({
           isCustomer={isCustomer}
           canLeaveChats={canLeaveChats}
           onCreateChat={() => setShowCreateModal(true)}
-          showCustomerFilter={isAdmin}
+          // Admins are scoped by the URL's customer (/{slug}/chat), picked in
+          // the sidebar's Initiative dropdown, so no filter of their own here.
+          showCustomerFilter={isAdmin && !customerSlug}
           customerOptions={customerOptions}
           selectedCustomerId={selectedCustomerId}
           onSelectedCustomerIdChange={setSelectedCustomerId}
@@ -333,7 +351,9 @@ export default function ChatLayout({
           onClose={() => setShowCreateModal(false)}
           requireInitiative={isAdmin || isDeveloper || isCustomer}
           initiativeOptions={initiativeOptions}
-          lockedInitiativeId={isDeveloper ? (selectedProjectCustomerId ?? undefined) : undefined}
+          lockedInitiativeId={
+            isDeveloper ? (selectedProjectCustomerId ?? undefined) : isAdmin && customerSlug ? customerId : undefined
+          }
           fixedSlug={isCustomer ? projectSlug : undefined}
         />
       )}

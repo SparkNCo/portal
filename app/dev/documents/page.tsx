@@ -1,7 +1,8 @@
 "use client";
 
-import DocumentsPage from "@/app/[slug]/(portal)/documents/page";
+import { DevRouteRedirect } from "@/components/dev-route-redirect";
 
-export default function DevDocumentsPage() {
-  return <DocumentsPage />;
+// Moved to /{slug}/documents — see components/dev-route-redirect.tsx.
+export default function DevDocumentsRedirect() {
+  return <DevRouteRedirect panel="documents" />;
 }

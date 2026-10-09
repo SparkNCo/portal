@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { upsertDocumentVector } from "../lib/vector.ts";
-import { isTextDocumentFormat, truncateDocumentContent } from "../utils/documentText.ts";
+import { extractDocumentText, isSearchableDocumentFormat } from "../utils/documentText.ts";
 
 const BUCKET = "documents_bucket";
 
@@ -15,7 +15,14 @@ const BUCKET = "documents_bucket";
 function extractStoragePath(url: string): string | null {
   const marker = `/${BUCKET}/`;
   const index = url.indexOf(marker);
-  return index === -1 ? null : url.substring(index + marker.length);
+  if (index === -1) return null;
+  // Public URLs are percent-encoded ("My%20Doc.docx"); storage wants the real name.
+  const path = url.substring(index + marker.length);
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 // SPA-513-Cycle20: AI document search only vectorizes a document going
@@ -63,11 +70,11 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
     for (const doc of documents ?? []) {
       try {
         let content: string | null = null;
-        if (isTextDocumentFormat(doc.file_name)) {
+        if (isSearchableDocumentFormat(doc.file_name)) {
           const path = extractStoragePath(doc.link);
           if (path) {
             const { data: blob } = await supabase.storage.from(BUCKET).download(path);
-            if (blob) content = truncateDocumentContent(await blob.text());
+            if (blob) content = await extractDocumentText(doc.file_name, blob);
           }
         }
         const ok = await upsertDocumentVector(doc.project_slug, {

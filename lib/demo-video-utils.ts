@@ -3,7 +3,7 @@ import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
 
 // Shared between the per-ticket Demo tab (components/client/demo-tab.tsx)
-// and the developer-wide Demos page (app/dev/demos/page.tsx) — both render
+// and the initiative-wide Demos page (app/[slug]/(portal)/demos/page.tsx) — both render
 // the same `demo_videos` rows, just scoped differently (one issue vs. every
 // issue in a project).
 

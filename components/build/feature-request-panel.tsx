@@ -3,18 +3,21 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lightbulb, Paperclip, File as FileIcon, X } from "lucide-react";
+import { Lightbulb, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { useUser } from "context/UserContext";
 import {
   TitleContinueRow,
   ProjectField,
+  ListItemsField,
   MilestoneField,
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
+import { AttachedFilesList } from "@/components/shared/attached-files-list";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
 
@@ -53,20 +56,26 @@ async function attachFileToIssue(issueId: string, url: string, title: string) {
   return res.json();
 }
 
-function buildFeatureDescription(description: string, requirements: string) {
+function buildFeatureDescription(description: string, criteria: string[]) {
+  const criteriaList = criteria
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => `- ${c}`)
+    .join("\n");
   return [
     description.trim() ? `### Feature Description\n${description.trim()}` : null,
-    requirements.trim() ? `### Requirement\n${requirements.trim()}` : null,
+    criteriaList ? `### Criteria\n${criteriaList}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");
 }
 
 export function FeatureRequestPanel({ slug }: { slug: string }) {
+  const { profile } = useUser();
   const [detailsRevealed, setDetailsRevealed] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [requirements, setRequirements] = useState("");
+  const [criteria, setCriteria] = useState<string[]>([""]);
   const [priority, setPriority] = useState("medium");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
@@ -98,9 +107,10 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
       const result = await postCreateIssue({
         title: title.trim(),
-        description: buildFeatureDescription(description, requirements),
+        description: buildFeatureDescription(description, criteria),
         priority,
         slug,
+        ...(profile?.email && { requestedBy: profile.email }),
         type: "feature",
         ...(selectedProjectId && { projectId: selectedProjectId }),
         ...(selectedMilestoneId && { projectMilestoneId: selectedMilestoneId }),
@@ -129,7 +139,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
     setDetailsRevealed(false);
     setTitle("");
     setDescription("");
-    setRequirements("");
+    setCriteria([""]);
     setPriority("medium");
     setSelectedProjectId("");
     setSelectedMilestoneId("");
@@ -183,21 +193,21 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                 />
               </div>
 
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="feature-requirements" className="smalltext">
-                  Requirements{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <RichTextEditor
-                  id="feature-requirements"
-                  ariaLabel="Requirements (optional)"
-                  placeholder="How will you know this feature is working well?"
-                  value={requirements}
-                  onChange={setRequirements}
-                  className="border-0"
-                  minHeight="70px"
+              <div className="md:col-span-2">
+                <ListItemsField
+                  label={
+                    <>
+                      Criteria{" "}
+                      <span className="text-muted-foreground font-normal">(optional)</span>
+                    </>
+                  }
+                  items={criteria}
+                  onChange={setCriteria}
+                  itemLabel="Criterion"
+                  placeholderFor={(i) =>
+                    i === 0 ? "e.g. Users can export the report as PDF" : "Another way to know it works..."
+                  }
+                  addLabel="Add criterion"
                 />
               </div>
 
@@ -246,30 +256,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                 Add files
               </Button>
 
-              {attachments.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  {attachments.map((file) => (
-                    <div
-                      key={file.name}
-                      className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-2"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="smalltext truncate">{file.name}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 flex-shrink-0"
-                        onClick={() => removeFile(file.name)}
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AttachedFilesList files={attachments} onRemove={removeFile} />
             </div>
 
             <SubmitButton

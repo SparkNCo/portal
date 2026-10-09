@@ -9,7 +9,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KeyRound, Eye, EyeOff, AlertTriangle, Mail, Building2 } from "lucide-react";
-import { getStakeholderClientSlug, useUser } from "context/UserContext";
+import { getStakeholderClientSlug, PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
 
 // Supabase redirects an invite link it can no longer honor (expired/already
 // used) back to `redirectTo` with `error_code` in either the query string or
@@ -147,6 +147,9 @@ function SetPasswordForm() {
     } else if (role === "admin") {
       redirectPath = "/admin/users";
     } else if (role === "developer") {
+      // The profile with their assignments isn't loaded yet at this point;
+      // /dev/developer forwards to /{slug}/developer for their first
+      // initiative once it is (components/dev-route-redirect.tsx).
       redirectPath = "/dev/developer";
     }
 
@@ -210,8 +213,18 @@ function SetPasswordForm() {
       redirectPath = stakeholderPath;
     }
 
+    // Same handling as login: if the portal profile can't be loaded now,
+    // redirecting would just land on an empty page.
+    const profileStatus = await reloadUser();
+    if (profileStatus === "not-found" || profileStatus === "failed") {
+      const message = PROFILE_ERROR_MESSAGES[profileStatus];
+      setError(`Password set, but ${message.charAt(0).toLowerCase()}${message.slice(1)}`);
+      setSubmitting(false);
+      await supabase.auth.signOut();
+      return;
+    }
+
     setDone(true);
-    await reloadUser();
     router.replace(redirectPath);
   }
 

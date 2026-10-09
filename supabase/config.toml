@@ -1,0 +1,10 @@
+# Read by the Supabase CLI (supabase functions deploy). Only settings that
+# differ from the CLI's defaults go here.
+project_id = "ozybsusoollnomaaxkcy"
+
+# CometChat's webhook calls this function without a Supabase token, so it must
+# not require one. Without this, every deploy re-enables JWT verification
+# (the CLI default) and CometChat's calls get a 401 — no chat notifications,
+# no "updated" flags, no AI replies.
+[functions.cometchat]
+verify_jwt = false

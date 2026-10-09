@@ -282,6 +282,7 @@ export function RequestDocumentDialog({
                 onChange={setDescription}
                 className="border-0"
                 minHeight={isExpanded ? "260px" : "90px"}
+                allowImages={false}
               />
             </div>
 

@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector } from "../lib/vector.ts";
+import { recordIssueRequest } from "./issueRequests.ts";
 
 const GET_FIRST_TEAM_QUERY = `
   query GetFirstTeam {
@@ -85,6 +86,30 @@ export async function handleRequestUpload(req: Request): Promise<Response> {
   }
 
   return Response.json({ name: file.name, url: uploadFile.assetUrl });
+}
+
+const GET_ISSUE_ATTACHMENTS_QUERY = `
+  query IssueAttachments($id: String!) {
+    issue(id: $id) {
+      attachments(first: 50) {
+        nodes { id title url createdAt creator { displayName } }
+      }
+    }
+  }
+`;
+
+// GET /issues/attachments?issueId= — the files (and links) attached to an
+// issue, newest first. Fetched on demand by the ticket's Description tab
+// rather than with every issue list.
+export async function handleGetAttachments(req: Request): Promise<Response> {
+  const issueId = new URL(req.url).searchParams.get("issueId");
+  if (!issueId) return Response.json({ error: "Missing issueId" }, { status: 400 });
+
+  const data = await linearRequest(GET_ISSUE_ATTACHMENTS_QUERY, { id: issueId });
+  const attachments = [...(data.issue?.attachments?.nodes ?? [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+  return Response.json(attachments);
 }
 
 // POST /issues/attachment — attaches an already-uploaded file (by its Linear assetUrl) to an issue
@@ -274,7 +299,7 @@ async function resolveAutoLabelId(type: string, teamId: string): Promise<string 
 export async function handleCreateIssue(req: Request): Promise<Response> {
   const schema = "portal";
   const body = await req.json();
-  const { title, slug, type, teamId: bodyTeamId, labelIds } = body;
+  const { title, slug, type, teamId: bodyTeamId, labelIds, requestedBy } = body;
 
   if (!title?.trim()) {
     return Response.json({ error: "Missing title" }, { status: 400 });
@@ -304,6 +329,9 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
 
   const data = await linearRequest(CREATE_ISSUE_MUTATION, { input });
   const createdIssue = data.issueCreate?.issue;
+
+  // Who asked for it in the portal (shown in the ticket header).
+  await recordIssueRequest(createdIssue?.id, requestedBy);
 
   // Best-effort: makes the new ticket searchable right away.
   if (linearSlug && createdIssue) {

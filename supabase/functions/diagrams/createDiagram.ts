@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { createService } from "./createService.ts";
 import { getService } from "./getService.ts";
+import { diagramExtension } from "./diagramFormat.ts";
 
 const DIAGRAMS_BUCKET = "diagrams_bucket";
 
@@ -47,7 +48,8 @@ export const createDiagram = async (req: Request, schema: string) => {
   if (latestError) throw new Error(latestError.message);
 
   const version = (latest?.version ?? 0) + 1;
-  const storagePath = `diagrams/${service.id}/v${version}.mmd`;
+  // The extension records the format (see diagramFormat.ts).
+  const storagePath = `diagrams/${service.id}/v${version}.${diagramExtension(file.name)}`;
 
   const { error: uploadError } = await supabase.storage
     .from(DIAGRAMS_BUCKET)

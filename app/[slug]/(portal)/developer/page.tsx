@@ -15,25 +15,69 @@ import { Clock, History } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
+import { pickDeveloperProject } from "@/lib/developer-routes";
+import { useParams } from "next/navigation";
+import { safeDecodeURIComponent } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
-import type { Issue } from "@/components/client/issues.types";
+import type { Issue, IssueViewMode } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 
 function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+const NO_CYCLE_LABEL = "No cycle";
+
+// A small per-browser preference (falls back to `initial` when storage is
+// unavailable or holds something unexpected).
+function useStoredChoice<T extends string>(key: string, initial: T, allowed: readonly T[]) {
+  const [value, setValue] = useState<T>(initial);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(key) as T | null;
+      if (stored && allowed.includes(stored)) setValue(stored);
+    } catch {
+      // Storage unavailable — keep the default.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const update = (next: T) => {
+    setValue(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      // Not remembered, still applied.
+    }
+  };
+  return [value, update] as const;
 }
 
 export default function DeveloperDashboard() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const { selectedProject: selectedProjectFromSidebar } = useSelectedProject();
+  const { slug: rawUrlSlug } = useParams<{ slug?: string }>();
+  const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : null;
   const userId = profile?.id;
   const notionUrl = "https://www.notion.so/YOUR_POLICIES";
   const [showPoliciesModal, setShowPoliciesModal] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [selectedCycles, setSelectedCycles] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
+  // Remembered in this browser; default to the developer's own tickets in a
+  // grid.
+  const [assigneeScope, setAssigneeScope] = useStoredChoice<"mine" | "all">(
+    "developer-tickets-scope",
+    "mine",
+    ["mine", "all"],
+  );
+  const [viewMode, setViewMode] = useStoredChoice<IssueViewMode>(
+    "developer-tickets-view",
+    "grid",
+    ["grid", "board", "list"],
+  );
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [showLogHours, setShowLogHours] = useState(false);
   const [showMyHours, setShowMyHours] = useState(false);
@@ -66,11 +110,11 @@ export default function DeveloperDashboard() {
       allocation: (a.allocation ?? null) as number | null,
     }));
 
-  // Which project to work on is picked from the sidebar dropdown (see
-  // components/sidebar.tsx) and lives in SelectedProjectContext, rather than
-  // local state, so it's shared with the rest of the /dev/* nav. Falls back
-  // to the first assignment so a project is always selected.
-  const selectedProject = selectedProjectFromSidebar ?? projects[0]?.clientName ?? null;
+  // The initiative in the URL (/{slug}/developer); the sidebar's last pick
+  // and then the first assignment only fill in if the URL's slug isn't one
+  // of theirs. Issues are still fetched for every assignment (the hours
+  // chart compares all of them), then filtered to this one.
+  const selectedProject = pickDeveloperProject(profile, urlSlug, selectedProjectFromSidebar);
 
   const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
@@ -87,21 +131,25 @@ export default function DeveloperDashboard() {
   });
 
   const allIssues: any[] = (issuesData ?? [])
-    .filter((i: any) => i?.state?.name !== "Done");
+    .filter((i: any) => !isClosedIssue(i));
 
   const availableStatuses = [...new Set(allIssues.map((i: any) => i?.state?.name).filter(Boolean))] as string[];
-  const availableLabels = [
-    ...new Set(
-      allIssues.flatMap((i: any) => (i.labels?.nodes ?? []).map((l: any) => l.name)),
-    ),
-  ] as string[];
+  // "Cycle N" labels of the cycles the listed tickets are in, newest first,
+  // plus "No cycle" when some ticket isn't in one.
+  const cycleOf = (i: any): string => (i.cycle?.number != null ? `Cycle ${i.cycle.number}` : NO_CYCLE_LABEL);
   const availablePriorities = [
     ...new Set(allIssues.map((i: any) => i.priorityLabel).filter(Boolean)),
   ] as string[];
 
-  const projectFiltered = selectedProject
+  const projectIssues = selectedProject
     ? allIssues.filter((i: any) => i._project === selectedProject)
     : allIssues;
+
+  // "My tickets" = assigned to this developer in Linear (matched by email).
+  const myEmail = profile?.email?.toLowerCase();
+  const isMine = (i: any) => !!myEmail && i.assignee?.email?.toLowerCase() === myEmail;
+  const myCount = projectIssues.filter(isMine).length;
+  const projectFiltered = assigneeScope === "mine" ? projectIssues.filter(isMine) : projectIssues;
 
   const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
@@ -109,15 +157,19 @@ export default function DeveloperDashboard() {
     ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
     : projectFiltered;
 
-  const labelFiltered = selectedLabels.length > 0
-    ? statusFiltered.filter((i: any) =>
-        (i.labels?.nodes ?? []).some((l: any) => selectedLabels.includes(l.name)),
-      )
+  const availableCycles = [...new Set(projectFiltered.map(cycleOf))].sort((a, b) => {
+    if (a === NO_CYCLE_LABEL) return 1;
+    if (b === NO_CYCLE_LABEL) return -1;
+    return Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, ""));
+  });
+
+  const cycleFiltered = selectedCycles.length > 0
+    ? statusFiltered.filter((i: any) => selectedCycles.includes(cycleOf(i)))
     : statusFiltered;
 
   const priorityFiltered = selectedPriorities.length > 0
-    ? labelFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
-    : labelFiltered;
+    ? cycleFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
+    : cycleFiltered;
 
   const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
     if (sortBy === "priority")
@@ -136,11 +188,11 @@ export default function DeveloperDashboard() {
         prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
       ),
     onToggleActive: () => {},
-    selectedLabels,
-    availableLabels,
-    onToggleLabel: (l: string) =>
-      setSelectedLabels((prev) =>
-        prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l],
+    selectedCycles,
+    availableCycles,
+    onToggleCycle: (c: string) =>
+      setSelectedCycles((prev) =>
+        prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
       ),
     selectedPriorities,
     availablePriorities,
@@ -150,7 +202,7 @@ export default function DeveloperDashboard() {
       ),
     onClearFilters: () => {
       setSelectedStatuses([]);
-      setSelectedLabels([]);
+      setSelectedCycles([]);
       setSelectedPriorities([]);
     },
   };
@@ -216,6 +268,43 @@ export default function DeveloperDashboard() {
               title={selectedProject ?? "All Tasks"}
               sortBy={sortBy}
               onSortByChange={setSortBy}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              headerAction={
+                <div className="flex items-center rounded-md border border-input p-0.5" role="group" aria-label="Whose tickets">
+                  {([
+                    ["mine", `My tickets (${myCount})`],
+                    ["all", `All (${projectIssues.length})`],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setAssigneeScope(value)}
+                      aria-pressed={assigneeScope === value}
+                      className={`h-6 rounded px-2 smalltext font-medium transition-colors ${
+                        assigneeScope === value
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              }
+              emptyState={
+                assigneeScope === "mine" && myCount === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <p className="smalltext font-medium text-foreground">No open tickets assigned to you</p>
+                    <p className="smalltext text-muted-foreground">
+                      Tickets assigned to {profile?.email} in Linear show up here.
+                    </p>
+                    <Button size="sm" variant="outline" className="smalltext" onClick={() => setAssigneeScope("all")}>
+                      Show all tickets
+                    </Button>
+                  </div>
+                ) : undefined
+              }
             />
           )}
         </div>
