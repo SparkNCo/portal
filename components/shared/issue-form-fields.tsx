@@ -1,4 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -154,6 +155,90 @@ export function SubmitButton({
       >
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
       </Button>
+    </div>
+  );
+}
+
+// A numbered list of one-line inputs — Bug Report's "Steps to Reproduce" and
+// Feature Request's "Criteria". Enter moves to the next item (adding one at
+// the end); items can be removed while there's more than one.
+export function ListItemsField({
+  label,
+  items,
+  onChange,
+  itemLabel,
+  placeholderFor,
+  addLabel,
+}: {
+  readonly label: React.ReactNode;
+  readonly items: string[];
+  readonly onChange: (items: string[]) => void;
+  /** e.g. "Step" → "Step 1" for each input's accessible name. */
+  readonly itemLabel: string;
+  readonly placeholderFor: (index: number) => string;
+  readonly addLabel: string;
+}) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focusIndex === null) return;
+    inputRefs.current[focusIndex]?.focus();
+    setFocusIndex(null);
+  }, [focusIndex, items.length]);
+
+  function update(index: number, value: string) {
+    onChange(items.map((s, i) => (i === index ? value : s)));
+  }
+
+  function remove(index: number) {
+    if (items.length > 1) onChange(items.filter((_, i) => i !== index));
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, index: number) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (index === items.length - 1) onChange([...items, ""]);
+    setFocusIndex(index + 1);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="space-y-2">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="w-4 shrink-0 smalltext text-muted-foreground">{i + 1}.</span>
+            <Input
+              ref={(el) => {
+                inputRefs.current[i] = el;
+              }}
+              aria-label={`${itemLabel} ${i + 1}`}
+              placeholder={placeholderFor(i)}
+              value={item}
+              onChange={(e) => update(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(e, i)}
+              className="bg-card border-0 text-card-foreground placeholder:text-card-foreground/40"
+            />
+            {items.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={() => remove(i)}
+                aria-label={`Remove ${itemLabel.toLowerCase()} ${i + 1}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" className="ml-6" onClick={() => onChange([...items, ""])}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          {addLabel}
+        </Button>
+      </div>
     </div>
   );
 }

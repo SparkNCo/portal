@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { AuthGate } from "@/components/auth-gate";
 import { Sidebar } from "@/components/sidebar";
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-context";
-import { SelectedProjectProvider } from "@/lib/selected-project-context";
 import { useUser } from "context/UserContext";
 import { LoadingDataPanel } from "@/components/loader";
 import type React from "react";
@@ -24,7 +23,7 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   if (profile?.role !== "developer") return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <Sidebar />
       {isOpen && (
         <button
@@ -46,11 +45,9 @@ export default function DevLayout({
 }) {
   return (
     <AuthGate>
-      <SelectedProjectProvider>
-        <SidebarProvider>
-          <LayoutContent>{children}</LayoutContent>
-        </SidebarProvider>
-      </SelectedProjectProvider>
+      <SidebarProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </SidebarProvider>
     </AuthGate>
   );
 }

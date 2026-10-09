@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { diagramExtension } from "./diagramFormat.ts";
 
 const DIAGRAMS_BUCKET = "diagrams_bucket";
 
 // Replaces the content of an existing diagram version in place (same
-// service_id/version/storage_path) rather than creating a new version.
+// service_id/version) rather than creating a new version.
 export const updateDiagram = async (req: Request, schema: string) => {
   const formData = await req.formData();
 
@@ -34,9 +35,13 @@ export const updateDiagram = async (req: Request, schema: string) => {
   if (existingError) throw new Error(existingError.message);
   if (!existing) throw new Error("Diagram version not found");
 
+  // Same version, but the new file may be the other format (.mmd ↔ .md) —
+  // the extension is what records it (see diagramFormat.ts).
+  const storagePath = existing.storage_path.replace(/\.[^./]+$/, "") + `.${diagramExtension(file.name)}`;
+
   const { error: uploadError } = await supabase.storage
     .from(DIAGRAMS_BUCKET)
-    .upload(existing.storage_path, file, {
+    .upload(storagePath, file, {
       contentType: "text/plain",
       upsert: true,
     });
@@ -50,7 +55,7 @@ export const updateDiagram = async (req: Request, schema: string) => {
 
   const { data: diagram, error: updateError } = await supabase.schema(schema)
     .from("diagrams")
-    .update({ mermaid_source, uploaded_by: uploader.id })
+    .update({ mermaid_source, storage_path: storagePath, uploaded_by: uploader.id })
     .eq("id", diagram_id)
     .select()
     .single();
@@ -58,6 +63,11 @@ export const updateDiagram = async (req: Request, schema: string) => {
   if (updateError) {
     console.error("[updateDiagram] diagram update failed", updateError.message);
     throw new Error(updateError.message);
+  }
+
+  // Format changed: the old file is no longer referenced.
+  if (storagePath !== existing.storage_path) {
+    await supabase.storage.from(DIAGRAMS_BUCKET).remove([existing.storage_path]);
   }
 
   return diagram;

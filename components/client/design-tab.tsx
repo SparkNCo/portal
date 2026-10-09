@@ -4,6 +4,8 @@ import type React from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import mermaid from "mermaid";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import { toast } from "sonner";
 import {
   Select,
@@ -43,11 +45,62 @@ type Diagram = {
   service_id: string;
   issue_id: string;
   version: number;
+  // Despite the name, holds the uploaded file's text — Mermaid or Markdown.
   mermaid_source: string | null;
+  // Its extension says which (see supabase/functions/diagrams/diagramFormat.ts).
+  storage_path: string;
   created_at: string;
 };
 
 const NEW_SERVICE = "__new__";
+
+// What the Diagrams upload buttons take.
+const DIAGRAM_FILE_TYPES = ".mmd,.mermaid,.md,.markdown,text/plain,text/markdown";
+
+function isMarkdownDiagram(diagram: Diagram): boolean {
+  return /\.md$/i.test(diagram.storage_path ?? "");
+}
+
+// A Markdown diagram file. ```mermaid code blocks in it are drawn as
+// diagrams, like on GitHub.
+function MarkdownDiagram({ source }: { readonly source: string }) {
+  return (
+    <div
+      data-testid="markdown-diagram"
+      className="p-4 smalltext prose prose-sm prose-invert max-w-none leading-relaxed
+      [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
+      [&_h2]:smalltext [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2:first-child]:mt-0
+      [&_h3]:smalltext [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
+      [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2
+      [&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted/60 [&_pre]:p-3"
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkBreaks]}
+        components={{
+          code: ({ className, children }) =>
+            /language-mermaid/.test(className ?? "") ? (
+              <MermaidDiagram source={String(children).trim()} />
+            ) : (
+              <code className={className}>{children}</code>
+            ),
+          // A mermaid block shouldn't sit inside the code-block styling.
+          pre: ({ children, node }) => {
+            const first = node?.children?.[0];
+            const lang = first && "properties" in first ? String(first.properties?.className ?? "") : "";
+            return lang.includes("language-mermaid") ? <>{children}</> : <pre>{children}</pre>;
+          },
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {source}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export function MermaidDiagram({ source }: { source: string }) {
   const renderId = useId().replace(/:/g, "");
@@ -531,9 +584,9 @@ export function DesignTab({
       {/* Mermaid Diagrams Section */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold">Mermaid Diagrams</h3>
+          <h3 className="text-sm font-semibold">Diagrams</h3>
           <p className="text-xs text-muted-foreground">
-            Upload and version Mermaid diagram files
+            Upload and version Mermaid (.mmd) or Markdown (.md) files
           </p>
         </div>
 
@@ -620,7 +673,7 @@ export function DesignTab({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".mmd,.mermaid,text/plain"
+            accept={DIAGRAM_FILE_TYPES}
             className="hidden"
             onChange={handleFileSelect}
           />
@@ -644,7 +697,7 @@ export function DesignTab({
           <input
             ref={updateFileInputRef}
             type="file"
-            accept=".mmd,.mermaid,text/plain"
+            accept={DIAGRAM_FILE_TYPES}
             className="hidden"
             onChange={handleUpdateFileSelect}
           />
@@ -658,7 +711,7 @@ export function DesignTab({
           )}
           {isCreatingNew && (
             <p className="text-sm text-muted-foreground italic p-4">
-              Enter a name and upload a .mmd file to create the service.
+              Enter a name and upload a .mmd or .md file to create the service.
             </p>
           )}
           {!isCreatingNew && selectedServiceId && versionsQuery.isLoading && (
@@ -674,9 +727,12 @@ export function DesignTab({
                 This service doesn't have any diagrams uploaded yet.
               </p>
             )}
-          {currentDiagram?.mermaid_source && (
-            <MermaidDiagram source={currentDiagram.mermaid_source} />
-          )}
+          {currentDiagram?.mermaid_source &&
+            (isMarkdownDiagram(currentDiagram) ? (
+              <MarkdownDiagram source={currentDiagram.mermaid_source} />
+            ) : (
+              <MermaidDiagram source={currentDiagram.mermaid_source} />
+            ))}
         </div>
       </div>
     </div>

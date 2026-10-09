@@ -92,8 +92,9 @@ function AddCustomerCard({ onClick }: { readonly onClick: () => void }) {
 }
 
 // `basePath` is the route prefix for a customer's dashboard link — e.g.
-// `/{slug}/dashboards` for developers viewing their assigned customers, or
-// `/admin/dashboards` for admins.
+// `/{slug}/dashboards` for developers viewing their assigned customers.
+// Admins no longer have a Dashboards page; they pick a customer from the
+// sidebar's Initiative dropdown instead (see components/sidebar.tsx).
 export function DashboardsContent({ basePath }: { readonly basePath: string }) {
   const { profile, loading } = useUser();
   const queryClient = useQueryClient();

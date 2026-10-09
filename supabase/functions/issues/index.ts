@@ -1,12 +1,13 @@
 // @ts-nocheck
 import { corsHeaders } from "../utils/headers.ts";
 import { handleGetIssues, handleGetIssueById } from "./fetchIssues.ts";
-import { handleAddComment, handlePostToLinear, handleSetDecision, handleDeleteDecision, handleUpdateState, handleUpdateIssue, handleGetProjects, handleGetMilestones, handleCreateMilestone, handleGetLabels, handleMarkIssueSeen, handleGetSimilarIssues } from "./updateIsste.ts";
+import { handleAddComment, handlePostToLinear, handleSetDecision, handleDeleteDecision, handleUpdateState, handleUpdateIssue, handleGetProjects, handleGetMilestones, handleCreateMilestone, handleGetLabels, handleMarkIssueSeen, handleGetSimilarIssues, handleGetIssueCycles } from "./updateIsste.ts";
 import {
   handleCreateIssue,
   handleCreateProject,
   handleRequestUpload,
   handleCreateAttachment,
+  handleGetAttachments,
 } from "./createIssue.ts";
 
 Deno.serve(async (req) => {
@@ -26,6 +27,10 @@ Deno.serve(async (req) => {
       res = await handleGetLabels(req);
     } else if (req.method === "GET" && pathname.endsWith("/similar")) {
       res = await handleGetSimilarIssues(req);
+    } else if (req.method === "GET" && pathname.endsWith("/attachments")) {
+      res = await handleGetAttachments(req);
+    } else if (req.method === "GET" && pathname.endsWith("/cycles")) {
+      res = await handleGetIssueCycles(req);
     } else if (req.method === "GET" && pathname.endsWith("/by-id")) {
       res = await handleGetIssueById(req);
     } else if (req.method === "GET") {

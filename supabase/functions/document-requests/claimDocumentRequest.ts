@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { notifyRequestUpdate } from "./notifyRequest.ts";
 
 // PATCH /document-requests { action: "claim" } — developer locks a pending
 // request so other assigned developers can't also try to fulfill it at the
@@ -40,6 +41,8 @@ export async function claimDocumentRequest(
       { status: 409 },
     );
   }
+
+  notifyRequestUpdate(data, claimedBy, "document_request_claimed");
 
   return Response.json(data);
 }

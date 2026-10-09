@@ -13,7 +13,10 @@ function ChatContent() {
   const initialTitle = searchParams.get("newChat") ?? undefined;
 
   return (
-    <div className="flex flex-col h-screen">
+    // h-dvh, not h-screen: on phones 100vh is taller than what's visible while
+    // the browser bars show, which hid the bottom of the page — the "New Chat"
+    // button and the message box.
+    <div className="flex flex-col h-dvh">
       <Header title="Chat" subtitle="Messages and AI Assistant" subtitleClassName="smalltext" />
       <div className="flex flex-1 overflow-hidden">
         <ChatProvider initialTitle={initialTitle} fallbackProjectSlug={urlSlug} />

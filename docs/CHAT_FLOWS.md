@@ -1,20 +1,21 @@
 # Chat — Flows & How It Works
 
 > Reference for the standalone Chat page and CometChat integration.
-> Customer/stakeholder page: `app/[slug]/(portal)/chat/page.tsx` → `CometChatPage`
-> Developer's own page: `app/dev/chat/page.tsx` → `DevChatPage`
-> Admin's own page: `app/admin/chats/page.tsx` → `AdminChatPage` (unscoped inbox across every customer)
+> Page (every role): `app/[slug]/(portal)/chat/page.tsx` → `CometChatPage`, at `/{slug}/chat`
+> Old routes: `app/admin/chats/page.tsx` and `app/dev/chat/page.tsx` only redirect there (`components/chat/chat-route-redirect.tsx`)
 
-All three pages render the same `ChatLayout` component — they only differ in what slug/customer scope gets passed in. **Admin and developer routes carry no customer slug at all** (`/admin/chats`, `/dev/chat` — fixed paths, not `/{slug}/chat`), matching the same slug-less routing used for their dashboards (see `app/docs/LOGIN_FLOWS.md` and `app/docs/DEVELOPER_DASHBOARD_FLOWS.md`). Only customer/stakeholder chat is slug-based, since only those roles are scoped to one customer.
+Every role opens chat at **`/{slug}/chat`**, scoped to the initiative in the URL — the same route tree as the rest of the portal. Admins pick the initiative in the sidebar's Initiative dropdown, developers in "Working on"; customers and stakeholders have their own slug. `ChatProvider` mounts the chat implementation that initiative uses (`customers.systems.chat`: CometChat or Supabase Realtime).
+
+**Old `/admin/chats` and `/dev/chat` links** (bookmarks, older notifications) redirect: a `?chatId=…` link goes to the `/{slug}/chat` of the customer that chat belongs to (`resolveChatRouteSlug` in `lib/chat-links.ts`: the chat's `metadata.customerId` mapped to that customer's clientName, else its `project_slug`); without one, a developer goes to their selected initiative's chat and an admin is asked to pick an initiative. The query string is kept, so the chat still opens.
 
 ---
 
 ## Who sees this page
 
-Chat is accessible to `customer`, `developer`, `stakeholder`, and `admin`. All four roles have it in their sidebar, labeled "Chat" — linking to `chat` (resolved relative to the current route: `/{slug}/chat` for customer/stakeholder, `/dev/chat` for developer) and to `chats` for admin's own top-level nav (`components/sidebar.tsx`).
+Chat is accessible to `customer`, `developer`, `stakeholder`, and `admin`. All four roles have "Chat" in their sidebar, always pointing at `/{slug}/chat` for their current initiative (`components/sidebar.tsx`). Admins only see it once an initiative is selected.
 
 There are two distinct chat surfaces in the app:
-- **This page** (`/{slug}/chat`, `/dev/chat`, or `/admin/chats`) — the full standalone chat experience with a sidebar and conversation view.
+- **This page** (`/{slug}/chat`) — the full standalone chat experience with a sidebar and conversation view.
 - **Issue chat** (`IssueCometChat`) — the Chat tab embedded inside the Issue Detail Modal, scoped to a single issue. See "Issue Chat" below and `app/docs/FEATURES_FLOWS.md`.
 
 **A fourth route reuses the same page:** the admin **Dashboards** preview (`components/dashboard/panel-renderer.tsx`, `case "chat"`) renders the identical `ChatPage` (the `/[slug]/(portal)/chat` one) while previewing one specific customer — `CustomerSlugContext` resolves to that customer's slug instead of the admin's own, which is what scopes the inbox down to just that customer (see "Scoping to a single customer" below).
@@ -64,7 +65,7 @@ Calls `initCometChatUser()` on mount, then fetches the group list:
 
 **Source:** `components/chat/CometChat/ChatLayout.tsx`
 
-Props: `initialTitle` (from `?newChat=`) and `fallbackProjectSlug` (the caller's own `[slug]` route segment, if it has one — only the customer/stakeholder `/{slug}/chat` page passes one; `/admin/chats` and `/dev/chat` both omit it, since neither admin nor developer has a personal slug).
+Props: `initialTitle` (from `?newChat=`) and `fallbackProjectSlug` (the URL's `[slug]`). Developers' initiative is resolved from it (`pickDeveloperProject`, `lib/developer-routes.ts`), falling back to their "Working on" choice.
 
 The layout is a two-panel split: a sidebar on the left and a chat area on the right.
 
@@ -74,15 +75,16 @@ The layout is a two-panel split: a sidebar on the left and a chat area on the ri
 
 ### Scoping to a single customer
 
-`customerId` passed to `useCometChat` comes from `useCustomerSlug()` (`CustomerSlugContext`) combined with `usePinnedPanelsOwnerId()`:
-- On a plain `/chat` visit (no customer being previewed), `customerSlug` is empty, so `customerId` stays `undefined` — the inbox is unscoped, showing the caller's own chats (or, for admin, everything).
-- Inside the Dashboards preview (`customerSlug` set to the previewed customer's slug), `usePinnedPanelsOwnerId()` resolves that slug to the customer's actual portal user id (matched against `clientName`, normalized) — the inbox is filtered to just that customer's groups.
+How the inbox is narrowed to one initiative, per role:
+- **Admin:** `CustomerSlugContext` holds the URL's slug (the `[slug]` layout sets it for admins), and `usePinnedPanelsOwnerId()` resolves it to that customer's portal user id (matched against `clientName`). `ChatProvider` passes it as `controlledCustomerId`, so only that customer's chats are listed. Until the slug resolves, a loading state is shown instead of an unfiltered list; a slug that matches no customer shows "No customer matches this URL."
+- **Developer:** the assignment matching the URL's slug (`selectedProjectCustomerId`) filters the list.
+- **Customer / stakeholder:** their own chats.
 
-### Admin customer filter
+### Admins and New Chat
 
-Separately from the above, `ChatLayout` also gives admins a **manual** filter dropdown (independent of Dashboards-preview scoping) that narrows the *unscoped* `/admin/chats` inbox down to one customer at a time:
-1. Fetches every user (`GET /users`) and keeps `role === "customer"` entries with a name, for the dropdown options.
-2. Selecting one filters `groups` client-side by each group's `customerId` metadata (`selectedCustomerId` state, empty = "All customers").
+Admins no longer get a customer filter inside chat (`showCustomerFilter` is off on `/{slug}/chat`); the sidebar's Initiative dropdown is the filter. **New Chat is locked to the URL's customer** for admins, the same way it's locked to the selected project for developers (`lockedInitiativeId`). To start a chat for another customer, the admin switches initiative in the sidebar first.
+
+The layouts still accept `controlledCustomerId` / `onControlledCustomerIdChange`, `customerSystemsById`, `pendingCreate` and `onCrossProviderCreate` (from when admins had one inbox across every customer and could create a chat in another customer's chat system). `ChatProvider` no longer passes the cross-provider ones, so that path is dormant.
 
 ### Auto-open `CreateChatModal`
 
@@ -162,7 +164,7 @@ Messages render via the shared `MessageBubble` (compact mode here), with initial
 ## Full data flow on page load (standalone Chat page)
 
 ```
-User lands on /{slug}/chat, /dev/chat, /admin/chats, or the Dashboards "chat" panel
+User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
           │
           ├── initCometChatUser()
           │     → CometChat.init, resolve Supabase user, login/create-if-missing
@@ -188,8 +190,8 @@ User lands on /{slug}/chat, /dev/chat, /admin/chats, or the Dashboards "chat" pa
 | File | Responsibility |
 |---|---|
 | `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and admin previewing a customer via Dashboards) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
-| `app/dev/chat/page.tsx` | Developer's own unscoped Chat page (`/dev/chat`) — same `ChatLayout`, no `fallbackProjectSlug` |
-| `app/admin/chats/page.tsx` | Admin's own unscoped Chat page (`/admin/chats`) — same `ChatLayout`, no `fallbackProjectSlug` |
+| `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` (`components/chat/chat-route-redirect.tsx`) |
+| `lib/chat-links.ts` | `resolveChatRouteSlug` — which customer's `/{slug}/chat` a chat id belongs to (redirects and chat notifications) |
 | `components/dashboard/panel-renderer.tsx` | Renders the same `ChatPage` inside the Dashboards customer-preview panel (`case "chat"`) |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, customer scoping/filter, group selection state, auto-open modal logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — group list (grouped by projectSlug), direct chats, admin customer filter |

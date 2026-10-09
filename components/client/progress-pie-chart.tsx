@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
-import { CHART_STATUS_COLORS, STATUS_ORDER, type Issue } from "./issues.types";
+import { CHART_STATUS_COLORS, STATUS_ORDER, type Issue, CLOSED_STATUSES } from "./issues.types";
 
 // Radix Select reserves value="" for its own placeholder state, so "every
 // project" needs a non-empty sentinel.
@@ -87,9 +87,9 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
 
   const TOTAL_TASKS = chartData.reduce((sum, item) => sum + item.value, 0);
 
-  const completedTasks =
-    (chartData.find((d) => d.name === "Completed")?.value ?? 0) +
-    (chartData.find((d) => d.name === "Done")?.value ?? 0);
+  const completedTasks = chartData
+    .filter((d) => d.name === "Completed" || CLOSED_STATUSES.has(d.name))
+    .reduce((sum, d) => sum + d.value, 0);
 
   const completionPercent =
     TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;

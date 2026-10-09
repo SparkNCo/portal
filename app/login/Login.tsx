@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
-import { getStakeholderClientSlug, useUser } from "context/UserContext";
+import { getStakeholderClientSlug, PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
+import { useSelectedProject } from "@/lib/selected-project-context";
+import { developerPanelPath } from "@/lib/developer-routes";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -29,7 +31,8 @@ export default function LoginForm({
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  const { profile: customer, loading: customerLoading } = useUser();
+  const { profile: customer, loading: customerLoading, profileStatus } = useUser();
+  const { selectedProject } = useSelectedProject();
 
   useEffect(() => {
     if (customer) {
@@ -44,16 +47,36 @@ export default function LoginForm({
         }
         return;
       }
+      // Unknown role, or a customer with no linked client: there's no page
+      // to send them to (it used to be /undefined/dashboard).
+      const knownRole = customer?.role === "admin" || customer?.role === "developer" || customer?.role === "customer";
+      if (!knownRole || (customer.role === "customer" && !customer.clientName)) {
+        setErrorMessage("Your account isn't set up yet. Contact your administrator.");
+        setLoading(false);
+        supabase.auth.signOut();
+        return;
+      }
       if (customer?.role === "admin") {
         router.push("/admin/users");
       } else if (customer?.role === "developer") {
-        router.push("/dev/developer");
+        // Their last-picked initiative (or first assignment) — see lib/developer-routes.ts.
+        router.push(developerPanelPath(customer, "developer", selectedProject));
       } else {
         router.push(`/${customer.clientName?.toLowerCase()}/dashboard`);
       }
       onLoginSuccess(customer.email);
     }
   }, [customer]);
+
+  // Signed in, but the portal profile couldn't be loaded (no portal.users
+  // row, or the request failed): say so and sign out, rather than leaving a
+  // silent form over a half-signed-in session. Logging in again retries.
+  useEffect(() => {
+    if (profileStatus !== "not-found" && profileStatus !== "failed") return;
+    setErrorMessage(PROFILE_ERROR_MESSAGES[profileStatus]);
+    setLoading(false);
+    supabase.auth.signOut();
+  }, [profileStatus]);
 
   const login = async (e?: React.FormEvent) => {
     e?.preventDefault();

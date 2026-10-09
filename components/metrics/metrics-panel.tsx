@@ -21,7 +21,7 @@ import {
 } from "./cycle-metrics";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Input } from "@/components/ui/input";
-import { safeDecodeURIComponent } from "@/lib/utils";
+import { cn, safeDecodeURIComponent } from "@/lib/utils";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -32,7 +32,16 @@ interface Project {
 const ALL_PROJECTS_VALUE = "__all_projects__";
 const ALL_CYCLES_VALUE = "__all_cycles__";
 
-export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
+export function MetricsPanel({
+  slug: slugProp,
+  edgeToEdge = false,
+}: {
+  slug?: string;
+  // Set when its container already reaches the screen edges on mobile (the
+  // Dashboard's pinned panels): the filters get side padding and the charts
+  // don't bleed out any further. Monitor's container has its own padding.
+  edgeToEdge?: boolean;
+} = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
@@ -199,10 +208,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
   return (
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
-      <div
-        className="flex flex-wrap items-center gap-3 
-"
-      >
+      <div className={cn("flex flex-wrap items-center gap-3", edgeToEdge && "px-4 sm:px-0")}>
         <Select value={selectedProjectValue} onValueChange={setSelectedProjectName}>
           <SelectTrigger className="w-52 smalltext">
             <SelectValue placeholder="Select project" />
@@ -297,7 +303,7 @@ export function MetricsPanel({ slug: slugProp }: { slug?: string } = {}) {
 
       </div>
 
-      <div className="-mx-4 sm:mx-0 grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-4", !edgeToEdge && "-mx-4 sm:mx-0")}>
         <CycleBarChart
           data={filteredCycleMetrics}
           activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
