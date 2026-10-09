@@ -3,10 +3,41 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { deleteDocumentVectors } from "../lib/vector.ts";
+import { extractPathFromUrl } from "./downloadDocument.ts";
 import {
   DeleteDocumentSchema,
   DeleteDocumentResponseSchema,
 } from "./zod.ts";
+
+// Deletes a deleted document's file from documents_bucket, unless another
+// document row still points at the same file.
+async function removeDocumentFile(link: string, schema: string) {
+  try {
+    const path = extractPathFromUrl(link);
+    if (!path) return;
+
+    const { count } = await supabase.schema(schema)
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("link", link);
+    if (count) return;
+
+    // The public URL may be percent-encoded (names with spaces etc.); missing
+    // paths are ignored, so try both spellings.
+    let decoded = path;
+    try {
+      decoded = decodeURIComponent(path);
+    } catch {
+      // keep the raw path
+    }
+    const { error } = await supabase.storage
+      .from("documents_bucket")
+      .remove(Array.from(new Set([path, decoded])));
+    if (error) console.error("[deleteDocument] file removal failed (non-fatal):", error.message);
+  } catch (err) {
+    console.error("[deleteDocument] file removal failed (non-fatal):", err);
+  }
+}
 
 export async function deleteDocument(req: Request, schema: string) {
   try {
@@ -68,7 +99,7 @@ export async function deleteDocument(req: Request, schema: string) {
       .from("documents")
       .delete()
       .eq("id", document_id)
-      .select("project_slug")
+      .select("project_slug, link")
       .maybeSingle();
 
     if (error) {
@@ -77,6 +108,12 @@ export async function deleteDocument(req: Request, schema: string) {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Remove the file too, or it stays in the bucket forever. Best-effort —
+    // the document is already gone either way.
+    if (deleted?.link) {
+      await removeDocumentFile(deleted.link, schema);
     }
 
     // Best-effort: a leftover vector is harmless.

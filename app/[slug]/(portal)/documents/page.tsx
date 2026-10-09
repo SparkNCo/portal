@@ -12,7 +12,7 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
-import { safeDecodeURIComponent } from "@/lib/utils";
+import { cn, safeDecodeURIComponent } from "@/lib/utils";
 
 export default function DocumentsPage() {
   const { profile } = useUser();
@@ -33,11 +33,9 @@ export default function DocumentsPage() {
         (a) => a.clientName === selectedDeveloperProject,
       )
     : undefined;
-  // Developers have no `linear_slug` of their own (that's a customer-account
-  // field) and, under `/dev/documents`, no `[slug]` route segment either —
-  // fall back to the sidebar-selected assignment, then the first one, same
-  // customer this page would have resolved to via the old
-  // `/{assignedClientName}/documents` URL.
+  // Developers reach this page at /{slug}/documents (old /dev/documents links
+  // redirect there), so the URL's slug normally wins; the assignment
+  // fallbacks only apply if there's no slug at all.
   const slug =
     customerSlug ??
     urlSlug ??
@@ -107,8 +105,11 @@ export default function DocumentsPage() {
           </div>
         )}
 
-        <div className="-mx-4 sm:mx-0 grid gap-6 lg:grid-cols-3">
-          <div className={canUpload ? "lg:col-span-2" : "lg:col-span-3"}>
+        {/* grid-cols-1 + min-w-0: grid cells otherwise won't shrink below
+            their content (search box, long file names), which pushed both
+            cards past the screen edge on mobile. */}
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className={cn("min-w-0", canUpload ? "lg:col-span-2" : "lg:col-span-3")}>
             {projectSlugPending ? (
               <p className="smalltext text-muted-foreground">Loading documents…</p>
             ) : (
@@ -116,7 +117,7 @@ export default function DocumentsPage() {
             )}
           </div>
           {canUpload && (
-            <div>
+            <div className="min-w-0">
               <UploadDocument projectSlug={projectSlug} />
             </div>
           )}

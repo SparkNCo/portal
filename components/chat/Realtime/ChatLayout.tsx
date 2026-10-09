@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
+import { pickDeveloperProject } from "@/lib/developer-routes";
 import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
@@ -98,8 +99,9 @@ export default function ChatLayout({
     }
   }, [customerOptions, selectedCustomerId]);
 
+  // The initiative in the URL (/{slug}/chat), else the sidebar's last pick.
   const selectedProjectClientName = isDeveloper
-    ? (selectedProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
+    ? pickDeveloperProject(profile, fallbackProjectSlug, selectedProject)
     : null;
   const selectedProjectCustomerId = selectedProjectClientName
     ? (profile?.assignment_id?.find((a) => a.clientName === selectedProjectClientName)?.customer_id ?? null)
@@ -268,7 +270,9 @@ export default function ChatLayout({
           selectedChat={selectedChat}
           onSelectChat={(c) => { setSelectedChat(c); clearNewChatParam(); }}
           onCreateChat={() => setShowCreateModal(true)}
-          showCustomerFilter={isAdmin}
+          // Admins are scoped by the URL's customer (/{slug}/chat), picked in
+          // the sidebar's Initiative dropdown, so no filter of their own here.
+          showCustomerFilter={isAdmin && !customerSlug}
           customerOptions={customerOptions}
           selectedCustomerId={selectedCustomerId}
           onSelectedCustomerIdChange={setSelectedCustomerId}
@@ -305,7 +309,9 @@ export default function ChatLayout({
           onClose={() => setShowCreateModal(false)}
           requireInitiative={isAdmin || isDeveloper || isCustomer}
           initiativeOptions={initiativeOptions}
-          lockedInitiativeId={isDeveloper ? (selectedProjectCustomerId ?? undefined) : undefined}
+          lockedInitiativeId={
+            isDeveloper ? (selectedProjectCustomerId ?? undefined) : isAdmin && customerSlug ? customerId : undefined
+          }
           fixedSlug={isCustomer ? projectSlug : undefined}
         />
       )}

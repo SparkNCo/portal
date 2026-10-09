@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil } from "lucide-react";
 
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +35,22 @@ type DemoComment = {
   demo_video_id: string;
   body: string;
   created_at: string;
+  updated_at?: string;
   author?: DemoUser | null;
 };
 
+// Edited later than a moment after posting (the row's own insert can set
+// updated_at a few ms after created_at).
+function wasEdited(comment: DemoComment): boolean {
+  if (!comment.updated_at) return false;
+  return new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime() > 5000;
+}
+
 export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const { profile } = useUser();
+  // Viewing and feedback are open to every role; adding or changing
+  // versions is developers/admins only (demo-videos enforces it too).
+  const canManageVersions = profile?.role === "developer" || profile?.role === "admin";
   const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -398,26 +409,28 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           </div>
         )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          className={`gap-1.5 ${
-            createOpen
-              ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
-              : ""
-          }`}
-          onClick={() => {
-            setCreateOpen((v) => !v);
-            resetCreateForm();
-            setUpdateOpen(false);
-            setShowReplaceEmbedForm(false);
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Create Version
-        </Button>
+        {canManageVersions && (
+          <Button
+            size="sm"
+            variant="outline"
+            className={`gap-1.5 ${
+              createOpen
+                ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90 hover:text-primary-foreground"
+                : ""
+            }`}
+            onClick={() => {
+              setCreateOpen((v) => !v);
+              resetCreateForm();
+              setUpdateOpen(false);
+              setShowReplaceEmbedForm(false);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Create Version
+          </Button>
+        )}
 
-        {currentDemo && (
+        {canManageVersions && currentDemo && (
           <Button
             size="sm"
             variant="outline"
@@ -453,14 +466,16 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
         />
       </div>
 
-      {/* Create Version: choose Upload Media, Add Link, or Select Existing */}
+      {/* Create Version: choose Upload Media, Add Link, or Select Existing.
+          Clicking the open option keeps it open; picking another one (or
+          opening Select Existing) switches to it. Cancel closes the form. */}
       {createOpen && (
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="ghost"
             className={`gap-1.5 ${createMode === "upload" ? "bg-muted" : ""}`}
-            onClick={() => setCreateMode(createMode === "upload" ? null : "upload")}
+            onClick={() => setCreateMode("upload")}
           >
             <Upload className="h-3.5 w-3.5" />
             Upload Media
@@ -469,7 +484,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             size="sm"
             variant="ghost"
             className={`gap-1.5 ${createMode === "embed" ? "bg-muted" : ""}`}
-            onClick={() => setCreateMode(createMode === "embed" ? null : "embed")}
+            onClick={() => setCreateMode("embed")}
           >
             <LinkIcon className="h-3.5 w-3.5" />
             Add Link
@@ -479,6 +494,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               slug={slug}
               disabled={attachExistingMutation.isPending}
               onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
+              onOpen={() => setCreateMode(null)}
             />
           )}
         </div>
@@ -583,7 +599,10 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             variant="ghost"
             className="gap-1.5"
             disabled={replaceWithFileMutation.isPending}
-            onClick={() => replaceFileInputRef.current?.click()}
+            onClick={() => {
+              setShowReplaceEmbedForm(false);
+              replaceFileInputRef.current?.click();
+            }}
           >
             {replaceWithFileMutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -595,8 +614,8 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           <Button
             size="sm"
             variant="ghost"
-            className="gap-1.5"
-            onClick={() => setShowReplaceEmbedForm((v) => !v)}
+            className={`gap-1.5 ${showReplaceEmbedForm ? "bg-muted" : ""}`}
+            onClick={() => setShowReplaceEmbedForm(true)}
           >
             <LinkIcon className="h-3.5 w-3.5" />
             Add Link
@@ -606,6 +625,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               slug={slug}
               disabled={replaceWithExistingMutation.isPending}
               onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
+              onOpen={() => setShowReplaceEmbedForm(false)}
             />
           )}
         </div>
@@ -749,7 +769,12 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           was the actual source of "characters lag behind typing on mobile":
           every keystroke re-rendered all of DemoTab. */}
       {currentDemo && (
-        <DemoFeedbackThread demoId={currentDemo.id} demoVersion={currentDemo.version} />
+        <DemoFeedbackThread
+          demoId={currentDemo.id}
+          demoVersion={currentDemo.version}
+          issue={issue}
+          slug={slug}
+        />
       )}
     </div>
   );
@@ -758,13 +783,20 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 function DemoFeedbackThread({
   demoId,
   demoVersion,
+  issue,
+  slug,
 }: {
   demoId: string;
   demoVersion: number;
+  issue: Issue;
+  slug?: string;
 }) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const [commentBody, setCommentBody] = useState("");
+  // The comment being edited (only one at a time) and its draft text.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
 
   const commentsQuery = useQuery({
     queryKey: ["demo-comments", demoId],
@@ -795,6 +827,11 @@ function DemoFeedbackThread({
             demo_video_id: demoId,
             email: profile.email,
             body,
+            // Same issue context the upload sends — lets the backend
+            // notify the demo's uploader with a link back to this ticket.
+            slug,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
           }),
         },
       );
@@ -812,6 +849,42 @@ function DemoFeedbackThread({
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const editCommentMutation = useMutation({
+    mutationFn: async ({ id, body }: { id: string; body: string }) => {
+      if (!profile?.email) throw new Error("Could not identify the current user");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?type=comments`,
+        {
+          method: "PATCH",
+          headers: API_JSON_HEADERS,
+          body: JSON.stringify({
+            id,
+            email: profile.email,
+            body,
+            // Same issue context as posting — the edit notifies the same people.
+            slug,
+            issue_code: getIssueCode(issue.branchName),
+            issue_type: deriveIssueKind(issue.labels?.nodes),
+          }),
+        },
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.error ?? "Failed to update feedback");
+      }
+      return (await res.json()) as DemoComment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["demo-comments", demoId] });
+      setEditingId(null);
+      setEditDraft("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const isMine = (comment: DemoComment) =>
+    !!profile?.email && comment.author?.email?.toLowerCase() === profile.email.toLowerCase();
 
   const handleSubmitComment = () => {
     if (!commentBody.trim()) return;
@@ -839,9 +912,23 @@ function DemoFeedbackThread({
           {comments.map((comment) => (
             <div
               key={comment.id}
-              className="rounded-lg border border-border bg-secondary/20 px-3 py-2"
+              className="group relative rounded-lg border border-border bg-secondary/20 px-3 py-2"
             >
-              <div className="flex items-center gap-2">
+              {isMine(comment) && editingId !== comment.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(comment.id);
+                    setEditDraft(comment.body);
+                  }}
+                  aria-label="Edit your feedback"
+                  title="Edit"
+                  className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <div className="flex items-center gap-2 pr-7">
                 <span className="text-xs font-medium text-foreground">
                   {displayName(comment.author)}
                 </span>
@@ -852,11 +939,48 @@ function DemoFeedbackThread({
                 )}
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(comment.created_at).toLocaleString()}
+                  {wasEdited(comment) && " (edited)"}
                 </span>
               </div>
-              <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
-                {comment.body}
-              </p>
+              {editingId === comment.id ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <Textarea
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    aria-label="Edit your feedback"
+                    className="bg-background min-h-[72px]"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={editCommentMutation.isPending}
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditDraft("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={
+                        editCommentMutation.isPending ||
+                        !editDraft.trim() ||
+                        editDraft.trim() === comment.body.trim()
+                      }
+                      onClick={() => editCommentMutation.mutate({ id: comment.id, body: editDraft })}
+                    >
+                      {editCommentMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
+                  {comment.body}
+                </p>
+              )}
             </div>
           ))}
         </div>

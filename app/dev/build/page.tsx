@@ -1,7 +1,8 @@
 "use client";
 
-import BuildPage from "@/app/[slug]/(portal)/build/page";
+import { DevRouteRedirect } from "@/components/dev-route-redirect";
 
-export default function DevBuildPage() {
-  return <BuildPage />;
+// Moved to /{slug}/build — see components/dev-route-redirect.tsx.
+export default function DevBuildRedirect() {
+  return <DevRouteRedirect panel="build" />;
 }

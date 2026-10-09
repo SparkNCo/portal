@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, AlertCircle, ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -14,11 +14,38 @@ import { cn } from "@/lib/utils";
 // there's nothing to configure here.
 import { MermaidDiagram } from "@/components/client/design-tab";
 
-// Formats this modal knows how to render — everything else keeps using the
-// existing "open in a new tab" behavior (see handleOpen in
-// document-list-panel.tsx), since building a renderer for every file type
-// (pdf, docx, images, ...) is a different, much bigger project.
-export const PREVIEWABLE_FORMATS = new Set(["md", "markdown", "txt", "text", "csv", "mmd", "mermaid"]);
+// Text formats this modal renders from the file's text.
+const TEXT_PREVIEW_FORMATS = new Set(["md", "markdown", "txt", "text", "csv", "mmd", "mermaid"]);
+
+// Formats Project Documents previews — the text ones plus Word (.docx),
+// converted to HTML in the browser (see docxToHtml). Everything else keeps
+// the "open in a new tab" behavior (see handleOpen in document-list-panel.tsx).
+export const PREVIEWABLE_FORMATS = new Set([...TEXT_PREVIEW_FORMATS, "docx"]);
+
+// The previewable text format of a file name ("notes.MD" → "md"), or null.
+// Text only: ticket attachments are loaded as text (see issue-detail-modal.tsx).
+export function previewFormatOf(fileName: string | null | undefined): string | null {
+  const ext = fileName?.split("?")[0]?.split(".").pop()?.toLowerCase();
+  return ext && TEXT_PREVIEW_FORMATS.has(ext) ? ext : null;
+}
+
+// A .docx as sanitized HTML. Loaded on demand — neither library is needed
+// anywhere else. The file was uploaded by a user, so its HTML (links, images)
+// goes through DOMPurify before it's rendered.
+export async function docxToHtml(buffer: ArrayBuffer): Promise<string> {
+  const [{ default: mammoth }, { default: DOMPurify }] = await Promise.all([
+    import("mammoth"),
+    import("dompurify"),
+  ]);
+  try {
+    const { value } = await mammoth.convertToHtml({ arrayBuffer: buffer });
+    return DOMPurify.sanitize(value);
+  } catch {
+    // Not a real .docx (damaged, or another format renamed) — mammoth's own
+    // error is a zip-parsing message nobody can act on.
+    throw new Error("This file can't be previewed. Download it to open it.");
+  }
+}
 
 // Minimal RFC4180-ish CSV parser: quoted fields, embedded commas/newlines,
 // doubled-quote escaping. Good enough for a preview — not a general-purpose
@@ -163,6 +190,8 @@ function ZoomableMermaid({ source, zoom }: { readonly source: string; readonly z
 
 export type PreviewableDoc = { id: string; name: string; format: string };
 
+// A Project Documents file: loads it through the permission-checked
+// storage/download endpoint, then shows it in FilePreviewModal.
 export function DocumentPreviewModal({
   doc,
   onClose,
@@ -178,54 +207,87 @@ export function DocumentPreviewModal({
   // permission check silently fail every time, surfacing as "Failed to get
   // document link".
   const { profile } = useUser();
+  const loadText = async () => {
+    // Same signed-URL endpoint the "open in new tab" button already uses (see
+    // handleOpen) — permission-checked server-side, so there's nothing new to
+    // authorize here.
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc!.id}&user_id=${profile!.id}&inline=true`,
+      { headers: API_HEADERS },
+    );
+    if (!res.ok) throw new Error("Failed to get document link");
+    const { url } = await res.json();
+
+    const fileRes = await fetch(url);
+    if (!fileRes.ok) throw new Error("Failed to load document contents");
+    if (doc!.format === "docx") return docxToHtml(await fileRes.arrayBuffer());
+    return fileRes.text();
+  };
+
+  // Stable while the same document is open, so the preview loads once.
+  const file = useMemo(
+    () => (doc && profile?.id ? { name: doc.name, format: doc.format } : null),
+    [doc, profile?.id],
+  );
+
+  return <FilePreviewModal file={file} loadText={loadText} onClose={onClose} />;
+}
+
+export type PreviewableFile = { name: string; format: string };
+
+// Shows a file in a dialog: text-based ones (markdown, plain text, CSV,
+// mermaid), Word (`loadText` returns its HTML) and images (format "image":
+// `loadText` returns a URL to show). `loadText` is called whenever `file`
+// changes.
+export function FilePreviewModal({
+  file,
+  loadText,
+  onClose,
+}: {
+  readonly file: PreviewableFile | null;
+  readonly loadText: () => Promise<string>;
+  readonly onClose: () => void;
+}) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mermaidZoom, setMermaidZoom] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
+  // Latest loader without re-running the effect on every render.
+  const loadTextRef = useRef(loadText);
+  loadTextRef.current = loadText;
 
   useEffect(() => {
-    if (!doc || !profile?.id) return;
+    if (!file) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
     setContent(null);
     setMermaidZoom(1);
 
-    (async () => {
-      try {
-        // Same signed-URL endpoint the "open in new tab" button already
-        // uses (see handleOpen) — permission-checked server-side, so
-        // there's nothing new to authorize here.
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/download?document_id=${doc.id}&user_id=${profile.id}&inline=true`,
-          { headers: API_HEADERS },
-        );
-        if (!res.ok) throw new Error("Failed to get document link");
-        const { url } = await res.json();
-
-        const fileRes = await fetch(url);
-        if (!fileRes.ok) throw new Error("Failed to load document contents");
-        const text = await fileRes.text();
+    loadTextRef
+      .current()
+      .then((text) => {
         if (!cancelled) setContent(text);
-      } catch (err: any) {
-        if (!cancelled) setError(err.message ?? "Failed to load preview");
-      } finally {
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err?.message ?? "Failed to load preview");
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [doc, profile?.id]);
+  }, [file]);
 
   const zoomIn = () => setMermaidZoom((prev) => Math.min(MAX_MERMAID_ZOOM, prev + MERMAID_ZOOM_STEP));
   const zoomOut = () => setMermaidZoom((prev) => Math.max(MIN_MERMAID_ZOOM, prev - MERMAID_ZOOM_STEP));
   const resetZoom = () => setMermaidZoom(1);
 
   return (
-    <Dialog open={!!doc} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!file} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
           "flex flex-col",
@@ -242,7 +304,7 @@ export function DocumentPreviewModal({
         </button>
 
         <DialogHeader>
-          <DialogTitle className="truncate pr-6">{doc?.name}</DialogTitle>
+          <DialogTitle className="truncate pr-6">{file?.name}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto custom-scrollbar flex flex-col">
@@ -259,9 +321,9 @@ export function DocumentPreviewModal({
             </div>
           )}
 
-          {!loading && !error && content !== null && doc && (
+          {!loading && !error && content !== null && file && (
             <>
-              {(doc.format === "md" || doc.format === "markdown") && (
+              {(file.format === "md" || file.format === "markdown") && (
                 <div
                   className="smalltext prose prose-sm prose-invert max-w-none leading-relaxed
                   [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
@@ -276,15 +338,36 @@ export function DocumentPreviewModal({
                 </div>
               )}
 
-              {(doc.format === "txt" || doc.format === "text") && (
+              {(file.format === "txt" || file.format === "text") && (
                 <pre className="smalltext whitespace-pre-wrap break-words font-mono bg-muted/40 rounded-lg p-4">
                   {content}
                 </pre>
               )}
 
-              {doc.format === "csv" && <CsvTable text={content} />}
+              {file.format === "csv" && <CsvTable text={content} />}
 
-              {(doc.format === "mmd" || doc.format === "mermaid") && (
+              {file.format === "image" && (
+                // eslint-disable-next-line @next/next/no-img-element -- a local/blob URL, not an optimizable asset
+                <img src={content} alt={file.name} className="mx-auto max-h-[75vh] max-w-full rounded-md object-contain" />
+              )}
+
+              {/* Already sanitized HTML (see docxToHtml). */}
+              {file.format === "docx" && (
+                <div
+                  data-testid="docx-preview"
+                  className="smalltext prose prose-sm prose-invert max-w-none leading-relaxed
+                  [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2 [&_h1:first-child]:mt-0
+                  [&_h2]:smalltext [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+                  [&_h3]:smalltext [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1.5
+                  [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4
+                  [&_a]:underline [&_img]:max-w-full [&_img]:rounded-md
+                  [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-1.5
+                  [&_th]:border [&_th]:border-border [&_th]:p-1.5"
+                  dangerouslySetInnerHTML={{ __html: content }}
+                />
+              )}
+
+              {(file.format === "mmd" || file.format === "mermaid") && (
                 <div className="space-y-2 flex flex-1 min-h-0 flex-col">
                   <div className="flex items-center justify-end gap-1">
                     <Button

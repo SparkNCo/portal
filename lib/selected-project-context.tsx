@@ -2,11 +2,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
-// Which assigned project a developer is currently working on (picked from
-// the sidebar dropdown, see components/sidebar.tsx). Kept out of the URL —
-// a query param would leak the customer's name into browser history, logs,
-// and any shared/copied link — and persisted to localStorage instead, so it
-// survives a reload without needing the URL for it.
+// The project a developer last picked in the sidebar's "Working on"
+// dropdown (see components/sidebar.tsx), persisted to localStorage. The URL
+// (/{slug}/…) decides which initiative a page shows; this only fills in
+// where there's no slug to go on — /dev/chat, the login redirect, and old
+// /dev/* links (see lib/developer-routes.ts).
 const STORAGE_KEY = "dev-selected-project";
 
 interface SelectedProjectContextValue {

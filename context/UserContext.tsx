@@ -40,28 +40,45 @@ export function getStakeholderClientSlug(profile: Profile | null): string | null
   return clientName ? clientName.toLowerCase() : null;
 }
 
+// Outcome of the last profile load, so pages can tell "signed in but no
+// portal account" (not-found) apart from "couldn't reach the server"
+// (failed) instead of both looking like a silent null profile.
+export type ProfileStatus = "loading" | "ok" | "not-found" | "failed" | "signed-out";
+
+// Shown wherever a profile can't be loaded after sign-in (login,
+// set-password, portal pages).
+export const PROFILE_ERROR_MESSAGES: Record<"not-found" | "failed", string> = {
+  "not-found": "Your account isn't set up yet. Contact your administrator.",
+  failed: "We couldn't load your account. Please try again.",
+};
+
 type UserContextType = {
   user: any;
   profile: Profile | null;
   loading: boolean;
-  reloadUser: () => Promise<void>;
+  profileStatus: ProfileStatus;
+  reloadUser: () => Promise<ProfileStatus>;
 };
 
 const UserContext = createContext<UserContextType>({
   user: null,
   profile: null,
   loading: true,
-  reloadUser: async () => {},
+  profileStatus: "loading",
+  reloadUser: async () => "loading",
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>("loading");
   const loadedUserIdRef = useRef<string | null>(null);
 
-  const loadUser = async () => {
+  const loadUser = async (): Promise<ProfileStatus> => {
     setLoading(true);
+    setProfileStatus("loading");
+    let status: ProfileStatus;
 
     // 1. Get Supabase auth user
     const {
@@ -84,17 +101,23 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await res.json();
 
-        loadedUserIdRef.current = user.id;
+        // A 200 with `null` means the auth account has no portal.users row.
+        if (data) loadedUserIdRef.current = user.id;
         setProfile(data);
+        status = data ? "ok" : "not-found";
       } catch (err) {
         console.error("Context fetch error:", err);
         setProfile(null);
+        status = "failed";
       }
     } else {
       setProfile(null);
+      status = "signed-out";
     }
 
+    setProfileStatus(status);
     setLoading(false);
+    return status;
   };
 
   useEffect(() => {
@@ -105,6 +128,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         loadedUserIdRef.current = null;
         setUser(null);
         setProfile(null);
+        setProfileStatus("signed-out");
         setLoading(false);
         return;
       }
@@ -120,7 +144,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const value = useMemo(() => ({ user, profile, loading, reloadUser: loadUser }), [user, profile, loading]);
+  const value = useMemo(
+    () => ({ user, profile, loading, profileStatus, reloadUser: loadUser }),
+    [user, profile, loading, profileStatus],
+  );
 
   return (
     <UserContext.Provider value={value}>

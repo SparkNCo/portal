@@ -189,7 +189,9 @@ const fetchUser = async (email: string, schema: string) => {
   const { data, error } = await supabase.schema(schema)
     .from("users")
     .select("*")
-    .eq("email", email)
+    // Case-insensitive: Auth and portal.users can store the same address
+    // with different casing (Jane@Company.com vs jane@company.com).
+    .ilike("email", escapeIlike(email.trim()))
     .maybeSingle();
 
   if (error) throw new Error(error.message);

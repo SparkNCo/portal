@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -20,6 +20,10 @@ import {
   Paperclip,
   Trash2,
   Loader2,
+  ChevronRight,
+  ExternalLink,
+  Eye,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
@@ -60,11 +64,14 @@ import {
   ALL_STATUS_OPTIONS,
 } from "./issues.types";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { useVisualViewportFit } from "@/hooks/use-visual-viewport-fit";
 import { TestPicker } from "@/components/shared/test-picker";
-import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
+import { useProxiedImageUrl, LINEAR_UPLOAD_HOST } from "@/hooks/use-proxied-image-url";
 
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
+import { FilePreviewModal, docxToHtml, previewFormatOf } from "@/components/documents/document-preview-modal";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -112,6 +119,278 @@ async function uploadTestAttachment(file: File) {
   if (!res.ok) throw new Error(`Failed to upload ${file.name}`);
   const { name, url } = await res.json();
   return { name: name as string, url: url as string };
+}
+
+// ── Issue attachments ───────────────────────────────────────────────────────
+
+type IssueAttachment = {
+  id: string;
+  title: string | null;
+  url: string;
+  createdAt: string;
+  creator?: { displayName: string } | null;
+};
+
+async function fetchIssueAttachments(issueId: string): Promise<IssueAttachment[]> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/attachments?issueId=${encodeURIComponent(issueId)}`,
+    { headers: API_JSON_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to load attachments");
+  return res.json();
+}
+
+function isLinearUpload(url: string) {
+  try {
+    return new URL(url).hostname === LINEAR_UPLOAD_HOST;
+  } catch {
+    return false;
+  }
+}
+
+// Linear-hosted files need our proxy (and its auth header), so they can't be
+// a plain link: open a tab right away (so it isn't popup-blocked), fetch the
+// file, then point the tab at it. Anything else (e.g. a linked PR) opens as-is.
+async function openAttachment(attachment: IssueAttachment) {
+  if (!isLinearUpload(attachment.url)) {
+    window.open(attachment.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const tab = window.open("", "_blank");
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(attachment.url)}`,
+      { headers: API_HEADERS },
+    );
+    if (!res.ok) throw new Error("Failed to load file");
+    const objectUrl = URL.createObjectURL(await res.blob());
+    if (tab) tab.location.href = objectUrl;
+    else window.location.href = objectUrl;
+  } catch {
+    tab?.close();
+    toast.error(`Couldn't open ${attachment.title ?? "the attachment"}.`);
+  }
+}
+
+function isImageAttachment(a: IssueAttachment) {
+  return IMAGE_EXT_RE.test(a.title ?? "") || IMAGE_EXT_RE.test(a.url.split("?")[0] ?? "");
+}
+
+// Collapsed by default; the attachments are only fetched once it's opened.
+// Images show inline (through the Linear proxy, see ProxiedImage); anything
+// else is a row that opens the file.
+// A Linear-hosted file, through our proxy (same as images).
+async function fetchLinearFile(url: string): Promise<Response> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/linear-image-proxy?url=${encodeURIComponent(url)}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) throw new Error("Failed to load file");
+  return res;
+}
+
+// What the preview shows: the text, or for a Word file its HTML.
+async function loadLinearFilePreview(file: FilePreview): Promise<string> {
+  const res = await fetchLinearFile(file.url);
+  return file.format === "docx" ? docxToHtml(await res.arrayBuffer()) : res.text();
+}
+
+// A Linear-hosted markdown/text/CSV/Word file that can open in the in-app preview.
+type FilePreview = { name: string; format: string; url: string };
+
+function isDocx(nameOrUrl: string) {
+  return /\.docx$/i.test(nameOrUrl.split("?")[0] ?? "");
+}
+
+function previewFor(name: string, url: string): FilePreview | null {
+  if (!isLinearUpload(url)) return null;
+  const format = previewFormatOf(name) ?? previewFormatOf(url) ?? (isDocx(name) || isDocx(url) ? "docx" : null);
+  return format ? { name, format, url } : null;
+}
+
+// Saves an attachment to the computer. Linear-hosted files go through our
+// proxy (they need its auth header); anything else (e.g. a linked PR) opens.
+async function downloadAttachment(attachment: IssueAttachment) {
+  if (!isLinearUpload(attachment.url)) {
+    window.open(attachment.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  try {
+    const blob = await (await fetchLinearFile(attachment.url)).blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = attachment.title || "attachment";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+  } catch {
+    toast.error(`Couldn't download ${attachment.title ?? "the attachment"}.`);
+  }
+}
+
+// Whether the ticket has any attachments in Linear. Ticket lists include that
+// (`attachments(first: 1)`); issues opened from elsewhere (e.g. Monitor) don't,
+// so it's looked up — same query and cache key AttachmentsSection uses, so
+// opening the section afterwards doesn't fetch again. Hidden until known.
+function useHasAttachments(issue: Issue): boolean {
+  const known = issue.attachments?.nodes;
+  const { data } = useQuery({
+    queryKey: ["issue-attachments", issue.id],
+    queryFn: () => fetchIssueAttachments(issue.id),
+    enabled: known == null,
+  });
+  return known ? known.length > 0 : (data?.length ?? 0) > 0;
+}
+
+function AttachmentsSection({
+  issue,
+  onPreview,
+}: {
+  issue: Issue;
+  onPreview: (file: FilePreview) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { data: attachments = [], isLoading, isError } = useQuery({
+    queryKey: ["issue-attachments", issue.id],
+    queryFn: () => fetchIssueAttachments(issue.id),
+    enabled: open,
+  });
+  const images = attachments.filter(isImageAttachment);
+  const files = attachments.filter((a) => !isImageAttachment(a));
+  const panelId = `attachments-panel-${issue.id}`;
+
+  return (
+    <section className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors rounded-lg"
+      >
+        <ChevronRight
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+        />
+        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="smalltext font-semibold text-foreground">Attachments</span>
+        {open && !isLoading && !isError && (
+          <span className="rounded-full bg-muted px-1.5 py-0.5 smalltext font-medium text-muted-foreground">
+            {attachments.length}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div id={panelId} className="border-t border-border px-3 py-3 space-y-3">
+          {isLoading ? (
+            <p className="smalltext text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading attachments…
+            </p>
+          ) : isError ? (
+            <p className="smalltext text-destructive">Couldn't load attachments.</p>
+          ) : attachments.length === 0 ? (
+            <p className="smalltext text-muted-foreground italic">This ticket has no attachments.</p>
+          ) : (
+            <>
+              {images.length > 0 && (
+                <div className="grid grid-cols-1 gap-3">
+                  {images.map((a) => (
+                    <figure key={a.id} className="min-w-0 space-y-1">
+                      <ProxiedImage
+                        src={a.url}
+                        alt={a.title ?? "Attachment"}
+                        linkable
+                        className="h-[512px] max-h-[70vh] w-full rounded-md border border-border object-contain bg-muted/40"
+                      />
+                      <figcaption className="truncate smalltext text-muted-foreground" title={a.title ?? undefined}>
+                        {a.title}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
+              {files.length > 0 && (
+                <ul className="divide-y divide-border rounded-md border border-border">
+                  {files.map((a) => {
+                    const name = a.title || a.url;
+                    // Previewable (md/txt/csv/docx) opens in the app; the rest opens in a new tab.
+                    const preview = previewFor(name, a.url);
+                    return (
+                      <li key={a.id} className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => (preview ? onPreview(preview) : openAttachment(a))}
+                          aria-label={preview ? `Preview ${name}` : `Open ${name}`}
+                          className="group flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                        >
+                          <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate smalltext font-medium text-foreground group-hover:text-primary transition-colors">
+                              {name}
+                            </span>
+                            <span className="block truncate smalltext text-muted-foreground">
+                              {new Date(a.createdAt).toLocaleDateString()}
+                              {a.creator?.displayName ? ` · ${a.creator.displayName}` : ""}
+                            </span>
+                          </span>
+                          {preview ? (
+                            <Eye className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+                          ) : (
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(a)}
+                          aria-label={`Download ${name}`}
+                          title="Download"
+                          className="self-stretch px-3 text-muted-foreground hover:text-primary hover:bg-muted/40 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// Clarifications' action buttons on small screens: same size as the Tests
+// tab's "+ Add test case" (default height, smalltext). The two openers use
+// sm:flex-1, not flex-1: stacked in a column on mobile, flex-1 squashed them
+// to their text's height.
+const MOBILE_ACTION_BUTTON = "max-sm:h-10 max-sm:smalltext";
+
+// Questions, answers and requirement updates are written in markdown.
+function ClarificationText({ text, className }: { text: string; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "smalltext prose prose-sm prose-invert max-w-none leading-relaxed [&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_strong]:font-semibold [&_img]:max-w-full [&_img]:rounded-md [&_img]:my-2",
+        className,
+      )}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkBreaks]}
+        components={{
+          img: ({ src, alt }) => <ProxiedImage src={typeof src === "string" ? src : undefined} alt={alt ?? ""} linkable />,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 // ── Tab button ──────────────────────────────────────────────────────────────
@@ -162,6 +441,15 @@ function TabButton({
 // ── Tab components ──────────────────────────────────────────────────────────
 
 function DescriptionTab({ issue }: { issue: Issue }) {
+  // Markdown, text and CSV files (attached, or linked in the description)
+  // open in a preview instead of a new tab.
+  const [preview, setPreview] = useState<FilePreview | null>(null);
+  const previewFile = useMemo(
+    () => (preview ? { name: preview.name, format: preview.format } : null),
+    [preview],
+  );
+  const hasAttachments = useHasAttachments(issue);
+
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 min-h-[320px]">
       {issue.description ? (
@@ -182,6 +470,25 @@ function DescriptionTab({ issue }: { issue: Issue }) {
               img: ({ src, alt }) => (
                 <ProxiedImage src={typeof src === "string" ? src : undefined} alt={alt ?? ""} />
               ),
+              a: ({ href, children }) => {
+                const linked = typeof href === "string" ? previewFor(String(children ?? ""), href) : null;
+                if (linked) {
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setPreview(linked)}
+                      className="text-primary underline underline-offset-2 hover:opacity-80"
+                    >
+                      {children}
+                    </button>
+                  );
+                }
+                return (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                );
+              },
             }}
           >
             {issue.description}
@@ -192,6 +499,13 @@ function DescriptionTab({ issue }: { issue: Issue }) {
           No description yet.
         </p>
       )}
+      {/* Only for tickets that have attachments in Linear. */}
+      {hasAttachments && <AttachmentsSection issue={issue} onPreview={setPreview} />}
+      <FilePreviewModal
+        file={previewFile}
+        loadText={() => loadLinearFilePreview(preview!)}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 }
@@ -344,7 +658,7 @@ function DecisionsTab({
                 <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                   {isRequirementUpdate ? "Requirement Update" : "Question"}
                 </p>
-                <p className="smalltext text-foreground">{d.question}</p>
+                <ClarificationText text={d.question} className="text-foreground" />
               </div>
               {canDelete && !isRequirementUpdate && !d.decision && (
                 <button
@@ -363,9 +677,7 @@ function DecisionsTab({
                 <p className="smalltext font-semibold uppercase tracking-wide text-success/70 mb-0.5">
                   Decision
                 </p>
-                <p className="smalltext text-success whitespace-pre-wrap">
-                  {d.decision}
-                </p>
+                <ClarificationText text={d.decision} className="text-success" />
                 <p className="smalltext text-success/60">
                   {d.decision_by} ·{" "}
                   {d.decided_at
@@ -380,16 +692,14 @@ function DecisionsTab({
               !d.decision &&
               (activeAnswerForm === d.id ? (
                 <div className="flex flex-col gap-1.5">
-                  <textarea
-                    className="w-full rounded border border-border bg-secondary/30 smalltext p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring text-foreground placeholder:text-muted-foreground"
-                    rows={3}
+                  <RichTextEditor
+                    ariaLabel="Your decision"
                     placeholder="Your decision…"
                     value={answerText}
-                    onChange={(e) => setAnswerText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                        handleSubmitAnswer(d.id);
-                    }}
+                    onChange={setAnswerText}
+                    minHeight="80px"
+                    resizable
+                    onSubmitShortcut={() => handleSubmitAnswer(d.id)}
                   />
                   <div className="flex gap-2 justify-end">
                     <Button
@@ -441,13 +751,13 @@ function DecisionsTab({
             <Button
               size="sm"
               variant="outline"
-              className="flex-1"
+              className={cn("sm:flex-1", MOBILE_ACTION_BUTTON)}
               onClick={() => {
                 setShowNewQuestionForm(true);
                 setQuestionText("");
               }}
             >
-              <MessageSquare className="h-3 w-3 mr-1.5" />
+              <MessageSquare className="h-3 w-3 mr-1.5 max-sm:h-3.5 max-sm:w-3.5" />
               Ask a question
             </Button>
           )}
@@ -456,13 +766,13 @@ function DecisionsTab({
           <Button
             size="sm"
             variant="outline"
-            className="flex-1"
+            className={cn("sm:flex-1", MOBILE_ACTION_BUTTON)}
             onClick={() => {
               setShowNewRequirementForm(true);
               setRequirementText("");
             }}
           >
-            <Pencil className="h-3 w-3 mr-1.5" />
+            <Pencil className="h-3 w-3 mr-1.5 max-sm:h-3.5 max-sm:w-3.5" />
             Update Requirement
           </Button>
         </div>
@@ -471,21 +781,20 @@ function DecisionsTab({
       {canAsk && showNewQuestionForm && (
         <div className="pt-1">
           <div className="flex flex-col gap-2">
-            <textarea
-              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
+            <RichTextEditor
+              ariaLabel="Question for the client"
               placeholder="Ask the client a question…"
               value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                  handleCreateEntry(questionText, "question");
-              }}
+              onChange={setQuestionText}
+              minHeight="80px"
+              resizable
+              onSubmitShortcut={() => handleCreateEntry(questionText, "question")}
             />
             <div className="flex gap-2 justify-end">
               <Button
                 size="sm"
                 variant="ghost"
+                className={MOBILE_ACTION_BUTTON}
                 onClick={() => {
                   setShowNewQuestionForm(false);
                   setQuestionText("");
@@ -495,6 +804,7 @@ function DecisionsTab({
               </Button>
               <Button
                 size="sm"
+                className={MOBILE_ACTION_BUTTON}
                 disabled={!questionText.trim() || submitting}
                 onClick={() => handleCreateEntry(questionText, "question")}
               >
@@ -508,21 +818,20 @@ function DecisionsTab({
       {showNewRequirementForm && (
         <div className="pt-1">
           <div className="flex flex-col gap-2">
-            <textarea
-              className="w-full rounded-lg border-0 bg-card smalltext text-card-foreground placeholder:text-card-foreground/40 p-2.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              rows={3}
+            <RichTextEditor
+              ariaLabel="Requirement update"
               placeholder="Describe the requirement update…"
               value={requirementText}
-              onChange={(e) => setRequirementText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
-                  handleCreateEntry(requirementText, "requirement_update");
-              }}
+              onChange={setRequirementText}
+              minHeight="80px"
+              resizable
+              onSubmitShortcut={() => handleCreateEntry(requirementText, "requirement_update")}
             />
             <div className="flex gap-2 justify-end">
               <Button
                 size="sm"
                 variant="ghost"
+                className={MOBILE_ACTION_BUTTON}
                 onClick={() => {
                   setShowNewRequirementForm(false);
                   setRequirementText("");
@@ -532,6 +841,7 @@ function DecisionsTab({
               </Button>
               <Button
                 size="sm"
+                className={MOBILE_ACTION_BUTTON}
                 disabled={!requirementText.trim() || submitting}
                 onClick={() => handleCreateEntry(requirementText, "requirement_update")}
               >
@@ -1717,6 +2027,25 @@ export function IssueDetailModal({
 }) {
   const { profile } = useUser();
   const role = profile?.role;
+  // "Requested by … on …": lists that don't carry who requested the ticket
+  // (Roadmap, cycle metrics, …) get it from the single-ticket endpoint.
+  const { data: fetchedOrigin } = useQuery({
+    queryKey: ["issue-origin", issue.id],
+    queryFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${encodeURIComponent(issue.id)}`,
+        { headers: API_HEADERS },
+      );
+      if (!res.ok) throw new Error("Failed to load ticket");
+      return (await res.json()) as Pick<Issue, "requestedBy" | "createdAt">;
+    },
+    enabled: issue.requestedBy === undefined,
+    staleTime: 5 * 60 * 1000,
+  });
+  const origin =
+    issue.requestedBy !== undefined
+      ? { requestedBy: issue.requestedBy, createdAt: issue.createdAt }
+      : { requestedBy: fetchedOrigin?.requestedBy, createdAt: issue.createdAt ?? fetchedOrigin?.createdAt };
   // Admins can do anything a customer can, on top of their own powers below.
   const canAnswer = role === "customer" || role === "stakeholder" || role === "admin";
   const canAsk = role === "developer" || role === "admin";
@@ -1731,6 +2060,9 @@ export function IssueDetailModal({
   const canEditTicketMeta = role === "developer" || role === "admin";
 
   const [isExpanded, setIsExpanded] = useState(false);
+  // On phones, keeps the modal (and the chat input at its bottom) above the
+  // on-screen keyboard.
+  const visibleAreaStyle = useVisualViewportFit();
   const [advancing, setAdvancing] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
@@ -1744,6 +2076,10 @@ export function IssueDetailModal({
   const [activeTab, setActiveTab] = useState<IssueDetailTab>(
     initialTab ?? "description",
   );
+  // On small screens the stage buttons (Complete Review / Approved / Fixes
+  // Required) are hidden on the Chat tab, which needs the room for its
+  // messages and input; every other tab shows them.
+  const hideStageButtons = activeTab === "chat";
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
@@ -1836,7 +2172,14 @@ export function IssueDetailModal({
         {
           method: "PATCH",
           headers: API_JSON_HEADERS,
-          body: JSON.stringify({ issueId: issue.id, stateName: targetState }),
+          body: JSON.stringify({
+            issueId: issue.id,
+            stateName: targetState,
+            actorEmail: profile?.email,
+            slug,
+            issueCode: getIssueCode(issue.branchName),
+            issueType: deriveIssueKind(issue.labels?.nodes),
+          }),
         },
       );
       const data = await res.json();
@@ -1893,6 +2236,7 @@ export function IssueDetailModal({
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
             : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]",
         )}
+        style={visibleAreaStyle}
         aria-describedby={undefined}
       >
         <ExpandableDialogChrome
@@ -1917,6 +2261,9 @@ export function IssueDetailModal({
         <DialogHeader className="pt-4 pr-20 flex-shrink-0 text-left">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              {issue.labels?.nodes?.map((l) => (
+                <LabelPill key={l.id} label={l} iconOnly />
+              ))}
               <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
               </span>
@@ -2041,14 +2388,20 @@ export function IssueDetailModal({
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {issue.labels?.nodes?.map((l) => (
-                <LabelPill key={l.id} label={l} iconOnly />
-              ))}
-              <DialogTitle className="text-base font-semibold leading-snug">
-                {issue.title}
-              </DialogTitle>
-            </div>
+            <DialogTitle className="text-base font-semibold leading-snug">
+              {issue.title}
+            </DialogTitle>
+            {origin.requestedBy !== undefined && (
+              <p className="smalltext italic text-muted-foreground">
+                {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
+                {origin.createdAt &&
+                  ` on ${new Date(origin.createdAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}`}
+              </p>
+            )}
 
             {/* Guided stage transitions — visible on every tab (not just
                 Description) and to every role, since anyone reviewing the
@@ -2058,7 +2411,7 @@ export function IssueDetailModal({
                 unanswered-question warning lives on the Decisions tab
                 itself now (see the orange X next to its label below). */}
             {currentStateName === "Business Review" && (
-              <div className="pt-3">
+              <div className={cn("pt-3", hideStageButtons && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
@@ -2077,13 +2430,13 @@ export function IssueDetailModal({
               // expand/close icons up in the top-right corner, irrelevant by
               // this row) below sm, so the two buttons reach the same right
               // margin as everything else instead of stopping short of it.
-              <div className="flex gap-2 pt-3 -mr-20 sm:mr-0">
+              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", hideStageButtons && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
                   className="smalltext flex-1 sm:flex-none"
                   disabled={advancing}
-                  onClick={() => handleAdvanceState("Done")}
+                  onClick={() => handleAdvanceState("Approved")}
                 >
                   <Check className="h-3.5 w-3.5 mr-1.5" />
                   {advancing ? "Updating…" : "Approved"}

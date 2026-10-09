@@ -2,7 +2,8 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 
-function extractPathFromUrl(url: string) {
+// A document's file path inside documents_bucket, from its stored public URL.
+export function extractPathFromUrl(url: string) {
   const marker = "/documents_bucket/";
   const index = url.indexOf(marker);
 

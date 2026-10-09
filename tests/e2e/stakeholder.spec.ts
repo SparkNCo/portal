@@ -89,12 +89,58 @@ test.describe('Stakeholder — panels', () => {
   test('sidebar shows the correct nav items for a stakeholder', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Monitor' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Demos' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
 
-    // Stakeholders must NOT have Settings or Developer links
-    await expect(page.getByRole('link', { name: 'Settings' })).not.toBeVisible();
+    // Settings is where the Stakeholders tab lives; Developer is developers-only.
+    await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Developer' })).not.toBeVisible();
+  });
+
+  // ── Chat system ────────────────────────────────────────────────────────────
+
+  // The chat system is picked per customer. Every customer is made to report
+  // Realtime here, so the stakeholder's chat must load through the Realtime
+  // `chats` function rather than CometChat.
+  test("Chat uses the customer's chat system (Realtime)", async ({ page }) => {
+    await page.route('**/functions/v1/users?type=customers', async (route) => {
+      const res = await route.fetch();
+      const customers = await res.json();
+      await route.fulfill({
+        response: res,
+        json: customers.map((c: any) => ({ ...c, systems: { ...c.systems, chat: 'supabase_realtime' } })),
+      });
+    });
+    const realtimeRequest = page.waitForRequest((req) => /\/functions\/v1\/chats\?/.test(req.url()), { timeout: 20_000 });
+
+    await page.getByRole('link', { name: 'Chat' }).click();
+    await page.waitForURL('**/chat', { timeout: 10_000 });
+    const request = await realtimeRequest;
+    // The Realtime chat list, fetched for this stakeholder.
+    expect(new URL(request.url()).searchParams.get('user_id')).toBeTruthy();
+  });
+
+  // ── Access guard ───────────────────────────────────────────────────────────
+
+  // The test stakeholder is only assigned to Spark-Portal; LuaLink is a real
+  // client they aren't on.
+  test('opening another initiative sends them back to their own dashboard with a message', async ({ page }) => {
+    await page.goto('/lualink/dashboard');
+    await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 20_000 });
+    await expect(page).toHaveURL(/\/(?!lualink\/)[^/]+\/dashboard$/, { timeout: 20_000 });
+  });
+
+  // ── Demos panel ────────────────────────────────────────────────────────────
+
+  test('Demos page opens under the client slug, without upload controls', async ({ page }) => {
+    await page.getByRole('link', { name: 'Demos' }).click();
+    await expect(page).toHaveURL(/\/[^/]+\/demos$/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Demos', level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Loading/)).toHaveCount(0, { timeout: 20_000 });
+
+    // Viewing is open to every role; uploading is developers/admins only.
+    await expect(page.getByRole('button', { name: 'Upload Demo' })).toHaveCount(0);
   });
 
   // ── Roadmap panel ──────────────────────────────────────────────────────────

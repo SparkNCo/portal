@@ -41,6 +41,43 @@ async function fetchEvent(eventId: string): Promise<NotificationEvent | null> {
   return data as NotificationEvent | null;
 }
 
+// Read notifications are kept (read = true), never deleted, so they can be
+// listed again — capped since, unlike unread ones, they only ever pile up.
+const SEEN_LIMIT = 200;
+
+// The "See all" modal's data source, fetched each time it opens (or switches
+// tab) rather than kept live: every unread notification (no PAGE_SIZE cap),
+// or with `read`, the SEEN_LIMIT most recent already-read ones.
+export async function fetchAllNotifications(read = false): Promise<Notification[]> {
+  let request = supabase
+    .schema("portal")
+    .from("notifications")
+    .select("*, event:events(*)")
+    .eq("read", read)
+    .order("created_at", { ascending: false });
+  if (read) request = request.limit(SEEN_LIMIT);
+  const { data, error } = await request;
+  if (error) {
+    console.error("Fetch all notifications error:", error);
+    return [];
+  }
+  return (data ?? []) as Notification[];
+}
+
+// chat_id → portal.chats.project_slug, for telling which customer a chat
+// notification belongs to — a chat event's own `link` is just the generic
+// "/chat" (see notify_chat_message), unlike every other event's
+// "/{slug}/…". Direct chats have no project_slug and map to null.
+export async function fetchChatProjectSlugs(chatIds: string[]): Promise<Record<string, string | null>> {
+  if (chatIds.length === 0) return {};
+  const { data, error } = await supabase.schema("portal").from("chats").select("id, project_slug").in("id", chatIds);
+  if (error) {
+    console.error("Fetch chat project slugs error:", error);
+    return {};
+  }
+  return Object.fromEntries((data ?? []).map((c) => [c.id, c.project_slug ?? null]));
+}
+
 // Bell icon data source: portal.notifications joined to portal.events (see
 // 20260922120000_split_notifications_into_events.sql — a "thing that
 // happened" is its own row in `events`, shared by every recipient's
@@ -85,11 +122,7 @@ export function useNotifications() {
           .eq("read", false)
           .order("created_at", { ascending: false })
           .limit(PAGE_SIZE),
-        supabase
-          .schema("portal")
-          .from("notifications")
-          .select("*", { count: "exact", head: true })
-          .eq("read", false),
+        supabase.schema("portal").from("notifications").select("*", { count: "exact", head: true }).eq("read", false),
       ]);
 
       if (cancelled) return;
@@ -162,13 +195,20 @@ export function useNotifications() {
     if (error) console.error("Mark notification read error:", error);
   };
 
+  // Marks every unread row, not just the PAGE_SIZE loaded into
+  // `notifications` — otherwise "Clear all" with 10 unread only cleared the
+  // 3 visible ones and left the rest behind the "See all" button.
   const markAllAsRead = async () => {
-    const ids = notifications.map((n) => n.id);
-    if (ids.length === 0) return;
+    if (!profile?.id) return;
 
     setNotifications([]);
 
-    const { error } = await supabase.schema("portal").from("notifications").update({ read: true }).in("id", ids);
+    const { error } = await supabase
+      .schema("portal")
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", profile.id)
+      .eq("read", false);
     if (error) console.error("Mark all notifications read error:", error);
   };
 

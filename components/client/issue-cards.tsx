@@ -7,6 +7,7 @@ import {
   Lightbulb,
   Mail,
   Pencil,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import { cn, getIssueCode } from "@/lib/utils";
@@ -20,6 +21,31 @@ function EstimateBadge({ estimate }: { readonly estimate: number }) {
     >
       <Gauge className="h-3 w-3" />
       {estimate}
+    </Badge>
+  );
+}
+
+// Which cycle (sprint) the ticket is in — "C20", highlighted when it's the
+// current one. Nothing when the ticket isn't in a cycle.
+export function CycleChip({ cycle, lightCard = false }: { readonly cycle: Issue["cycle"]; readonly lightCard?: boolean }) {
+  if (cycle?.number == null) return null;
+  const title = `Cycle ${cycle.number}${cycle.name ? ` · ${cycle.name}` : ""}${cycle.isActive ? " (current)" : ""}`;
+  return (
+    <Badge
+      variant="outline"
+      title={title}
+      aria-label={title}
+      className={cn(
+        "gap-1 smalltext shrink-0 whitespace-nowrap",
+        cycle.isActive
+          ? "border-primary/40 bg-primary/15 text-primary"
+          : lightCard
+            ? "border light-card-muted"
+            : "border-border text-muted-foreground",
+      )}
+    >
+      <RefreshCw className="h-3 w-3" aria-hidden="true" />
+      {cycle.isActive ? "Current" : `C${cycle.number}`}
     </Badge>
   );
 }
@@ -116,12 +142,15 @@ export function IssueCard({
   completedAt,
   hasUpdate,
   lightCard = false,
+  statusAndCycleOnly = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   // Roadmap's cards need a quick-edit shortcut Bugs doesn't — omitted (no
   // button rendered) wherever the caller doesn't pass it.
   readonly onEdit?: () => void;
+  /** Only the status and cycle plates — no estimate or label pills (e.g. the board view). */
+  readonly statusAndCycleOnly?: boolean;
   readonly dueDate?: string | null;
   readonly completedAt?: string | null;
   readonly hasUpdate?: boolean;
@@ -244,12 +273,14 @@ export function IssueCard({
                 {issue.state.name}
               </Badge>
             ))}
-          {issue.estimate != null && (
+          <CycleChip cycle={issue.cycle} lightCard={lightCard} />
+          {!statusAndCycleOnly && issue.estimate != null && (
             <EstimateBadge estimate={issue.estimate} />
           )}
-          {otherLabels?.map((l) => (
-            <LabelPill key={l.id} label={l} />
-          ))}
+          {!statusAndCycleOnly &&
+            otherLabels?.map((l) => (
+              <LabelPill key={l.id} label={l} />
+            ))}
         </div>
         {(dueDate || completedAt) && (
           <div className="mt-1.5 space-y-0.5">
@@ -352,6 +383,9 @@ export function IssueListRow({
             {issue.state.name}
           </Badge>
         ))}
+      <span className="order-8 sm:order-none flex-shrink-0">
+        <CycleChip cycle={issue.cycle} lightCard={lightCard} />
+      </span>
       <span className="order-1 sm:order-none flex items-center gap-1 flex-shrink-0">
         {issue.labels?.nodes?.map((l) => (
           <LabelPill key={l.id} label={l} iconOnly />

@@ -1,7 +1,8 @@
 "use client";
 
-import BugsPage from "@/app/[slug]/(portal)/bugs/page";
+import { DevRouteRedirect } from "@/components/dev-route-redirect";
 
-export default function DevBugsPage() {
-  return <BugsPage />;
+// Moved to /{slug}/bugs — see components/dev-route-redirect.tsx.
+export default function DevBugsRedirect() {
+  return <DevRouteRedirect panel="bugs" />;
 }

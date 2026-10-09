@@ -77,30 +77,49 @@ export async function shareDocument(req: Request, schema: string) {
       });
     }
 
-    // 3. Prepare inserts
-    const permissionsToInsert = users.map((u) => ({
-      user_id: u.id,
-      document_id: Number(document_id),
-      permission: "read",
-    }));
-
-    // 4. Insert permissions
-    const { error: insertError } = await supabase.schema(schema)
+    // 3. Skip anyone who already has access — the share picker lists the
+    // whole initiative, which includes the owner and people with write, and
+    // a second "read" row would duplicate (or downgrade) theirs.
+    const { data: existing, error: existingError } = await supabase.schema(schema)
       .from("document_permissions")
-      .insert(permissionsToInsert);
+      .select("user_id")
+      .eq("document_id", Number(document_id))
+      .in("user_id", users.map((u) => u.id));
 
-    if (insertError) {
-      return new Response(JSON.stringify({ error: insertError.message }), {
+    if (existingError) {
+      return new Response(JSON.stringify({ error: existingError.message }), {
         status: 500,
         headers: corsHeaders,
       });
+    }
+
+    const alreadyHasAccess = new Set((existing ?? []).map((p) => p.user_id));
+    const newUsers = users.filter((u) => !alreadyHasAccess.has(u.id));
+
+    // 4. Insert permissions
+    if (newUsers.length > 0) {
+      const { error: insertError } = await supabase.schema(schema)
+        .from("document_permissions")
+        .insert(newUsers.map((u) => ({
+          user_id: u.id,
+          document_id: Number(document_id),
+          permission: "read",
+        })));
+
+      if (insertError) {
+        return new Response(JSON.stringify({ error: insertError.message }), {
+          status: 500,
+          headers: corsHeaders,
+        });
+      }
     }
 
     // 5. Response
     return new Response(
       JSON.stringify({
         success: true,
-        shared_with: users.map((u) => u.email),
+        shared_with: newUsers.map((u) => u.email),
+        already_had_access: users.filter((u) => alreadyHasAccess.has(u.id)).map((u) => u.email),
       }),
       {
         headers: {

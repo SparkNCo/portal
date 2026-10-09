@@ -1,7 +1,8 @@
 "use client";
 
-import DeveloperDashboard from "@/app/[slug]/(portal)/developer/page";
+import { DevRouteRedirect } from "@/components/dev-route-redirect";
 
-export default function DevDeveloperPage() {
-  return <DeveloperDashboard />;
+// Moved to /{slug}/developer — see components/dev-route-redirect.tsx.
+export default function DevDeveloperRedirect() {
+  return <DevRouteRedirect panel="developer" />;
 }

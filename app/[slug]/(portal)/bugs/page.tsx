@@ -14,13 +14,15 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useIssueDeepLink } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
 import { API_HEADERS } from "@/lib/api-headers";
-import type { Issue, IssueDetailTab } from "@/components/client/issues.types";
+import type { Issue } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -35,26 +37,21 @@ export default function BugsPage() {
 function BugsPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   // Deep link from a notification (see components/notifications/
   // NotificationBell.tsx) — this page fetches every issue (unlike Build's
   // status-filtered query), so this usually just works. It can still miss
   // if the "bug" label got removed or the issue moved to Done after the
   // notification fired — the fallback query further down covers that case
   // the same way build/page.tsx does.
-  const openIssueId = searchParams.get("issueId");
-  const openIssueTab = (searchParams.get("tab") as IssueDetailTab | null) ?? undefined;
+  const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
   // Aliased — this page already has its own `selectedProject` state below
   // for the Linear sub-project filter buttons, a different concept.
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  // Developers have no `[slug]` route segment under `/dev/bugs` — fall back
-  // to whichever project is selected in the sidebar dropdown (see
-  // components/sidebar.tsx), defaulting to their first assignment the same
-  // way that dropdown does.
+  // Only used if there's no slug to go on: developers reach this page at
+  // /{slug}/bugs (old /dev/bugs links redirect there), so the URL's slug
+  // normally wins below.
   const developerProject =
     profile?.role === "developer"
       ? (selectedSidebarProject ?? profile?.assignment_id?.[0]?.clientName ?? null)
@@ -79,7 +76,7 @@ function BugsPageContent() {
   const bugIssues = allIssues.filter(
     (i: any) =>
       (i.labels?.nodes ?? []).some((l: any) => l.name?.toLowerCase() === "bug") &&
-      i?.state?.name !== "Done",
+      !isClosedIssue(i),
   );
 
   // The deep-linked issue may no longer qualify for this list by the time
@@ -240,6 +237,7 @@ function BugsPageContent() {
                   lightCard
                   openIssueId={openIssueId}
                   openIssueTab={openIssueTab}
+                  onDeepLinkClose={clearDeepLink}
                 />
               </div>
             </>
@@ -251,7 +249,7 @@ function BugsPageContent() {
         <IssueDetailModal
           issue={fallbackIssue}
           slug={slug}
-          onClose={() => router.replace(pathname)}
+          onClose={clearDeepLink}
           initialTab={openIssueTab}
         />
       )}

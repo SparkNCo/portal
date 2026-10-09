@@ -2,7 +2,22 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
 import { supabase } from "@/lib/supabase-client";
 
-export async function initCometChatUser(): Promise<CometChat.User> {
+// One login at a time: callers that arrive while it's running share its
+// result. A second concurrent CometChat.login() fails with LOGIN_IN_PROGRESS
+// (React's dev double-mount, or two chat views mounting together), which
+// showed "Failed to initialize chat" even though the first login worked.
+let inFlight: Promise<CometChat.User> | null = null;
+
+export function initCometChatUser(): Promise<CometChat.User> {
+  if (!inFlight) {
+    inFlight = loginCometChatUser().finally(() => {
+      inFlight = null;
+    });
+  }
+  return inFlight;
+}
+
+async function loginCometChatUser(): Promise<CometChat.User> {
   await CometChat.init(
     COMETCHAT_CONSTANTS.APP_ID,
     new CometChat.AppSettingsBuilder()

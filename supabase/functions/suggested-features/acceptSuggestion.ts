@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { linearRequest, GET_PROJECT_TEAM_QUERY } from "../issues/linearClient.ts";
 import { GET_STATE_ID_QUERY } from "../issues/updateIsste.ts";
 import { PRIORITY_MAP, CREATE_ISSUE_MUTATION } from "../issues/createIssue.ts";
+import { recordIssueRequest } from "../issues/issueRequests.ts";
 import { upsertIssueVector } from "../lib/vector.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
@@ -74,6 +75,9 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
   if (!createData?.issueCreate?.success || !issue) {
     throw new Error("Failed to create the Linear issue");
   }
+
+  // Accepting a suggestion is what asked for this ticket.
+  await recordIssueRequest(issue.id, actorEmail);
 
   // Best-effort: makes the new ticket searchable right away.
   await upsertIssueVector(suggestion.project_slug, {

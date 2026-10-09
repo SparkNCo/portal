@@ -1,6 +1,7 @@
 "use client";
 
 import { Pin } from "lucide-react";
+import { useUser } from "context/UserContext";
 import {
   usePinnedPanels,
   usePinnedPanelsOwnerId,
@@ -10,7 +11,15 @@ import {
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { PINNABLE_PANELS } from "@/lib/pinnable-panels";
 
+// Pins go to the Dashboard, which developers don't have — so no button for
+// them (and no pinned-panels lookup either).
 export function PinButton({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
+  const { profile } = useUser();
+  if (profile?.role === "developer") return null;
+  return <PinToggle panelId={panelId} />;
+}
+
+function PinToggle({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
   const userId = usePinnedPanelsOwnerId();
 
   const { data: pinnedPanels } = usePinnedPanels(userId);

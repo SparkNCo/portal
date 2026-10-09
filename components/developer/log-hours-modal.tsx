@@ -345,6 +345,7 @@ export function LogHoursModal({
               className="border-0"
               minHeight="90px"
               ariaLabel="Summary"
+              allowImages={false}
             />
           </div>
 
