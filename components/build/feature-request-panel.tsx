@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lightbulb, Paperclip, File as FileIcon, X } from "lucide-react";
+import { Lightbulb, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
   PriorityField,
   SubmitButton,
 } from "@/components/shared/issue-form-fields";
+import { AttachedFilesList } from "@/components/shared/attached-files-list";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
 
@@ -255,30 +256,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                 Add files
               </Button>
 
-              {attachments.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  {attachments.map((file) => (
-                    <div
-                      key={file.name}
-                      className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-2"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="smalltext truncate">{file.name}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 flex-shrink-0"
-                        onClick={() => removeFile(file.name)}
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AttachedFilesList files={attachments} onRemove={removeFile} />
             </div>
 
             <SubmitButton

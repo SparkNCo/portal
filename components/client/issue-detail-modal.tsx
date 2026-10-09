@@ -361,6 +361,12 @@ function AttachmentsSection({
   );
 }
 
+// Clarifications' action buttons on small screens: same size as the Tests
+// tab's "+ Add test case" (default height, smalltext). The two openers use
+// sm:flex-1, not flex-1: stacked in a column on mobile, flex-1 squashed them
+// to their text's height.
+const MOBILE_ACTION_BUTTON = "max-sm:h-10 max-sm:smalltext";
+
 // Questions, answers and requirement updates are written in markdown.
 function ClarificationText({ text, className }: { text: string; className?: string }) {
   return (
@@ -745,13 +751,13 @@ function DecisionsTab({
             <Button
               size="sm"
               variant="outline"
-              className="flex-1"
+              className={cn("sm:flex-1", MOBILE_ACTION_BUTTON)}
               onClick={() => {
                 setShowNewQuestionForm(true);
                 setQuestionText("");
               }}
             >
-              <MessageSquare className="h-3 w-3 mr-1.5" />
+              <MessageSquare className="h-3 w-3 mr-1.5 max-sm:h-3.5 max-sm:w-3.5" />
               Ask a question
             </Button>
           )}
@@ -760,13 +766,13 @@ function DecisionsTab({
           <Button
             size="sm"
             variant="outline"
-            className="flex-1"
+            className={cn("sm:flex-1", MOBILE_ACTION_BUTTON)}
             onClick={() => {
               setShowNewRequirementForm(true);
               setRequirementText("");
             }}
           >
-            <Pencil className="h-3 w-3 mr-1.5" />
+            <Pencil className="h-3 w-3 mr-1.5 max-sm:h-3.5 max-sm:w-3.5" />
             Update Requirement
           </Button>
         </div>
@@ -788,6 +794,7 @@ function DecisionsTab({
               <Button
                 size="sm"
                 variant="ghost"
+                className={MOBILE_ACTION_BUTTON}
                 onClick={() => {
                   setShowNewQuestionForm(false);
                   setQuestionText("");
@@ -797,6 +804,7 @@ function DecisionsTab({
               </Button>
               <Button
                 size="sm"
+                className={MOBILE_ACTION_BUTTON}
                 disabled={!questionText.trim() || submitting}
                 onClick={() => handleCreateEntry(questionText, "question")}
               >
@@ -823,6 +831,7 @@ function DecisionsTab({
               <Button
                 size="sm"
                 variant="ghost"
+                className={MOBILE_ACTION_BUTTON}
                 onClick={() => {
                   setShowNewRequirementForm(false);
                   setRequirementText("");
@@ -832,6 +841,7 @@ function DecisionsTab({
               </Button>
               <Button
                 size="sm"
+                className={MOBILE_ACTION_BUTTON}
                 disabled={!requirementText.trim() || submitting}
                 onClick={() => handleCreateEntry(requirementText, "requirement_update")}
               >
@@ -2067,8 +2077,9 @@ export function IssueDetailModal({
     initialTab ?? "description",
   );
   // On small screens the stage buttons (Complete Review / Approved / Fixes
-  // Required) only show on Description, leaving the other tabs more room.
-  const compactHeader = activeTab !== "description";
+  // Required) are hidden on the Chat tab, which needs the room for its
+  // messages and input; every other tab shows them.
+  const hideStageButtons = activeTab === "chat";
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
@@ -2400,7 +2411,7 @@ export function IssueDetailModal({
                 unanswered-question warning lives on the Decisions tab
                 itself now (see the orange X next to its label below). */}
             {currentStateName === "Business Review" && (
-              <div className={cn("pt-3", compactHeader && "max-sm:hidden")}>
+              <div className={cn("pt-3", hideStageButtons && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
@@ -2419,7 +2430,7 @@ export function IssueDetailModal({
               // expand/close icons up in the top-right corner, irrelevant by
               // this row) below sm, so the two buttons reach the same right
               // margin as everything else instead of stopping short of it.
-              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", compactHeader && "max-sm:hidden")}>
+              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", hideStageButtons && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"

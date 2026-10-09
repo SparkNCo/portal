@@ -235,8 +235,10 @@ export function DocumentPreviewModal({
 
 export type PreviewableFile = { name: string; format: string };
 
-// Shows a text-based file (markdown, plain text, CSV, mermaid) in a dialog.
-// `loadText` fetches its contents; it's called whenever `file` changes.
+// Shows a file in a dialog: text-based ones (markdown, plain text, CSV,
+// mermaid), Word (`loadText` returns its HTML) and images (format "image":
+// `loadText` returns a URL to show). `loadText` is called whenever `file`
+// changes.
 export function FilePreviewModal({
   file,
   loadText,
@@ -343,6 +345,11 @@ export function FilePreviewModal({
               )}
 
               {file.format === "csv" && <CsvTable text={content} />}
+
+              {file.format === "image" && (
+                // eslint-disable-next-line @next/next/no-img-element -- a local/blob URL, not an optimizable asset
+                <img src={content} alt={file.name} className="mx-auto max-h-[75vh] max-w-full rounded-md object-contain" />
+              )}
 
               {/* Already sanitized HTML (see docxToHtml). */}
               {file.format === "docx" && (
