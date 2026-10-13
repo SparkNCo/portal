@@ -264,10 +264,10 @@ export function MessageBubble({
       type="button"
       onClick={() => onJumpToMessage?.(quoted.id)}
       aria-label={`Replying to ${quoted.senderName} — go to that message`}
-      className="mb-1 block max-w-full rounded-md border-l-2 border-primary bg-secondary/40 px-2 py-1 text-left hover:bg-secondary/70 transition-colors"
+      className="mb-1 block max-w-full rounded-md border-l-2 border-primary bg-background bg-gradient-to-r from-primary/10 to-primary/10 px-2 py-1 text-left hover:from-primary/20 hover:to-primary/20 transition-colors"
     >
       <span className="block truncate smalltext font-semibold text-primary">{quoted.senderName}</span>
-      <span className={`block truncate smalltext text-muted-foreground ${quoted.deleted ? "italic" : ""}`}>
+      <span className={`block truncate smalltext text-foreground/80 ${quoted.deleted ? "italic" : ""}`}>
         {quoted.deleted ? "This message was deleted" : quoted.text}
       </span>
     </button>

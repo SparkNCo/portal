@@ -11,6 +11,7 @@ import { ChatComposer } from "../ChatComposer";
 import { useGroupMembers } from "./useGroupMembers";
 import { mentionablePeople } from "../mentions";
 import { useMessageReplies } from "./useMessageReplies";
+import { MESSAGES_PAGE_SIZE, useOlderMessages } from "./useOlderMessages";
 import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 
 // Who sent a CometChat message (SDK object or raw payload).
@@ -39,6 +40,8 @@ export function IssueGroupChat({
   const mentionOptions = mentionablePeople(members, user.getUid());
   // Replying to a message (quoting it), and jumping to a quoted one.
   const replies = useMessageReplies(messages, members);
+  // "Load earlier messages": the chat opens with only its latest ones.
+  const older = useOlderMessages(replies.listRef, setMessages);
   // Reading the ticket's chat here counts as read, same as on the Chat page.
   const { unreadChatIds, markRead } = useUnreadChats();
   useMarkOpenChatRead(guid, unreadChatIds, markRead);
@@ -84,6 +87,11 @@ export function IssueGroupChat({
   }, [guid]);
 
   useEffect(() => {
+    // Older messages were just added on top: stay where the user is.
+    if (older.keepPositionRef.current) {
+      older.keepPositionRef.current = false;
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -99,9 +107,11 @@ export function IssueGroupChat({
       }
       const req = new CometChat.MessagesRequestBuilder()
         .setGUID(activeGuid)
-        .setLimit(50)
+        .setLimit(MESSAGES_PAGE_SIZE)
         .build();
-      const msgs = withoutActions(await req.fetchPrevious());
+      const page = await req.fetchPrevious();
+      older.started(req, page);
+      const msgs = withoutActions(page);
       // Keep anything already shown that the history doesn't have yet — on a
       // ticket's first message this fetch runs while that message is sending.
       setMessages((prev) => mergeMessages(msgs, prev));
@@ -141,6 +151,18 @@ export function IssueGroupChat({
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div ref={replies.listRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
+        {older.hasMore && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={older.loadOlder}
+              disabled={older.loadingOlder}
+              className="rounded-full border border-border px-3 py-1 smalltext text-muted-foreground hover:text-primary hover:border-primary transition-colors disabled:opacity-60"
+            >
+              {older.loadingOlder ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
         {sending && !guid ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6 smalltext text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
