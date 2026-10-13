@@ -5,7 +5,7 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Users } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
+import { getMessageDate, mergeMessages, replaceMessage, sendGroupMessages, withoutActions } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
 
@@ -42,6 +42,17 @@ export default function GroupChat({ user, group }: Props) {
             setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
+        // Someone edited or deleted a message: swap it in place.
+        onMessageEdited: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
+        onMessageDeleted: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
       }),
     );
     return () => {
@@ -63,7 +74,7 @@ export default function GroupChat({ user, group }: Props) {
         .setGUID(guid)
         .setLimit(50)
         .build();
-      const msgs = await req.fetchPrevious();
+      const msgs = withoutActions(await req.fetchPrevious());
       setMessages(msgs);
     } catch (err) {
       console.error("Fetch group messages error:", err);
@@ -114,6 +125,7 @@ export default function GroupChat({ user, group }: Props) {
               msg={msg}
               index={i}
               user={user}
+              onMessageChanged={(updated) => setMessages((prev) => replaceMessage(prev, updated))}
               isLast={i === messages.length - 1}
               continuesGroup={i > 0 && !dayStarts[i] && senderUidOf(messages[i - 1]) === senderUidOf(msg)}
             />

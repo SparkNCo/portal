@@ -5,7 +5,7 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Loader2 } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
+import { getMessageDate, mergeMessages, replaceMessage, sendGroupMessages, withoutActions } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
 import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
@@ -58,6 +58,17 @@ export function IssueGroupChat({
             setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
+        // Someone edited or deleted a message: swap it in place.
+        onMessageEdited: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
+        onMessageDeleted: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
       }),
     );
     return () => CometChat.removeMessageListener(listenerId);
@@ -81,7 +92,7 @@ export function IssueGroupChat({
         .setGUID(activeGuid)
         .setLimit(50)
         .build();
-      const msgs = await req.fetchPrevious();
+      const msgs = withoutActions(await req.fetchPrevious());
       // Keep anything already shown that the history doesn't have yet — on a
       // ticket's first message this fetch runs while that message is sending.
       setMessages((prev) => mergeMessages(msgs, prev));
@@ -139,6 +150,7 @@ export function IssueGroupChat({
               msg={msg}
               index={i}
               user={user}
+              onMessageChanged={(updated) => setMessages((prev) => replaceMessage(prev, updated))}
               compact
               isLast={i === messages.length - 1}
               continuesGroup={i > 0 && !dayStarts[i] && senderUidOf(messages[i - 1]) === senderUidOf(msg)}

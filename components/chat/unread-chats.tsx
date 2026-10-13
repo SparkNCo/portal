@@ -121,10 +121,13 @@ export function useMarkOpenChatRead(
   }, [chatId, isUnread, markRead]);
 }
 
-// The dot next to a chat with unseen messages.
+// The dot next to a chat with unseen messages. `relative` keeps the sr-only
+// text (absolutely positioned) inside the row — without a positioned
+// ancestor it sat at the row's offset in the *page*, so an unread chat far
+// down the scrolling list made the whole page taller than the screen.
 export function UnreadDot() {
   return (
-    <span className="ml-auto flex-shrink-0" title="Unread messages">
+    <span className="relative ml-auto flex-shrink-0" title="Unread messages">
       <span className="block h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
       <span className="sr-only">Unread messages</span>
     </span>
