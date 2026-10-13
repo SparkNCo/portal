@@ -210,11 +210,10 @@ export function SuggestedFeatureCard({
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
 
-      <div className="p-4 pl-5 pb-2 space-y-1.5">
-        <div className="flex items-center gap-1.5 text-primary">
-          <Lightbulb className="h-3.5 w-3.5" />
-          <span className="smalltext font-semibold uppercase tracking-wide">Suggested Feature</span>
-        </div>
+      {/* No "Suggested Feature" label per card — the row has the heading
+          (SuggestedFeaturesRow). pr-8 keeps the title clear of the expand
+          button in the corner. */}
+      <div className="p-4 pl-5 pr-8 pb-2">
         <p className="text-base font-semibold leading-snug text-foreground">{feature.title}</p>
       </div>
 
