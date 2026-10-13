@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
-import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
+import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY, isClosedProject } from "./linearClient.ts";
 import { escapeIlike, resolveLinearSlug } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
 import { resolveVectorProvider } from "../lib/vectorProvider.ts";
@@ -520,7 +520,7 @@ export async function handleDeleteDecision(req: Request): Promise<Response> {
 export const GET_PROJECTS_BY_IDS_QUERY = `
   query GetProjectsByIds($filter: ProjectFilter) {
     projects(filter: $filter, first: 50) {
-      nodes { id name }
+      nodes { id name status { type } }
     }
   }
 `;
@@ -544,6 +544,12 @@ const CREATE_MILESTONE_MUTATION = `
     }
   }
 `;
+
+// The projects offered in a project picker: completed and cancelled ones
+// are left out (see isClosedProject).
+function selectableProjects(nodes: any[] | null | undefined): { id: string; name: string }[] {
+  return (nodes ?? []).filter((p) => !isClosedProject(p)).map((p) => ({ id: p.id, name: p.name }));
+}
 
 export async function handleGetProjects(req: Request): Promise<Response> {
   const schema = "portal";
@@ -573,13 +579,13 @@ export async function handleGetProjects(req: Request): Promise<Response> {
     const data = await linearRequest(GET_PROJECTS_BY_IDS_QUERY, {
       filter: { id: { in: projectIds } },
     });
-    return Response.json(data.projects?.nodes ?? []);
+    return Response.json(selectableProjects(data.projects?.nodes));
   }
 
   if (!initiativeId) return Response.json({ error: "Missing slug or initiativeId" }, { status: 400 });
 
   const data = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId });
-  return Response.json(data.initiative?.projects?.nodes ?? []);
+  return Response.json(selectableProjects(data.initiative?.projects?.nodes));
 }
 
 export async function handleGetMilestones(req: Request): Promise<Response> {

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY } from "./linearClient.ts";
+import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY, closedProjectError } from "./linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector } from "../lib/vector.ts";
 import { recordIssueRequest } from "./issueRequests.ts";
@@ -303,6 +303,12 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
 
   if (!title?.trim()) {
     return Response.json({ error: "Missing title" }, { status: 400 });
+  }
+
+  // The pickers don't offer finished projects; this stops one being used anyway.
+  if (body.projectId) {
+    const closed = await closedProjectError(body.projectId);
+    if (closed) return Response.json({ error: closed }, { status: 400 });
   }
 
   let teamId = bodyTeamId;
