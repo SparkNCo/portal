@@ -14,7 +14,6 @@ import {
   Building2,
   LogOut,
   Shield,
-  ChevronLeft,
   MessageCircle,
   Hammer,
   Bug,
@@ -183,47 +182,19 @@ export function Sidebar() {
   const params = searchParams.toString();
   const router = useRouter();
   const { profile } = useUser();
-  // `useParams()` returns the *whole* current route's dynamic segments, not
-  // just the ones this component's own layout owns — so `customer`/`panel`
-  // show up here whenever the active page is the nested
-  // `dashboards/[customer]/[panel]` route, alongside the outer `[slug]`.
-  const { slug: rawUrlSlug, customer: selectedCustomerParam, panel: selectedPanelParam } =
-    useParams<{ slug: string; customer?: string; panel?: string }>();
+  const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   // Not reliably decoded by useParams() — normalize before comparing or
   // re-encoding into nav links below. Names with spaces/apostrophes (e.g.
   // "What You're Funding") arrive as "what%20you're%20funding": compared
   // raw, the Initiative dropdown never matched them, and re-encoded they
   // stacked encoding on encoding.
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
-  const selectedCustomer = selectedCustomerParam
-    ? safeDecodeURIComponent(selectedCustomerParam)
-    : selectedCustomerParam;
-  const selectedPanel = selectedPanelParam ?? "dashboard";
-  // Developers viewing an assigned customer via the older nested
-  // `/{devSlug}/dashboards/[customer]/[panel]` flow (dormant — its nav
-  // entry is commented out below, but the route still exists).
-  const isViewingCustomer =
-    profile?.role === "developer" && !!selectedCustomer;
-  const dashboardsBasePath = `/${rawUrlSlug}`;
   // Admins browse a customer's own pages directly (e.g. /lualink/...) — the
   // exact same route tree the customer itself uses. Their own pages live
   // under the slug-less /admin, so any `[slug]` segment here means they're
   // viewing a customer.
   const isAdmin = profile?.role === "admin";
   const isAdminViewingCustomerSlug = isAdmin && !!urlSlug;
-
-  const customerPanelItems = [
-    { href: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "monitor", label: "Monitor", icon: Map },
-    { href: "build", label: "Build", icon: Hammer },
-    { href: "bugs", label: "Bugs", icon: Bug },
-    //{ href: "developer", label: "Developer", icon: Code2 },
-    { href: "chat", label: "Chat", icon: MessageCircle },
-    { href: "documents", label: "Documents", icon: FileText },
-    ...(profile?.role === "admin"
-      ? [{ href: "settings", label: "Settings", icon: Settings }]
-      : []),
-  ];
 
   const roleNavMap: Record<string, typeof clientNavItems> = {
     customer: clientNavItems,
@@ -376,34 +347,7 @@ export function Sidebar() {
         />
       )}
       <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 px-3 py-2">
-        {isViewingCustomer ? (
-          <>
-            <Link
-              href={`${dashboardsBasePath}/dashboards`}
-              onClick={close}
-              className="flex items-center gap-2 rounded-md px-3 py-2 smalltext text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors mb-1"
-            >
-              <ChevronLeft className="h-3 w-3" />
-              All customers
-            </Link>
-            {customerPanelItems.map((item) => (
-              <Link
-                key={item.href}
-                href={`${dashboardsBasePath}/dashboards/${encodeURIComponent(selectedCustomer!)}/${item.href}`}
-                onClick={close}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
-                  selectedPanel === item.href
-                    ? "bg-sidebar-accent text-primary font-semibold"
-                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            ))}
-          </>
-        ) : isAdmin ? (
+        {isAdmin ? (
           <>
             {/* Always listed so the menu keeps the same items; disabled
                 until an initiative is selected. */}

@@ -70,9 +70,8 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   if (!access || access.kind === "redirect") return <LoadingDataPanel />;
   if (access.kind === "not-set-up") return <AccountNotSetUp loadFailed={profileStatus === "failed"} />;
 
-  // An admin browsing a customer's own routes directly (e.g. /lualink/...)
-  // has no CustomerSlugProvider wrapping them the way the old nested
-  // dashboards/[customer]/[panel] route provided one — without it, hooks
+  // An admin browsing a customer's routes (e.g. /lualink/...) needs a
+  // CustomerSlugProvider with that customer's slug — without it, hooks
   // like usePinnedPanelsOwnerId() would fall back to the admin's own id
   // instead of the customer being viewed. Every other role already resolves
   // correctly from their own `[slug]`, so this is admin-only.

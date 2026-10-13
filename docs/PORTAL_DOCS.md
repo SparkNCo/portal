@@ -221,8 +221,10 @@ The invitation email link lands the user on `/set-password`. The page detects th
 
 | Role | Redirect |
 |---|---|
-| `customer` | `/{clientName}/dashboards/{clientName}/dashboard` |
-| Everyone else | `/{clientName}/dashboards` |
+| `customer` | `/{clientName}/dashboard` |
+| `admin` | `/admin/users` |
+| `developer` | `/dev/developer`, which forwards to `/{slug}/developer` for their first initiative |
+| `stakeholder` | The dashboard of the initiative they're assigned to |
 
 ### 2.4 Error states
 
@@ -1053,7 +1055,7 @@ All three render the same `ChatLayout`. See `app/docs/CHAT_FLOWS.md` for the ful
 `customer`, `developer`, `stakeholder`, and `admin`. All roles open chat at `/{slug}/chat`, scoped to the initiative in the URL (admins: Initiative dropdown; developers: "Working on"). Admins' New Chat is locked to that customer. Old `/admin/chats` and `/dev/chat` links redirect to the right `/{slug}/chat` (see `app/docs/CHAT_FLOWS.md`).
 
 Two distinct chat surfaces exist:
-- **The standalone page** — full chat with a sidebar and conversation view. The admin Dashboards preview (`panel-renderer.tsx`, `case "chat"`) renders the `/[slug]/(portal)/chat` version scoped to whichever customer is being previewed.
+- **The standalone page** — full chat with a sidebar and conversation view. Admins open the same `/{slug}/chat` page of whichever initiative they're browsing, scoped to that customer.
 - **Issue Chat** (`IssueCometChat`) — the Chat tab inside the Issue Detail Modal, scoped to one issue (see Issue Flows section).
 
 ### 9.1 CometChat Initialization — `initCometChatUser`
