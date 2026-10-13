@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { linearRequest } from "../issues/linearClient.ts";
 import { GET_PROJECTS_BY_IDS_QUERY } from "../issues/updateIsste.ts";
+import { isClosedProject } from "../issues/linearClient.ts";
 import { requireNonDeveloper } from "./authorize.ts";
 
 // PATCH /suggested-features/project — { id, projectId, actorEmail }.
@@ -56,6 +57,12 @@ export async function handleUpdateSuggestionProject(req: Request): Promise<Respo
   const project = data.projects?.nodes?.[0];
   if (!project) {
     return Response.json({ error: "Project not found in Linear" }, { status: 404 });
+  }
+  if (isClosedProject(project)) {
+    return Response.json(
+      { error: `"${project.name}" is completed or cancelled — pick an active project.` },
+      { status: 400 },
+    );
   }
 
   const { data: updated, error } = await supabase
