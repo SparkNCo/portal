@@ -51,6 +51,60 @@ async function portalUserForUid(uid: string): Promise<{ id: string; email: strin
   return byEmail ?? null;
 }
 
+// @mentions arrive in the text as "<@uid:UID>" (CometChat's mention format;
+// see components/chat/mentions.ts).
+const MENTION_TOKEN = /<@uid:([^>\s]+)>/g;
+
+function displayName(u: { firstName?: string | null; lastName?: string | null; userName?: string | null; email?: string | null }) {
+  const full = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+  return full || u.userName || u.email || "someone";
+}
+
+// The portal users a message mentions, and its text with each token shown as
+// "@Name" (for the notification preview). Unknown uids read "@someone".
+async function resolveMentions(text: string): Promise<{ text: string; userIds: string[] }> {
+  const uids = [...new Set([...text.matchAll(MENTION_TOKEN)].map((m) => m[1]))];
+  if (uids.length === 0) return { text, userIds: [] };
+
+  const portalIdByUid = new Map<string, string>();
+  await Promise.all(
+    uids.map(async (uid) => {
+      const user = await portalUserForUid(uid);
+      if (user) portalIdByUid.set(uid, user.id);
+    }),
+  );
+  const ids = [...new Set(portalIdByUid.values())];
+  const { data: users } = ids.length
+    ? await supabase.schema("portal").from("users").select("id, firstName, lastName, userName, email").in("id", ids)
+    : { data: [] };
+  const nameById = new Map((users ?? []).map((u: any) => [u.id, displayName(u)]));
+
+  return {
+    text: text.replace(MENTION_TOKEN, (_, uid: string) => `@${nameById.get(portalIdByUid.get(uid) ?? "") ?? "someone"}`),
+    userIds: ids,
+  };
+}
+
+// A reply quotes another message (components/chat — CometChat's
+// quotedMessage). Who wrote the quoted one: from the payload when it carries
+// that message, else looked up by its id. Undefined if it isn't a reply or
+// that can't be worked out.
+async function quotedAuthorUid(message: any): Promise<string | undefined> {
+  const quoted = message?.quotedMessage ?? message?.data?.quotedMessage;
+  const fromPayload =
+    quoted?.sender?.uid ?? (typeof quoted?.sender === "string" ? quoted.sender : undefined) ??
+    quoted?.data?.entities?.sender?.entity?.uid;
+  if (fromPayload) return fromPayload;
+
+  const quotedId = message?.quotedMessageId ?? message?.data?.quotedMessageId ?? quoted?.id;
+  if (!quotedId) return undefined;
+  const found = await cometchatGet(`/messages/${encodeURIComponent(String(quotedId))}`).catch((err) => {
+    console.error("[cometchat] quoted message lookup failed:", err);
+    return null;
+  });
+  return found?.sender ?? found?.data?.entities?.sender?.entity?.uid ?? undefined;
+}
+
 const ISSUE_PROJECT_QUERY = `
   query IssueProject($id: String!) {
     issue(id: $id) { title project { id } }
@@ -156,24 +210,50 @@ async function notifyChatMessage(groupId: string, senderId: string, message: any
       : { data: [] };
     const memberIds = (memberUsers ?? []).map((u: { id: string }) => u.id);
 
-    const text = message?.text ?? message?.data?.text;
+    const rawText = message?.text ?? message?.data?.text;
     const type = message?.type;
-    const preview = text?.trim()
-      ? String(text).slice(0, 140)
+    // Mentions read as "@Name" in the preview; the people mentioned get their
+    // own "mentioned you" notification instead of the plain one.
+    const mentions = await resolveMentions(String(rawText ?? ""));
+    const mentionedIds = mentions.userIds.filter((id) => !senderIds.has(id));
+    const preview = mentions.text.trim()
+      ? mentions.text.slice(0, 140)
       : MEDIA_TYPES.has(type)
         ? "Sent an attachment"
         : "";
 
-    await notifyUsers({
-      userIds: memberIds,
-      includeAdmins: true,
+    const common = {
       actorEmail: sender?.email ?? "",
-      action: "chat_message",
-      objectType: "chat",
       objectId: groupId,
       objectTitle: context.title ?? undefined,
       link: context.link,
       preview,
+    };
+
+    if (mentionedIds.length) {
+      await notifyUsers({ ...common, userIds: mentionedIds, action: "chat_mention", objectType: "chat_mention" });
+    }
+
+    // A reply: whoever wrote the quoted message gets "replied to you" —
+    // unless it's their own message, or they were just mentioned in it
+    // (one notification per message is enough).
+    const quotedUid = await quotedAuthorUid(message);
+    const quotedAuthor = quotedUid ? await portalUserForUid(quotedUid) : null;
+    const repliedToIds =
+      quotedAuthor && !senderIds.has(quotedAuthor.id) && !mentionedIds.includes(quotedAuthor.id) ? [quotedAuthor.id] : [];
+    if (repliedToIds.length) {
+      // Same object_type as a mention: both are "addressed to you" in that
+      // chat (kept apart from its plain notification, see notify.ts).
+      await notifyUsers({ ...common, userIds: repliedToIds, action: "chat_reply", objectType: "chat_mention" });
+    }
+
+    await notifyUsers({
+      ...common,
+      userIds: memberIds,
+      includeAdmins: true,
+      excludeUserIds: [...mentionedIds, ...repliedToIds],
+      action: "chat_message",
+      objectType: "chat",
     });
   } catch (err) {
     console.error("[cometchat] chat notification failed (non-fatal):", err);
@@ -284,7 +364,8 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             assistantId: AI_UID,
-            message: text,
+            // Not the raw "<@uid:…>" tokens.
+            message: String(text ?? "").replace(MENTION_TOKEN, "@someone"),
             sessionId: groupId,
           }),
         },

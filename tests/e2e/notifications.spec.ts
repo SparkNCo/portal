@@ -614,6 +614,68 @@ test.describe('chat notifications — CometChat', () => {
     expect(await unreadCount(ctx.customerId, 'chat', { objectId: guid() })).toBe(1);
   });
 
+  // "@Name" travels as "<@uid:ID>" in the text (components/chat/mentions.ts).
+  test('an @mention notifies that person as "mentioned you", and everyone else as usual', async () => {
+    test.setTimeout(60_000);
+    const since = sinceNow();
+    await callFunction('cometchat', {
+      body: {
+        trigger: 'after_message',
+        data: {
+          message: {
+            type: 'text',
+            category: 'message',
+            receiverType: 'group',
+            receiver: guid(),
+            sender: ctx.developerId,
+            data: { text: `<@uid:${ctx.customerId}> can you check ${STAMP}?` },
+          },
+        },
+      },
+    }).catch(() => undefined);
+
+    // Only the customer gets the mention; the token reads as their name.
+    const mention = await waitForEvent({ action: 'chat_mention', objectId: guid(), since });
+    expect(mention).toMatchObject({ object_type: 'chat_mention', actor_email: DEVELOPER_EMAIL, link: `/${SLUG}/chat` });
+    expect(mention.preview).toMatch(new RegExp(`^@.+ can you check ${STAMP}\\?$`));
+    expect(mention.preview).not.toContain('<@uid:');
+    await expectRecipients(mention.id, [ctx.customerId]);
+
+    // The rest of the chat (and the admins) get the plain notification — not the customer too.
+    const message = await waitForEvent({ action: 'chat_message', objectId: guid(), since });
+    await expectRecipients(message.id, without(ctx.projectAudience, ctx.developerId, ctx.customerId));
+  });
+
+  // A reply quotes another message; its author is told it's an answer to them.
+  test('replying to a message notifies its author as "replied to you"', async () => {
+    test.setTimeout(60_000);
+    const since = sinceNow();
+    await callFunction('cometchat', {
+      body: {
+        trigger: 'after_message',
+        data: {
+          message: {
+            type: 'text',
+            category: 'message',
+            receiverType: 'group',
+            receiver: guid(),
+            sender: ctx.developerId,
+            data: { text: `Reply ${STAMP}` },
+            quotedMessageId: 1,
+            quotedMessage: { id: 1, sender: { uid: ctx.customerId }, data: { text: 'the original' } },
+          },
+        },
+      },
+    }).catch(() => undefined);
+
+    const reply = await waitForEvent({ action: 'chat_reply', objectId: guid(), since });
+    expect(reply).toMatchObject({ object_type: 'chat_mention', actor_email: DEVELOPER_EMAIL, preview: `Reply ${STAMP}` });
+    await expectRecipients(reply.id, [ctx.customerId]);
+
+    const message = await waitForEvent({ action: 'chat_message', objectId: guid(), since });
+    await expectRecipients(message.id, without(ctx.projectAudience, ctx.developerId, ctx.customerId));
+  });
+
   // The webhook also receives a message's edits and deletes; only a new
   // message may notify (or get an AI reply).
   test('editing or deleting a message does not notify again', async () => {
