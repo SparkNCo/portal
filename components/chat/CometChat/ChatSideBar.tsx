@@ -9,6 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
+import { UnreadChatsProvider, UnreadDot, UnreadFilterToggle, useIsChatUnread } from "../unread-chats";
+
+const NO_UNREAD: ReadonlySet<string> = new Set();
 
 type CustomerOption = { id: string; userName: string };
 
@@ -30,6 +33,8 @@ type Props = Readonly<{
   customerOptions?: CustomerOption[];
   selectedCustomerId?: string;
   onSelectedCustomerIdChange?: (id: string) => void;
+  // Chats with messages the user hasn't seen (see ../unread-chats.tsx).
+  unreadChatIds?: ReadonlySet<string>;
 }>;
 
 type GroupItemProps = Readonly<{
@@ -64,6 +69,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
 }
 
 function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
+  const isUnread = useIsChatUnread(group.getGuid());
   return (
     <div
       className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
@@ -75,10 +81,11 @@ function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItem
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <GroupAvatar name={group.getName()} />
         <div className="min-w-0">
-          <div className={`text-sm md:smalltext font-medium truncate ${isSelected ? "text-primary" : ""}`}>
+          <div className={`text-sm md:smalltext truncate ${isUnread ? "font-bold" : "font-medium"} ${isSelected ? "text-primary" : ""}`}>
             {group.getName()}
           </div>
         </div>
+        {isUnread && <UnreadDot />}
       </button>
       {canLeave && (
         <button
@@ -165,16 +172,23 @@ export default function ChatSideBar({
   customerOptions = [],
   selectedCustomerId,
   onSelectedCustomerIdChange,
+  unreadChatIds = NO_UNREAD,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
   const customerNameById = useMemo(
     () => new Map(customerOptions.map((c) => [c.id, c.userName])),
     [customerOptions],
   );
-  const groupedBySlug = groupByProject(groups, customerNameById);
+  // "Unread" filter: only group chats with messages the user hasn't seen
+  // (direct chats with the assistant have no unread tracking).
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unreadCount = groups.filter((g) => unreadChatIds.has(g.getGuid())).length;
+  const visibleGroups = unreadOnly ? groups.filter((g) => unreadChatIds.has(g.getGuid())) : groups;
+  const groupedBySlug = groupByProject(visibleGroups, customerNameById);
   const showGrouped = groupedBySlug.size > 1;
 
   return (
+    <UnreadChatsProvider unreadChatIds={unreadChatIds}>
     <div className="w-full h-full border-r flex flex-col bg-background">
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
@@ -196,6 +210,12 @@ export default function ChatSideBar({
         </div>
       )}
 
+      {groups.length > 0 && (
+        <div className="px-3 py-2 border-b">
+          <UnreadFilterToggle active={unreadOnly} count={unreadCount} onToggle={() => setUnreadOnly((v) => !v)} />
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {hasNoChats ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
@@ -210,6 +230,9 @@ export default function ChatSideBar({
           </div>
         ) : (
           <>
+            {unreadOnly && visibleGroups.length === 0 && (
+              <p className="px-4 py-8 text-center text-sm md:smalltext text-muted-foreground">No unread chats.</p>
+            )}
             {showGrouped
               ? Array.from(groupedBySlug.entries()).map(([slug, bucket]) => (
                   <GroupSection
@@ -222,7 +245,7 @@ export default function ChatSideBar({
                     canLeaveChats={canLeaveChats}
                   />
                 ))
-              : groups.map((group) => (
+              : visibleGroups.map((group) => (
                   <GroupItem
                     key={group.getGuid()}
                     group={group}
@@ -233,7 +256,7 @@ export default function ChatSideBar({
                   />
                 ))}
 
-            {directChats.map((entry) => {
+            {!unreadOnly && directChats.map((entry) => {
               const isSelected = selectedDirect?.uid === entry.uid && selectedDirect?.title === entry.title;
               return (
                 <div
@@ -282,5 +305,6 @@ export default function ChatSideBar({
         </button>
       </div>
     </div>
+    </UnreadChatsProvider>
   );
 }

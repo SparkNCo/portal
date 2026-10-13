@@ -430,7 +430,15 @@ test.describe('chat notifications — Supabase Realtime', () => {
   test.beforeAll(async () => {
     const { data: chat, error } = await db()
       .from('chats')
-      .insert({ project_slug: SLUG, title: chatTitle, type: 'group', created_by: ctx.customerId })
+      // Tagged with its customer like a real chat — developers' and admins'
+      // chat lists are scoped by it.
+      .insert({
+        project_slug: SLUG,
+        title: chatTitle,
+        type: 'group',
+        created_by: ctx.customerId,
+        metadata: { customerId: ctx.customerId },
+      })
       .select('id')
       .single();
     if (error) throw new Error(error.message);
@@ -487,6 +495,33 @@ test.describe('chat notifications — Supabase Realtime', () => {
     await expectRecipients(event.id, [ctx.customerId, ...ctx.admins]);
   });
 
+  // The chat list reads the same unread notification the bell does.
+  test('the chat list marks it unread, the Unread filter keeps it, and opening it marks it read', async ({ page }) => {
+    test.setTimeout(120_000);
+    // The Chat page shows the chats of whichever system the customer uses;
+    // this Realtime test chat is only listed there when that's Realtime.
+    const { data: customer } = await db().from('customers').select('systems').ilike('clientName', SLUG).single();
+    test.skip(customer?.systems?.chat !== 'realtime', `${SLUG} uses ${customer?.systems?.chat ?? 'another'} chat, not Realtime`);
+    await send(ctx.customerId, `Unread ${STAMP}`);
+    await waitForEvent({ action: 'chat_message', objectId: chatId, since: ctx.since });
+    expect(await unreadCount(ctx.developerId, 'chat', { objectId: chatId })).toBe(1);
+
+    await performLogin(page, DEVELOPER_EMAIL, PASSWORD, '/developer');
+    await page.goto(`/${SLUG}/chat`);
+    const row = page.getByRole('button', { name: new RegExp(chatTitle) });
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText('Unread messages')).toBeAttached({ timeout: 15_000 });
+
+    // Filtered to unread chats, it's still listed.
+    await page.getByRole('button', { name: /^Unread \(\d+\)$/ }).click();
+    await expect(row).toBeVisible();
+
+    // Opening it reads it: gone from the filtered list, and read in the bell's data too.
+    await row.click();
+    await expect.poll(() => unreadCount(ctx.developerId, 'chat', { objectId: chatId }), { timeout: 15_000 }).toBe(0);
+    await expect(row).toHaveCount(0, { timeout: 15_000 });
+  });
+
   test('the bell shows it and opens the chat', async ({ page }) => {
     test.setTimeout(90_000);
     await send(ctx.customerId, `Bell ${STAMP}`);
@@ -501,6 +536,35 @@ test.describe('chat notifications — Supabase Realtime', () => {
     // old /dev/chat redirects into the initiative).
     await expect(page).toHaveURL(new RegExp(`/chat\\?chatId=${chatId}`), { timeout: 15_000 });
   });
+});
+
+// ── Chat list: unread dot and filter (either chat system) ─────────────────
+
+// Works off whatever unread chats the test developer has, so it runs the same
+// on Realtime and CometChat; skipped when they have none.
+test('chat list: opening an unread chat clears its dot and lowers the Unread count', async ({ page }) => {
+  test.setTimeout(120_000);
+  await performLogin(page, DEVELOPER_EMAIL, PASSWORD, '/developer');
+  await page.goto(`/${SLUG}/chat`);
+  await expect(page.getByRole('button', { name: 'New Chat', exact: true })).toBeVisible({ timeout: 30_000 });
+
+  const filter = page.getByRole('button', { name: /^Unread( \(\d+\))?$/ });
+  await expect(filter).toBeVisible({ timeout: 15_000 });
+  const unreadRows = page.getByRole('button').filter({ hasText: 'Unread messages' });
+  // Give the unread set a moment to load before deciding there's none.
+  await expect(filter).toHaveText(/Unread \(\d+\)/, { timeout: 10_000 }).catch(() => undefined);
+  const before = await unreadRows.count();
+  test.skip(before === 0, 'the test developer has no unread chats listed');
+  await expect(filter).toHaveText(`Unread (${before})`);
+
+  // The filter keeps only the unread ones.
+  await filter.click();
+  await expect(page.getByRole('button').filter({ hasText: 'Unread messages' })).toHaveCount(before);
+
+  await unreadRows.first().click();
+  const expected = before - 1 > 0 ? `Unread (${before - 1})` : 'Unread';
+  await expect(filter).toHaveText(expected, { timeout: 20_000 });
+  await expect(unreadRows).toHaveCount(before - 1);
 });
 
 // ── Chat: CometChat (webhook → supabase/functions/cometchat) ──────────────

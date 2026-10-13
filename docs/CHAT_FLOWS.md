@@ -114,6 +114,18 @@ The active group is highlighted with an accent left border. When `canLeaveChats`
 
 `ChatSideBar` and `DirectChat.tsx` still fully support a list of AI-agent direct conversations (bot icon, title, "AI Agent" subtitle, its own message thread via `CometChat.RECEIVER_TYPE.USER`) — but nothing in the current UI actually creates a new entry in that list. `ChatLayout`'s `directChats` state starts empty and is only ever read from or filtered (on close); no button or flow calls `setDirectChats` to add one. Functionally dead today, not removed.
 
+### Unread chats (dot and filter)
+
+A chat with messages the user hasn't seen shows an orange dot and a bold title in the sidebar, and an **"Unread (n)"** toggle above the list narrows it to just those. Both chat systems (CometChat and Realtime) share this — `components/chat/unread-chats.tsx`.
+
+There is no separate "last read" data. Every chat message already leaves each recipient **one unread bell notification per chat** (`portal.notifications` → `portal.events` with `object_type = 'chat'` and `object_id` = the chat's id: a `portal.chats` id on Realtime, the group's guid on CometChat — written by the `notify_chat_message` trigger and the `cometchat` webhook). So:
+
+- **Unread** = the user has an unread chat notification for that chat (`useUnreadChats`, kept live with a Postgres Changes subscription on the user's notifications).
+- **Reading** = the chat being open marks that notification read (`useMarkOpenChatRead`) — on opening it, and again if a message arrives while it's open. That also clears it from the bell; conversely, clearing it in the bell ("Clear all") clears the dot.
+- The same applies to a ticket's chat tab (`IssueRealtimeChat` / `IssueGroupChat`): reading the chat there marks it read.
+
+It's an indicator, not a message count (there's one notification per chat, however many messages). Direct chats with the AI agent aren't tracked and are hidden while the Unread filter is on. The sender never gets a notification for their own message, so their own chat never shows as unread to them.
+
 ### New Chat button
 
 A **"New Chat"** button sits at the bottom of the sidebar, visible to all users. The `+New` button also appears in the header, but only for customers (`isCustomer` check). Both open the `CreateChatModal`.
@@ -189,7 +201,8 @@ User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and admin previewing a customer via Dashboards) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
+| `components/chat/unread-chats.tsx` | Unread chats — `useUnreadChats` (live set from the bell's notifications), `useMarkOpenChatRead`, the sidebar dot and the "Unread" filter toggle |
+| `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and an admin browsing that initiative) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
 | `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` (`components/chat/chat-route-redirect.tsx`) |
 | `lib/chat-links.ts` | `resolveChatRouteSlug` — which customer's `/{slug}/chat` a chat id belongs to (redirects and chat notifications) |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, customer scoping/filter, group selection state, auto-open modal logic |

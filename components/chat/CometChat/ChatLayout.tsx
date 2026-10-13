@@ -11,6 +11,7 @@ import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
+import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
 import CreateChatModal, { type ChatIssueOption } from "./CreateChatModal";
@@ -256,6 +257,12 @@ export default function ChatLayout({
     }
   };
 
+  // Unread dots/filter in the sidebar; the chat on screen counts as read.
+  // A group's notifications are keyed by its guid (see the cometchat
+  // webhook). (Hooks — must stay above the early return below.)
+  const { unreadChatIds, markRead } = useUnreadChats();
+  useMarkOpenChatRead(selectedGroup?.getGuid(), unreadChatIds, markRead);
+
   if (profileLoading || !ready) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm md:smalltext">
@@ -296,6 +303,7 @@ export default function ChatLayout({
       {/* Sidebar: full-width on mobile when no chat active, fixed 288px on sm+ */}
       <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
         <ChatSideBar
+          unreadChatIds={unreadChatIds}
           groups={visibleGroups}
           directChats={directChats}
           selectedGroup={selectedGroup}
