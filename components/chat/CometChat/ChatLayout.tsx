@@ -205,10 +205,8 @@ export default function ChatLayout({
     onPendingCreateHandled?.();
   }, [ready, pendingCreate]);
 
-  // When an admin/developer is viewing a specific customer's chat panel,
-  // tag new groups with that customer's slug rather than the caller's own
-  // `[slug]` segment — which for that flow is the viewer's own slug, not
-  // the customer's (see dashboards/[customer]/[panel]/page.tsx).
+  // Tag new groups with the customer being viewed (CustomerSlugContext —
+  // set for admins by app/[slug]/(portal)/layout.tsx), else the URL's slug.
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
   const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {

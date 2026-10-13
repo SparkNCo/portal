@@ -18,7 +18,7 @@ There are two distinct chat surfaces in the app:
 - **This page** (`/{slug}/chat`) — the full standalone chat experience with a sidebar and conversation view.
 - **Issue chat** (`IssueCometChat`) — the Chat tab embedded inside the Issue Detail Modal, scoped to a single issue. See "Issue Chat" below and `app/docs/FEATURES_FLOWS.md`.
 
-**A fourth route reuses the same page:** the admin **Dashboards** preview (`components/dashboard/panel-renderer.tsx`, `case "chat"`) renders the identical `ChatPage` (the `/[slug]/(portal)/chat` one) while previewing one specific customer — `CustomerSlugContext` resolves to that customer's slug instead of the admin's own, which is what scopes the inbox down to just that customer (see "Scoping to a single customer" below).
+**Admins use the same page:** an admin browsing an initiative opens that customer's own `/{slug}/chat` — `app/[slug]/(portal)/layout.tsx` wraps admins in a `CustomerSlugProvider` with the URL's slug, so `CustomerSlugContext` resolves to that customer instead of the admin, which is what scopes the inbox down to just that customer (see "Scoping to a single customer" below). (The old nested Dashboards preview route that rendered this page was removed.)
 
 ---
 
@@ -192,7 +192,6 @@ User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
 | `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and admin previewing a customer via Dashboards) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
 | `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` (`components/chat/chat-route-redirect.tsx`) |
 | `lib/chat-links.ts` | `resolveChatRouteSlug` — which customer's `/{slug}/chat` a chat id belongs to (redirects and chat notifications) |
-| `components/dashboard/panel-renderer.tsx` | Renders the same `ChatPage` inside the Dashboards customer-preview panel (`case "chat"`) |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, customer scoping/filter, group selection state, auto-open modal logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — group list (grouped by projectSlug), direct chats, admin customer filter |
 | `components/chat/CometChat/useCometChat.ts` | Group fetching/pagination, group creation (`createSupportGroup`), `leaveGroup` |

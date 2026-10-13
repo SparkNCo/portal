@@ -194,7 +194,8 @@ The slugified name from step 2 is what's used to build the redirect URL.
 | `customer` | `/{clientName}/dashboard` |
 | `admin` | `/admin/users` |
 | `developer` | `/dev/developer`, which forwards to `/{slug}/developer` for their first initiative once the profile loads |
-| Anyone else (e.g. `stakeholder`) | `/{clientName}/dashboard/dashboards` |
+| `stakeholder` | The dashboard of the customer they're assigned to (`/{clientSlug}/dashboard`); with no assignment, an error and no redirect |
+| Missing or unrecognised role | No redirect: "Password set, but your account isn't set up yet. Contact your administrator." and the session is signed out — no URL is ever built for it, same rule as login |
 
 After redirecting, `reloadUser()` is called to refresh the global user context so the rest of the app has the updated profile immediately.
 
