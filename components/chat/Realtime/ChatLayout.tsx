@@ -11,6 +11,7 @@ import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import RealtimeChatSideBar from "./RealtimeChatSideBar";
+import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 import RealtimeGroupChat from "./RealtimeGroupChat";
 import CreateChatModal, { type ChatIssueOption } from "../CometChat/CreateChatModal";
 import { useRealtimeChat, type Chat } from "./useRealtimeChat";
@@ -244,6 +245,11 @@ export default function ChatLayout({
     }
   };
 
+  // Unread dots/filter in the sidebar; the chat on screen counts as read.
+  // (Hooks — must stay above the early return below.)
+  const { unreadChatIds, markRead } = useUnreadChats();
+  useMarkOpenChatRead(selectedChat?.id, unreadChatIds, markRead);
+
   if (profileLoading || !ready) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm md:smalltext">
@@ -266,6 +272,7 @@ export default function ChatLayout({
     <div className="flex flex-row w-full h-full">
       <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
         <RealtimeChatSideBar
+          unreadChatIds={unreadChatIds}
           chats={visibleChats}
           selectedChat={selectedChat}
           onSelectChat={(c) => { setSelectedChat(c); clearNewChatParam(); }}

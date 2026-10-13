@@ -8,6 +8,7 @@ import { MessageBubble } from "./MessageBubble";
 import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
+import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 
 // Who sent a CometChat message (SDK object or raw payload).
 const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
@@ -29,6 +30,9 @@ export function IssueGroupChat({
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const guid = group?.getGuid();
+  // Reading the ticket's chat here counts as read, same as on the Chat page.
+  const { unreadChatIds, markRead } = useUnreadChats();
+  useMarkOpenChatRead(guid, unreadChatIds, markRead);
 
   useEffect(() => {
     if (!guid) {
