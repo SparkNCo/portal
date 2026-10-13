@@ -8,6 +8,10 @@ export interface ChatMessageData {
   text: string;
   sentAt?: number;
   attachment?: ChatAttachment;
+  /** The sender changed its text afterwards. */
+  edited?: boolean;
+  /** The sender deleted it — shown as a placeholder, with no content. */
+  deleted?: boolean;
 }
 
 const MEDIA_TYPES = new Set(["image", "video", "audio", "file"]);
@@ -28,6 +32,22 @@ function extractAttachment(msg: any): ChatAttachment | undefined {
 }
 
 export function extractChatMessage(msg: any, index: number): ChatMessageData | null {
+  // Only real messages: CometChat also keeps "action" entries in a group's
+  // history (e.g. one per edit/delete), which aren't something to show.
+  const category = msg.getCategory?.() ?? msg.category;
+  if (category === "action") return null;
+
+  if (msg.getDeletedAt?.() ?? msg.deletedAt) {
+    return {
+      id: msg.getId?.() ?? index,
+      senderUid: msg.getSender?.()?.getUid?.() ?? msg.sender?.uid ?? "",
+      senderName: msg.getSender?.()?.getName?.() ?? msg.sender?.name ?? "Unknown",
+      text: "",
+      sentAt: msg.getSentAt?.() ?? msg.sentAt,
+      deleted: true,
+    };
+  }
+
   const attachment = extractAttachment(msg);
   const text = attachment
     ? (msg.getCaption?.() ?? msg.caption ?? "")
@@ -40,6 +60,7 @@ export function extractChatMessage(msg: any, index: number): ChatMessageData | n
     text: text ?? "",
     sentAt: msg.getSentAt?.() ?? msg.sentAt,
     attachment,
+    edited: !!(msg.getEditedAt?.() ?? msg.editedAt),
   };
 }
 
@@ -78,6 +99,35 @@ export function mergeMessages(prev: any[], incoming: any[]): any[] {
     return true;
   });
   return added.length ? [...prev, ...added] : prev;
+}
+
+// A group's history without CometChat's "action" entries (member changes,
+// and one per edit/delete) — they aren't shown, and left in the list they'd
+// count as the "last message" and as a break between a sender's messages.
+export function withoutActions(messages: any[]): any[] {
+  return messages.filter((m) => (m.getCategory?.() ?? m.category) !== "action");
+}
+
+// `prev` with the message of the same id swapped for `updated` — after an
+// edit or delete (ours, or someone else's arriving through the listener).
+export function replaceMessage(prev: any[], updated: any): any[] {
+  const id = updated?.getId?.() ?? updated?.id;
+  if (!id) return prev;
+  return prev.map((m) => ((m.getId?.() ?? m.id) === id ? updated : m));
+}
+
+// Changes the text of one of the user's own text messages; resolves to the
+// edited message.
+export async function editTextMessage(msg: any, text: string): Promise<any> {
+  const edited = new CometChat.TextMessage(msg.getReceiverId(), text, msg.getReceiverType());
+  edited.setId(msg.getId());
+  return CometChat.editMessage(edited);
+}
+
+// Deletes one of the user's own messages (text or attachment); resolves to
+// the message as CometChat now has it (with deletedAt set).
+export async function deleteOwnMessage(msg: any): Promise<any> {
+  return CometChat.deleteMessage(String(msg.getId()));
 }
 
 // CometChat's sentAt is in seconds; null while a message is still sending.

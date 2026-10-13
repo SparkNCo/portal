@@ -614,6 +614,31 @@ test.describe('chat notifications — CometChat', () => {
     expect(await unreadCount(ctx.customerId, 'chat', { objectId: guid() })).toBe(1);
   });
 
+  // The webhook also receives a message's edits and deletes; only a new
+  // message may notify (or get an AI reply).
+  test('editing or deleting a message does not notify again', async () => {
+    test.setTimeout(60_000);
+    const since = sinceNow();
+    const base = { receiverType: 'group', receiver: guid(), sender: ctx.developerId };
+    const post = (trigger: string, message: Record<string, unknown>) =>
+      callFunction('cometchat', { body: { trigger, data: { message: { ...base, ...message } } } }).catch(() => undefined);
+
+    await post('after_message_edited', { type: 'text', category: 'message', editedAt: 1700000000, data: { text: `Edited ${STAMP}` } });
+    await post('after_message_deleted', { type: 'text', category: 'message', deletedAt: 1700000000, data: {} });
+    // CometChat's own entry for an edit/delete.
+    await post('after_message', { type: 'message', category: 'action', data: { action: 'edited' } });
+    // A deleted message with nothing identifying it as one: still nothing to say.
+    await post('after_message', { type: 'text', category: 'message', data: {} });
+
+    await new Promise((r) => setTimeout(r, 6000));
+    const { data } = await db()
+      .from('events')
+      .select('id, preview')
+      .eq('object_id', guid())
+      .gte('created_at', since);
+    expect((data ?? []).filter((e) => !createdEventIds.has(e.id))).toEqual([]);
+  });
+
   test('real message through CometChat reaches the webhook', async () => {
     test.skip(!COMETCHAT.appId || !COMETCHAT.apiKey, 'CometChat keys not in supabase/functions/.env');
     test.setTimeout(120_000);

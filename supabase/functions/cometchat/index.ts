@@ -216,6 +216,28 @@ Deno.serve(async (req) => {
 
       console.log("📩 Incoming message:", JSON.stringify({ trigger: body?.trigger, groupId, receiverType, sender, type: message.type }));
 
+      // ❌ Only brand-new messages. The webhook also gets a message's edits
+      // and deletes (and CometChat's own "action" entries for them) — they
+      // must not notify again or get an AI reply. Checked several ways since
+      // the payload differs by trigger and webhook version.
+      const trigger = String(body?.trigger ?? "").toLowerCase();
+      const category = String(message.category ?? "").toLowerCase();
+      const isEditOrDelete =
+        trigger.includes("edit") ||
+        trigger.includes("delet") ||
+        !!(message.editedAt || message.editedBy || message.deletedAt || message.deletedBy) ||
+        (category !== "" && category !== "message");
+      if (isEditOrDelete) {
+        return new Response("Edit/delete ignored", { status: 200 });
+      }
+
+      // ❌ Nothing to act on: no text and no attachment (what a deleted
+      // message looks like if it slips past the check above). Without this
+      // it produced a blank "sent a message" notification.
+      if (!String(text ?? "").trim() && !MEDIA_TYPES.has(message.type)) {
+        return new Response("Empty message ignored", { status: 200 });
+      }
+
       // ❌ Ignore non-group messages
       if (receiverType !== "group") {
         return new Response("Ignored", { status: 200 });
