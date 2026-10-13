@@ -175,13 +175,13 @@ export function ChatComposer({
     >
       {replyingTo && (
         <div
-          className="flex items-center gap-2 rounded-lg border-l-2 border-primary bg-background/60 px-2 py-1"
+          className="flex items-center gap-2 rounded-lg border-l-2 border-primary bg-background bg-gradient-to-r from-primary/10 to-primary/10 px-2 py-1"
           aria-label={`Replying to ${replyingTo.author}`}
         >
           <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0 flex-1">
             <span className="block truncate smalltext font-semibold text-primary">Replying to {replyingTo.author}</span>
-            <span className="block truncate smalltext text-muted-foreground">{replyingTo.text}</span>
+            <span className="block truncate smalltext text-foreground/80">{replyingTo.text}</span>
           </span>
           <button
             type="button"

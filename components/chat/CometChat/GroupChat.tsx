@@ -11,6 +11,7 @@ import { ChatComposer } from "../ChatComposer";
 import { useGroupMembers } from "./useGroupMembers";
 import { mentionablePeople } from "../mentions";
 import { useMessageReplies } from "./useMessageReplies";
+import { MESSAGES_PAGE_SIZE, useOlderMessages } from "./useOlderMessages";
 
 // Who sent a CometChat message (SDK object or raw payload).
 const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
@@ -31,6 +32,8 @@ export default function GroupChat({ user, group }: Props) {
   const mentionOptions = mentionablePeople(members, user.getUid());
   // Replying to a message (quoting it), and jumping to a quoted one.
   const replies = useMessageReplies(messages, members);
+  // "Load earlier messages": the chat opens with only its latest ones.
+  const older = useOlderMessages(replies.listRef, setMessages);
 
   useEffect(() => {
     fetchMessages();
@@ -70,6 +73,11 @@ export default function GroupChat({ user, group }: Props) {
   }, [guid]);
 
   useEffect(() => {
+    // Older messages were just added on top: stay where the user is.
+    if (older.keepPositionRef.current) {
+      older.keepPositionRef.current = false;
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -81,9 +89,11 @@ export default function GroupChat({ user, group }: Props) {
       }
       const req = new CometChat.MessagesRequestBuilder()
         .setGUID(guid)
-        .setLimit(50)
+        .setLimit(MESSAGES_PAGE_SIZE)
         .build();
-      const msgs = withoutActions(await req.fetchPrevious());
+      const page = await req.fetchPrevious();
+      older.started(req, page);
+      const msgs = withoutActions(page);
       setMessages(msgs);
     } catch (err) {
       console.error("Fetch group messages error:", err);
@@ -121,6 +131,18 @@ export default function GroupChat({ user, group }: Props) {
 
       {/* Messages */}
       <div ref={replies.listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {older.hasMore && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={older.loadOlder}
+              disabled={older.loadingOlder}
+              className="rounded-full border border-border px-3 py-1 smalltext text-muted-foreground hover:text-primary hover:border-primary transition-colors disabled:opacity-60"
+            >
+              {older.loadingOlder ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30" />
