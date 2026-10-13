@@ -126,6 +126,28 @@ There is no separate "last read" data. Every chat message already leaves each re
 
 It's an indicator, not a message count (there's one notification per chat, however many messages). Direct chats with the AI agent aren't tracked and are hidden while the Unread filter is on. The sender never gets a notification for their own message, so their own chat never shows as unread to them.
 
+### @mentions (CometChat)
+
+Typing `@` in a group chat (the Chat page or a ticket's chat tab) offers the people in that group; picking one inserts `@Name`. `components/chat/mentions.ts` holds the logic, `ChatComposer` the picker.
+
+- **In the message**, a mention is stored as `<@uid:UID>` — CometChat's own mention format — so who was mentioned depends on their id, never on how a name is spelled. The composer converts `@Name` → token when sending; messages convert it back to `@Name` (bold; underlined when it's the reader) when shown. Editing a message keeps its mentions.
+- **Names** come from the portal (`GET /users`), not CometChat, whose "name" for a user is often their email or uid (`useGroupMembers`). Someone in a group under two uids (portal id and Auth id) is listed once.
+- **Notification** (`supabase/functions/cometchat`): the mentioned person gets **"X mentioned you in <chat>"** (`action`/`object_type` = `chat_mention`) instead of the plain "sent a message", which still goes to everyone else. Its preview shows `@Name`, not the token. A mention notification is kept apart from the chat's plain one (one unread of each per chat), so later messages don't replace "mentioned you".
+- **In the chat list**, a chat where the user was mentioned shows an **@** badge instead of the plain unread dot. Opening the chat reads both.
+
+Not on Realtime chats yet, nor in direct chats with the AI agent.
+
+### Replying to a message (CometChat)
+
+Every message in a group chat (the Chat page or a ticket's chat tab) has a **Reply** action. Picking it shows a "Replying to <name>" bar above the input (✕ or Escape cancels); the message sent next **quotes** that one — it stays in the conversation, with the quoted author and a line of the quoted message on top. It's a quote, not a thread.
+
+- **How it's stored:** CometChat's own quoted message (`setQuotedMessageId` on send; the reply comes back with `quotedMessage`). Nothing of ours is stored. `useMessageReplies` (which message is being answered, jump-to-message) and `chatUtils` (`quoteSummary`, `sendGroupMessages`).
+- **The quote** shows the text, or for an attachment its caption/file name, or "This message was deleted". Clicking it scrolls to the quoted message and highlights it for a moment — if it's among the loaded ones (only the latest 50 are); otherwise a toast says it's further back.
+- **Editing** a reply keeps its quote. Deleting the quoted message doesn't delete its replies.
+- **Notification** (`supabase/functions/cometchat`): the author of the quoted message gets **"X replied to you in <chat>"** (`action` = `chat_reply`, `object_type` = `chat_mention`, so it's grouped and shown like a mention — the **@** badge in the chat list) instead of the plain one. Not for a reply to your own message; and someone both quoted and @mentioned gets the mention only.
+
+People's names in a chat (above messages, in quotes) come from the portal, not CometChat — see @mentions above.
+
 ### New Chat button
 
 A **"New Chat"** button sits at the bottom of the sidebar, visible to all users. The `+New` button also appears in the header, but only for customers (`isCustomer` check). Both open the `CreateChatModal`.
@@ -201,6 +223,9 @@ User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
 
 | File | Responsibility |
 |---|---|
+| `components/chat/mentions.ts` | @mention logic — `<@uid:…>` tokens ↔ `@Name`, what's being typed after `@`, who to offer (unit-tested in `tests/unit/mentions.spec.ts`) |
+| `components/chat/CometChat/useGroupMembers.ts` | A group's people with their portal names — who can be mentioned, and the names shown on messages |
+| `components/chat/CometChat/useMessageReplies.ts` | Replying: the message being answered, finding a quoted message, jumping to it |
 | `components/chat/unread-chats.tsx` | Unread chats — `useUnreadChats` (live set from the bell's notifications), `useMarkOpenChatRead`, the sidebar dot and the "Unread" filter toggle |
 | `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and an admin browsing that initiative) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
 | `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` (`components/chat/chat-route-redirect.tsx`) |

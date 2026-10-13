@@ -8,6 +8,9 @@ import { MessageBubble } from "./MessageBubble";
 import { getMessageDate, mergeMessages, replaceMessage, sendGroupMessages, withoutActions } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
+import { useGroupMembers } from "./useGroupMembers";
+import { mentionablePeople } from "../mentions";
+import { useMessageReplies } from "./useMessageReplies";
 
 // Who sent a CometChat message (SDK object or raw payload).
 const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
@@ -22,6 +25,12 @@ export default function GroupChat({ user, group }: Props) {
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const guid = group.getGuid();
+  // The group's people: who can be @mentioned (everyone but the user), and
+  // the names behind the mentions in its messages.
+  const members = useGroupMembers(guid);
+  const mentionOptions = mentionablePeople(members, user.getUid());
+  // Replying to a message (quoting it), and jumping to a quoted one.
+  const replies = useMessageReplies(messages, members);
 
   useEffect(() => {
     fetchMessages();
@@ -85,7 +94,8 @@ export default function GroupChat({ user, group }: Props) {
 
   const sendMessage = async (text: string, files: File[]) => {
     try {
-      const sent = await sendGroupMessages(guid, text, files);
+      const sent = await sendGroupMessages(guid, text, files, replies.replyToId);
+      replies.cancelReply();
       setMessages((prev) => mergeMessages(prev, sent));
     } catch (err) {
       console.error("Send group message error:", err);
@@ -110,7 +120,7 @@ export default function GroupChat({ user, group }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref={replies.listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30" />
@@ -126,6 +136,11 @@ export default function GroupChat({ user, group }: Props) {
               index={i}
               user={user}
               onMessageChanged={(updated) => setMessages((prev) => replaceMessage(prev, updated))}
+              knownUsers={members}
+              onReply={replies.startReply}
+              findMessage={replies.findMessage}
+              onJumpToMessage={replies.jumpToMessage}
+              highlighted={replies.highlightedId === String(msg.getId?.() ?? "")}
               isLast={i === messages.length - 1}
               continuesGroup={i > 0 && !dayStarts[i] && senderUidOf(messages[i - 1]) === senderUidOf(msg)}
             />
@@ -136,7 +151,12 @@ export default function GroupChat({ user, group }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <ChatComposer onSend={sendMessage} />
+        <ChatComposer
+          onSend={sendMessage}
+          mentionOptions={mentionOptions}
+          replyingTo={replies.replyingTo}
+          onCancelReply={replies.cancelReply}
+        />
       </div>
     </div>
   );

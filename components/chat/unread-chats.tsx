@@ -13,7 +13,9 @@ import { useUser } from "context/UserContext";
 // webhook). So a chat is unread while that notification is, and opening the
 // chat marks it read — which also clears it from the bell.
 
-type ChatNotification = { id: string; chatId: string };
+// `mention`: it's addressed to the user — a "mentioned you" or "replied to
+// you" notification (object_type "chat_mention").
+type ChatNotification = { id: string; chatId: string; mention: boolean };
 
 async function fetchUnreadChatNotifications(): Promise<ChatNotification[]> {
   const { data, error } = await supabase
@@ -21,12 +23,16 @@ async function fetchUnreadChatNotifications(): Promise<ChatNotification[]> {
     .from("notifications")
     .select("id, event:events!inner(object_type, object_id)")
     .eq("read", false)
-    .eq("event.object_type", "chat");
+    .in("event.object_type", ["chat", "chat_mention"]);
   if (error) {
     console.error("Fetch unread chats error:", error);
     return [];
   }
-  return (data ?? []).map((n: any) => ({ id: n.id, chatId: n.event.object_id }));
+  return (data ?? []).map((n: any) => ({
+    id: n.id,
+    chatId: n.event.object_id,
+    mention: n.event.object_type === "chat_mention",
+  }));
 }
 
 // Marks a chat's notification(s) read for the signed-in user. Safe to call
@@ -81,6 +87,8 @@ export function useUnreadChats() {
   }, [profile?.id, instanceId]);
 
   const unreadChatIds = useMemo(() => new Set(unread.map((n) => n.chatId)), [unread]);
+  // The unread chats where the user was @mentioned.
+  const mentionChatIds = useMemo(() => new Set(unread.filter((n) => n.mention).map((n) => n.chatId)), [unread]);
 
   const markRead = useCallback(async (chatId: string) => {
     // Drop it right away; the subscription confirms it.
@@ -88,20 +96,36 @@ export function useUnreadChats() {
     await markChatRead(chatId);
   }, []);
 
-  return { unreadChatIds, markRead };
+  return { unreadChatIds, mentionChatIds, markRead };
 }
 
-const UnreadChatsContext = createContext<ReadonlySet<string>>(new Set());
+const NONE: ReadonlySet<string> = new Set();
+const UnreadChatsContext = createContext<ReadonlySet<string>>(NONE);
+const MentionChatsContext = createContext<ReadonlySet<string>>(NONE);
 
 export function UnreadChatsProvider({
   unreadChatIds,
+  mentionChatIds = NONE,
   children,
-}: Readonly<{ unreadChatIds: ReadonlySet<string>; children: React.ReactNode }>) {
-  return <UnreadChatsContext.Provider value={unreadChatIds}>{children}</UnreadChatsContext.Provider>;
+}: Readonly<{
+  unreadChatIds: ReadonlySet<string>;
+  /** The unread chats where the user was @mentioned. */
+  mentionChatIds?: ReadonlySet<string>;
+  children: React.ReactNode;
+}>) {
+  return (
+    <UnreadChatsContext.Provider value={unreadChatIds}>
+      <MentionChatsContext.Provider value={mentionChatIds}>{children}</MentionChatsContext.Provider>
+    </UnreadChatsContext.Provider>
+  );
 }
 
 export function useIsChatUnread(chatId: string): boolean {
   return useContext(UnreadChatsContext).has(chatId);
+}
+
+export function useIsChatMentioned(chatId: string): boolean {
+  return useContext(MentionChatsContext).has(chatId);
 }
 
 export function useUnreadChatIds(): ReadonlySet<string> {
@@ -125,11 +149,25 @@ export function useMarkOpenChatRead(
 // text (absolutely positioned) inside the row — without a positioned
 // ancestor it sat at the row's offset in the *page*, so an unread chat far
 // down the scrolling list made the whole page taller than the screen.
-export function UnreadDot() {
+// With `mention`, it's an "@" instead: someone mentioned or replied to the
+// user there.
+export function UnreadDot({ mention = false }: Readonly<{ mention?: boolean }>) {
   return (
-    <span className="relative ml-auto flex-shrink-0" title="Unread messages">
-      <span className="block h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
-      <span className="sr-only">Unread messages</span>
+    <span
+      className="relative ml-auto flex-shrink-0"
+      title={mention ? "Someone mentioned or replied to you" : "Unread messages"}
+    >
+      {mention ? (
+        <span
+          className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-primary-foreground"
+          aria-hidden="true"
+        >
+          @
+        </span>
+      ) : (
+        <span className="block h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
+      )}
+      <span className="sr-only">Unread messages{mention ? " — someone mentioned or replied to you" : ""}</span>
     </span>
   );
 }

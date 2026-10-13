@@ -25,7 +25,9 @@ async function insertEvent(schema: string, fields: Record<string, unknown>): Pro
 
 // Keeps one unread notification per (user, issue) — or per (user, chat) for
 // chat messages, same as the Realtime notify_chat_message trigger: re-points
-// an existing unread one at the new event, or inserts a new row.
+// an existing unread one at the new event, or inserts a new row. Chat
+// @mentions ("chat_mention") are grouped the same way but apart from plain
+// chat messages, so a later message doesn't replace "mentioned you".
 async function upsertNotificationForEvent(
   schema: string,
   userId: string,
@@ -34,7 +36,8 @@ async function upsertNotificationForEvent(
   issueId: string | undefined,
   objectId: string,
 ): Promise<void> {
-  const threadKey = objectType === "chat" ? { column: "events.object_id", value: objectId } : issueId ? { column: "events.issue_id", value: issueId } : null;
+  const isChat = objectType === "chat" || objectType === "chat_mention";
+  const threadKey = isChat ? { column: "events.object_id", value: objectId } : issueId ? { column: "events.issue_id", value: issueId } : null;
   if (threadKey) {
     const { data: existing, error: existingError } = await supabase.schema(schema)
       .from("notifications")
@@ -178,10 +181,13 @@ export async function notifyUsers(
     userIds: (string | null | undefined)[];
     includeAdmins?: boolean;
     includeClientOf?: string;
+    // Left out even if they'd be included above (e.g. an admin who already
+    // gets a more specific notification for the same thing).
+    excludeUserIds?: (string | null | undefined)[];
   },
 ): Promise<void> {
   const schema = "portal";
-  const { userIds, includeAdmins, includeClientOf, actorEmail } = params;
+  const { userIds, includeAdmins, includeClientOf, actorEmail, excludeUserIds } = params;
 
   try {
     const [adminsResult, actorResult, clientSideIds] = await Promise.all([
@@ -198,6 +204,7 @@ export async function notifyUsers(
     userIds.forEach((id) => id && recipientIds.add(id));
     clientSideIds.forEach((id) => recipientIds.add(id));
     (adminsResult.data ?? []).forEach((a) => a.id && recipientIds.add(a.id));
+    (excludeUserIds ?? []).forEach((id) => id && recipientIds.delete(id));
     if (actor?.id) recipientIds.delete(actor.id);
 
     await notifyRecipients(schema, recipientIds, actor?.id ?? null, params);

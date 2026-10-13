@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { DirectChatEntry } from "./ChatLayout";
-import { UnreadChatsProvider, UnreadDot, UnreadFilterToggle, useIsChatUnread } from "../unread-chats";
+import { UnreadChatsProvider, UnreadDot, UnreadFilterToggle, useIsChatMentioned, useIsChatUnread } from "../unread-chats";
 
 const NO_UNREAD: ReadonlySet<string> = new Set();
 
@@ -35,6 +35,8 @@ type Props = Readonly<{
   onSelectedCustomerIdChange?: (id: string) => void;
   // Chats with messages the user hasn't seen (see ../unread-chats.tsx).
   unreadChatIds?: ReadonlySet<string>;
+  // Of those, the ones where the user was @mentioned.
+  mentionChatIds?: ReadonlySet<string>;
 }>;
 
 type GroupItemProps = Readonly<{
@@ -70,6 +72,7 @@ function GroupAvatar({ name }: Readonly<{ name: string }>) {
 
 function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItemProps) {
   const isUnread = useIsChatUnread(group.getGuid());
+  const isMentioned = useIsChatMentioned(group.getGuid());
   return (
     <div
       className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
@@ -85,7 +88,7 @@ function GroupItem({ group, isSelected, onSelect, onClose, canLeave }: GroupItem
             {group.getName()}
           </div>
         </div>
-        {isUnread && <UnreadDot />}
+        {isUnread && <UnreadDot mention={isMentioned} />}
       </button>
       {canLeave && (
         <button
@@ -173,6 +176,7 @@ export default function ChatSideBar({
   selectedCustomerId,
   onSelectedCustomerIdChange,
   unreadChatIds = NO_UNREAD,
+  mentionChatIds = NO_UNREAD,
 }: Props) {
   const hasNoChats = groups.length === 0 && directChats.length === 0;
   const customerNameById = useMemo(
@@ -188,7 +192,7 @@ export default function ChatSideBar({
   const showGrouped = groupedBySlug.size > 1;
 
   return (
-    <UnreadChatsProvider unreadChatIds={unreadChatIds}>
+    <UnreadChatsProvider unreadChatIds={unreadChatIds} mentionChatIds={mentionChatIds}>
     <div className="w-full h-full border-r flex flex-col bg-background">
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">

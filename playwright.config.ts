@@ -23,6 +23,11 @@ export default defineConfig({
   // Stage 1: login — must pass before role tests run
   // Stage 2: role tests run with up to 2 workers
   projects: [
+    // Pure logic, no browser or server data: npx playwright test --project=unit
+    {
+      name: 'unit',
+      testMatch: '**/unit/*.spec.ts',
+    },
     {
       name: 'login',
       testMatch: ['**/login.spec.ts', '**/example.spec.ts', '**/set-password.spec.ts'],
