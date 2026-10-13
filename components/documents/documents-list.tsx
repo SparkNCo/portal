@@ -52,6 +52,26 @@ async function fetchDocuments(id: string, projectSlug?: string, viewerId?: strin
   return res.json();
 }
 
+// Placeholder rows while the documents load, shaped like a document row:
+// the file icon box, the name, and the category/date line.
+function DocumentsSkeleton() {
+  const bar = "rounded bg-muted-foreground/20";
+  return (
+    <div role="status" aria-live="polite" className="space-y-2 animate-pulse">
+      <span className="sr-only">Loading documents…</span>
+      {Array.from({ length: 5 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-lg border border-border/60 sm:border-transparent p-2 sm:p-0">
+          <div className={`${bar} h-10 w-10 shrink-0 rounded-lg`} />
+          <div className="flex-1 space-y-2 py-1">
+            <div className={`${bar} h-3.5 w-1/2`} />
+            <div className={`${bar} h-3 w-1/3`} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function DocumentsList({
   projectSlug,
 }: {
@@ -164,9 +184,7 @@ export function DocumentsList({
       </CardHeader>
 
       <CardContent>
-        {isLoading && (
-          <p className="smalltext text-muted-foreground">Loading documents…</p>
-        )}
+        {isLoading && <DocumentsSkeleton />}
 
         {isError && (
           <p className="smalltext text-destructive">Failed to load documents</p>

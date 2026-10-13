@@ -39,7 +39,7 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
       <h2 id="suggested-features-heading" className="body font-semibold flex items-center gap-2">
         <Lightbulb className="h-4 w-4 text-primary" aria-hidden="true" />
         Suggested Features
-        {!isLoading && <span className="smalltext font-normal text-muted-foreground tabular-nums">{features.length}</span>}
+        {!isLoading && <span className="smalltext font-semibold text-primary tabular-nums">{features.length}</span>}
       </h2>
 
       <div className="-mx-4 sm:mx-0 flex gap-4 overflow-x-auto pb-2 px-4 sm:px-0">
