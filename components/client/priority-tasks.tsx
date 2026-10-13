@@ -1,5 +1,6 @@
 "use client";
 
+import { IssueSkeletons } from "./issue-skeletons";
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -97,6 +98,7 @@ export function PriorityTasks({
   viewMode = "grid",
   onViewModeChange,
   emptyState,
+  loading = false,
 }: PriorityTasksProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -178,7 +180,9 @@ export function PriorityTasks({
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
-          {visibleIssues.length === 0 ? (
+          {loading ? (
+            <IssueSkeletons view="list" count={4} />
+          ) : visibleIssues.length === 0 ? (
             <p className="smalltext text-muted-foreground italic px-1">No issues.</p>
           ) : (
             <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
@@ -287,7 +291,9 @@ export function PriorityTasks({
         </div>
       )}
       <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
-        {visibleIssues.length === 0 ? (
+        {loading ? (
+          <IssueSkeletons view={viewMode} />
+        ) : visibleIssues.length === 0 ? (
           emptyState ?? (
             <p className="smalltext text-muted-foreground italic p-2">
               No issues match the current filters.

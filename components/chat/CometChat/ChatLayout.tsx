@@ -71,7 +71,7 @@ export default function ChatLayout({
   // actually being viewed.
   const viewedCustomerId = usePinnedPanelsOwnerId();
   const customerId = customerSlug ? viewedCustomerId : undefined;
-  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
+  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup, bumpGroup } =
     useCometChat(customerId);
 
   const isAdmin = profile?.role === "admin";
@@ -338,7 +338,9 @@ export default function ChatLayout({
           </button>
         )}
         <div className="flex flex-1 overflow-hidden">
-          {selectedGroup && user && <GroupChat user={user} group={selectedGroup} />}
+          {selectedGroup && user && (
+            <GroupChat user={user} group={selectedGroup} onActivity={() => bumpGroup(selectedGroup.getGuid())} />
+          )}
           {!selectedGroup && selectedDirect && user && (
             <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
           )}

@@ -5,7 +5,6 @@ import { QuickLinks } from "@/components/developer/quick-links";
 import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
-import { LoadingDataPanel } from "@/components/loader";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LogHoursModal } from "@/components/developer/log-hours-modal";
@@ -257,10 +256,9 @@ export default function DeveloperDashboard() {
                 here.
               </p>
             </div>
-          ) : issuesLoading ? (
-            <LoadingDataPanel />
           ) : (
             <PriorityTasks
+              loading={issuesLoading}
               issuesData={visibleIssues}
               filterState={filterState}
               onOpenChat={() => {}}
