@@ -19,9 +19,11 @@ const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.()
 type Props = Readonly<{
   user: CometChat.User;
   group: CometChat.Group;
+  /** A message was just sent here (the chat list moves this chat to the top). */
+  onActivity?: () => void;
 }>;
 
-export default function GroupChat({ user, group }: Props) {
+export default function GroupChat({ user, group, onActivity }: Props) {
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -107,6 +109,7 @@ export default function GroupChat({ user, group }: Props) {
       const sent = await sendGroupMessages(guid, text, files, replies.replyToId);
       replies.cancelReply();
       setMessages((prev) => mergeMessages(prev, sent));
+      onActivity?.();
     } catch (err) {
       console.error("Send group message error:", err);
       throw err;

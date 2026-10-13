@@ -1,5 +1,6 @@
 "use client";
 
+import { IssueSkeletons } from "@/components/client/issue-skeletons";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -672,7 +673,7 @@ export function RoadmapTimeline({
             </div>
 
             {cycleIssuesLoading ? (
-              <p className="smalltext text-muted-foreground">Loading issues...</p>
+              <IssueSkeletons view="grid" count={3} />
             ) : cycleIssues.length === 0 ? (
               <p className="smalltext text-muted-foreground">
                 {selectedBucket
