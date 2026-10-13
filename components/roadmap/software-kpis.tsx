@@ -86,6 +86,31 @@ async function fetchDoraMetrics(linearName: string): Promise<DoraMetric[]> {
   return res.json();
 }
 
+// Placeholders while the metrics load: one tile per metric, laid out like
+// the real grid (the KPI_CONFIG ones plus Code Coverage and Sonar Quality
+// Gate), each with its icon/label line and its big value.
+function KpiSkeletons() {
+  const bar = "rounded bg-muted-foreground/20";
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start animate-pulse"
+    >
+      <span className="sr-only">Loading SDLC metrics…</span>
+      {Array.from({ length: KPI_CONFIG.length + 2 }, (_, i) => (
+        <div key={i} className="rounded-lg border border-border p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`${bar} h-4 w-4`} />
+            <div className={`${bar} h-3 w-28`} />
+          </div>
+          <div className={`${bar} h-7 w-20`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const KPI_CONFIG = [
   {
     key: "deploy_frequency" as const,
@@ -538,9 +563,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto min-h-0">
-        {isLoading && (
-          <p className="smalltext text-muted-foreground">Loading metrics...</p>
-        )}
+        {isLoading && <KpiSkeletons />}
         {isError && (
           <p className="smalltext text-destructive">Failed to load metrics.</p>
         )}
