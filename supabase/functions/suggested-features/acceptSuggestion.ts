@@ -43,7 +43,6 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
     return Response.json({ error: "Suggestion already resolved" }, { status: 409 });
   }
 
-  // Its project may have been completed or cancelled since it was suggested.
   if (suggestion.linear_project_id) {
     const closed = await closedProjectError(suggestion.linear_project_id);
     if (closed) return Response.json({ error: `${closed} Pick another project first.` }, { status: 400 });

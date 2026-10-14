@@ -545,8 +545,6 @@ const CREATE_MILESTONE_MUTATION = `
   }
 `;
 
-// The projects offered in a project picker: completed and cancelled ones
-// are left out (see isClosedProject).
 function selectableProjects(nodes: any[] | null | undefined): { id: string; name: string }[] {
   return (nodes ?? []).filter((p) => !isClosedProject(p)).map((p) => ({ id: p.id, name: p.name }));
 }
