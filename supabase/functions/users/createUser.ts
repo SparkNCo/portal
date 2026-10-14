@@ -123,8 +123,9 @@ export const createUser = async (body: any, schema: string, testRun: TestRun | n
   return data;
 };
 
-// Creates the Auth account and its "set your password" link.
-async function createInvite(email: string, redirectTo: string) {
+// Creates the Auth account and its "set your password" link. Shared with
+// createCustomerFlow.
+export async function createInvite(email: string, redirectTo: string) {
   const { data: inviteData, error: inviteError } =
     await supabase.auth.admin.generateLink({
       type: "invite",
@@ -146,8 +147,8 @@ async function createInvite(email: string, redirectTo: string) {
 }
 
 // Test mode's stand-in for createInvite: a made-up id and a link that goes
-// nowhere, so no Auth account is created.
-function testInvite(testRun: TestRun, email: string, redirectTo: string) {
+// nowhere, so no Auth account is created. Shared with createCustomerFlow.
+export function testInvite(testRun: TestRun, email: string, redirectTo: string) {
   const authUserId = crypto.randomUUID();
   testRun.writes.push({ target: "auth.users", op: "invite", data: { id: authUserId, email } });
   return { authUserId, inviteLink: `${redirectTo}#test-mode` };

@@ -81,19 +81,23 @@ If `TEST_MODE_TOKEN` is missing from `supabase/functions/.env`, the tests are sk
 |---|---|---|
 | Create developer | `POST /functions/v1/users?type=developer` | Auth account (invite), `portal.users` row, `portal.developers` row, invite email |
 | Create stakeholder | `POST /functions/v1/users?type=stakeholder` | Auth account (invite), `portal.users` row, invite email |
+| Create customer | `POST /functions/v1/users?type=customer` | Auth account (invite), `portal.customers` row and its Linear projects update, `portal.users` row, invite email, the `issueMetrics` run. Linear is still read. |
+| Reset password | `POST /functions/v1/reset-password` | The recovery token on the Auth account, reset email. It checks that the account exists, so an unknown email still gets no email. |
 
-Any other request to `users` that carries the header gets a 400, including `type=customer`. Functions that don't use test mode yet ignore the header and run normally, so don't send it to them expecting protection.
+| Project request | `POST /functions/v1/project-requests` | The email to every admin |
+| Developer request | `POST /functions/v1/developer-requests` | The email to every admin |
+| Stakeholder added | `POST /functions/v1/stakeholder-notifications` | The email to every admin |
+
+The last three only send email; they write nothing. They email real admin inboxes, so the tests never call them without the header. Before running, the tests also check that each one is deployed with test mode: a request with no fields and a wrong token must get a 403. An older deployment would answer 400 without sending anything, and the tests stop there.
+
+Any other request to `users` that carries the header gets a 400, for example `type=resend-account-email`. Functions that don't use test mode yet ignore the header and run normally, so don't send it to them expecting protection.
 
 ### Not covered yet
 
 These flows also send emails or write data and could be added with the same pattern:
 
-- Create customer (`users?type=customer`): Auth account, `customers`, `users`, invite email, triggers `issueMetrics`
 - Resend account email (`users?type=resend-account-email`)
-- Reset password (`reset-password`)
-- Project request (`project-requests`), developer request (`developer-requests`)
 - Feature request → admin notification email (`features`)
-- Stakeholder added → admin email (`stakeholder-notifications`)
 - Payment link (`stripe`), lead welcome email (`update-lead`)
 
 ---
@@ -107,7 +111,7 @@ These flows also send emails or write data and could be added with the same patt
 
 **Doesn't guarantee:**
 - **That the final step succeeds.** It doesn't check that Resend accepts the email or that Postgres accepts the row (constraints, triggers), because those steps are skipped. A failure that happens only there won't show up in test mode.
-- **Real ids or links.** The user id is a random UUID and the invite link is `…/set-password#test-mode`.
+- **Real ids or links.** User and customer ids are random UUIDs, and the links are `…/set-password#test-mode` or `…/reset-password#test-mode`.
 - **That reads are free.** Reads do happen, against the real database. They don't change anything.
 
 ---

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { sendEmail } from "../lib/mailer.ts";
+import type { TestRun } from "../lib/testMode.ts";
 
 type SendStakeholderAddedMailParams = {
   email: string;
@@ -7,6 +8,8 @@ type SendStakeholderAddedMailParams = {
   stakeholderName?: string;
   clientName?: string;
   addedBy?: string;
+  // Test mode (lib/testMode.ts): recorded instead of sent.
+  testRun?: TestRun | null;
 };
 
 export async function sendStakeholderAddedMail({
@@ -15,6 +18,7 @@ export async function sendStakeholderAddedMail({
   stakeholderName,
   clientName,
   addedBy,
+  testRun = null,
 }: SendStakeholderAddedMailParams) {
   console.log("[sendStakeholderAddedMail] 📧 Sending to:", email);
 
@@ -37,7 +41,7 @@ export async function sendStakeholderAddedMail({
     to: email,
     subject: `New stakeholder added${clientName ? ` — ${clientName}` : ""}`,
     html,
-  });
+  }, testRun);
 
   console.log("[sendStakeholderAddedMail] ✅ Response:", response);
 
