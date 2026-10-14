@@ -65,6 +65,12 @@ export default defineConfig({
       testMatch: '**/documents.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Edge functions in test mode (no emails, no writes) — calls them
+    // directly, no browser: npx playwright test --project=test-mode
+    {
+      name: 'test-mode',
+      testMatch: '**/test-mode.spec.ts',
+    },
   ],
 
   /* Start the dev server before running tests */

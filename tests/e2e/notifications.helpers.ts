@@ -23,7 +23,9 @@ const fnEnv = readEnv('supabase/functions/.env');
 const appEnv = readEnv('.env');
 
 export const SUPABASE_URL: string = appEnv.NEXT_PUBLIC_SUPABASE_URL || fnEnv.PROJECT_URL || "";
-const ANON_KEY: string = appEnv.NEXT_PUBLIC_SUPABASE_KEY ?? "";
+export const ANON_KEY: string = appEnv.NEXT_PUBLIC_SUPABASE_KEY ?? "";
+// Lets a request run in test mode (supabase/functions/lib/testMode.ts).
+export const TEST_MODE_TOKEN: string = fnEnv.TEST_MODE_TOKEN ?? "";
 const SERVICE_KEY: string = fnEnv.SERVICE_SECRET_KEY ?? "";
 const LINEAR_API_KEY: string = fnEnv.LINEAR_API_KEY ?? "";
 export const COMETCHAT = {

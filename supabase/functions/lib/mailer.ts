@@ -3,6 +3,7 @@
 // falls back to Gmail SMTP when RESEND_KEY isn't set.
 import { Resend } from "https://esm.sh/resend@3";
 import nodemailer from "npm:nodemailer@6";
+import type { TestRun } from "./testMode.ts";
 
 export type SendEmailArgs = {
   to: string | string[];
@@ -62,7 +63,14 @@ async function sendViaSmtp(args: SendEmailArgs): Promise<SendEmailResult> {
   }
 }
 
-export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
+// With a TestRun (test mode, see testMode.ts) nothing is sent: the email is
+// recorded on it instead.
+export async function sendEmail(args: SendEmailArgs, testRun: TestRun | null = null): Promise<SendEmailResult> {
+  if (testRun) {
+    testRun.emails.push({ to: args.to, subject: args.subject, html: args.html });
+    return { data: { id: "test-mode" }, error: null };
+  }
+
   const from = args.from ?? Deno.env.get("FROM_EMAIL")!;
   const resendKey = Deno.env.get("RESEND_KEY");
   const useResend = args.provider ? args.provider === "resend" : !!resendKey;
