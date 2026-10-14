@@ -305,7 +305,6 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
     return Response.json({ error: "Missing title" }, { status: 400 });
   }
 
-  // The pickers don't offer finished projects; this stops one being used anyway.
   if (body.projectId) {
     const closed = await closedProjectError(body.projectId);
     if (closed) return Response.json({ error: closed }, { status: 400 });

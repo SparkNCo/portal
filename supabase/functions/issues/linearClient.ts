@@ -43,11 +43,6 @@ export const GET_INITIATIVE_PROJECTS_QUERY = `
   }
 `;
 
-// A project that's finished — completed or cancelled in Linear — doesn't take
-// new work: it isn't offered wherever a project is picked (new feature, bug,
-// document request, suggested feature) and tickets can't be created in it.
-// By the status's *type*, not its name: workspaces rename statuses (e.g. a
-// "completed" one called "In Production").
 const CLOSED_PROJECT_STATUS_TYPES = new Set(["completed", "canceled"]);
 
 export function isClosedProject(project: { status?: { type?: string | null } | null } | null | undefined): boolean {
@@ -60,7 +55,6 @@ const PROJECT_STATUS_QUERY = `
   }
 `;
 
-// Null if tickets can be created in the project; otherwise why not.
 export async function closedProjectError(projectId: string): Promise<string | null> {
   const data = await linearRequest(PROJECT_STATUS_QUERY, { id: projectId });
   const project = data?.project;
