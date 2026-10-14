@@ -20,6 +20,7 @@ import {
   Video,
   X,
   FolderKanban,
+  Database,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
@@ -63,8 +64,13 @@ const developerNavItems = [
 const adminNavItems = [{ href: "/admin/users", label: "Users", icon: Shield }];
 
 // Customer pages an admin sees for the initiative picked in the dropdown
-// (Chat included — it's /{slug}/chat for every role).
-const adminCustomerNavItems = clientNavItems;
+// (Chat included — it's /{slug}/chat for every role), plus Query, which only
+// admins get for now (PAGE_ROLES in lib/route-access.ts).
+const adminCustomerNavItems = [
+  ...clientNavItems.filter((item) => item.href !== "settings"),
+  { href: "query", label: "Query", icon: Database },
+  ...clientNavItems.filter((item) => item.href === "settings"),
+];
 
 // The admin's last opened initiative, preselected on /admin pages.
 export const ADMIN_LAST_INITIATIVE_KEY = "admin-last-initiative";
