@@ -16,7 +16,7 @@ import { resolveTestMode, testModeBody, TestModeRejected, type TestRun } from ".
 // The requests that can run in test mode (lib/testMode.ts): POST with one of
 // these `type`s. Any other request carrying the test-mode header is refused
 // rather than run for real.
-const TEST_MODE_POST_TYPES = new Set(["", "developer", "stakeholder"]);
+const TEST_MODE_POST_TYPES = new Set(["", "developer", "stakeholder", "customer"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -159,8 +159,8 @@ const handlePost = async (req: Request, url: URL, schema: string, testRun: TestR
   }
 
   if (type === "customer") {
-    const result = await createCustomerFlow(body, schema);
-    return jsonResponse(result);
+    const result = await createCustomerFlow(body, schema, testRun);
+    return jsonResponse(testRun ? testModeBody(testRun, result) : result);
   }
 
   if (type === "resend-account-email") {

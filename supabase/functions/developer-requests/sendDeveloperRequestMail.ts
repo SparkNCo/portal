@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { sendEmail } from "../lib/mailer.ts";
+import type { TestRun } from "../lib/testMode.ts";
 
 type SendDeveloperRequestMailParams = {
   email: string;
@@ -8,6 +9,8 @@ type SendDeveloperRequestMailParams = {
   notes?: string;
   requestedBy?: string;
   clientName?: string;
+  // Test mode (lib/testMode.ts): recorded instead of sent.
+  testRun?: TestRun | null;
 };
 
 export async function sendDeveloperRequestMail({
@@ -17,6 +20,7 @@ export async function sendDeveloperRequestMail({
   notes,
   requestedBy,
   clientName,
+  testRun = null,
 }: SendDeveloperRequestMailParams) {
   console.log("[sendDeveloperRequestMail] 📧 Sending to:", email);
 
@@ -41,7 +45,7 @@ export async function sendDeveloperRequestMail({
     to: email,
     subject: `New Spark & Co FDE developer request${clientName ? ` — ${clientName}` : ""}`,
     html,
-  });
+  }, testRun);
 
   console.log("[sendDeveloperRequestMail] ✅ Response:", response);
 
