@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { sendEmail } from "../lib/mailer.ts";
+import type { TestRun } from "../lib/testMode.ts";
 
 function InviteTemplateHtml({ inviteLink, isNew }: { inviteLink: string; isNew: boolean }) {
   const heading = isNew ? "You're invited!" : "Reset your password";
@@ -73,8 +74,15 @@ function InviteTemplateHtml({ inviteLink, isNew }: { inviteLink: string; isNew: 
 // rather than fail whatever flow is trying to invite a test user.
 const isTestDomain = (email: string) => /^example\.(com|net|org)$/i.test(email.split("@")[1] ?? "");
 
-export async function sendInviteCustomerMail(email: string, inviteLink: string, isNew: boolean = true) {
-  if (isTestDomain(email)) {
+// In test mode (testRun set) the email is recorded instead of sent — even to
+// a test domain, so a test can check it.
+export async function sendInviteCustomerMail(
+  email: string,
+  inviteLink: string,
+  isNew: boolean = true,
+  testRun: TestRun | null = null,
+) {
+  if (isTestDomain(email) && !testRun) {
     console.log("[sendInviteCustomerMail] skipping invite email for test domain", { to: email });
     return { skipped: true };
   }
@@ -85,7 +93,7 @@ export async function sendInviteCustomerMail(email: string, inviteLink: string, 
     to: email,
     subject: isNew ? "You've been invited to the portal" : "Reset your portal password",
     html: InviteTemplateHtml({ inviteLink, isNew }),
-  });
+  }, testRun);
 
   console.log("[sendInviteCustomerMail] response:", JSON.stringify(response));
 
