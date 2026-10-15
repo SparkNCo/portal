@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Database, Loader2, Lock, LockOpen, Pencil, Trash2 } from "lucide-react";
+import { Database, Loader2, Lock, LockOpen, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import {
   Dialog,
@@ -13,10 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type DataSource, deleteDataSource } from "@/lib/data-sources-api";
+import { type DataSource, deleteDataSource, refreshDataSourceStructure } from "@/lib/data-sources-api";
 
 // A client's connected databases (SPA-489): what each one points at, the
-// state of its structure (read in SPA-490) and Edit / Delete.
+// state of its structure (SPA-490) and Refresh structure / Edit / Delete.
 
 function structureStatus(dataSource: DataSource): { label: string; tone: "muted" | "ok" | "error" } {
   if (dataSource.schema_error) return { label: `Couldn't read its structure: ${dataSource.schema_error}`, tone: "error" };
@@ -54,19 +54,30 @@ export function DataSourcesListSkeleton() {
 export function DataSourcesList({
   dataSources,
   onEdit,
-  onDeleted,
+  onChanged,
 }: Readonly<{
   dataSources: DataSource[];
   onEdit: (dataSource: DataSource) => void;
-  onDeleted: (dataSource: DataSource) => void;
+  /** After one is deleted or its structure read again. */
+  onChanged: () => void;
 }>) {
   const [deleting, setDeleting] = useState<DataSource | null>(null);
+
+  const refreshStructure = useMutation({
+    mutationFn: (dataSource: DataSource) => refreshDataSourceStructure(dataSource.id),
+    onSuccess: (updated) => {
+      if (updated.schema_error) toast.error(`Couldn't read the structure of "${updated.name}"`);
+      else toast.success(`Read the structure of "${updated.name}"`);
+      onChanged();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const remove = useMutation({
     mutationFn: (dataSource: DataSource) => deleteDataSource(dataSource.id),
     onSuccess: (_data, dataSource) => {
       toast.success(`Deleted "${dataSource.name}"`);
-      onDeleted(dataSource);
+      onChanged();
       setDeleting(null);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -85,6 +96,22 @@ export function DataSourcesList({
                   <h3 className="body font-semibold truncate">{dataSource.name}</h3>
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    aria-label={`Read the structure of ${dataSource.name} again`}
+                    title="Refresh structure"
+                    disabled={refreshStructure.isPending}
+                    onClick={() => refreshStructure.mutate(dataSource)}
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${
+                        refreshStructure.isPending && refreshStructure.variables?.id === dataSource.id ? "animate-spin" : ""
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

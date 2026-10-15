@@ -51,7 +51,9 @@ export async function testConnection(config: ConnectionConfig): Promise<string |
   }
 }
 
-export function describeConnectionError(err: any, config: ConnectionConfig): string {
+// `fallbackPrefix` goes before the raw message when it's none of the
+// connection problems below (e.g. a query that failed once connected).
+export function describeConnectionError(err: any, config: ConnectionConfig, fallbackPrefix = "Couldn't connect: "): string {
   const code = String(err?.code ?? "");
   const message = String(err?.message ?? err ?? "");
   const where = `${config.host}:${config.port}`;
@@ -73,5 +75,5 @@ export function describeConnectionError(err: any, config: ConnectionConfig): str
   if (/ssl|tls|certificate/i.test(message)) {
     return `The SSL connection failed (${message}). Try with SSL ${config.ssl ? "off" : "on"}.`;
   }
-  return `Couldn't connect: ${message}`;
+  return `${fallbackPrefix}${message}`;
 }

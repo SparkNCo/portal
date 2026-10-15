@@ -50,7 +50,7 @@ export default function QueryPage() {
     );
   } else {
     content = (
-      <DataSourcesList dataSources={dataSources} onEdit={(dataSource) => setFormFor(dataSource)} onDeleted={refresh} />
+      <DataSourcesList dataSources={dataSources} onEdit={(dataSource) => setFormFor(dataSource)} onChanged={refresh} />
     );
   }
 

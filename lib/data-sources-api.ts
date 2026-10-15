@@ -93,6 +93,14 @@ export async function updateDataSource(
   return res.json();
 }
 
+// Reads the connection's structure again. Resolves with the updated
+// connection even when that fails — the reason is in `schema_error`.
+export async function refreshDataSourceStructure(id: string): Promise<DataSource> {
+  const res = await fetch(`${BASE_URL}/${id}/refresh-structure`, { method: "POST", headers: await authHeaders() });
+  if (!res.ok) throw await errorFrom(res, "Couldn't read the structure");
+  return res.json();
+}
+
 export async function deleteDataSource(id: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/${id}`, { method: "DELETE", headers: await authHeaders() });
   if (!res.ok) throw await errorFrom(res, "Couldn't delete the connection");

@@ -5,6 +5,7 @@ import { parseConnectionInput } from "./connectionInput.ts";
 import { testConnection } from "./postgresClient.ts";
 import { testSavedConnection } from "./manageDataSources.ts";
 import { DATA_SOURCE_COLUMNS } from "./columns.ts";
+import { refreshStructure } from "./refreshStructure.ts";
 
 // POST /data-sources/test — does this database answer with these details?
 // With `id`, tests a saved connection instead (see testSavedConnection).
@@ -20,7 +21,9 @@ export async function handleTestConnection(req: Request): Promise<Response> {
 }
 
 // POST /data-sources — saves a new connection for the client at `slug`,
-// after checking it works. The password goes to Vault, not the table.
+// after checking it works. The password goes to Vault, not the table. Then
+// reads its structure; if that fails the connection stays saved, with the
+// error on it (schema_error) to retry from the list.
 export async function handleCreateDataSource(req: Request, callerId: string | null): Promise<Response> {
   const body = await req.json();
 
@@ -80,5 +83,5 @@ export async function handleCreateDataSource(req: Request, callerId: string | nu
     throw new Error("Couldn't store the password securely. Nothing was saved.");
   }
 
-  return Response.json(row, { status: 201 });
+  return Response.json(await refreshStructure(row, config), { status: 201 });
 }

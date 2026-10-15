@@ -107,6 +107,9 @@ export function DataSourceForm({
     },
     onSuccess: (saved) => {
       toast.success(editing ? `Saved changes to "${saved.name}"` : `Connected "${saved.name}"`);
+      // Saving also reads the database's structure; the connection is kept
+      // even when that part fails.
+      if (saved.schema_error) toast.warning(`Couldn't read its structure: ${saved.schema_error}`);
       onSaved?.(saved);
       close(false);
     },

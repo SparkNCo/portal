@@ -3,6 +3,7 @@ import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { parseConnectionInput } from "./connectionInput.ts";
 import { testConnection } from "./postgresClient.ts";
+import { refreshStructure } from "./refreshStructure.ts";
 import { DATA_SOURCE_COLUMNS, SCHEMAS_BUCKET } from "./columns.ts";
 
 // The saved connection, with the columns needed to reconnect.
@@ -76,7 +77,8 @@ export async function testSavedConnection(id: string, body: any): Promise<Respon
 }
 
 // PATCH /data-sources/:id — edits a connection. An empty password keeps the
-// current one. The details are tested before anything is saved.
+// current one. The details are tested before anything is saved, and the
+// structure is read again afterwards (it may be another database now).
 export async function handleUpdateDataSource(id: string, req: Request): Promise<Response> {
   const body = await req.json();
   const existing = await findDataSource(id);
@@ -121,7 +123,19 @@ export async function handleUpdateDataSource(id: string, req: Request): Promise<
     if (passwordError) throw new Error(`Saved, but the new password couldn't be stored: ${passwordError.message}`);
   }
 
-  return Response.json(row);
+  return Response.json(await refreshStructure(row, config));
+}
+
+// POST /data-sources/:id/refresh-structure — reads the structure again, for
+// when the client's database changed.
+export async function handleRefreshStructure(id: string): Promise<Response> {
+  const existing = await findDataSource(id);
+  if (!existing) return Response.json({ error: "Connection not found" }, { status: 404 });
+
+  const parsed = await mergedConnectionInput(existing, {});
+  if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
+
+  return Response.json(await refreshStructure(existing, parsed.config));
 }
 
 // DELETE /data-sources/:id — removes the connection and its structure file.
