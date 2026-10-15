@@ -1,0 +1,227 @@
+"use client";
+
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { Button } from "@/components/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  type ConnectionDetails,
+  type DataSource,
+  createDataSource,
+  testDataSourceConnection,
+} from "@/lib/data-sources-api";
+
+// "Connect database" (SPA-488): the details of a client's Postgres database.
+// "Test connection" tries them without saving; "Save" tests again and stores
+// them (the password in Vault).
+
+type FormState = {
+  name: string;
+  host: string;
+  port: string;
+  database: string;
+  username: string;
+  password: string;
+  ssl: boolean;
+};
+
+const EMPTY_FORM: FormState = { name: "", host: "", port: "5432", database: "", username: "", password: "", ssl: true };
+
+type TestResult = { ok: true } | { ok: false; error: string };
+
+function connectionDetails(form: FormState): ConnectionDetails {
+  return {
+    host: form.host.trim(),
+    port: Number(form.port) || 5432,
+    database: form.database.trim(),
+    username: form.username.trim(),
+    password: form.password,
+    ssl: form.ssl,
+  };
+}
+
+export function DataSourceForm({
+  slug,
+  open,
+  onOpenChange,
+  onSaved,
+}: Readonly<{
+  slug: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: (dataSource: DataSource) => void;
+}>) {
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // The result of the last "Test connection", cleared when a field changes.
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setTestResult(null);
+  };
+
+  const close = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setForm(EMPTY_FORM);
+      setTestResult(null);
+    }
+  };
+
+  const test = useMutation({
+    mutationFn: () => testDataSourceConnection(connectionDetails(form)),
+    onSuccess: (error) => setTestResult(error ? { ok: false, error } : { ok: true }),
+    onError: (err: Error) => setTestResult({ ok: false, error: err.message }),
+  });
+
+  const save = useMutation({
+    mutationFn: () => createDataSource(slug, { name: form.name.trim(), ...connectionDetails(form) }),
+    onSuccess: (dataSource) => {
+      toast.success(`Connected "${dataSource.name}"`);
+      onSaved?.(dataSource);
+      close(false);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connectionFilled =
+    !!form.host.trim() && !!form.database.trim() && !!form.username.trim() && !!form.password;
+  const busy = test.isPending || save.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Connect database</DialogTitle>
+          <DialogDescription>
+            Use a read-only user: Query only ever reads from this database.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (form.name.trim() && connectionFilled) save.mutate();
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="data-source-type">Database type</Label>
+            <Input id="data-source-type" value="PostgreSQL" disabled />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="data-source-name">Name</Label>
+            <Input
+              id="data-source-name"
+              placeholder="Production"
+              value={form.name}
+              onChange={(e) => update("name", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-[1fr_6rem] gap-3">
+            <div className="space-y-1.5 min-w-0">
+              <Label htmlFor="data-source-host">Host</Label>
+              <Input
+                id="data-source-host"
+                placeholder="db.example.com"
+                autoComplete="off"
+                value={form.host}
+                onChange={(e) => update("host", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="data-source-port">Port</Label>
+              <Input
+                id="data-source-port"
+                inputMode="numeric"
+                value={form.port}
+                onChange={(e) => update("port", e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="data-source-database">Database</Label>
+            <Input
+              id="data-source-database"
+              autoComplete="off"
+              value={form.database}
+              onChange={(e) => update("database", e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="data-source-username">Username</Label>
+              <Input
+                id="data-source-username"
+                autoComplete="off"
+                value={form.username}
+                onChange={(e) => update("username", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="data-source-password">Password</Label>
+              <Input
+                id="data-source-password"
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="data-source-ssl"
+              checked={form.ssl}
+              onCheckedChange={(checked) => update("ssl", checked === true)}
+            />
+            <Label htmlFor="data-source-ssl" className="font-normal">
+              Connect with SSL
+            </Label>
+          </div>
+
+          <div role="status" aria-live="polite">
+            {testResult?.ok && (
+              <p className="flex items-center gap-2 smalltext text-green-600 dark:text-green-500">
+                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Connected successfully.
+              </p>
+            )}
+            {testResult && !testResult.ok && (
+              <p className="flex items-start gap-2 smalltext text-destructive">
+                <XCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                {testResult.error}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!connectionFilled || busy}
+              onClick={() => test.mutate()}
+            >
+              {test.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              Test connection
+            </Button>
+            <Button type="submit" disabled={!form.name.trim() || !connectionFilled || busy}>
+              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              Save
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
