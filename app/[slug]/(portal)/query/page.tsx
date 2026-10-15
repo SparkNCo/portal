@@ -8,6 +8,7 @@ import { Header } from "@/components/headerDashboard";
 import { Button } from "@/components/components/ui/button";
 import { DataSourceForm } from "@/components/query/data-source-form";
 import { DataSourcesList, DataSourcesListSkeleton } from "@/components/query/data-sources-list";
+import { QueryRunner } from "@/components/query/query-runner";
 import { type DataSource, listDataSources } from "@/lib/data-sources-api";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -50,7 +51,15 @@ export default function QueryPage() {
     );
   } else {
     content = (
-      <DataSourcesList dataSources={dataSources} onEdit={(dataSource) => setFormFor(dataSource)} onChanged={refresh} />
+      <>
+        <QueryRunner dataSources={dataSources} />
+        <section aria-labelledby="connections-heading" className="space-y-3">
+          <h2 id="connections-heading" className="body font-semibold">
+            Connections
+          </h2>
+          <DataSourcesList dataSources={dataSources} onEdit={(dataSource) => setFormFor(dataSource)} onChanged={refresh} />
+        </section>
+      </>
     );
   }
 
