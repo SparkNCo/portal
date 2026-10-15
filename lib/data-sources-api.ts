@@ -32,6 +32,23 @@ export type DataSource = {
   updated_at: string;
 };
 
+// A connection's structure as last read (supabase/functions/data-sources/introspect.ts).
+export type DatabaseStructure = {
+  dataSourceId: string;
+  database: string;
+  refreshedAt: string;
+  tables: {
+    schema: string;
+    name: string;
+    kind: "table" | "view" | "materialized view" | "foreign table";
+    comment: string | null;
+    columns: { name: string; type: string; nullable: boolean; comment: string | null }[];
+    primaryKey: string[];
+    foreignKeys: { columns: string[]; references: { schema: string; table: string; columns: string[] } }[];
+  }[];
+  enums: { schema: string; name: string; values: string[] }[];
+};
+
 async function authHeaders() {
   const {
     data: { session },
@@ -98,6 +115,12 @@ export async function updateDataSource(
 export async function refreshDataSourceStructure(id: string): Promise<DataSource> {
   const res = await fetch(`${BASE_URL}/${id}/refresh-structure`, { method: "POST", headers: await authHeaders() });
   if (!res.ok) throw await errorFrom(res, "Couldn't read the structure");
+  return res.json();
+}
+
+export async function fetchDataSourceStructure(id: string): Promise<DatabaseStructure> {
+  const res = await fetch(`${BASE_URL}/${id}/structure`, { headers: await authHeaders() });
+  if (!res.ok) throw await errorFrom(res, "Couldn't load its structure");
   return res.json();
 }
 

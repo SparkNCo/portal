@@ -6,12 +6,14 @@
 //   PATCH  /data-sources/:id     — edit one (tested first)
 //   DELETE /data-sources/:id     — remove one
 //   POST   /data-sources/:id/refresh-structure — read its structure again
+//   GET    /data-sources/:id/structure — the structure last read
 // Admins only, checked from the session token — never from the body.
 import { serveWithCors } from "../utils/serve.ts";
 import { resolveCaller } from "../users/resolveCaller.ts";
 import { handleCreateDataSource, handleTestConnection } from "./createDataSource.ts";
 import {
   handleDeleteDataSource,
+  handleGetStructure,
   handleListDataSources,
   handleRefreshStructure,
   handleUpdateDataSource,
@@ -23,6 +25,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 async function routeConnection(req: Request, id: string, action: string | undefined): Promise<Response | null> {
   if (!UUID_RE.test(id)) return null;
   if (action === "refresh-structure" && req.method === "POST") return await handleRefreshStructure(id);
+  if (action === "structure" && req.method === "GET") return await handleGetStructure(id);
   if (action) return null;
   if (req.method === "PATCH") return await handleUpdateDataSource(id, req);
   if (req.method === "DELETE") return await handleDeleteDataSource(id);

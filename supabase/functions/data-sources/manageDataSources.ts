@@ -138,6 +138,21 @@ export async function handleRefreshStructure(id: string): Promise<Response> {
   return Response.json(await refreshStructure(existing, parsed.config));
 }
 
+// GET /data-sources/:id/structure — the structure JSON last read for the
+// connection (SPA-491), from the private bucket.
+export async function handleGetStructure(id: string): Promise<Response> {
+  const existing = await findDataSource(id);
+  if (!existing) return Response.json({ error: "Connection not found" }, { status: 404 });
+  if (!existing.schema_path) return Response.json({ error: "Its structure hasn't been read yet" }, { status: 404 });
+
+  const { data, error } = await supabase.storage.from(SCHEMAS_BUCKET).download(existing.schema_path);
+  if (error || !data) {
+    console.error("[data-sources] reading the structure file failed", error?.message);
+    return Response.json({ error: "Couldn't load its structure. Try Refresh structure." }, { status: 500 });
+  }
+  return new Response(await data.text(), { headers: { "Content-Type": "application/json" } });
+}
+
 // DELETE /data-sources/:id — removes the connection and its structure file.
 // Its Vault password goes with the row (a trigger, see the migrations).
 export async function handleDeleteDataSource(id: string): Promise<Response> {

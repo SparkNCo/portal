@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type DataSource, deleteDataSource, refreshDataSourceStructure } from "@/lib/data-sources-api";
+import { StructureViewer } from "./structure-viewer";
 
 // A client's connected databases (SPA-489): what each one points at, the
 // state of its structure (SPA-490) and Refresh structure / Edit / Delete.
@@ -85,7 +86,7 @@ export function DataSourcesList({
 
   return (
     <>
-      <ul className="grid gap-3 sm:grid-cols-2" aria-label="Connected databases">
+      <ul className="grid items-start gap-3 sm:grid-cols-2" aria-label="Connected databases">
         {dataSources.map((dataSource) => {
           const status = structureStatus(dataSource);
           return (
@@ -148,6 +149,8 @@ export function DataSourcesList({
                 </span>
                 <span className={TONE_CLASS[status.tone]}>{status.label}</span>
               </div>
+
+              <StructureViewer dataSource={dataSource} />
             </li>
           );
         })}
