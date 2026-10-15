@@ -14,11 +14,13 @@ import {
   type DataSource,
   createDataSource,
   testDataSourceConnection,
+  updateDataSource,
 } from "@/lib/data-sources-api";
 
-// "Connect database" (SPA-488): the details of a client's Postgres database.
-// "Test connection" tries them without saving; "Save" tests again and stores
-// them (the password in Vault).
+// "Connect database" (SPA-488) and "Edit connection" (SPA-489): the details
+// of a client's Postgres database. "Test connection" tries them without
+// saving; "Save" tests again and stores them (the password in Vault). When
+// editing, an empty password keeps the stored one.
 
 type FormState = {
   name: string;
@@ -31,6 +33,19 @@ type FormState = {
 };
 
 const EMPTY_FORM: FormState = { name: "", host: "", port: "5432", database: "", username: "", password: "", ssl: true };
+
+function formFor(dataSource: DataSource | null | undefined): FormState {
+  if (!dataSource) return EMPTY_FORM;
+  return {
+    name: dataSource.name,
+    host: dataSource.host,
+    port: String(dataSource.port),
+    database: dataSource.database_name,
+    username: dataSource.username,
+    password: "",
+    ssl: dataSource.ssl,
+  };
+}
 
 type TestResult = { ok: true } | { ok: false; error: string };
 
@@ -45,18 +60,24 @@ function connectionDetails(form: FormState): ConnectionDetails {
   };
 }
 
+// Mount it with a `key` per connection (or "new") so it starts from that
+// connection's details.
 export function DataSourceForm({
   slug,
+  dataSource,
   open,
   onOpenChange,
   onSaved,
 }: Readonly<{
   slug: string;
+  /** The connection being edited; none to connect a new one. */
+  dataSource?: DataSource | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: (dataSource: DataSource) => void;
 }>) {
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const editing = !!dataSource;
+  const [form, setForm] = useState<FormState>(() => formFor(dataSource));
   // The result of the last "Test connection", cleared when a field changes.
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
@@ -68,36 +89,40 @@ export function DataSourceForm({
   const close = (next: boolean) => {
     onOpenChange(next);
     if (!next) {
-      setForm(EMPTY_FORM);
+      setForm(formFor(dataSource));
       setTestResult(null);
     }
   };
 
   const test = useMutation({
-    mutationFn: () => testDataSourceConnection(connectionDetails(form)),
+    mutationFn: () => testDataSourceConnection(connectionDetails(form), dataSource?.id),
     onSuccess: (error) => setTestResult(error ? { ok: false, error } : { ok: true }),
     onError: (err: Error) => setTestResult({ ok: false, error: err.message }),
   });
 
   const save = useMutation({
-    mutationFn: () => createDataSource(slug, { name: form.name.trim(), ...connectionDetails(form) }),
-    onSuccess: (dataSource) => {
-      toast.success(`Connected "${dataSource.name}"`);
-      onSaved?.(dataSource);
+    mutationFn: () => {
+      const input = { name: form.name.trim(), ...connectionDetails(form) };
+      return dataSource ? updateDataSource(dataSource.id, input) : createDataSource(slug, input);
+    },
+    onSuccess: (saved) => {
+      toast.success(editing ? `Saved changes to "${saved.name}"` : `Connected "${saved.name}"`);
+      onSaved?.(saved);
       close(false);
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // A saved connection already has a password.
   const connectionFilled =
-    !!form.host.trim() && !!form.database.trim() && !!form.username.trim() && !!form.password;
+    !!form.host.trim() && !!form.database.trim() && !!form.username.trim() && (editing || !!form.password);
   const busy = test.isPending || save.isPending;
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Connect database</DialogTitle>
+          <DialogTitle>{editing ? "Edit connection" : "Connect database"}</DialogTitle>
           <DialogDescription>
             Use a read-only user: Query only ever reads from this database.
           </DialogDescription>
@@ -173,6 +198,7 @@ export function DataSourceForm({
                 id="data-source-password"
                 type="password"
                 autoComplete="new-password"
+                placeholder={editing ? "Leave empty to keep it" : undefined}
                 value={form.password}
                 onChange={(e) => update("password", e.target.value)}
               />

@@ -3,14 +3,16 @@ import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { parseConnectionInput } from "./connectionInput.ts";
 import { testConnection } from "./postgresClient.ts";
-
-// What the portal shows for a connection — never the password or its secret id.
-export const DATA_SOURCE_COLUMNS =
-  "id, customer_id, name, type, host, port, database_name, username, ssl, schema_path, schema_refreshed_at, schema_error, created_at, updated_at";
+import { testSavedConnection } from "./manageDataSources.ts";
+import { DATA_SOURCE_COLUMNS } from "./columns.ts";
 
 // POST /data-sources/test — does this database answer with these details?
+// With `id`, tests a saved connection instead (see testSavedConnection).
 export async function handleTestConnection(req: Request): Promise<Response> {
-  const parsed = parseConnectionInput(await req.json());
+  const body = await req.json();
+  if (typeof body?.id === "string" && body.id) return await testSavedConnection(body.id, body);
+
+  const parsed = parseConnectionInput(body);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
 
   const error = await testConnection(parsed.config);

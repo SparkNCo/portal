@@ -44,12 +44,22 @@ async function errorFrom(res: Response, fallback: string): Promise<Error> {
   return new Error(body?.error ?? fallback);
 }
 
-// Null if the database answered; otherwise why it didn't.
-export async function testDataSourceConnection(details: ConnectionDetails): Promise<string | null> {
+export async function listDataSources(slug: string): Promise<DataSource[]> {
+  const res = await fetch(`${BASE_URL}?slug=${encodeURIComponent(slug)}`, { headers: await authHeaders() });
+  if (!res.ok) throw await errorFrom(res, "Couldn't load the connections");
+  return res.json();
+}
+
+// Null if the database answered; otherwise why it didn't. With `id`, tests
+// that saved connection — an empty password then means its stored one.
+export async function testDataSourceConnection(
+  details: ConnectionDetails,
+  id?: string,
+): Promise<string | null> {
   const res = await fetch(`${BASE_URL}/test`, {
     method: "POST",
     headers: await authHeaders(),
-    body: JSON.stringify(details),
+    body: JSON.stringify(id ? { ...details, id } : details),
   });
   if (!res.ok) throw await errorFrom(res, "Couldn't test the connection");
   const body = (await res.json()) as { ok: boolean; error?: string };
@@ -67,4 +77,23 @@ export async function createDataSource(
   });
   if (!res.ok) throw await errorFrom(res, "Couldn't save the connection");
   return res.json();
+}
+
+// An empty password keeps the current one.
+export async function updateDataSource(
+  id: string,
+  input: ConnectionDetails & { name: string },
+): Promise<DataSource> {
+  const res = await fetch(`${BASE_URL}/${id}`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await errorFrom(res, "Couldn't save the changes");
+  return res.json();
+}
+
+export async function deleteDataSource(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/${id}`, { method: "DELETE", headers: await authHeaders() });
+  if (!res.ok) throw await errorFrom(res, "Couldn't delete the connection");
 }
