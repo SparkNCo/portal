@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
-import { linearRequest, GET_PROJECT_TEAM_QUERY } from "../issues/linearClient.ts";
+import { linearRequest, GET_PROJECT_TEAM_QUERY, closedProjectError } from "../issues/linearClient.ts";
 import { GET_STATE_ID_QUERY } from "../issues/updateIsste.ts";
 import { PRIORITY_MAP, CREATE_ISSUE_MUTATION } from "../issues/createIssue.ts";
 import { recordIssueRequest } from "../issues/issueRequests.ts";
@@ -41,6 +41,11 @@ export async function handleAcceptSuggestion(req: Request): Promise<Response> {
   }
   if (suggestion.status !== "pending") {
     return Response.json({ error: "Suggestion already resolved" }, { status: 409 });
+  }
+
+  if (suggestion.linear_project_id) {
+    const closed = await closedProjectError(suggestion.linear_project_id);
+    if (closed) return Response.json({ error: `${closed} Pick another project first.` }, { status: 400 });
   }
 
   const teamData = await linearRequest(GET_PROJECT_TEAM_QUERY, {

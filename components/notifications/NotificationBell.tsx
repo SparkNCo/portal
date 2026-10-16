@@ -7,6 +7,8 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Bell,
   MessageCircle,
+  AtSign,
+  CornerUpLeft,
   MessageSquare,
   Video,
   HelpCircle,
@@ -43,6 +45,8 @@ import { fetchAllNotifications, fetchChatProjectSlugs, useNotifications, type No
 // phrase> <object>", then the time on its own line below.
 const ACTION_PHRASES: Record<string, string> = {
   chat_message: "sent a message",
+  chat_mention: "mentioned you",
+  chat_reply: "replied to you",
   decision_requested: "asked a question",
   decision_answered: "answered a decision",
   demo_uploaded: "uploaded a demo",
@@ -63,8 +67,15 @@ function actionPhraseFor(event: { action: string; preview: string | null }): str
   return event.action === "status_changed" && event.preview ? `${phrase} ${event.preview}` : phrase;
 }
 
+// A chat message or an @mention in one — both belong to a chat (object_id)
+// and open it.
+function isChatType(objectType: string): boolean {
+  return objectType === "chat" || objectType === "chat_mention";
+}
+
 const OBJECT_TYPE_LABELS: Record<string, string> = {
   chat: "in a chat",
+  chat_mention: "in a chat",
   issue_decision: "on a decision",
   demo: "on a demo",
   demo_comment: "on a demo",
@@ -80,12 +91,14 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
 // before object_title existed).
 function formatObject(event: { object_type: string; issue_code: string | null; object_title: string | null }): string {
   if (event.issue_code) return `on ${event.issue_code}`;
-  if (event.object_title) return event.object_type === "chat" ? `in ${event.object_title}` : `"${event.object_title}"`;
+  if (event.object_title) return isChatType(event.object_type) ? `in ${event.object_title}` : `"${event.object_title}"`;
   return OBJECT_TYPE_LABELS[event.object_type] ?? "";
 }
 
 const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   chat_message: MessageCircle,
+  chat_mention: AtSign,
+  chat_reply: CornerUpLeft,
   decision_requested: HelpCircle,
   decision_answered: HelpCircle,
   demo_uploaded: Video,
@@ -150,7 +163,7 @@ const OBJECT_TYPE_TABS: Record<string, string> = {
 
 function resolveLink(n: Notification, role: string | undefined, ownSlug: string | undefined): string {
   const { event } = n;
-  if (event.object_type === "chat") {
+  if (isChatType(event.object_type)) {
     // CometChat chat events already carry their customer's /{slug}/chat page;
     // Realtime ones only have the generic "/chat" and are resolved here.
     if (event.link && event.link !== "/chat") return `${event.link}?chatId=${event.object_id}`;
@@ -227,7 +240,7 @@ const NON_CUSTOMER_SEGMENTS = new Set(["admin", "dev", "chat"]);
 // slugs come in mixed casing (see the linear_slug case-insensitive fixes).
 function customerKeyOf(n: Notification, chatSlugs: Record<string, string | null>): string | null {
   const { event } = n;
-  if (event.object_type === "chat") return chatSlugs[event.object_id]?.toLowerCase() ?? null;
+  if (isChatType(event.object_type)) return chatSlugs[event.object_id]?.toLowerCase() ?? null;
   const segment = event.link.split("?")[0]?.split("/").find(Boolean);
   if (!segment || NON_CUSTOMER_SEGMENTS.has(segment)) return null;
   return safeDecodeURIComponent(segment).toLowerCase();
@@ -294,7 +307,7 @@ function AllNotificationsModal({
     setLoading(true);
     const load = async () => {
       const rows = await fetchAllNotifications(tab === "seen");
-      const chatIds = isAdmin ? rows.filter((n) => n.event.object_type === "chat").map((n) => n.event.object_id) : [];
+      const chatIds = isAdmin ? rows.filter((n) => isChatType(n.event.object_type)).map((n) => n.event.object_id) : [];
       const slugs = await fetchChatProjectSlugs([...new Set(chatIds)]);
       if (cancelled) return;
       setAll(rows);
@@ -459,7 +472,7 @@ export function NotificationBell() {
 
     const { event } = n;
     const needsChatSlug =
-      event.object_type === "chat" && (profile?.role === "admin" || profile?.role === "developer");
+      isChatType(event.object_type) && (profile?.role === "admin" || profile?.role === "developer");
     const chatSlug = needsChatSlug ? await resolveChatRouteSlug(event.object_id, profile).catch(() => null) : null;
     router.push(
       chatSlug

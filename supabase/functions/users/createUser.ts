@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
+import type { TestRun } from "../lib/testMode.ts";
 
 // Only `internal` developers carry a rate — `spark_fde` developers are billed
 // through the customer's Stripe subscription, unrelated to this record.
@@ -9,19 +10,23 @@ const upsertDeveloperRecord = async (
   schema: string,
   userId: string,
   { developerType, rateAmount, rateType }: { developerType: string; rateAmount: number | null; rateType: string | null },
+  testRun: TestRun | null,
 ) => {
+  const record = {
+    user_id: userId,
+    developer_type: developerType,
+    rate_amount: developerType === "internal" ? rateAmount : null,
+    rate_type: developerType === "internal" ? rateType : null,
+  };
+  if (testRun) {
+    testRun.writes.push({ target: `${schema}.developers`, op: "upsert", data: record });
+    return;
+  }
+
   const { error } = await supabase
     .schema(schema)
     .from("developers")
-    .upsert(
-      {
-        user_id: userId,
-        developer_type: developerType,
-        rate_amount: developerType === "internal" ? rateAmount : null,
-        rate_type: developerType === "internal" ? rateType : null,
-      },
-      { onConflict: "user_id" },
-    );
+    .upsert(record, { onConflict: "user_id" });
 
   if (error) {
     console.error("[createUser] developers upsert failed", error.message);
@@ -29,7 +34,9 @@ const upsertDeveloperRecord = async (
   }
 };
 
-export const createUser = async (body: any, schema: string) => {
+// With a TestRun (test mode) every check still runs, but no Auth account,
+// row or email is created — they're recorded on the TestRun instead.
+export const createUser = async (body: any, schema: string, testRun: TestRun | null = null) => {
   const {
     email,
     role = "developer",
@@ -65,6 +72,60 @@ export const createUser = async (body: any, schema: string) => {
   // back to that unusable origin instead of production.
   const redirectTo = "https://app.buildwithspark.co/set-password";
 
+  const { authUserId, inviteLink } = testRun
+    ? testInvite(testRun, email, redirectTo)
+    : await createInvite(email, redirectTo);
+
+  const userRow = {
+    id: authUserId,
+    email,
+    role,
+    customer_id,
+    auth_id,
+    firstName,
+    lastName,
+    phoneNumber,
+    userName,
+  };
+
+  let data;
+  if (testRun) {
+    testRun.writes.push({ target: `${schema}.users`, op: "upsert", data: userRow });
+    data = userRow;
+  } else {
+    const { data: saved, error: upsertError } = await supabase
+      .schema(schema)
+      .from("users")
+      .upsert([userRow], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error("[createUser] users upsert failed", upsertError.message);
+      await supabase.auth.admin.deleteUser(authUserId);
+      throw new Error(upsertError.message);
+    }
+    data = saved;
+  }
+
+  if (role === "developer") {
+    await upsertDeveloperRecord(schema, authUserId, { developerType, rateAmount, rateType }, testRun);
+  }
+
+  console.log("[createUser] user upserted, sending invite email", {
+    authUserId,
+    email,
+  });
+
+  await sendInviteCustomerMail(email, inviteLink, true, testRun);
+  console.log("[createUser] invite email sent");
+
+  return data;
+};
+
+// Creates the Auth account and its "set your password" link. Shared with
+// createCustomerFlow.
+export async function createInvite(email: string, redirectTo: string) {
   const { data: inviteData, error: inviteError } =
     await supabase.auth.admin.generateLink({
       type: "invite",
@@ -79,48 +140,16 @@ export const createUser = async (body: any, schema: string) => {
     throw new Error(`Auth invite failed: ${inviteError.message}`);
   }
 
-  const authUserId: string = inviteData.user.id;
-  const inviteLink: string = inviteData.properties.action_link;
+  return {
+    authUserId: inviteData.user.id as string,
+    inviteLink: inviteData.properties.action_link as string,
+  };
+}
 
-  const { data, error: upsertError } = await supabase
-    .schema(schema)
-    .from("users")
-    .upsert(
-      [
-        {
-          id: authUserId,
-          email,
-          role,
-          customer_id,
-          auth_id,
-          firstName,
-          lastName,
-          phoneNumber,
-          userName,
-        },
-      ],
-      { onConflict: "id" },
-    )
-    .select()
-    .single();
-
-  if (upsertError) {
-    console.error("[createUser] users upsert failed", upsertError.message);
-    await supabase.auth.admin.deleteUser(authUserId);
-    throw new Error(upsertError.message);
-  }
-
-  if (role === "developer") {
-    await upsertDeveloperRecord(schema, authUserId, { developerType, rateAmount, rateType });
-  }
-
-  console.log("[createUser] user upserted, sending invite email", {
-    authUserId,
-    email,
-  });
-
-  await sendInviteCustomerMail(email, inviteLink);
-  console.log("[createUser] invite email sent");
-
-  return data;
-};
+// Test mode's stand-in for createInvite: a made-up id and a link that goes
+// nowhere, so no Auth account is created. Shared with createCustomerFlow.
+export function testInvite(testRun: TestRun, email: string, redirectTo: string) {
+  const authUserId = crypto.randomUUID();
+  testRun.writes.push({ target: "auth.users", op: "invite", data: { id: authUserId, email } });
+  return { authUserId, inviteLink: `${redirectTo}#test-mode` };
+}

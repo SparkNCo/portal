@@ -1,0 +1,196 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase-client";
+import { useUser } from "context/UserContext";
+
+// Which chats have messages the user hasn't seen.
+//
+// There's no separate "last read" bookkeeping: every chat message already
+// leaves each recipient one unread bell notification per chat (object_type
+// "chat", object_id = the chat's id — a portal.chats id for Realtime, the
+// group's guid for CometChat; see notify_chat_message and the cometchat
+// webhook). So a chat is unread while that notification is, and opening the
+// chat marks it read — which also clears it from the bell.
+
+// `mention`: it's addressed to the user — a "mentioned you" or "replied to
+// you" notification (object_type "chat_mention").
+type ChatNotification = { id: string; chatId: string; mention: boolean };
+
+async function fetchUnreadChatNotifications(): Promise<ChatNotification[]> {
+  const { data, error } = await supabase
+    .schema("portal")
+    .from("notifications")
+    .select("id, event:events!inner(object_type, object_id)")
+    .eq("read", false)
+    .in("event.object_type", ["chat", "chat_mention"]);
+  if (error) {
+    console.error("Fetch unread chats error:", error);
+    return [];
+  }
+  return (data ?? []).map((n: any) => ({
+    id: n.id,
+    chatId: n.event.object_id,
+    mention: n.event.object_type === "chat_mention",
+  }));
+}
+
+// Marks a chat's notification(s) read for the signed-in user. Safe to call
+// when there's nothing unread.
+export async function markChatRead(chatId: string): Promise<void> {
+  const unread = (await fetchUnreadChatNotifications()).filter((n) => n.chatId === chatId);
+  if (unread.length === 0) return;
+  const { error } = await supabase
+    .schema("portal")
+    .from("notifications")
+    .update({ read: true })
+    .in("id", unread.map((n) => n.id));
+  if (error) console.error("Mark chat read error:", error);
+}
+
+// Live set of unread chat ids, plus a way to mark one read. Used by the chat
+// pages (which hand it to their sidebar) and by a ticket's chat tab.
+export function useUnreadChats() {
+  const { profile } = useUser();
+  // Two of these can be mounted at once (a chat page and a ticket modal) —
+  // each needs its own realtime channel name.
+  const instanceId = useId();
+  const [unread, setUnread] = useState<ChatNotification[]>([]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setUnread([]);
+      return;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      const rows = await fetchUnreadChatNotifications();
+      if (!cancelled) setUnread(rows);
+    };
+    refresh();
+
+    // Any change to this user's notifications (a new message, one re-pointed
+    // at a newer message, one read here or from the bell) → re-read the set.
+    const channel = supabase
+      .channel(`unread-chats-${profile.id}-${instanceId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "portal", table: "notifications", filter: `user_id=eq.${profile.id}` },
+        refresh,
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, instanceId]);
+
+  const unreadChatIds = useMemo(() => new Set(unread.map((n) => n.chatId)), [unread]);
+  // The unread chats where the user was @mentioned.
+  const mentionChatIds = useMemo(() => new Set(unread.filter((n) => n.mention).map((n) => n.chatId)), [unread]);
+
+  const markRead = useCallback(async (chatId: string) => {
+    // Drop it right away; the subscription confirms it.
+    setUnread((prev) => prev.filter((n) => n.chatId !== chatId));
+    await markChatRead(chatId);
+  }, []);
+
+  return { unreadChatIds, mentionChatIds, markRead };
+}
+
+const NONE: ReadonlySet<string> = new Set();
+const UnreadChatsContext = createContext<ReadonlySet<string>>(NONE);
+const MentionChatsContext = createContext<ReadonlySet<string>>(NONE);
+
+export function UnreadChatsProvider({
+  unreadChatIds,
+  mentionChatIds = NONE,
+  children,
+}: Readonly<{
+  unreadChatIds: ReadonlySet<string>;
+  /** The unread chats where the user was @mentioned. */
+  mentionChatIds?: ReadonlySet<string>;
+  children: React.ReactNode;
+}>) {
+  return (
+    <UnreadChatsContext.Provider value={unreadChatIds}>
+      <MentionChatsContext.Provider value={mentionChatIds}>{children}</MentionChatsContext.Provider>
+    </UnreadChatsContext.Provider>
+  );
+}
+
+export function useIsChatUnread(chatId: string): boolean {
+  return useContext(UnreadChatsContext).has(chatId);
+}
+
+export function useIsChatMentioned(chatId: string): boolean {
+  return useContext(MentionChatsContext).has(chatId);
+}
+
+export function useUnreadChatIds(): ReadonlySet<string> {
+  return useContext(UnreadChatsContext);
+}
+
+// Marks `chatId` read while it's the one on screen — when it opens, and again
+// whenever a message arrives in it (`unread` flips back to true).
+export function useMarkOpenChatRead(
+  chatId: string | null | undefined,
+  unreadChatIds: ReadonlySet<string>,
+  markRead: (chatId: string) => void,
+) {
+  const isUnread = !!chatId && unreadChatIds.has(chatId);
+  useEffect(() => {
+    if (chatId && isUnread) markRead(chatId);
+  }, [chatId, isUnread, markRead]);
+}
+
+// The dot next to a chat with unseen messages. `relative` keeps the sr-only
+// text (absolutely positioned) inside the row — without a positioned
+// ancestor it sat at the row's offset in the *page*, so an unread chat far
+// down the scrolling list made the whole page taller than the screen.
+// With `mention`, it's an "@" instead: someone mentioned or replied to the
+// user there.
+export function UnreadDot({ mention = false }: Readonly<{ mention?: boolean }>) {
+  return (
+    <span
+      className="relative ml-auto flex-shrink-0"
+      title={mention ? "Someone mentioned or replied to you" : "Unread messages"}
+    >
+      {mention ? (
+        <span
+          className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold leading-none text-primary-foreground"
+          aria-hidden="true"
+        >
+          @
+        </span>
+      ) : (
+        <span className="block h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
+      )}
+      <span className="sr-only">Unread messages{mention ? " — someone mentioned or replied to you" : ""}</span>
+    </span>
+  );
+}
+
+// "Unread" toggle above the chat list.
+export function UnreadFilterToggle({
+  active,
+  count,
+  onToggle,
+}: Readonly<{ active: boolean; count: number; onToggle: () => void }>) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs md:smalltext font-medium transition-colors ${
+        active
+          ? "border-primary bg-primary/15 text-primary"
+          : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+      }`}
+    >
+      <span className={`h-2 w-2 rounded-full ${count > 0 ? "bg-primary" : "bg-muted-foreground/40"}`} aria-hidden="true" />
+      Unread{count > 0 ? ` (${count})` : ""}
+    </button>
+  );
+}

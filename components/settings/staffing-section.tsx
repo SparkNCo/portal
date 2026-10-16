@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Plus } from "lucide-react";
+import { PeopleCardsSkeleton } from "./people-cards-skeleton";
 import { Button } from "../components/ui/button";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
@@ -46,7 +47,7 @@ export function StaffingSection({ customerId }: { readonly customerId?: string }
   });
 
   if (isLoading) {
-    return <div className="p-4 smalltext">Loading team...</div>;
+    return <PeopleCardsSkeleton title="Team Members" icon={<Users className="h-4 w-4 text-primary" />} />;
   }
 
   if (error) {

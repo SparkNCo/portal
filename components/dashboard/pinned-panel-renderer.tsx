@@ -73,10 +73,13 @@ export function PinnedPanelRenderer({
   onOpenChat,
   onEditIssue,
   hidePinButton,
+  issuesLoading = false,
 }: Readonly<{
   panelId: PinnablePanelId;
   slug: string;
   allIssues: any[];
+  /** `allIssues` is still being fetched: ticket panels show placeholders. */
+  issuesLoading?: boolean;
   selectedProjectIds?: Set<string>;
   onOpenChat?: (title: string) => void;
   onEditIssue?: (issue: any) => void;
@@ -129,6 +132,7 @@ export function PinnedPanelRenderer({
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
         <PriorityTasks
+          loading={issuesLoading}
           issuesData={issues}
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
@@ -152,6 +156,7 @@ export function PinnedPanelRenderer({
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
         <PriorityTasks
+          loading={issuesLoading}
           issuesData={issues}
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
@@ -175,6 +180,7 @@ export function PinnedPanelRenderer({
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
         <PriorityTasks
+          loading={issuesLoading}
           issuesData={issues}
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
@@ -217,6 +223,7 @@ export function PinnedPanelRenderer({
         className="w-full max-w-full overflow-hidden"
       >
         <PriorityTasks
+          loading={issuesLoading}
           issuesData={bugs}
           filterState={noopFilterState}
           onOpenChat={() => {}}

@@ -5,9 +5,13 @@ import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Users } from "lucide-react";
 import { ChatSpinner } from "./ChatSpinner";
 import { MessageBubble } from "./MessageBubble";
-import { getMessageDate, mergeMessages, sendGroupMessages } from "./chatUtils";
+import { getMessageDate, mergeMessages, replaceMessage, sendGroupMessages, withoutActions } from "./chatUtils";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { ChatComposer } from "../ChatComposer";
+import { useGroupMembers } from "./useGroupMembers";
+import { mentionablePeople } from "../mentions";
+import { useMessageReplies } from "./useMessageReplies";
+import { MESSAGES_PAGE_SIZE, useOlderMessages } from "./useOlderMessages";
 
 // Who sent a CometChat message (SDK object or raw payload).
 const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
@@ -15,13 +19,23 @@ const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.()
 type Props = Readonly<{
   user: CometChat.User;
   group: CometChat.Group;
+  /** A message was just sent here (the chat list moves this chat to the top). */
+  onActivity?: () => void;
 }>;
 
-export default function GroupChat({ user, group }: Props) {
+export default function GroupChat({ user, group, onActivity }: Props) {
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const guid = group.getGuid();
+  // The group's people: who can be @mentioned (everyone but the user), and
+  // the names behind the mentions in its messages.
+  const members = useGroupMembers(guid);
+  const mentionOptions = mentionablePeople(members, user.getUid());
+  // Replying to a message (quoting it), and jumping to a quoted one.
+  const replies = useMessageReplies(messages, members);
+  // "Load earlier messages": the chat opens with only its latest ones.
+  const older = useOlderMessages(replies.listRef, setMessages);
 
   useEffect(() => {
     fetchMessages();
@@ -42,6 +56,17 @@ export default function GroupChat({ user, group }: Props) {
             setMessages((prev) => mergeMessages(prev, [msg]));
           }
         },
+        // Someone edited or deleted a message: swap it in place.
+        onMessageEdited: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
+        onMessageDeleted: (msg: CometChat.BaseMessage) => {
+          if (msg.getReceiverId() === guid) {
+            setMessages((prev) => replaceMessage(prev, msg));
+          }
+        },
       }),
     );
     return () => {
@@ -50,6 +75,11 @@ export default function GroupChat({ user, group }: Props) {
   }, [guid]);
 
   useEffect(() => {
+    // Older messages were just added on top: stay where the user is.
+    if (older.keepPositionRef.current) {
+      older.keepPositionRef.current = false;
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -61,9 +91,11 @@ export default function GroupChat({ user, group }: Props) {
       }
       const req = new CometChat.MessagesRequestBuilder()
         .setGUID(guid)
-        .setLimit(50)
+        .setLimit(MESSAGES_PAGE_SIZE)
         .build();
-      const msgs = await req.fetchPrevious();
+      const page = await req.fetchPrevious();
+      older.started(req, page);
+      const msgs = withoutActions(page);
       setMessages(msgs);
     } catch (err) {
       console.error("Fetch group messages error:", err);
@@ -74,8 +106,10 @@ export default function GroupChat({ user, group }: Props) {
 
   const sendMessage = async (text: string, files: File[]) => {
     try {
-      const sent = await sendGroupMessages(guid, text, files);
+      const sent = await sendGroupMessages(guid, text, files, replies.replyToId);
+      replies.cancelReply();
       setMessages((prev) => mergeMessages(prev, sent));
+      onActivity?.();
     } catch (err) {
       console.error("Send group message error:", err);
       throw err;
@@ -99,7 +133,19 @@ export default function GroupChat({ user, group }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref={replies.listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {older.hasMore && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={older.loadOlder}
+              disabled={older.loadingOlder}
+              className="rounded-full border border-border px-3 py-1 smalltext text-muted-foreground hover:text-primary hover:border-primary transition-colors disabled:opacity-60"
+            >
+              {older.loadingOlder ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Users className="w-8 h-8 opacity-30" />
@@ -114,6 +160,12 @@ export default function GroupChat({ user, group }: Props) {
               msg={msg}
               index={i}
               user={user}
+              onMessageChanged={(updated) => setMessages((prev) => replaceMessage(prev, updated))}
+              knownUsers={members}
+              onReply={replies.startReply}
+              findMessage={replies.findMessage}
+              onJumpToMessage={replies.jumpToMessage}
+              highlighted={replies.highlightedId === String(msg.getId?.() ?? "")}
               isLast={i === messages.length - 1}
               continuesGroup={i > 0 && !dayStarts[i] && senderUidOf(messages[i - 1]) === senderUidOf(msg)}
             />
@@ -124,7 +176,12 @@ export default function GroupChat({ user, group }: Props) {
 
       {/* Input */}
       <div className="px-4 py-3 border-t">
-        <ChatComposer onSend={sendMessage} />
+        <ChatComposer
+          onSend={sendMessage}
+          mentionOptions={mentionOptions}
+          replyingTo={replies.replyingTo}
+          onCancelReply={replies.cancelReply}
+        />
       </div>
     </div>
   );

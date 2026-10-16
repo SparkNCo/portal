@@ -11,6 +11,7 @@ import { usePinnedPanelsOwnerId } from "@/hooks/use-pinned-panels";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { ChevronLeft } from "lucide-react";
 import ChatSideBar from "./ChatSideBar";
+import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 import GroupChat from "./GroupChat";
 import DirectChat from "./DirectChat";
 import CreateChatModal, { type ChatIssueOption } from "./CreateChatModal";
@@ -70,7 +71,7 @@ export default function ChatLayout({
   // actually being viewed.
   const viewedCustomerId = usePinnedPanelsOwnerId();
   const customerId = customerSlug ? viewedCustomerId : undefined;
-  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup } =
+  const { user, groups, ready, error, profileLoading, refreshGroups, createSupportGroup, leaveGroup, bumpGroup } =
     useCometChat(customerId);
 
   const isAdmin = profile?.role === "admin";
@@ -205,10 +206,8 @@ export default function ChatLayout({
     onPendingCreateHandled?.();
   }, [ready, pendingCreate]);
 
-  // When an admin/developer is viewing a specific customer's chat panel,
-  // tag new groups with that customer's slug rather than the caller's own
-  // `[slug]` segment — which for that flow is the viewer's own slug, not
-  // the customer's (see dashboards/[customer]/[panel]/page.tsx).
+  // Tag new groups with the customer being viewed (CustomerSlugContext —
+  // set for admins by app/[slug]/(portal)/layout.tsx), else the URL's slug.
   const projectSlug = customerSlug ?? fallbackProjectSlug ?? undefined;
 
   const handleCreate = async (title: string, initiativeId?: string, issue?: ChatIssueOption) => {
@@ -258,6 +257,12 @@ export default function ChatLayout({
     }
   };
 
+  // Unread dots/filter in the sidebar; the chat on screen counts as read.
+  // A group's notifications are keyed by its guid (see the cometchat
+  // webhook). (Hooks — must stay above the early return below.)
+  const { unreadChatIds, mentionChatIds, markRead } = useUnreadChats();
+  useMarkOpenChatRead(selectedGroup?.getGuid(), unreadChatIds, markRead);
+
   if (profileLoading || !ready) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm md:smalltext">
@@ -298,6 +303,8 @@ export default function ChatLayout({
       {/* Sidebar: full-width on mobile when no chat active, fixed 288px on sm+ */}
       <div className={`flex-shrink-0 sm:w-72 h-full ${hasActiveChat ? "hidden sm:block" : "w-full"}`}>
         <ChatSideBar
+          unreadChatIds={unreadChatIds}
+          mentionChatIds={mentionChatIds}
           groups={visibleGroups}
           directChats={directChats}
           selectedGroup={selectedGroup}
@@ -331,7 +338,9 @@ export default function ChatLayout({
           </button>
         )}
         <div className="flex flex-1 overflow-hidden">
-          {selectedGroup && user && <GroupChat user={user} group={selectedGroup} />}
+          {selectedGroup && user && (
+            <GroupChat user={user} group={selectedGroup} onActivity={() => bumpGroup(selectedGroup.getGuid())} />
+          )}
           {!selectedGroup && selectedDirect && user && (
             <DirectChat user={user} receiverUID={selectedDirect.uid} title={selectedDirect.title} />
           )}

@@ -11,6 +11,12 @@ import { updateCustomer } from "./updateCustomer.ts";
 import { getDeveloperProfile } from "./getDeveloperProfile.ts";
 import { updateDeveloperProfile } from "./updateDeveloperProfile.ts";
 import { resolveCaller } from "./resolveCaller.ts";
+import { resolveTestMode, testModeBody, TestModeRejected, type TestRun } from "../lib/testMode.ts";
+
+// The requests that can run in test mode (lib/testMode.ts): POST with one of
+// these `type`s. Any other request carrying the test-mode header is refused
+// rather than run for real.
+const TEST_MODE_POST_TYPES = new Set(["", "developer", "stakeholder", "customer"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +26,13 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const schema = "portal";
+
+    const testRun = resolveTestMode(req);
+    if (testRun) {
+      const supported = req.method === "POST" && TEST_MODE_POST_TYPES.has(url.searchParams.get("type") ?? "");
+      if (!supported) return jsonResponse({ error: "Test mode isn't supported for this request" }, 400);
+      return await handlePost(req, url, schema, testRun);
+    }
 
     if (req.method === "GET") {
       console.log("[users GET]", {
@@ -36,6 +49,7 @@ Deno.serve(async (req) => {
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
+    if (error instanceof TestModeRejected) return jsonResponse({ error: error.message }, 403);
     console.error("[Supabase Error]", error);
     return jsonResponse({ error: error.message }, 500);
   }
@@ -135,18 +149,18 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   return jsonResponse(updatedUser);
 };
 
-const handlePost = async (req: Request, url: URL, schema: string) => {
+const handlePost = async (req: Request, url: URL, schema: string, testRun: TestRun | null = null) => {
   const body = await req.json();
   const type = url.searchParams.get("type");
 
   if (!type || type === "developer" || type === "stakeholder") {
-    const newUser = await createUser(body, schema);
-    return jsonResponse(newUser);
+    const newUser = await createUser(body, schema, testRun);
+    return jsonResponse(testRun ? testModeBody(testRun, newUser) : newUser);
   }
 
   if (type === "customer") {
-    const result = await createCustomerFlow(body, schema);
-    return jsonResponse(result);
+    const result = await createCustomerFlow(body, schema, testRun);
+    return jsonResponse(testRun ? testModeBody(testRun, result) : result);
   }
 
   if (type === "resend-account-email") {

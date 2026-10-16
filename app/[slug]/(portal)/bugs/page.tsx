@@ -3,7 +3,6 @@
 import { Header } from "@/components/headerDashboard";
 import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { BugReportPanel } from "@/components/bugs/bug-report-panel";
-import { LoadingDataPanel } from "@/components/loader";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import {
   Select,
@@ -220,15 +219,12 @@ function BugsPageContent() {
         </div>
 
         <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
-          {issuesLoading ? (
-            <LoadingDataPanel />
-          ) : (
-            <>
-              <PinButton panelId="bugs_list" />
-              <div className="pt-12">
-                <PriorityTasks
-                  issuesData={visibleIssues}
-                  filterState={filterState}
+          <PinButton panelId="bugs_list" />
+          <div className="pt-12">
+            <PriorityTasks
+              loading={issuesLoading}
+              issuesData={visibleIssues}
+              filterState={filterState}
                   onOpenChat={() => {}}
                   onEditIssue={(issue) => setEditingIssue(issue)}
                   title="Bugs"
@@ -238,10 +234,8 @@ function BugsPageContent() {
                   openIssueId={openIssueId}
                   openIssueTab={openIssueTab}
                   onDeepLinkClose={clearDeepLink}
-                />
-              </div>
-            </>
-          )}
+            />
+          </div>
         </div>
       </div>
 

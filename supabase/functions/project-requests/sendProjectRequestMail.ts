@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { sendEmail } from "../lib/mailer.ts";
+import type { TestRun } from "../lib/testMode.ts";
 
 type SendProjectRequestMailParams = {
   email: string;
@@ -7,6 +8,8 @@ type SendProjectRequestMailParams = {
   description?: string;
   requestedBy?: string;
   slug?: string;
+  // Test mode (lib/testMode.ts): recorded instead of sent.
+  testRun?: TestRun | null;
 };
 
 export async function sendProjectRequestMail({
@@ -15,6 +18,7 @@ export async function sendProjectRequestMail({
   description,
   requestedBy,
   slug,
+  testRun = null,
 }: SendProjectRequestMailParams) {
   console.log("[sendProjectRequestMail] 📧 Sending to:", email);
 
@@ -38,7 +42,7 @@ export async function sendProjectRequestMail({
     to: email,
     subject: `New project request: ${title}`,
     html,
-  });
+  }, testRun);
 
   console.log("[sendProjectRequestMail] ✅ Response:", response);
 

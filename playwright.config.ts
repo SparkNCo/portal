@@ -23,6 +23,11 @@ export default defineConfig({
   // Stage 1: login — must pass before role tests run
   // Stage 2: role tests run with up to 2 workers
   projects: [
+    // Pure logic, no browser or server data: npx playwright test --project=unit
+    {
+      name: 'unit',
+      testMatch: '**/unit/*.spec.ts',
+    },
     {
       name: 'login',
       testMatch: ['**/login.spec.ts', '**/example.spec.ts', '**/set-password.spec.ts'],
@@ -59,6 +64,20 @@ export default defineConfig({
       name: 'documents',
       testMatch: '**/documents.spec.ts',
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Query (connect client databases, ask them questions): the page against
+    // mocked functions, plus an admins-only check on the real ones.
+    // npx playwright test --project=query
+    {
+      name: 'query',
+      testMatch: '**/e2e/query.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Edge functions in test mode (no emails, no writes) — calls them
+    // directly, no browser: npx playwright test --project=test-mode
+    {
+      name: 'test-mode',
+      testMatch: '**/test-mode.spec.ts',
     },
   ],
 

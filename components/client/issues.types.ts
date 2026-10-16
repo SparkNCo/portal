@@ -293,4 +293,6 @@ export type PriorityTasksProps = {
   onViewModeChange?: (mode: IssueViewMode) => void;
   // Replaces the default "No issues match the current filters." text.
   emptyState?: ReactNode;
+  /** The tickets are still being fetched: show placeholders, not "no issues". */
+  loading?: boolean;
 };

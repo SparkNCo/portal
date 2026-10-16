@@ -19,6 +19,7 @@
 10. [Settings](#10-settings)
 11. [Environments & Schema Routing](#11-environments--schema-routing)
 12. [AI Features & Config-Driven AI Client](#12-ai-features--config-driven-ai-client)
+13. [Query](#13-query)
 
 ---
 
@@ -221,8 +222,10 @@ The invitation email link lands the user on `/set-password`. The page detects th
 
 | Role | Redirect |
 |---|---|
-| `customer` | `/{clientName}/dashboards/{clientName}/dashboard` |
-| Everyone else | `/{clientName}/dashboards` |
+| `customer` | `/{clientName}/dashboard` |
+| `admin` | `/admin/users` |
+| `developer` | `/dev/developer`, which forwards to `/{slug}/developer` for their first initiative |
+| `stakeholder` | The dashboard of the initiative they're assigned to |
 
 ### 2.4 Error states
 
@@ -1053,7 +1056,7 @@ All three render the same `ChatLayout`. See `app/docs/CHAT_FLOWS.md` for the ful
 `customer`, `developer`, `stakeholder`, and `admin`. All roles open chat at `/{slug}/chat`, scoped to the initiative in the URL (admins: Initiative dropdown; developers: "Working on"). Admins' New Chat is locked to that customer. Old `/admin/chats` and `/dev/chat` links redirect to the right `/{slug}/chat` (see `app/docs/CHAT_FLOWS.md`).
 
 Two distinct chat surfaces exist:
-- **The standalone page** — full chat with a sidebar and conversation view. The admin Dashboards preview (`panel-renderer.tsx`, `case "chat"`) renders the `/[slug]/(portal)/chat` version scoped to whichever customer is being previewed.
+- **The standalone page** — full chat with a sidebar and conversation view. Admins open the same `/{slug}/chat` page of whichever initiative they're browsing, scoped to that customer.
 - **Issue Chat** (`IssueCometChat`) — the Chat tab inside the Issue Detail Modal, scoped to one issue (see Issue Flows section).
 
 ### 9.1 CometChat Initialization — `initCometChatUser`
@@ -1285,7 +1288,7 @@ When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-desi
 
 ## 12. AI Features & Config-Driven AI Client
 
-Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change.
+Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers and Query (§13).
 
 ### 12.1 Environment variables
 
@@ -1294,11 +1297,20 @@ Set these as Supabase Edge Function secrets (`supabase secrets set ...`), or in 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `AI_API_KEY` | **Yes** | — | Bearer token sent to the provider. **If unset, AI features are off** (see 12.3) |
-| `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
+| `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gemini-3.8-flash`, `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
 | `AI_BASE_URL` | No | `https://api.openai.com/v1` | OpenAI-compatible base URL. Trailing slashes are stripped, and requests go to `{AI_BASE_URL}/chat/completions` |
-| `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `huggingface error: ...`). It does **not** change the request format |
+| `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `gemini error: ...`). It does **not** change the request format |
 
-Example (Hugging Face Inference Providers router):
+Current configuration (since October 2026): Google Gemini through its OpenAI-compatible endpoint, on the free tier. Key from https://aistudio.google.com → Get API key. Older ids such as `gemini-2.5-flash` answer 404 for new keys.
+
+```
+AI_PROVIDER=gemini
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AI_MODEL=gemini-3.8-flash
+AI_API_KEY=AIza...
+```
+
+Previous configuration, Hugging Face Inference Providers router. Hugging Face stopped giving Free accounts monthly credits in October 2026, so this needs prepaid credits or PRO now; without them every call fails with "You have no remaining credits":
 
 ```
 AI_PROVIDER=huggingface
@@ -1306,6 +1318,8 @@ AI_BASE_URL=https://router.huggingface.co/v1
 AI_MODEL=Qwen/Qwen2.5-Coder-3B-Instruct
 AI_API_KEY=hf_...
 ```
+
+On Gemini's free tier, Google may use what's sent (prompts) to improve its products. For Query that means questions and database structure, never rows. Consider a paid tier before using it with client databases.
 
 > **Migration note:** before SPA-514 the debounce analyzers read `OPENAI_API_KEY` and hardcoded `gpt-4.1-mini` against OpenAI's `/v1/responses` endpoint, and `generateSuggestion.ts` was hardcoded to Hugging Face. `OPENAI_API_KEY` is **no longer read by anything**. To keep the previous behavior, set `AI_API_KEY` to the old OpenAI key and `AI_MODEL=gpt-4.1-mini` (leave `AI_BASE_URL` unset).
 
@@ -1330,6 +1344,7 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `debounce` → `analyze-current-state` | Same pattern, all-false flags (`user/capability/reason/limitations: false`) |
 | `suggested-features` → `generate` | Returns a `500` with the error message |
 | `suggested-features` → `generate-all` (cron) | Each project's failure is logged and counted in `failed`. The run continues and creates no suggestions |
+| `query` | No key: `503` "AI isn't configured for the portal". A provider error: `500` with the provider's message, shown on the Query page |
 
 ### 12.4 AI-driven files
 
@@ -1341,9 +1356,34 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `supabase/functions/debounce/analyze-current-state.ts` | Classifies a message for user / capability / reason / limitations (schema `current_state_analysis`) |
 | `supabase/functions/suggested-features/generateSuggestion.ts` | Prompt + one suggested feature per Linear project (schema `suggested_feature`: `title`, `description`, `milestoneId`) |
 | `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron loop that calls `generateSuggestionForProject` for every customer's projects |
+| `supabase/functions/query/prompt.ts` | Turns a plain-text question into SQL from a client database's structure (schema `sql_query`: `answerable`, `sql`, `explanation`). See §13 |
 | `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: the Linear context fed into the suggestion prompt |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Schedules the weekly AI generation run (Mon 06:00 UTC) |
 
 The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
 
 The vector/semantic search features (similar issues, similar tests, document search) use embeddings through Upstash/pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.
+
+---
+
+## 13. Query
+
+See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
+
+**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
+
+**Where:** `/{slug}/query`, the **Query** item in the admin's initiative menu. Admins only: other roles are redirected home, and both edge functions (`data-sources`, `query`) check for an admin session token (`401` / `403`).
+
+**Connections:** stored in `portal.data_sources`, with the password in Supabase Vault (one secret per connection, removed by trigger when the connection is deleted). Each save is tested first ("Test connection" can be run on its own). Cards can be edited (an empty password keeps the stored one) and deleted after a confirmation.
+
+**Structure:** read from `pg_catalog` after every save or edit, or with Refresh structure. It covers tables, views, columns and types, keys and enum values, only what the connecting user can read. It's stored as JSON in the private bucket `data_source_schemas` (`{customer_id}/{data_source_id}.json`), and the cards show it under "View structure".
+
+**Questions:** `POST /query` → the AI (§12) returns one `SELECT`. Anything else is refused before it's sent. It runs in a `READ ONLY` transaction with a 15 s timeout and at most 500 rows. The page shows the explanation, the SQL used and the rows, or why there are none.
+
+| File | Purpose |
+|---|---|
+| `app/[slug]/(portal)/query/page.tsx` | The page |
+| `components/query/*` | Connection form, cards, structure viewer, question panel |
+| `supabase/functions/data-sources/` | Connections and structure |
+| `supabase/functions/query/` | Questions → SQL → rows |
+| `supabase/migrations/20261014120000_add_data_sources.sql`, `20261015120000_data_sources_delete_vault_secret.sql` | Table, Vault functions and trigger, bucket |
