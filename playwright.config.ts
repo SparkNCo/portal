@@ -65,6 +65,14 @@ export default defineConfig({
       testMatch: '**/documents.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    // Query (connect client databases, ask them questions): the page against
+    // mocked functions, plus an admins-only check on the real ones.
+    // npx playwright test --project=query
+    {
+      name: 'query',
+      testMatch: '**/e2e/query.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
     // Edge functions in test mode (no emails, no writes) — calls them
     // directly, no browser: npx playwright test --project=test-mode
     {

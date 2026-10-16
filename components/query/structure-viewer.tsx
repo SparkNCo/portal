@@ -51,7 +51,8 @@ function TableStructure({ table, structure }: Readonly<{ table: Table; structure
             <tbody>
               {table.columns.map((column) => {
                 const fk = foreignKeyOf(column.name);
-                const values = enumValues(structure, column.type);
+                // A Postgres enum type, or a SQL Server CHECK on the column.
+                const values = column.values ?? enumValues(structure, column.type);
                 return (
                   <tr key={column.name} className="align-top">
                     <td className="py-1 pr-3 font-mono whitespace-nowrap">{column.name}</td>

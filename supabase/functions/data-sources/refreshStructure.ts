@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { DATA_SOURCE_COLUMNS, SCHEMAS_BUCKET } from "./columns.ts";
-import { readStructure } from "./introspect.ts";
-import { type ConnectionConfig, describeConnectionError, withConnection } from "./postgresClient.ts";
+import type { ConnectionConfig } from "./postgresClient.ts";
+import { engineFor } from "./engines.ts";
 
 // Reads a connection's structure and stores it as JSON at
 // data_source_schemas/{customer_id}/{data_source_id}.json (SPA-490/491).
@@ -10,9 +10,10 @@ import { type ConnectionConfig, describeConnectionError, withConnection } from "
 // it worked, schema_error when it didn't (the previous file, if any, is
 // kept). Returns the updated row either way.
 export async function refreshStructure(dataSource: any, config: ConnectionConfig) {
+  const engine = engineFor(config.type);
   let update: Record<string, unknown>;
   try {
-    const structure = await withConnection(config, (sql) => readStructure(sql, dataSource.id, config.database));
+    const structure = await engine.readStructure(config, dataSource.id);
     const path = `${dataSource.customer_id}/${dataSource.id}.json`;
 
     const { error: uploadError } = await supabase.storage
@@ -26,7 +27,7 @@ export async function refreshStructure(dataSource: any, config: ConnectionConfig
     update = { schema_path: path, schema_refreshed_at: structure.refreshedAt, schema_error: null };
     console.log("[data-sources] structure read", { id: dataSource.id, tables: structure.tables.length });
   } catch (err) {
-    const message = describeConnectionError(err, config, "");
+    const message = engine.describeConnectionError(err, config, "");
     console.error("[data-sources] reading the structure failed", { id: dataSource.id, error: message });
     update = { schema_error: message };
   }

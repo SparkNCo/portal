@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { parseConnectionInput } from "./connectionInput.ts";
-import { testConnection } from "./postgresClient.ts";
+import { engineFor } from "./engines.ts";
 import { testSavedConnection } from "./manageDataSources.ts";
 import { DATA_SOURCE_COLUMNS } from "./columns.ts";
 import { refreshStructure } from "./refreshStructure.ts";
@@ -16,7 +16,7 @@ export async function handleTestConnection(req: Request): Promise<Response> {
   const parsed = parseConnectionInput(body);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
 
-  const error = await testConnection(parsed.config);
+  const error = await engineFor(parsed.config.type).test(parsed.config);
   return Response.json(error ? { ok: false, error } : { ok: true });
 }
 
@@ -45,7 +45,7 @@ export async function handleCreateDataSource(req: Request, callerId: string | nu
   if (customerError) throw new Error(customerError.message);
   if (!customer) return Response.json({ error: "Client not found" }, { status: 404 });
 
-  const connectionError = await testConnection(config);
+  const connectionError = await engineFor(config.type).test(config);
   if (connectionError) return Response.json({ error: connectionError }, { status: 400 });
 
   const { data: row, error: insertError } = await supabase
@@ -54,7 +54,7 @@ export async function handleCreateDataSource(req: Request, callerId: string | nu
     .insert({
       customer_id: customer.customer_id,
       name,
-      type: "postgres",
+      type: config.type,
       host: config.host,
       port: config.port,
       database_name: config.database,

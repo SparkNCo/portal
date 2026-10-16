@@ -6,7 +6,23 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 
 const BASE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/data-sources`;
 
+// The engines Query can connect to (`data_sources.type`).
+export type DatabaseEngine = "postgres" | "sqlserver";
+
+// `available: false` lists the engine but can't be picked. SQL Server is
+// written but waits for Supabase's edge runtime to reach Deno 2.7 (see
+// sqlServerUnavailable in supabase/functions/data-sources/engines.ts) —
+// flip it once it does.
+export const DATABASE_ENGINES: { value: DatabaseEngine; label: string; defaultPort: number; available: boolean }[] = [
+  { value: "postgres", label: "PostgreSQL", defaultPort: 5432, available: true },
+  { value: "sqlserver", label: "SQL Server", defaultPort: 1433, available: false },
+];
+
+export const engineLabel = (type: DatabaseEngine) =>
+  DATABASE_ENGINES.find((e) => e.value === type)?.label ?? type;
+
 export type ConnectionDetails = {
+  type: DatabaseEngine;
   host: string;
   port: number;
   database: string;
@@ -19,7 +35,7 @@ export type DataSource = {
   id: string;
   customer_id: string;
   name: string;
-  type: "postgres";
+  type: DatabaseEngine;
   host: string;
   port: number;
   database_name: string;
@@ -42,7 +58,8 @@ export type DatabaseStructure = {
     name: string;
     kind: "table" | "view" | "materialized view" | "foreign table";
     comment: string | null;
-    columns: { name: string; type: string; nullable: boolean; comment: string | null }[];
+    // `values`: the only values a column allows (a SQL Server CHECK).
+    columns: { name: string; type: string; nullable: boolean; comment: string | null; values?: string[] }[];
     primaryKey: string[];
     foreignKeys: { columns: string[]; references: { schema: string; table: string; columns: string[] } }[];
   }[];

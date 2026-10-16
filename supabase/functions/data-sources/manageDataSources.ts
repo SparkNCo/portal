@@ -2,7 +2,7 @@
 import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { parseConnectionInput } from "./connectionInput.ts";
-import { testConnection } from "./postgresClient.ts";
+import { engineFor } from "./engines.ts";
 import { refreshStructure } from "./refreshStructure.ts";
 import { DATA_SOURCE_COLUMNS, SCHEMAS_BUCKET } from "./columns.ts";
 
@@ -30,6 +30,7 @@ export async function storedPassword(id: string): Promise<string> {
 // filled in from the saved connection.
 async function mergedConnectionInput(existing: any, body: any) {
   return parseConnectionInput({
+    type: body?.type ?? existing.type,
     host: body?.host ?? existing.host,
     port: body?.port ?? existing.port,
     database: body?.database ?? existing.database_name,
@@ -72,7 +73,7 @@ export async function testSavedConnection(id: string, body: any): Promise<Respon
   const parsed = await mergedConnectionInput(existing, body);
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
 
-  const error = await testConnection(parsed.config);
+  const error = await engineFor(parsed.config.type).test(parsed.config);
   return Response.json(error ? { ok: false, error } : { ok: true });
 }
 
@@ -91,7 +92,7 @@ export async function handleUpdateDataSource(id: string, req: Request): Promise<
   if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
   const { config } = parsed;
 
-  const connectionError = await testConnection(config);
+  const connectionError = await engineFor(config.type).test(config);
   if (connectionError) return Response.json({ error: connectionError }, { status: 400 });
 
   const { data: row, error: updateError } = await supabase
@@ -99,6 +100,7 @@ export async function handleUpdateDataSource(id: string, req: Request): Promise<
     .from("data_sources")
     .update({
       name,
+      type: config.type,
       host: config.host,
       port: config.port,
       database_name: config.database,

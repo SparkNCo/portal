@@ -9,8 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   type ConnectionDetails,
+  type DatabaseEngine,
+  DATABASE_ENGINES,
   type DataSource,
   createDataSource,
   testDataSourceConnection,
@@ -23,6 +26,7 @@ import {
 // editing, an empty password keeps the stored one.
 
 type FormState = {
+  type: DatabaseEngine;
   name: string;
   host: string;
   port: string;
@@ -32,11 +36,14 @@ type FormState = {
   ssl: boolean;
 };
 
-const EMPTY_FORM: FormState = { name: "", host: "", port: "5432", database: "", username: "", password: "", ssl: true };
+const EMPTY_FORM: FormState = { type: "postgres", name: "", host: "", port: "5432", database: "", username: "", password: "", ssl: true };
+
+const defaultPort = (type: DatabaseEngine) => DATABASE_ENGINES.find((e) => e.value === type)?.defaultPort ?? 5432;
 
 function formFor(dataSource: DataSource | null | undefined): FormState {
   if (!dataSource) return EMPTY_FORM;
   return {
+    type: dataSource.type,
     name: dataSource.name,
     host: dataSource.host,
     port: String(dataSource.port),
@@ -51,8 +58,9 @@ type TestResult = { ok: true } | { ok: false; error: string };
 
 function connectionDetails(form: FormState): ConnectionDetails {
   return {
+    type: form.type,
     host: form.host.trim(),
-    port: Number(form.port) || 5432,
+    port: Number(form.port) || defaultPort(form.type),
     database: form.database.trim(),
     username: form.username.trim(),
     password: form.password,
@@ -140,7 +148,33 @@ export function DataSourceForm({
         >
           <div className="space-y-1.5">
             <Label htmlFor="data-source-type">Database type</Label>
-            <Input id="data-source-type" value="PostgreSQL" disabled />
+            <Select
+              value={form.type}
+              onValueChange={(value) => {
+                const type = value as DatabaseEngine;
+                // Follow the engine's default port unless one was typed in.
+                const portUntouched = form.port === "" || form.port === String(defaultPort(form.type));
+                setForm((prev) => ({ ...prev, type, port: portUntouched ? String(defaultPort(type)) : prev.port }));
+                setTestResult(null);
+              }}
+            >
+              <SelectTrigger id="data-source-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATABASE_ENGINES.map((engine) => (
+                  <SelectItem
+                    key={engine.value}
+                    value={engine.value}
+                    // A saved connection keeps its engine selectable.
+                    disabled={!engine.available && engine.value !== dataSource?.type}
+                  >
+                    {engine.label}
+                    {!engine.available && <span className="text-muted-foreground"> · coming soon</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

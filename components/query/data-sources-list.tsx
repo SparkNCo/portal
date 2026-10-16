@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type DataSource, deleteDataSource, refreshDataSourceStructure } from "@/lib/data-sources-api";
+import { type DataSource, deleteDataSource, engineLabel, refreshDataSourceStructure } from "@/lib/data-sources-api";
 import { StructureViewer } from "./structure-viewer";
 
 // A client's connected databases (SPA-489): what each one points at, the
@@ -139,6 +139,7 @@ export function DataSourcesList({
               </p>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 smalltext">
+                <span className="text-muted-foreground">{engineLabel(dataSource.type)}</span>
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
                   {dataSource.ssl ? (
                     <Lock className="h-3.5 w-3.5" aria-hidden="true" />

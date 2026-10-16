@@ -11,8 +11,9 @@ import { resolveCaller } from "../users/resolveCaller.ts";
 import { aiEnabled } from "../lib/aiClient.ts";
 import { SCHEMAS_BUCKET } from "../data-sources/columns.ts";
 import { findDataSource, storedPassword } from "../data-sources/manageDataSources.ts";
+import { configFor, engineFor } from "../data-sources/engines.ts";
 import { generateQuery } from "./prompt.ts";
-import { checkSql, describeQueryError, runQuery } from "./runQuery.ts";
+import { checkSql } from "./checkSql.ts";
 
 const MAX_QUESTION_LENGTH = 2000;
 
@@ -45,7 +46,7 @@ serveWithCors("query API Error", async (req) => {
   }
 
   const structure = await loadStructure(dataSource.schema_path);
-  const generated = await generateQuery(structure, question);
+  const generated = await generateQuery(structure, question, dataSource.type);
   const answer = { question, explanation: generated.explanation, sql: generated.sql };
 
   if (!generated.answerable) return Response.json({ ...answer, error: generated.explanation });
@@ -53,20 +54,14 @@ serveWithCors("query API Error", async (req) => {
   const checked = checkSql(generated.sql);
   if ("error" in checked) return Response.json({ ...answer, error: checked.error });
 
-  const config = {
-    host: dataSource.host,
-    port: dataSource.port,
-    database: dataSource.database_name,
-    username: dataSource.username,
-    password: await storedPassword(dataSource.id),
-    ssl: dataSource.ssl,
-  };
+  const engine = engineFor(dataSource.type);
+  const config = configFor(dataSource, await storedPassword(dataSource.id));
 
   try {
-    const result = await runQuery(config, checked.sql);
+    const result = await engine.run(config, checked.sql);
     return Response.json({ ...answer, sql: checked.sql, ...result });
   } catch (err) {
     console.error("[query] running the generated SQL failed", { id: dataSource.id, code: err?.code, error: err?.message });
-    return Response.json({ ...answer, sql: checked.sql, error: describeQueryError(err, config) });
+    return Response.json({ ...answer, sql: checked.sql, error: engine.describeQueryError(err, config) });
   }
 });

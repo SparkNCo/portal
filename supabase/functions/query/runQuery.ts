@@ -2,10 +2,10 @@
 // Runs the generated SQL against the client's database, with the minimum
 // safety agreed for now (SPA-492): a READ ONLY transaction (the database
 // itself refuses any write), a 15 s statement timeout and at most MAX_ROWS
-// rows. The AI is asked for a single SELECT too, and `checkSql` rejects
-// anything else before it's sent.
+// rows. The AI is asked for a single SELECT too, and `checkSql`
+// (checkSql.ts) rejects anything else before it's sent.
 import { type ConnectionConfig, describeConnectionError, withConnection } from "../data-sources/postgresClient.ts";
-import { MAX_ROWS } from "./prompt.ts";
+import { MAX_ROWS } from "./describeStructure.ts";
 
 const STATEMENT_TIMEOUT_SECONDS = 15;
 
@@ -15,15 +15,6 @@ export type QueryResult = {
   // More rows matched than MAX_ROWS; only the first MAX_ROWS are returned.
   truncated: boolean;
 };
-
-// The SQL without trailing semicolons, or why it can't be run.
-export function checkSql(sql: string): { sql: string } | { error: string } {
-  const trimmed = sql.trim().replace(/;+\s*$/, "").trim();
-  if (!trimmed) return { error: "No query was generated." };
-  if (trimmed.includes(";")) return { error: "The generated SQL has more than one statement, so it wasn't run." };
-  if (!/^(select|with)\b/i.test(trimmed)) return { error: "The generated SQL isn't a SELECT query, so it wasn't run." };
-  return { sql: trimmed };
-}
 
 // JSON-safe cell values: dates as ISO strings, binary data summarized.
 function cell(value: unknown): unknown {
