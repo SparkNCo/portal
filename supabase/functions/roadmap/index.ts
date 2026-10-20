@@ -4,6 +4,7 @@ import { corsHeaders, LINEAR_GRAPHQL } from "../utils/headers.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import {
   PROJECTS_QUERY,
+  FIRST_PROJECT_QUERY,
   PROJECT_TEAM_QUERY,
   TEAM_CYCLES_QUERY,
   CYCLE_ISSUES_QUERY,
@@ -60,10 +61,32 @@ async function linearRequest(query: string, variables: Record<string, unknown>) 
   return data.data;
 }
 
-async function fetchFromLinear(initiativeId: string, after: string | null) {
-  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId, "after", after);
+// Linear project status names that get their own collapsed divider in the
+// timeline. Each group is fetched as a separate call so it has its own
+// 10-per-page budget instead of sharing one with active projects.
+const COMPLETED_STATUS = "In Production";
+const UPCOMING_STATUS = "Backlog";
 
-  const data = await linearRequest(PROJECTS_QUERY, { initiativeId, after });
+type ProjectGroup = "active" | "completed" | "upcoming";
+
+function projectFilterForGroup(group: ProjectGroup) {
+  if (group === "completed") return { status: { name: { eq: COMPLETED_STATUS } } };
+  if (group === "upcoming") return { status: { name: { eq: UPCOMING_STATUS } } };
+  return { status: { name: { nin: [COMPLETED_STATUS, UPCOMING_STATUS] } } };
+}
+
+async function fetchFromLinear(
+  initiativeId: string,
+  after: string | null,
+  group: ProjectGroup,
+) {
+  console.log("[roadmap] fetchFromLinear: requesting initiative", initiativeId, { after, group });
+
+  const data = await linearRequest(PROJECTS_QUERY, {
+    initiativeId,
+    after,
+    filter: projectFilterForGroup(group),
+  });
 
   const projects = data?.initiative?.projects?.nodes ?? [];
   console.log(
@@ -84,9 +107,14 @@ async function fetchFromLinear(initiativeId: string, after: string | null) {
 
 // Cycles belong to a team, not a project — resolve the first project's team,
 // then fetch that team's full cycle list. Every project in an initiative
-// typically shares one team, so the first project found is enough.
-async function fetchCyclesForInitiative(projects: any[]) {
-  const firstProjectId = projects[0]?.id;
+// typically shares one team, so the first project found is enough. If the
+// active group is empty, any project of the initiative is used instead.
+async function fetchCyclesForInitiative(initiativeId: string, projects: any[]) {
+  let firstProjectId = projects[0]?.id;
+  if (!firstProjectId) {
+    const anyProject = await linearRequest(FIRST_PROJECT_QUERY, { initiativeId });
+    firstProjectId = anyProject?.initiative?.projects?.nodes?.[0]?.id;
+  }
   if (!firstProjectId) return { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
   const teamData = await linearRequest(PROJECT_TEAM_QUERY, { projectId: firstProjectId });
@@ -215,13 +243,17 @@ Deno.serve(async (req) => {
 
     const initiativeId = customer.linear_slug;
     const projectsAfter = searchParams.get("projectsAfter");
+    const rawGroup = searchParams.get("group");
+    const group: ProjectGroup =
+      rawGroup === "completed" || rawGroup === "upcoming" ? rawGroup : "active";
 
-    const data = await fetchFromLinear(initiativeId, projectsAfter);
+    const data = await fetchFromLinear(initiativeId, projectsAfter, group);
 
-    // Cycles are fully fetched on the first page; skip them on "load more".
-    const cycles = projectsAfter
+    // Cycles are fetched once, with the first page of the active group; the
+    // completed/upcoming calls and "load more" pages skip them.
+    const cycles = projectsAfter || group !== "active"
       ? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
-      : await fetchCyclesForInitiative(data?.initiative?.projects?.nodes ?? []);
+      : await fetchCyclesForInitiative(initiativeId, data?.initiative?.projects?.nodes ?? []);
 
     console.log("[roadmap] returning response for slug", slug, "- cycles:", cycles.nodes.length);
 

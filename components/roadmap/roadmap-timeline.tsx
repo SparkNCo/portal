@@ -19,6 +19,7 @@ import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-fil
 import { useUser } from "context/UserContext";
 import type { FilterState, Issue } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import type { ProjectGroupPaging } from "@/hooks/use-roadmap-data";
 import { X, Search, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
 
 export type MilestoneStatus =
@@ -86,7 +87,30 @@ type RoadmapTimelineProps = {
   hasMoreProjects?: boolean;
   loadingMoreProjects?: boolean;
   onLoadMoreProjects?: () => void;
+  // Completed/Upcoming are fetched as their own paginated calls (see
+  // useRoadmapData), so each divider has its own "Load more".
+  completedPaging?: ProjectGroupPaging;
+  upcomingPaging?: ProjectGroupPaging;
 };
+
+function LoadMoreProjectsButton({
+  onClick,
+  loading,
+}: Readonly<{ onClick?: () => void; loading: boolean }>) {
+  return (
+    <div className="flex justify-center mt-3">
+      <Button
+        type="button"
+        size="sm"
+        onClick={onClick}
+        disabled={loading}
+        className="bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        {loading ? "Loading..." : "Load more projects"}
+      </Button>
+    </div>
+  );
+}
 
 function toIssue(issue: any): Issue {
   return {
@@ -159,6 +183,8 @@ export function RoadmapTimeline({
   hasMoreProjects = false,
   loadingMoreProjects = false,
   onLoadMoreProjects,
+  completedPaging,
+  upcomingPaging,
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
@@ -452,6 +478,73 @@ export function RoadmapTimeline({
     },
   };
 
+  function renderProjectRow([projectName, milestones]: [string, Milestone[]]) {
+    return (
+      <ProjectRow
+        key={projectName}
+        projectName={projectName}
+        projectId={projectIdsByName[projectName] ?? null}
+        projectColor={projectColorByName[projectName]}
+        milestones={milestones}
+        buckets={buckets}
+        expanded={!!expandedProjects[projectName]}
+        onToggle={() =>
+          setExpandedProjects((p) => ({
+            ...p,
+            [projectName]: !p[projectName],
+          }))
+        }
+        selection={selection}
+        onCycleSelect={(next) => setSelection(next)}
+        onCloseIssues={() => setSelection(null)}
+      />
+    );
+  }
+
+  // A collapsed "Upcoming"/"Completed" divider. The count shows "N+" while
+  // Linear still has more projects in that group to page in.
+  function renderCollapsedGroup({
+    label,
+    entries,
+    open,
+    onToggleOpen,
+    paging,
+    className,
+  }: {
+    label: string;
+    entries: [string, Milestone[]][];
+    open: boolean;
+    onToggleOpen: () => void;
+    paging?: ProjectGroupPaging;
+    className: string;
+  }) {
+    if (entries.length === 0) return null;
+    return (
+      <div className={className}>
+        <button
+          type="button"
+          onClick={onToggleOpen}
+          className="flex w-full items-center gap-1.5 py-2 smalltext font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+          {label}
+          <span className="smalltext font-normal text-muted-foreground/70">
+            ({entries.length}
+            {paging?.hasMore ? "+" : ""})
+          </span>
+        </button>
+        {open && entries.map(renderProjectRow)}
+        {open && paging?.hasMore && (
+          <LoadMoreProjectsButton onClick={paging.onLoadMore} loading={paging.loadingMore} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
@@ -475,122 +568,32 @@ export function RoadmapTimeline({
             ) : (
               <>
                 <TimelineBucketsHeader buckets={buckets} />
-                {activeEntries.map(([projectName, milestones]) => (
-                  <ProjectRow
-                    key={projectName}
-                    projectName={projectName}
-                    projectId={projectIdsByName[projectName] ?? null}
-                    projectColor={projectColorByName[projectName]}
-                    milestones={milestones}
-                    buckets={buckets}
-                    expanded={!!expandedProjects[projectName]}
-                    onToggle={() =>
-                      setExpandedProjects((p) => ({
-                        ...p,
-                        [projectName]: !p[projectName],
-                      }))
-                    }
-                    selection={selection}
-                    onCycleSelect={(next) => setSelection(next)}
-                    onCloseIssues={() => setSelection(null)}
-                  />
-                ))}
+                {activeEntries.map(renderProjectRow)}
 
                 {hasMoreProjects && (
-                  <div className="flex justify-center mt-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={onLoadMoreProjects}
-                      disabled={loadingMoreProjects}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    >
-                      {loadingMoreProjects ? "Loading..." : "Load more projects"}
-                    </Button>
-                  </div>
+                  <LoadMoreProjectsButton
+                    onClick={onLoadMoreProjects}
+                    loading={loadingMoreProjects}
+                  />
                 )}
 
-                {upcomingEntries.length > 0 && (
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowUpcoming((v) => !v)}
-                      className="flex w-full items-center gap-1.5 py-2 smalltext font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showUpcoming ? (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      )}
-                      Upcoming
-                      <span className="smalltext font-normal text-muted-foreground/70">
-                        ({upcomingEntries.length})
-                      </span>
-                    </button>
-                    {showUpcoming &&
-                      upcomingEntries.map(([projectName, milestones]) => (
-                        <ProjectRow
-                          key={projectName}
-                          projectName={projectName}
-                          projectId={projectIdsByName[projectName] ?? null}
-                          projectColor={projectColorByName[projectName]}
-                          milestones={milestones}
-                          buckets={buckets}
-                          expanded={!!expandedProjects[projectName]}
-                          onToggle={() =>
-                            setExpandedProjects((p) => ({
-                              ...p,
-                              [projectName]: !p[projectName],
-                            }))
-                          }
-                          selection={selection}
-                          onCycleSelect={(next) => setSelection(next)}
-                          onCloseIssues={() => setSelection(null)}
-                        />
-                      ))}
-                  </div>
-                )}
+                {renderCollapsedGroup({
+                  label: "Upcoming",
+                  entries: upcomingEntries,
+                  open: showUpcoming,
+                  onToggleOpen: () => setShowUpcoming((v) => !v),
+                  paging: upcomingPaging,
+                  className: "mt-3",
+                })}
 
-                {completedEntries.length > 0 && (
-                  <div className="mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowCompleted((v) => !v)}
-                      className="flex w-full items-center gap-1.5 py-2 smalltext font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showCompleted ? (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      )}
-                      Completed
-                      <span className="smalltext font-normal text-muted-foreground/70">
-                        ({completedEntries.length})
-                      </span>
-                    </button>
-                    {showCompleted &&
-                      completedEntries.map(([projectName, milestones]) => (
-                        <ProjectRow
-                          key={projectName}
-                          projectName={projectName}
-                          projectId={projectIdsByName[projectName] ?? null}
-                          projectColor={projectColorByName[projectName]}
-                          milestones={milestones}
-                          buckets={buckets}
-                          expanded={!!expandedProjects[projectName]}
-                          onToggle={() =>
-                            setExpandedProjects((p) => ({
-                              ...p,
-                              [projectName]: !p[projectName],
-                            }))
-                          }
-                          selection={selection}
-                          onCycleSelect={(next) => setSelection(next)}
-                          onCloseIssues={() => setSelection(null)}
-                        />
-                      ))}
-                  </div>
-                )}
+                {renderCollapsedGroup({
+                  label: "Completed",
+                  entries: completedEntries,
+                  open: showCompleted,
+                  onToggleOpen: () => setShowCompleted((v) => !v),
+                  paging: completedPaging,
+                  className: "mt-1",
+                })}
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 pt-3 border-t border-border smalltext text-muted-foreground">
                   <span className="flex items-center gap-1.5">

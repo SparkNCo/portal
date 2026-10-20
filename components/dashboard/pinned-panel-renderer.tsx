@@ -260,6 +260,8 @@ function RoadmapTimelinePinned({
     hasMoreProjects,
     loadingMoreProjects,
     onLoadMoreProjects,
+    completedPaging,
+    upcomingPaging,
   } = useRoadmapData(slug);
   return (
     <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
@@ -275,6 +277,8 @@ function RoadmapTimelinePinned({
         hasMoreProjects={hasMoreProjects}
         loadingMoreProjects={loadingMoreProjects}
         onLoadMoreProjects={onLoadMoreProjects}
+        completedPaging={completedPaging}
+        upcomingPaging={upcomingPaging}
       />
     </PinnedPanelShell>
   );

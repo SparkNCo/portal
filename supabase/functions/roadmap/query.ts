@@ -3,11 +3,13 @@
 // The timeline only needs each issue's cycle (getCycleIds in ProjectRow.tsx);
 // detail fields come from the on-demand queries below. To fit more projects,
 // lower `issues(first: 25)` next (may miss cycles of later issues).
+// `$filter` splits projects into active / completed / upcoming groups (by
+// status name), so each group gets its own 10-per-page budget.
 export const PROJECTS_QUERY = `
-query Projects($initiativeId: String!, $after: String) {
+query Projects($initiativeId: String!, $after: String, $filter: ProjectFilter) {
   initiative(id: $initiativeId) {
     id
-    projects(first: 10, after: $after) {
+    projects(first: 10, after: $after, filter: $filter) {
       pageInfo {
         hasNextPage
         endCursor
@@ -34,6 +36,21 @@ query Projects($initiativeId: String!, $after: String) {
           name
           color
         }
+      }
+    }
+  }
+}
+`;
+
+// Any one project of the initiative, regardless of status — used to find the
+// team for cycles when the active group happens to be empty.
+export const FIRST_PROJECT_QUERY = `
+query FirstProject($initiativeId: String!) {
+  initiative(id: $initiativeId) {
+    id
+    projects(first: 1) {
+      nodes {
+        id
       }
     }
   }
