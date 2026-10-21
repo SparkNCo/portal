@@ -1,11 +1,4 @@
 // @ts-nocheck
-// Throwaway manual test for the nodemailer/Gmail SMTP fallback added to
-// lib/mailer.ts — sends one real email via `provider: "smtp"`, which
-// bypasses Resend even when RESEND_KEY is set, so this actually exercises
-// the fallback path instead of silently going through Resend like every
-// normal caller does. Hit it directly in a browser or with curl:
-//   GET /functions/v1/test-smtp-email
-//   GET /functions/v1/test-smtp-email?to=someone@example.com
 import { corsHeaders } from "../utils/headers.ts";
 import { sendEmail } from "../lib/mailer.ts";
 

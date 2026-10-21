@@ -3,6 +3,20 @@ import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { sendInviteCustomerMail } from "../users/sendInviteCustomerMail.ts";
 import { resolveTestMode, testModeBody, TestModeRejected, type TestRun } from "../lib/testMode.ts";
+import { escapeIlike } from "../utils/slug.ts";
+
+// Only portal users get a reset link — an Auth account with no portal.users
+// row (e.g. its portal user was removed) couldn't use the portal anyway.
+// Case-insensitive, like the profile lookup in users/index.ts.
+async function portalUserExists(email: string): Promise<boolean> {
+  const { data, error } = await supabase.schema("portal")
+    .from("users")
+    .select("id")
+    .ilike("email", escapeIlike(email.trim()))
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
+}
 
 // Paged: listUsers can't look an email up directly.
 async function authUserExists(email: string): Promise<boolean> {
@@ -72,8 +86,10 @@ Deno.serve(async (req) => {
     //
     // NOT resolveAuthUser: it falls back to an "invite", which would create an
     // orphan auth user for any email typed into this public form. "recovery"
-    // errors on unknown emails, so those are a no-op.
+    // errors on unknown emails, so those are a no-op. Emails with no
+    // portal.users row are skipped before any link is made.
     try {
+      if (!(await portalUserExists(email))) throw new Error("Not a portal user");
       const link = await recoveryLink(email, redirectTo, testRun);
       await sendInviteCustomerMail(email, link, false, testRun);
       console.log("[reset-password] Password reset email sent to:", email);

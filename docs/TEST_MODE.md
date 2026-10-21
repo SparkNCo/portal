@@ -82,7 +82,7 @@ If `TEST_MODE_TOKEN` is missing from `supabase/functions/.env`, the tests are sk
 | Create developer | `POST /functions/v1/users?type=developer` | Auth account (invite), `portal.users` row, `portal.developers` row, invite email |
 | Create stakeholder | `POST /functions/v1/users?type=stakeholder` | Auth account (invite), `portal.users` row, invite email |
 | Create customer | `POST /functions/v1/users?type=customer` | Auth account (invite), `portal.customers` row and its Linear projects update, `portal.users` row, invite email, the `issueMetrics` run. Linear is still read. |
-| Reset password | `POST /functions/v1/reset-password` | The recovery token on the Auth account, reset email. It checks that the account exists, so an unknown email still gets no email. |
+| Reset password | `POST /functions/v1/reset-password` | The recovery token on the Auth account, reset email. It checks that the portal user and the Auth account exist, so an unknown email still gets no email. |
 
 | Project request | `POST /functions/v1/project-requests` | The email to every admin |
 | Developer request | `POST /functions/v1/developer-requests` | The email to every admin |

@@ -129,7 +129,9 @@ The user types their email and clicks "Send link".
 The app calls `POST /reset-password` with `{ email }`.
 
 If the request succeeds, the modal switches to a confirmation screen:  
-_"A password reset link has been sent to [email]."_
+_"If an account exists for [email], you'll get a password reset link shortly."_
+
+The email is only sent when the address belongs to a portal user (a `portal.users` row, case-insensitive) with a Supabase Auth account. Otherwise nothing is sent, but the answer and the confirmation screen are exactly the same, so the form can't be used to find out which emails have an account.
 
 If it fails, an error message appears inside the modal. The user can try again without closing it.
 

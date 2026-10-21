@@ -184,7 +184,7 @@ The user clicks "Forgot your password?" on the login form. A modal appears with 
 
 **Step 2 — Request the reset email**
 
-The app calls `POST /reset-password` with `{ email }`. On success, the modal switches to a confirmation screen. On failure, an error appears inside the modal.
+The app calls `POST /reset-password` with `{ email }`. On success, the modal switches to a confirmation screen ("If an account exists for [email], you'll get a password reset link shortly."). The email is only sent to portal users (`portal.users` row + Auth account); for any other address nothing is sent, with the same answer. On failure, an error appears inside the modal.
 
 **Step 3 — User clicks the link in their email**
 

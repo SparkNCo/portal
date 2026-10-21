@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, useMemo } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { supabase } from "../lib/supabase-client";
 import { API_JSON_HEADERS } from "../lib/api-headers";
 
@@ -32,7 +39,9 @@ type Profile = {
 
 // Stakeholders have no client of their own — they land on the dashboard of
 // the customer they're assigned to. Null when they have no assignment.
-export function getStakeholderClientSlug(profile: Profile | null): string | null {
+export function getStakeholderClientSlug(
+  profile: Profile | null,
+): string | null {
   const clientName =
     profile?.assignment_id?.[0]?.clientName ??
     profile?.assignment_id?.[0]?.linear_slug ??
@@ -40,13 +49,13 @@ export function getStakeholderClientSlug(profile: Profile | null): string | null
   return clientName ? clientName.toLowerCase() : null;
 }
 
-// Outcome of the last profile load, so pages can tell "signed in but no
-// portal account" (not-found) apart from "couldn't reach the server"
-// (failed) instead of both looking like a silent null profile.
-export type ProfileStatus = "loading" | "ok" | "not-found" | "failed" | "signed-out";
+export type ProfileStatus =
+  | "loading"
+  | "ok"
+  | "not-found"
+  | "failed"
+  | "signed-out";
 
-// Shown wherever a profile can't be loaded after sign-in (login,
-// set-password, portal pages).
 export const PROFILE_ERROR_MESSAGES: Record<"not-found" | "failed", string> = {
   "not-found": "Your account isn't set up yet. Contact your administrator.",
   failed: "We couldn't load your account. Please try again.",
@@ -136,7 +145,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         loadUser();
         return;
       }
-      if (event === "SIGNED_IN" && session?.user?.id !== loadedUserIdRef.current) {
+      if (
+        event === "SIGNED_IN" &&
+        session?.user?.id !== loadedUserIdRef.current
+      ) {
         loadUser();
       }
     });
@@ -149,11 +161,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     [user, profile, loading, profileStatus],
   );
 
-  return (
-    <UserContext.Provider value={value}>
-      {children}
-    </UserContext.Provider>
-  );
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 };
 
 export const useUser = () => useContext(UserContext);
