@@ -264,6 +264,7 @@ export default function DeveloperDashboard() {
               onOpenChat={() => {}}
               onEditIssue={(issue) => setEditingIssue(issue)}
               title={selectedProject ?? "All Tasks"}
+              showProject
               sortBy={sortBy}
               onSortByChange={setSortBy}
               viewMode={viewMode}

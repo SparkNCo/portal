@@ -991,7 +991,7 @@ function DemoFeedbackThread({
           value={commentBody}
           onChange={(e) => setCommentBody(e.target.value)}
           placeholder="Leave feedback on this version…"
-          className="bg-background min-h-[72px]"
+          className="bg-background min-h-[112px]"
         />
         <Button
           size="sm"

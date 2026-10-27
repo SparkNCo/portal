@@ -87,6 +87,7 @@ export function PriorityTasks({
   title = "Priority Tasks",
   compact = false,
   lightCard = false,
+  showProject = false,
   headerAction,
   slug,
   sortBy,
@@ -193,6 +194,7 @@ export function PriorityTasks({
                   onOpen={() => setSelectedIssue(issue)}
                   hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                   lightCard={lightCard}
+                  showProject={showProject}
                 />
               ))}
             </div>
@@ -332,6 +334,7 @@ export function PriorityTasks({
                         onOpen={() => setSelectedIssue(issue)}
                         hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                         lightCard={lightCard}
+                        showProject={showProject}
                         statusAndCycleOnly
                       />
                     ))
@@ -353,6 +356,7 @@ export function PriorityTasks({
                 onOpen={() => setSelectedIssue(issue)}
                 hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                 lightCard={lightCard}
+                showProject={showProject}
               />
             ))}
           </div>
@@ -378,6 +382,7 @@ export function PriorityTasks({
                 onOpen={() => setSelectedIssue(issue)}
                 hasUpdate={hasUnseenUpdate(issue, profile?.email)}
                 lightCard={lightCard}
+                showProject={showProject}
               />
             ))}
           </div>

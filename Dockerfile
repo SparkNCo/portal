@@ -12,7 +12,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# package-lock.json is written with legacy-peer-deps (peer dependencies not
+# installed automatically); without the same flag npm ci rejects it.
+RUN npm ci --legacy-peer-deps
 
 # 2. Build the app.
 FROM node:22-slim AS builder
