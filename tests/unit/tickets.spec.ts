@@ -7,6 +7,7 @@ import {
   ticketSystemOf,
 } from '../../supabase/functions/lib/tickets/ticketSystem';
 import { ticketSettingsBody, ticketSettingsComplete, ticketSettingsFrom } from '../../lib/ticket-systems';
+import { jiraId, parseTicketId } from '../../supabase/functions/lib/tickets/ids';
 
 // Per-customer ticket system (Linear / Jira) — no network, no browser.
 
@@ -16,6 +17,26 @@ test.describe('ticket system of a customer', () => {
     expect(ticketSystemOf({ chat: 'cometchat', vector: 'upstash' })).toBe('linear');
     expect(ticketSystemOf({ tickets: 'ado' })).toBe('linear');
     expect(ticketSystemOf({ tickets: 'jira' })).toBe('jira');
+  });
+});
+
+test.describe('ticket ids', () => {
+  const customerId = '6f1c2b3a-1111-4222-8333-944455556666';
+
+  test('Linear ids pass through untouched, whatever they look like', () => {
+    expect(parseTicketId('2b7c0a1e-3f4d-4e5f-8a9b-0c1d2e3f4a5b')).toEqual({ system: 'linear', nativeId: '2b7c0a1e-3f4d-4e5f-8a9b-0c1d2e3f4a5b' });
+    expect(parseTicketId('SPA-487')).toEqual({ system: 'linear', nativeId: 'SPA-487' });
+  });
+
+  test('Jira ids carry their customer, and round-trip', () => {
+    const id = jiraId(customerId, 'SPA-12');
+    expect(id).toBe(`jira:${customerId}:SPA-12`);
+    expect(parseTicketId(id)).toEqual({ system: 'jira', customerId, nativeId: 'SPA-12' });
+    expect(parseTicketId(jiraId(customerId, 42))).toEqual({ system: 'jira', customerId, nativeId: '42' });
+  });
+
+  test('a malformed jira: id is not treated as Jira', () => {
+    expect(parseTicketId('jira:not-a-uuid:SPA-1').system).toBe('linear');
   });
 });
 

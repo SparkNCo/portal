@@ -1,114 +1,40 @@
 // @ts-nocheck
+// Changing tickets (status, fields, cycle), decisions on a ticket, and the
+// project / milestone / label pickers. Ticket-system calls go through the
+// wrapper (lib/tickets/provider.ts), so they work for Linear and Jira alike.
 import { supabase } from "../client.ts";
 import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
-import { linearRequest, GET_PROJECT_TEAM_QUERY, GET_TEAM_LABELS_QUERY, GET_INITIATIVE_PROJECTS_QUERY, isClosedProject } from "./linearClient.ts";
-import { escapeIlike, resolveLinearSlug } from "../utils/slug.ts";
+import { resolveLinearSlug } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
 import { resolveVectorProvider } from "../lib/vectorProvider.ts";
+import { TicketError, ticketErrorResponse } from "../lib/tickets/errors.ts";
+import { customerBySlug, ticketsForCustomer, ticketsForId } from "../lib/tickets/provider.ts";
+import { linearTickets } from "../lib/tickets/linear/issues.ts";
 
-const GET_ISSUE_TEAM_QUERY = `
-  query GetIssueTeam($id: String!) {
-    issue(id: $id) {
-      team { id }
-      state { name }
-    }
-  }
-`;
-
-// Also used by suggested-features/acceptSuggestion.ts.
-export const GET_STATE_ID_QUERY = `
-  query GetStateId($teamId: ID!, $stateName: String!) {
-    workflowStates(filter: {
-      team: { id: { eq: $teamId } },
-      name: { eq: $stateName }
-    }) {
-      nodes { id name }
-    }
-  }
-`;
-
-const UPDATE_ISSUE_STATE_MUTATION = `
-  mutation UpdateIssueState($issueId: String!, $stateId: String!) {
-    issueUpdate(id: $issueId, input: { stateId: $stateId }) {
-      success
-      issue { id state { name } }
-    }
-  }
-`;
+// Moved to lib/tickets/linear/client.ts; re-exported for suggested-features
+// (acceptSuggestion, updateSuggestionMilestone, updateSuggestionProject).
+export { GET_STATE_ID_QUERY, GET_PROJECTS_BY_IDS_QUERY, GET_MILESTONES_QUERY } from "../lib/tickets/linear/client.ts";
 
 export async function handleUpdateState(req: Request): Promise<Response> {
   try {
     const body = await req.json();
-    console.log("📥 Incoming body:", body);
 
     // actorEmail/slug/issueCode/issueType are for the status-change
     // notification; without a slug nobody is notified.
     const { issueId, stateName, actorEmail, slug, issueCode, issueType } = body;
 
     if (!issueId || !stateName) {
-      console.log("❌ Missing params:", { issueId, stateName });
-      return Response.json(
-        { error: "Missing issueId or stateName" },
-        { status: 400 },
-      );
+      return Response.json({ error: "Missing issueId or stateName" }, { status: 400 });
     }
 
-    // 1. Get issue → team
-    console.log("🔎 Fetching issue team with issueId:", issueId);
+    const tickets = await ticketsForId(issueId);
+    const { result, previousState } = await tickets.setIssueState(issueId, stateName);
 
-    const issueData = await linearRequest(GET_ISSUE_TEAM_QUERY, {
-      id: issueId,
-    });
-    console.log("📦 issueData:", JSON.stringify(issueData, null, 2));
-
-    const teamId = issueData.issue?.team?.id;
-    console.log("🏷️ Extracted teamId:", teamId);
-
-    if (!teamId) {
-      console.log("❌ No teamId found for issue");
-      return Response.json({ error: "Issue team not found" }, { status: 404 });
-    }
-
-    // 2. Get states
-    console.log("🔎 Fetching states with:", { teamId, stateName });
-
-    const stateData = await linearRequest(GET_STATE_ID_QUERY, {
-      teamId,
-      stateName,
-    });
-
-    console.log("📦 stateData:", JSON.stringify(stateData, null, 2));
-
-    const states = stateData.workflowStates?.nodes;
-    console.log("📋 Available states:", states);
-
-    const stateId = states?.[0]?.id;
-    console.log("🎯 Selected stateId:", stateId);
-
-    if (!stateId) {
-      console.log("❌ State not found for name:", stateName);
-      return Response.json(
-        { error: `State "${stateName}" not found in team` },
-        { status: 404 },
-      );
-    }
-
-    // 3. Update issue
-    console.log("🚀 Updating issue state with:", { issueId, stateId });
-
-    const updateData = await linearRequest(UPDATE_ISSUE_STATE_MUTATION, {
-      issueId,
-      stateId,
-    });
-
-    console.log("✅ Update response:", JSON.stringify(updateData, null, 2));
-
-    const previousState = issueData.issue?.state?.name;
-    if (updateData.issueUpdate?.success && actorEmail) {
+    if (result?.success && actorEmail) {
       await markIssueUpdated(issueId, actorEmail);
     }
-    if (updateData.issueUpdate?.success && slug && actorEmail && previousState !== stateName) {
+    if (result?.success && slug && actorEmail && previousState !== stateName) {
       // Fire-and-forget so notifications don't delay the response.
       EdgeRuntime.waitUntil(notifyProject({
         slug,
@@ -124,56 +50,25 @@ export async function handleUpdateState(req: Request): Promise<Response> {
       }));
     }
 
-    return Response.json(updateData.issueUpdate);
+    return Response.json(result);
   } catch (err) {
+    if (err instanceof TicketError) return ticketErrorResponse(err);
     console.error("💥 handleUpdateState error:", err);
-    return Response.json(
-      { error: "Internal server error", details: String(err) },
-      { status: 500 },
-    );
+    return Response.json({ error: "Internal server error", details: String(err) }, { status: 500 });
   }
 }
-
-const UPDATE_ISSUE_MUTATION = `
-  mutation IssueUpdate($issueId: String!, $input: IssueUpdateInput!) {
-    issueUpdate(id: $issueId, input: $input) {
-      success
-      issue { id title description priorityLabel labels { nodes { name } } }
-    }
-  }
-`;
-
-// The cycles a ticket can be put in: its team's current and upcoming ones
-// (cycles belong to a team in Linear), plus which one it's in now.
-const GET_ISSUE_CYCLES_QUERY = `
-  query GetIssueCycles($id: String!) {
-    issue(id: $id) {
-      cycle { id }
-      team {
-        cycles(first: 20, filter: { isPast: { eq: false } }) {
-          nodes { id number name startsAt endsAt isActive }
-        }
-      }
-    }
-  }
-`;
 
 export async function handleGetIssueCycles(req: Request): Promise<Response> {
   const issueId = new URL(req.url).searchParams.get("issueId");
   if (!issueId) return Response.json({ error: "Missing issueId" }, { status: 400 });
 
-  const data = await linearRequest(GET_ISSUE_CYCLES_QUERY, { id: issueId });
-  const cycles = [...(data.issue?.team?.cycles?.nodes ?? [])].sort((a, b) => a.number - b.number);
-  return Response.json({ currentCycleId: data.issue?.cycle?.id ?? null, cycles });
+  try {
+    const tickets = await ticketsForId(issueId);
+    return Response.json(await tickets.issueCycles(issueId));
+  } catch (err) {
+    return ticketErrorResponse(err);
+  }
 }
-
-const EDIT_PRIORITY_MAP: Record<string, number> = {
-  urgent: 1,
-  high: 2,
-  medium: 3,
-  low: 4,
-  none: 0,
-};
 
 export async function handleUpdateIssue(req: Request): Promise<Response> {
   const body = await req.json();
@@ -183,21 +78,20 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
     return Response.json({ error: "Missing issueId" }, { status: 400 });
   }
 
-  const input: Record<string, any> = {};
-  if (title !== undefined && title !== null) input.title = String(title).trim();
-  if (description !== undefined) input.description = description;
-  if (priority !== undefined && priority !== null) {
-    input.priority = EDIT_PRIORITY_MAP[String(priority).toLowerCase()] ?? 0;
+  let result;
+  try {
+    const tickets = await ticketsForId(issueId);
+    result = await tickets.updateIssue(issueId, {
+      title,
+      description,
+      priority,
+      // null takes the ticket out of its cycle; absent leaves it.
+      ...("cycleId" in body && { cycleId: body.cycleId ?? null }),
+    });
+  } catch (err) {
+    return ticketErrorResponse(err);
   }
-  // null takes the ticket out of its cycle.
-  if ("cycleId" in body) input.cycleId = body.cycleId ?? null;
-
-  if (Object.keys(input).length === 0) {
-    return Response.json({ error: "No fields to update" }, { status: 400 });
-  }
-
-  const data = await linearRequest(UPDATE_ISSUE_MUTATION, { issueId, input });
-  const updatedIssue = data.issueUpdate?.issue;
+  const updatedIssue = result?.issue;
 
   if (actorEmail) {
     await markIssueUpdated(issueId, actorEmail);
@@ -217,7 +111,7 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
     }
   }
 
-  return Response.json(data.issueUpdate);
+  return Response.json(result);
 }
 
 // "Similar issue" hint on the Feature Request / Bug Report panels. Thresholds
@@ -315,15 +209,8 @@ export async function handleAddComment(req: Request): Promise<Response> {
   return Response.json(data[0] ?? data);
 }
 
-const CREATE_COMMENT_MUTATION = `
-  mutation CreateComment($issueId: String!, $body: String!) {
-    commentCreate(input: { issueId: $issueId, body: $body }) {
-      success
-      comment { id }
-    }
-  }
-`;
-
+// Posts a decision to the ticket as a comment (Linear or Jira) and marks it
+// posted. The route keeps its old name (/linear-comment).
 export async function handlePostToLinear(req: Request): Promise<Response> {
   const schema = "portal";
   const { issueId, decisionId, decisionBody, decisionEmail } = await req.json();
@@ -340,20 +227,13 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
 
   const body = `${decisionBody}\n\n— ${decisionEmail}`;
 
-  const res = await fetch(LINEAR_GRAPHQL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: Deno.env.get("LINEAR_API_KEY")!,
-    },
-    body: JSON.stringify({
-      query: CREATE_COMMENT_MUTATION,
-      variables: { issueId, body },
-    }),
-  });
-
-  const json = await res.json();
-  if (json.errors) throw new Error(JSON.stringify(json.errors));
+  let comment;
+  try {
+    const tickets = await ticketsForId(issueId);
+    comment = await tickets.addComment(issueId, body);
+  } catch (err) {
+    return ticketErrorResponse(err);
+  }
 
   await fetch(`${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}`, {
     method: "PATCH",
@@ -366,7 +246,7 @@ export async function handlePostToLinear(req: Request): Promise<Response> {
     body: JSON.stringify({ posted_to_linear: true }),
   });
 
-  return Response.json(json.data.commentCreate);
+  return Response.json(comment);
 }
 
 export async function handleSetDecision(req: Request): Promise<Response> {
@@ -412,7 +292,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
 
   const row = updated[0] ?? updated;
 
-  // Fetch question + owner so we can post both together (non-fatal if Linear fails)
+  // Post question + answer together on the ticket (non-fatal if it fails).
   try {
     const getRes = await fetch(
       `${supabaseUrl}/rest/v1/decisions?id=eq.${decisionId}&select=question,owner_email`,
@@ -429,16 +309,10 @@ export async function handleSetDecision(req: Request): Promise<Response> {
       `❓ **Question** from ${ownerEmail}:\n\n${question}\n\n` +
       `✅ **Decision** from ${decisionEmail}:\n\n${decision}`;
 
-    await fetch(LINEAR_GRAPHQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: Deno.env.get("LINEAR_API_KEY")! },
-      body: JSON.stringify({
-        query: CREATE_COMMENT_MUTATION,
-        variables: { issueId: row.issue_id, body: commentBody },
-      }),
-    });
+    const tickets = await ticketsForId(row.issue_id);
+    await tickets.addComment(row.issue_id, commentBody);
   } catch (err) {
-    console.error("[handleSetDecision] Linear sync error (non-fatal):", err);
+    console.error("[handleSetDecision] ticket comment error (non-fatal):", err);
   }
 
   await markIssueUpdated(row.issue_id, decisionEmail);
@@ -514,124 +388,63 @@ export async function handleDeleteDecision(req: Request): Promise<Response> {
   return Response.json({ success: true, decisionId });
 }
 
-// ─── Projects & Milestones ───────────────────────────────────────────────────
-
-// Also used by suggested-features/updateSuggestionProject.ts.
-export const GET_PROJECTS_BY_IDS_QUERY = `
-  query GetProjectsByIds($filter: ProjectFilter) {
-    projects(filter: $filter, first: 50) {
-      nodes { id name status { type } }
-    }
-  }
-`;
-
-// Also used by suggested-features/updateSuggestionMilestone.ts.
-export const GET_MILESTONES_QUERY = `
-  query GetMilestones($projectId: String!) {
-    project(id: $projectId) {
-      projectMilestones(first: 50) {
-        nodes { id name targetDate }
-      }
-    }
-  }
-`;
-
-const CREATE_MILESTONE_MUTATION = `
-  mutation CreateMilestone($input: ProjectMilestoneCreateInput!) {
-    projectMilestoneCreate(input: $input) {
-      success
-      projectMilestone { id name }
-    }
-  }
-`;
-
-function selectableProjects(nodes: any[] | null | undefined): { id: string; name: string }[] {
-  return (nodes ?? []).filter((p) => !isClosedProject(p)).map((p) => ({ id: p.id, name: p.name }));
-}
+// ─── Projects, Milestones & Labels ───────────────────────────────────────────
 
 export async function handleGetProjects(req: Request): Promise<Response> {
-  const schema = "portal";
   const url = new URL(req.url);
   const slug = url.searchParams.get("slug");
   const initiativeId = url.searchParams.get("initiativeId");
 
-  if (slug) {
-    const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-    const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
+  try {
+    if (slug) {
+      // An unknown customer has no projects to pick from.
+      const customer = await customerBySlug(slug);
+      if (!customer) return Response.json([]);
+      return Response.json(await ticketsForCustomer(customer).listProjects());
+    }
 
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(escapeIlike(slug))}&select=linear_projects`,
-      {
-        headers: {
-          apikey: serviceKey,
-          Authorization: `Bearer ${serviceKey}`,
-          "Accept-Profile": schema,
-        },
-      },
-    );
-    const [customer] = await res.json();
-    const projectIds: string[] = customer?.linear_projects ?? [];
+    if (!initiativeId) return Response.json({ error: "Missing slug or initiativeId" }, { status: 400 });
 
-    if (!projectIds.length) return Response.json([]);
-
-    const data = await linearRequest(GET_PROJECTS_BY_IDS_QUERY, {
-      filter: { id: { in: projectIds } },
-    });
-    return Response.json(selectableProjects(data.projects?.nodes));
+    // Admin pages pick a Linear initiative directly.
+    return Response.json(await linearTickets(null).listInitiativeProjects(initiativeId));
+  } catch (err) {
+    return ticketErrorResponse(err);
   }
-
-  if (!initiativeId) return Response.json({ error: "Missing slug or initiativeId" }, { status: 400 });
-
-  const data = await linearRequest(GET_INITIATIVE_PROJECTS_QUERY, { initiativeId });
-  return Response.json(selectableProjects(data.initiative?.projects?.nodes));
 }
 
 export async function handleGetMilestones(req: Request): Promise<Response> {
   const projectId = new URL(req.url).searchParams.get("projectId");
   if (!projectId) return Response.json({ error: "Missing projectId" }, { status: 400 });
 
-  const data = await linearRequest(GET_MILESTONES_QUERY, { projectId });
-  return Response.json(data.project?.projectMilestones?.nodes ?? []);
+  try {
+    const tickets = await ticketsForId(projectId);
+    return Response.json(await tickets.listMilestones(projectId));
+  } catch (err) {
+    return ticketErrorResponse(err);
+  }
 }
 
 export async function handleGetLabels(req: Request): Promise<Response> {
-  const schema = "portal";
   const slug = new URL(req.url).searchParams.get("slug");
   if (!slug) return Response.json({ error: "Missing slug" }, { status: 400 });
 
-  const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-  const serviceKey = Deno.env.get("SERVICE_SECRET_KEY")!;
-
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/customers?clientName=ilike.${encodeURIComponent(escapeIlike(slug))}&select=linear_projects`,
-    {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        "Accept-Profile": schema,
-      },
-    },
-  );
-  const [customer] = await res.json();
-  const projectIds: string[] = customer?.linear_projects ?? [];
-  if (!projectIds.length) return Response.json([]);
-
-  const projectData = await linearRequest(GET_PROJECT_TEAM_QUERY, { id: projectIds[0] });
-  const teamId = projectData?.project?.teams?.nodes?.[0]?.id;
-  if (!teamId) return Response.json([]);
-
-  const data = await linearRequest(GET_TEAM_LABELS_QUERY, { teamId });
-  return Response.json(data.team?.labels?.nodes ?? []);
+  try {
+    const customer = await customerBySlug(slug);
+    if (!customer) return Response.json([]);
+    return Response.json(await ticketsForCustomer(customer).listLabels());
+  } catch (err) {
+    return ticketErrorResponse(err);
+  }
 }
 
 export async function handleCreateMilestone(req: Request): Promise<Response> {
   const { projectId, name, targetDate, description } = await req.json();
   if (!projectId || !name) return Response.json({ error: "Missing projectId or name" }, { status: 400 });
 
-  const input: Record<string, any> = { projectId, name };
-  if (targetDate) input.targetDate = targetDate;
-  if (description) input.description = description;
-
-  const data = await linearRequest(CREATE_MILESTONE_MUTATION, { input });
-  return Response.json(data.projectMilestoneCreate);
+  try {
+    const tickets = await ticketsForId(projectId);
+    return Response.json(await tickets.createMilestone({ projectId, name, targetDate, description }));
+  } catch (err) {
+    return ticketErrorResponse(err);
+  }
 }
