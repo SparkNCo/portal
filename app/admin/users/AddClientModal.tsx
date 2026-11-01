@@ -18,6 +18,8 @@ import {
   ModalError,
   ModalFooter,
 } from "@/components/shared/add-user-modal-fields";
+import { TicketSystemFields } from "@/components/shared/ticket-system-fields";
+import { type TicketSettings, ticketSettingsBody, ticketSettingsComplete, ticketSettingsFrom } from "@/lib/ticket-systems";
 import { UserPlus } from "lucide-react";
 
 type Props = {
@@ -27,7 +29,7 @@ type Props = {
 export default function AddClientModal({ onClose }: Props) {
   const [email, setEmail] = useState("");
   const [stripeId, setStripeId] = useState("");
-  const [linearSlug, setLinearSlug] = useState("");
+  const [tickets, setTickets] = useState<TicketSettings>(() => ticketSettingsFrom(null));
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [userName, setUserName] = useState("");
@@ -47,7 +49,7 @@ export default function AddClientModal({ onClose }: Props) {
           headers: API_JSON_HEADERS,
           body: JSON.stringify({
             email,
-            linear_slug: linearSlug,
+            ...ticketSettingsBody(tickets),
             clientName: userName,
             origin: globalThis.location.origin,
             ...(firstName && { firstName }),
@@ -128,16 +130,6 @@ export default function AddClientModal({ onClose }: Props) {
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="client-linear-slug" className="smalltext">Linear Slug</Label>
-            <Input
-              id="client-linear-slug"
-              value={linearSlug}
-              onChange={(e) => setLinearSlug(e.target.value)}
-              className="smalltext bg-secondary border-0"
-              placeholder="e.g. acme"
-            />
-          </div>
           <PhoneField
             value={phoneNumber}
             onChange={setPhoneNumber}
@@ -157,12 +149,14 @@ export default function AddClientModal({ onClose }: Props) {
             />
           </div>
 
+          <TicketSystemFields value={tickets} onChange={setTickets} idPrefix="client" />
+
           <ModalError error={error} />
 
           <ModalFooter
             onCancel={onClose}
             onSubmit={handleSubmit}
-            disabled={isPending || !email || !linearSlug || !userName}
+            disabled={isPending || !email || !userName || !ticketSettingsComplete(tickets)}
             pending={isPending}
           />
         </div>

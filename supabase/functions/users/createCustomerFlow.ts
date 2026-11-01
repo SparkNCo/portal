@@ -6,6 +6,7 @@ import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import type { TestRun } from "../lib/testMode.ts";
 import { createInvite, testInvite } from "./createUser.ts";
+import { resolveTicketSystem, saveTicketSystem } from "./ticketSystemSettings.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
 // and fill in linear_projects / project_url so DORA metrics can pick this client up.
@@ -127,8 +128,11 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
   } = body;
 
   if (!email) throw new Error("Email required");
-  if (!linear_slug) throw new Error("linear_slug required");
   if (!clientName) throw new Error("clientName required");
+
+  // Linear (default) or Jira; for Jira the connection is tested here, before
+  // anything is created. `projectId` is the Linear slug or Jira project key.
+  const tickets = await resolveTicketSystem(body, linear_slug);
 
   // Reject emails already in `users` or Auth — otherwise we'd hijack that
   // person's account and overwrite their users row.
@@ -140,7 +144,13 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
       ? stripeCustomerId.trim()
       : null;
 
-  console.log("[createCustomerFlow] start", { email, linear_slug, clientName, hasStripeId: !!normalizedStripeId });
+  console.log("[createCustomerFlow] start", {
+    email,
+    ticketSystem: tickets.system,
+    projectId: tickets.projectId,
+    clientName,
+    hasStripeId: !!normalizedStripeId,
+  });
 
   // clientName is the URL slug, matched case-insensitively — reject case-only duplicates.
   const { data: existingClient, error: existingClientError } = await supabase.schema(schema)
@@ -162,13 +172,26 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const clientRecord = await insertClient(
     schema,
-    { stripe_customer_id: normalizedStripeId, linear_slug, clientName },
+    { stripe_customer_id: normalizedStripeId, linear_slug: tickets.projectId, clientName },
     authUserId,
     testRun,
   );
   console.log("[createCustomerFlow] customer record created", { customer_id: clientRecord.customer_id });
 
-  const projectDataReady = await fillProjectData(clientRecord, linear_slug, schema, testRun);
+  if (tickets.system === "jira") {
+    try {
+      clientRecord.systems = await saveTicketSystem(schema, clientRecord.customer_id, clientRecord.systems, tickets, testRun);
+    } catch (err) {
+      console.error("[createCustomerFlow] saving the Jira settings failed", String(err?.message ?? err));
+      await supabase.auth.admin.deleteUser(authUserId);
+      await supabase.schema(schema).from("customers").delete().eq("customer_id", clientRecord.customer_id);
+      throw err;
+    }
+  }
+
+  // Projects + repo URLs come from Linear only, for now.
+  const projectDataReady =
+    tickets.system === "linear" && (await fillProjectData(clientRecord, tickets.projectId, schema, testRun));
 
   // Upsert users table, linking to the client record via customer_id
   const customerUser = await upsertCustomerUser(
