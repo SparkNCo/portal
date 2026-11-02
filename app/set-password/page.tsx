@@ -141,7 +141,10 @@ function SetPasswordForm() {
     if (!isStakeholder) profileUpdate.userName = slugifiedClientName;
     if (phoneNumber.trim()) profileUpdate.phoneNumber = phoneNumber.trim();
 
-    let redirectPath = `/${slugifiedClientName}/dashboard/dashboards`;
+    // Only roles with a page to land on get one. Anything else (a missing or
+    // unrecognised role — users.role defaults to "user") stays null and is
+    // told the account isn't set up, same as Login.tsx; no URL is built for it.
+    let redirectPath: string | null = null;
     if (isCustomer) {
       redirectPath = `/${slugifiedClientName}/dashboard`;
     } else if (role === "admin") {
@@ -211,6 +214,13 @@ function SetPasswordForm() {
         return;
       }
       redirectPath = stakeholderPath;
+    }
+
+    if (!redirectPath) {
+      setError("Password set, but your account isn't set up yet. Contact your administrator.");
+      setSubmitting(false);
+      await supabase.auth.signOut();
+      return;
     }
 
     // Same handling as login: if the portal profile can't be loaded now,

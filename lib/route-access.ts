@@ -29,6 +29,8 @@ const PAGE_ROLES: Record<string, string[]> = {
   // Developer page instead.
   dashboard: ["admin", "customer", "stakeholder"],
   monitor: ["admin", "customer", "stakeholder"],
+  // Connecting a client's own databases and querying them — admins only for now.
+  query: ["admin"],
 };
 
 // Where a role starts inside an initiative it can open.

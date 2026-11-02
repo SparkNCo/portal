@@ -68,7 +68,7 @@ function BuildPageContent() {
   // every issue for the project (all statuses, full history) risks Business
   // Review / UAT / Backlog tickets falling outside that cap. Filtering by
   // status server-side keeps the result set to just what this page needs.
-  const { data: issuesData } = useQuery({
+  const { data: issuesData, isLoading: issuesLoading } = useQuery({
     queryKey: ["linear-issues", slug, "Business Review,UAT,Backlog"],
     queryFn: () => fetchIssues(slug, ["Business Review", "UAT", "Backlog"]),
     enabled: !!slug,
@@ -185,6 +185,7 @@ function BuildPageContent() {
             <PinButton panelId="build_product_decisions" />
             <div className="pt-12 flex-1">
               <PriorityTasks
+                loading={issuesLoading}
                 issuesData={visibleBusinessReviewIssues}
                 filterState={noopFilterState}
                 onOpenChat={() => {}}
@@ -202,6 +203,7 @@ function BuildPageContent() {
             <PinButton panelId="build_acceptance_testing" />
             <div className="pt-12 flex-1">
               <PriorityTasks
+                loading={issuesLoading}
                 issuesData={visibleUatIssues}
                 filterState={noopFilterState}
                 onOpenChat={() => {}}
@@ -221,6 +223,7 @@ function BuildPageContent() {
           <PinButton panelId="build_backlog" />
           <div className="pt-12 flex-1">
             <PriorityTasks
+                loading={issuesLoading}
               issuesData={visibleBacklogIssues}
               filterState={noopFilterState}
               onOpenChat={() => {}}

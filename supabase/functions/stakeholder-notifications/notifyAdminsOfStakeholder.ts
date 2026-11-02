@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { resolveTestMode, testModeBody } from "../lib/testMode.ts";
 import { sendStakeholderAddedMail } from "./sendStakeholderAddedMail.ts";
 
 // POST /stakeholder-notifications — fired (best-effort, from the frontend)
@@ -8,6 +9,8 @@ import { sendStakeholderAddedMail } from "./sendStakeholderAddedMail.ts";
 // blocks or gates the creation — the stakeholder is already created and
 // assigned by the time this runs, admins just get visibility into it.
 export async function notifyAdminsOfStakeholder(req: Request): Promise<Response> {
+  // Test mode (lib/testMode.ts): the admins' emails are recorded, not sent.
+  const testRun = resolveTestMode(req);
   const { stakeholderEmail, stakeholderName, clientName, addedBy } = await req.json();
 
   if (!stakeholderEmail) {
@@ -36,6 +39,7 @@ export async function notifyAdminsOfStakeholder(req: Request): Promise<Response>
   for (const admin of admins) {
     await sendStakeholderAddedMail({
       email: admin.email,
+      testRun,
       stakeholderEmail: String(stakeholderEmail).trim(),
       stakeholderName: stakeholderName ?? undefined,
       clientName,
@@ -43,5 +47,6 @@ export async function notifyAdminsOfStakeholder(req: Request): Promise<Response>
     });
   }
 
-  return Response.json({ sent: true });
+  const result = { sent: true };
+  return Response.json(testRun ? testModeBody(testRun, result) : result);
 }

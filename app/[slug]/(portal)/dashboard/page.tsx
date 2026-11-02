@@ -1,7 +1,6 @@
 "use client";
 
 import { Header } from "@/components/headerDashboard";
-import { LoadingDataPanel } from "@/components/loader";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
@@ -149,8 +148,6 @@ export default function ClientDashboard() {
     router.push(`${chatPath}?newChat=${encodeURIComponent(title)}`);
   };
 
-  if (issuesLoading) return <LoadingDataPanel />;
-
   return (
     <div className="min-h-screen">
       <Header
@@ -228,6 +225,7 @@ export default function ClientDashboard() {
                       panelId={pin.panel_id as PinnablePanelId}
                       slug={slug}
                       allIssues={allIssues}
+                      issuesLoading={issuesLoading}
                       selectedProjectIds={selectedProjects}
                       onOpenChat={handleOpenChat}
                       onEditIssue={(issue) => setEditingIssue(issue)}

@@ -82,6 +82,34 @@ Example:
 
 ⸻
 
+## Running with Docker
+
+The portal (Next.js) can run as a Docker container on any server with Docker installed. Supabase (database + edge functions) and Linear stay hosted and are not part of the container.
+
+1. Copy `.env.example` to `.env` and fill it in.
+2. Build and start:
+
+```bash
+docker compose up --build -d
+```
+
+3. Open `http://localhost:3000` (or the server's address). Set `PORT` in `.env` to use another port.
+
+Other commands:
+
+```bash
+docker compose logs -f    # see the output
+docker compose down       # stop it
+```
+
+**Changing `.env`:** the `NEXT_PUBLIC_*` values are baked in when the image is built, so run `docker compose up --build -d` again after changing them. A restart alone isn't enough.
+
+**HTTPS:** the container serves plain HTTP on port 3000. Put it behind whatever the server already uses for HTTPS (a reverse proxy like Nginx or Caddy, or the hosting provider's load balancer), and set `NEXT_PUBLIC_SITE_URL` to the public `https://` address.
+
+Files: `Dockerfile` (how the image is built), `docker-compose.yml` (how it runs), `.dockerignore` (what's left out of it, including `.env`).
+
+⸻
+
 ## Deploying the UI (Vercel)
 	1.	Push the repo to GitHub
 	2.	In Vercel:

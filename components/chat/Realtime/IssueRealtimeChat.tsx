@@ -8,6 +8,7 @@ import { ChatSpinner } from "../CometChat/ChatSpinner";
 import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { postRealtimeMessage, useRealtimeMessages } from "./useRealtimeMessages";
+import { useMarkOpenChatRead, useUnreadChats } from "../unread-chats";
 import { ChatComposer } from "../ChatComposer";
 import type { Chat } from "./useRealtimeChat";
 
@@ -38,6 +39,9 @@ export function IssueRealtimeChat({
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { messages, loading: loadingMessages, sendMessage } = useRealtimeMessages(chat?.id);
+  // Reading the ticket's chat here counts as read, same as on the Chat page.
+  const { unreadChatIds, markRead } = useUnreadChats();
+  useMarkOpenChatRead(chat?.id, unreadChatIds, markRead);
 
   useEffect(() => {
     if (profileLoading) return;

@@ -148,11 +148,13 @@ export default function LoginForm({
                   Check your inbox
                 </h2>
                 <p className="smalltext text-muted-foreground">
-                  A password reset link has been sent to{" "}
+                  {/* Same wording whether or not the account exists, so
+                      this form can't be used to check which emails have one. */}
+                  If an account exists for{" "}
                   <span className="font-medium text-primary">
                     {resetEmail}
                   </span>
-                  .
+                  , you&apos;ll get a password reset link shortly.
                 </p>
                 <SparkButton
                   variant="primary"

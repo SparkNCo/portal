@@ -143,6 +143,7 @@ export function IssueCard({
   hasUpdate,
   lightCard = false,
   statusAndCycleOnly = false,
+  showProject = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
@@ -155,6 +156,8 @@ export function IssueCard({
   readonly completedAt?: string | null;
   readonly hasUpdate?: boolean;
   readonly lightCard?: boolean;
+  /** Show the ticket's Linear project next to its code. */
+  readonly showProject?: boolean;
 }) {
   const typeLabel = issue.labels?.nodes?.find(
     (l) => LABEL_ICONS[l.name.toLowerCase()],
@@ -229,15 +232,15 @@ export function IssueCard({
           >
             {getIssueCode(issue.branchName)}
           </span>
-          {issue._project && (
+          {showProject && issue.project?.name && (
             <span
               className={cn(
                 "smalltext truncate",
                 lightCard ? "light-card-muted" : "text-muted-foreground",
               )}
-              title={issue._project}
+              title={`Project: ${issue.project.name}`}
             >
-              · {issue._project}
+              · {issue.project.name}
             </span>
           )}
           <span
@@ -306,11 +309,14 @@ export function IssueListRow({
   onOpen,
   hasUpdate,
   lightCard = false,
+  showProject = false,
 }: {
   readonly issue: Issue;
   readonly onOpen: () => void;
   readonly hasUpdate?: boolean;
   readonly lightCard?: boolean;
+  /** Show the ticket's Linear project after its title. */
+  readonly showProject?: boolean;
 }) {
   return (
     <div
@@ -356,6 +362,17 @@ export function IssueListRow({
       >
         {issue.title}
       </p>
+      {showProject && issue.project?.name && (
+        <span
+          className={cn(
+            "order-9 sm:order-none smalltext flex-shrink-0 max-w-[10rem] truncate",
+            lightCard ? "light-card-muted" : "text-muted-foreground",
+          )}
+          title={`Project: ${issue.project.name}`}
+        >
+          {issue.project.name}
+        </span>
+      )}
       {hasUpdate && (
         <span
           className="order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"

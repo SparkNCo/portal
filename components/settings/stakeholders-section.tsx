@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Contact } from "lucide-react";
+import { PeopleCardsSkeleton } from "./people-cards-skeleton";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { useResolvedCustomerId } from "@/hooks/use-resolved-customer-id";
@@ -60,7 +61,7 @@ export function StakeholdersSection({ customerId }: { readonly customerId?: stri
   });
 
   if (isLoading) {
-    return <div className="p-4 smalltext">Loading stakeholders...</div>;
+    return <PeopleCardsSkeleton title="Stakeholders" icon={<Contact className="h-4 w-4 text-primary" />} />;
   }
 
   if (error) {

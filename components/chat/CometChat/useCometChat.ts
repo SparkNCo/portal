@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { COMETCHAT_CONSTANTS } from "./constants";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { initCometChatUser } from "./initCometChatUser";
+import { supabase } from "@/lib/supabase-client";
 
 // `customerId` scopes the group list to a single customer's support chats —
 // used when an admin/developer opens a specific customer's chat panel via
@@ -24,12 +25,76 @@ const MAX_GROUP_PAGES = 20;
 // elsewhere for staff-authored messages (see StaffChatInput.tsx/Chat.tsx).
 const SUPPORT_OWNER_UID = process.env.NEXT_PUBLIC_COMET_ADMIN_UID as string | undefined;
 
+// When each group chat last had a message (guid → ms), from two sources:
+// the user's CometChat conversations (the groups they're in, with their last
+// message) and their chat notifications (one per chat, refreshed by every
+// message from someone else — which also covers admins, who see groups they
+// never joined). Best-effort: a failed lookup just leaves that source out.
+async function fetchLastActivity(): Promise<Map<string, number>> {
+  const activity = new Map<string, number>();
+  const note = (guid: string | undefined, ms: number) => {
+    if (guid && ms > (activity.get(guid) ?? 0)) activity.set(guid, ms);
+  };
+
+  const fromConversations = async () => {
+    const request = new CometChat.ConversationsRequestBuilder().setLimit(50).setConversationType("group").build();
+    for (let page = 0; page < 4; page++) {
+      const batch = await request.fetchNext();
+      for (const c of batch) {
+        const group = c.getConversationWith() as CometChat.Group;
+        note(group?.getGuid?.(), (c.getLastMessage()?.getSentAt?.() ?? 0) * 1000);
+      }
+      if (batch.length < 50) break;
+    }
+  };
+  const fromNotifications = async () => {
+    const { data } = await supabase
+      .schema("portal")
+      .from("notifications")
+      .select("created_at, event:events!inner(object_type, object_id)")
+      .in("event.object_type", ["chat", "chat_mention"])
+      .order("created_at", { ascending: false })
+      .limit(300);
+    (data ?? []).forEach((n: any) => note(n.event?.object_id, new Date(n.created_at).getTime()));
+  };
+
+  await Promise.all([
+    fromConversations().catch((err) => console.error("Chat order (conversations) error:", err)),
+    fromNotifications().catch((err) => console.error("Chat order (notifications) error:", err)),
+  ]);
+  return activity;
+}
+
 export function useCometChat(customerId?: string | null) {
   const { profile, loading: profileLoading } = useUser();
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CometChat.User | null>(null);
   const [groups, setGroups] = useState<CometChat.Group[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // guid → when that chat last had a message; what the list is ordered by.
+  const lastActivityRef = useRef(new Map<string, number>());
+  const activityOf = (g: CometChat.Group) =>
+    Math.max(lastActivityRef.current.get(g.getGuid()) ?? 0, g.getUpdatedAt() * 1000);
+
+  // A message just came in or went out in this chat: move it to the top.
+  const bumpGroup = useCallback((guid: string) => {
+    lastActivityRef.current.set(guid, Date.now());
+    setGroups((prev) => [...prev].sort((a, b) => activityOf(b) - activityOf(a)));
+  }, []);
+
+  // Messages arriving in any group, open or not, reorder the list.
+  useEffect(() => {
+    if (!ready) return;
+    const listenerId = "chat-list-activity";
+    const onMessage = (msg: CometChat.BaseMessage) => {
+      if (msg.getReceiverType() === CometChat.RECEIVER_TYPE.GROUP) bumpGroup(msg.getReceiverId());
+    };
+    CometChat.addMessageListener(
+      listenerId,
+      new CometChat.MessageListener({ onTextMessageReceived: onMessage, onMediaMessageReceived: onMessage }),
+    );
+    return () => CometChat.removeMessageListener(listenerId);
+  }, [ready, bumpGroup]);
 
   useEffect(() => {
     if (profileLoading) return;
@@ -75,12 +140,16 @@ export function useCometChat(customerId?: string | null) {
       if (batch.length < 50) break;
     }
 
-    // Most-recently-active chats first. GroupsRequestBuilder has no
-    // server-side sort option, and a group's `updatedAt` already bumps on
-    // new activity in it (not just membership/profile edits), so it's a
-    // reliable stand-in for "last message time" without a second request
-    // per group.
-    all.sort((a, b) => b.getUpdatedAt() - a.getUpdatedAt());
+    // Chats with the most recent messages first. GroupsRequestBuilder has no
+    // such sort, and a group's `updatedAt` only changes with the group
+    // itself (members, name) — not with messages — so the last-message times
+    // are looked up (fetchLastActivity); `updatedAt` only orders chats with
+    // no known message.
+    const known = await fetchLastActivity();
+    known.forEach((ms, guid) => {
+      if (ms > (lastActivityRef.current.get(guid) ?? 0)) lastActivityRef.current.set(guid, ms);
+    });
+    all.sort((a, b) => activityOf(b) - activityOf(a));
 
     if (!customerId) return all;
     return all.filter(
@@ -250,5 +319,6 @@ export function useCometChat(customerId?: string | null) {
     refreshGroups,
     createSupportGroup,
     leaveGroup,
+    bumpGroup,
   };
 }

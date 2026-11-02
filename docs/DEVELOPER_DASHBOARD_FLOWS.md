@@ -207,7 +207,7 @@ allIssues (merged, Done removed, sorted by question count)
 |---|---|
 | `app/dev/developer/page.tsx` | Redirect from the old `/dev/developer` to `/{slug}/developer` |
 | `lib/developer-routes.ts` | Which initiative a developer's pages and login redirect use (URL → last pick → first assignment) |
-| `app/[slug]/(portal)/developer/page.tsx` | `DeveloperDashboard` implementation. Also still reused directly by `panel-renderer.tsx`'s `case "developer"`, for the older/dormant nested `/{devSlug}/dashboards/[customer]/[panel]` flow (its Sidebar nav entry is commented out, but the route and panel case still exist) |
+| `app/[slug]/(portal)/developer/page.tsx` | `DeveloperDashboard` implementation |
 | `app/dev/layout.tsx` | Layout for the old `/dev/*` redirects (including `/dev/chat`) — AuthGate, Sidebar, and a `role !== "developer"` redirect-home guard |
 | `app/[slug]/(portal)/layout.tsx` | Shared layout for slug-based routes — AuthGate, Sidebar, ConsentProvider |
 | `app/[slug]/(portal)/dashboard/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |

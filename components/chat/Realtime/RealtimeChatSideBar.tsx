@@ -10,6 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Chat } from "./useRealtimeChat";
+import { UnreadChatsProvider, UnreadDot, UnreadFilterToggle, useIsChatUnread } from "../unread-chats";
+
+const NO_UNREAD: ReadonlySet<string> = new Set();
 
 type CustomerOption = { id: string; userName: string };
 
@@ -22,6 +25,8 @@ type Props = Readonly<{
   customerOptions?: CustomerOption[];
   selectedCustomerId?: string;
   onSelectedCustomerIdChange?: (id: string) => void;
+  // Chats with messages the user hasn't seen (see ../unread-chats.tsx).
+  unreadChatIds?: ReadonlySet<string>;
 }>;
 
 function ChatAvatar({ name }: Readonly<{ name: string }>) {
@@ -43,6 +48,7 @@ function ChatItem({
   isSelected,
   onSelect,
 }: Readonly<{ chat: Chat; isSelected: boolean; onSelect: () => void }>) {
+  const isUnread = useIsChatUnread(chat.id);
   return (
     <div
       className={`group/item flex items-center gap-3 px-3 py-2.5 border-b transition-colors ${
@@ -54,10 +60,11 @@ function ChatItem({
       <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={onSelect}>
         <ChatAvatar name={chat.title ?? "Chat"} />
         <div className="min-w-0">
-          <div className={`text-sm md:smalltext font-medium truncate ${isSelected ? "text-primary" : ""}`}>
+          <div className={`text-sm md:smalltext truncate ${isUnread ? "font-bold" : "font-medium"} ${isSelected ? "text-primary" : ""}`}>
             {chat.title ?? "Chat"}
           </div>
         </div>
+        {isUnread && <UnreadDot />}
       </button>
     </div>
   );
@@ -116,16 +123,22 @@ export default function RealtimeChatSideBar({
   customerOptions = [],
   selectedCustomerId,
   onSelectedCustomerIdChange,
+  unreadChatIds = NO_UNREAD,
 }: Props) {
   const hasNoChats = chats.length === 0;
   const customerNameById = useMemo(
     () => new Map(customerOptions.map((c) => [c.id, c.userName])),
     [customerOptions],
   );
-  const groupedBySlug = groupByProject(chats, customerNameById);
+  // "Unread" filter: only chats with messages the user hasn't seen.
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unreadCount = chats.filter((c) => unreadChatIds.has(c.id)).length;
+  const visibleChats = unreadOnly ? chats.filter((c) => unreadChatIds.has(c.id)) : chats;
+  const groupedBySlug = groupByProject(visibleChats, customerNameById);
   const showGrouped = groupedBySlug.size > 1;
 
   return (
+    <UnreadChatsProvider unreadChatIds={unreadChatIds}>
     <div className="w-full h-full border-r flex flex-col bg-background">
       {showCustomerFilter && (
         <div className="px-3 py-2 border-b">
@@ -144,6 +157,12 @@ export default function RealtimeChatSideBar({
         </div>
       )}
 
+      {!hasNoChats && (
+        <div className="px-3 py-2 border-b">
+          <UnreadFilterToggle active={unreadOnly} count={unreadCount} onToggle={() => setUnreadOnly((v) => !v)} />
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {hasNoChats ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-12 px-4 text-center">
@@ -152,12 +171,14 @@ export default function RealtimeChatSideBar({
               {showCustomerFilter && selectedCustomerId ? "No chats found for that customer." : "No chats yet."}
             </p>
           </div>
+        ) : visibleChats.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm md:smalltext text-muted-foreground">No unread chats.</p>
         ) : showGrouped ? (
           Array.from(groupedBySlug.entries()).map(([slug, bucket]) => (
             <ChatSection key={slug} slug={slug} bucket={bucket} selectedChat={selectedChat} onSelectChat={onSelectChat} />
           ))
         ) : (
-          chats.map((chat) => (
+          visibleChats.map((chat) => (
             <ChatItem key={chat.id} chat={chat} isSelected={selectedChat?.id === chat.id} onSelect={() => onSelectChat(chat)} />
           ))
         )}
@@ -173,5 +194,6 @@ export default function RealtimeChatSideBar({
         </button>
       </div>
     </div>
+    </UnreadChatsProvider>
   );
 }

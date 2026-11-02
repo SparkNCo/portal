@@ -1,0 +1,26 @@
+# Rebuilt inside the image
+node_modules
+.next
+
+# Secrets: the image gets only the NEXT_PUBLIC_* build args (see Dockerfile)
+.env
+.env.*
+
+# Not needed to run the app
+.git
+.github
+.claude
+.vscode
+supabase
+tests
+test-results
+playwright-report
+blob-report
+docs
+workflows
+*.md
+*.mmd
+*.tsbuildinfo
+Dockerfile
+docker-compose.yml
+.dockerignore

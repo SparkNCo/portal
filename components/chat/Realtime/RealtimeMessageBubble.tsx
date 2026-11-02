@@ -93,7 +93,7 @@ export function RealtimeMessageBubble({
             ))}
             {msg.body && (
               <div
-                className={`min-w-0 smalltext ${compact ? "px-2.5 py-1.5 rounded-xl" : "px-3 py-2 rounded-2xl"} ${
+                className={`min-w-0 smalltext whitespace-pre-wrap break-words ${compact ? "px-2.5 py-1.5 rounded-xl" : "px-3 py-2 rounded-2xl"} ${
                   isMe
                     ? "bg-primary text-primary-foreground rounded-tr-sm"
                     : "bg-secondary text-secondary-foreground rounded-tl-sm"
