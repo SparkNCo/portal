@@ -14,7 +14,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 # package-lock.json is written with legacy-peer-deps (peer dependencies not
 # installed automatically); without the same flag npm ci rejects it.
-RUN npm ci --legacy-peer-deps
+# --ignore-scripts: dependency install scripts don't run. The only ones with
+# scripts (sharp, esbuild) get their Linux binaries from prebuilt packages.
+RUN npm ci --legacy-peer-deps --ignore-scripts
 
 # 2. Build the app.
 FROM node:22-slim AS builder

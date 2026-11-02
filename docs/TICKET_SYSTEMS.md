@@ -98,17 +98,22 @@ So any request with just an id knows which system and which customer's credentia
 
 ## Jira mapping
 
-| Portal (Linear concept) | Jira |
-|---|---|
-| Customer / initiative | One Jira **project** (`customers.linear_slug` = project key) |
-| Project | **Epic** (a ticket's parent) |
-| Milestone | **Version** (Fix Version). In Jira, versions belong to the whole project, not to an epic. |
-| Cycle | **Sprint** (the project's board) |
-| Ticket | Story / Task / Bug (epics and sub-tasks are not listed as tickets) |
-| Bug vs. feature | **Issue type.** Bug shows as a `bug` label and Story as a `feature` label, because the Bugs page and ticket detail tell them apart by label. Jira's own labels are listed too. |
-| Estimate | Story points (`Story point estimate` on team-managed projects, `Story Points` on company-managed; field ids are looked up per site) |
-| Priority | Highest → Urgent, High → High, Medium → Medium, Low/Lowest → Low; none → "No priority" |
-| Description, comments | Converted between Markdown (portal) and Jira's ADF (`jira/adf.ts`): paragraphs, headings, lists, code, quotes, links, bold/italic/strike/inline code. Anything else falls back to plain text. |
+| Portal (Linear concept) | Jira | How they differ |
+|---|---|---|
+| Customer / initiative | One Jira **project** (`customers.linear_slug` = project key) | — |
+| Project | **Epic** (a ticket's parent) | A Linear project is its own object; a Jira epic is an issue that other issues sit under. |
+| Milestone | **Version / Release** (Fix Version) | A Linear milestone belongs to **one** project. A Jira version belongs to the **whole** Jira project and can be used by tickets of several epics, so the same version can show up in several roadmap rows, each with its own tickets. Renaming a version or changing its release date in Jira (Releases) shows on the next page load. |
+| Cycle | **Sprint** (the project's board) | Linear cycles belong to a team and are created automatically. Jira sprints belong to a board, are created by hand, and need start and end dates to appear on the timeline. |
+| Ticket | Story / Task / Bug (epics and sub-tasks are not listed as tickets) | — |
+| Bug vs. feature | **Issue type.** Bug shows as a `bug` label and Story as a `feature` label, because the Bugs page and ticket detail tell them apart by label. Jira's own labels are listed too. | Linear tells them apart by label; Jira by issue type. |
+| Workflow state | **Status** | See "Statuses" below: same name first, otherwise by category. |
+| Label | **Label** | Jira labels have no color (the portal gives each name a fixed one) and can't contain spaces. |
+| Estimate | Story points (`Story point estimate` on team-managed projects, `Story Points` on company-managed; field ids are looked up per site) | — |
+| Priority | Highest → Urgent, High → High, Medium → Medium, Low/Lowest → Low; none → "No priority" | Jira has five levels; Highest and Lowest fold into Urgent and Low. |
+| Description, comments | Converted between Markdown (portal) and Jira's ADF (`jira/adf.ts`): paragraphs, headings, lists, code, quotes, links, bold/italic/strike/inline code. Anything else falls back to plain text. | Linear stores Markdown; Jira stores ADF (JSON). |
+| Attachments | Listed from the issue | Viewing only for Jira: links open Jira, and uploading isn't supported yet. |
+
+**Versions and sprints are independent**, in both systems: a sprint (cycle) is *when* a ticket is worked on; a version (milestone) is *which delivery* it ships in. A ticket can be in Sprint 2 and in V1.1 at the same time; a version can span several sprints, and a sprint can hold tickets from several versions. The roadmap crosses the two: rows are milestones, columns are sprints, and a cell lights up where a milestone has tickets in that sprint.
 
 ### Statuses
 
@@ -145,9 +150,42 @@ So a customer whose board has **Business Review**, **QA** and **UAT** columns ge
 
 ## Not available yet for Jira
 
-- **Uploading and attaching files.** `uploadFile` and `createAttachment` answer 501. When creating a ticket for a Jira customer, don't attach files: the ticket is created but the attachment fails. Existing attachments are listed, but their links point at Jira and need an Atlassian login (the image proxy only handles Linear today).
+- **Uploading and attaching files.** `uploadFile` and `createAttachment` answer 501. When creating a ticket for a Jira customer, don't attach files: the ticket is created but the attachment fails. Existing attachments are listed, but their links point at Jira and need an Atlassian login (the image proxy only handles Linear today). See "Known issue: Jira attachments" below.
 - **Admin initiative picker** (`/issues/projects?initiativeId=`): Linear only.
 - Every function not yet moved behind the wrapper (see Status).
+
+---
+
+## Known issue: Jira attachments
+
+**Status:** not implemented (logged 2026-11-02).
+
+### Why it fails
+
+The portal's attachment flow was built for Linear and has two steps:
+
+1. `POST /issues/upload` (`handleRequestUpload`): uploads the file to Linear's storage **before** knowing which ticket it's for, and returns its URL.
+2. `POST /issues/attachment` (`handleCreateAttachment`): tells Linear "this URL belongs to ticket X".
+
+Jira has no standalone file storage. A file can only be uploaded **directly onto an existing issue**, in one step (`POST /rest/api/3/issue/{key}/attachments`, multipart, with the header `X-Atlassian-Token: no-check`). There's no "upload first, attach later".
+
+So, for a Jira customer:
+
+- **Step 1** doesn't receive the customer (the frontend sends only the file, no `slug`), so it falls back to Linear and **uploads the file to Linear's storage**.
+- **Step 2** gets a Jira ticket id with a Linear URL. The Jira adapter's `createAttachment` answers 501 "Attaching files isn't available for Jira customers yet".
+- **Viewing** existing Jira attachments: `listAttachments` returns Jira's own content URLs, which need an Atlassian login. Linear files are shown through `linear-image-proxy` (fetched with our `LINEAR_API_KEY`); there's no equivalent for Jira yet.
+
+### Planned fix
+
+Keep the frontend's two-step flow and leave Linear unchanged:
+
+1. **Frontend:** send the customer's `slug` as a form field to `POST /issues/upload`. `handleRequestUpload` already picks the customer's adapter when `slug` is present.
+2. **Jira `uploadFile`:** store the file temporarily in a private Supabase Storage bucket (e.g. `ticket_uploads/{customer_id}/{uuid}/{filename}`) and return that path as the URL.
+3. **Jira `createAttachment`:** download the temporary file, upload it to the Jira issue (multipart, `X-Atlassian-Token: no-check`), then delete the temporary copy. Only accept paths inside that customer's own folder.
+4. **Viewing:** let the image proxy also serve Jira attachments. Given a `jira:{customer_id}:attachment:{id}` id, fetch `/rest/api/3/attachment/content/{id}` with that customer's Vault credentials. Point `useProxiedImageUrl` at it for Jira URLs. Return those proxy URLs from `listAttachments` instead of Jira's raw links.
+5. Clean up temporary files that were uploaded but never attached (e.g. a scheduled job deleting `ticket_uploads` older than a day).
+
+Touches: `components/bugs/bug-report-panel.tsx` / `components/build/feature-request-panel.tsx` (wherever the upload is called), `supabase/functions/lib/tickets/jira/issues.ts`, `supabase/functions/linear-image-proxy/` (or a new `ticket-file-proxy`), `hooks/use-proxied-image-url.ts`, and a migration for the bucket.
 
 ---
 

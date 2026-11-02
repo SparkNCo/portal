@@ -1306,13 +1306,17 @@ Set these as Supabase Edge Function secrets (`supabase secrets set ...`), or in 
 | `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gemini-3.8-flash`, `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
 | `AI_BASE_URL` | No | `https://api.openai.com/v1` | OpenAI-compatible base URL. Trailing slashes are stripped, and requests go to `{AI_BASE_URL}/chat/completions` |
 | `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `gemini error: ...`). It does **not** change the request format |
+| `AI_REASONING_EFFORT` | No | — (not sent) | Sent as `reasoning_effort` when set. Gemini flash models "think" by default, which can make one call take 30–90 s (Query felt stuck). `low` cuts that to a few seconds, and `none` turns thinking off where the model allows it. Leave unset for models that reject the parameter (e.g. `gpt-4.1-mini`, Qwen) |
+| `AI_FALLBACK_MODEL` | No | — | Another model on the same provider, tried once when `AI_MODEL` still answers "busy" (429/5xx, e.g. Gemini's 503 "high demand") after the retries. Busy answers are retried after 1 s and 3 s first; if they stay busy, callers get "The AI model is busy right now…" (Query shows it as is) |
 
-Current configuration (since October 2026): Google Gemini through its OpenAI-compatible endpoint, on the free tier. Key from https://aistudio.google.com → Get API key. Older ids such as `gemini-2.5-flash` answer 404 for new keys.
+Current configuration (since November 2026, before that `gemini-2.5-flash`): Google Gemini through its OpenAI-compatible endpoint, on the free tier (rate-limited; the limits per project are in Google AI Studio). Key from https://aistudio.google.com → Get API key. `AI_REASONING_EFFORT=low` keeps Query answers to a few seconds; `none` may not be accepted by Gemini 3 models.
 
 ```
 AI_PROVIDER=gemini
 AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 AI_MODEL=gemini-3.8-flash
+AI_REASONING_EFFORT=low
+AI_FALLBACK_MODEL=gemini-2.5-flash
 AI_API_KEY=AIza...
 ```
 

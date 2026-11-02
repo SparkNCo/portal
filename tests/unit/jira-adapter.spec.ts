@@ -28,6 +28,33 @@ test.describe('ADF ↔ Markdown', () => {
     expect(adfToMarkdown(markdownToAdf(md))).toBe(md);
   });
 
+  test('inline marks, and unclosed or spaced markers stay plain text', () => {
+    const inline = (md: string) => markdownToAdf(md).content[0].content;
+    expect(inline('a ~~gone~~ _em_ [x](https://x.dev)')).toEqual([
+      { type: 'text', text: 'a ' },
+      { type: 'text', text: 'gone', marks: [{ type: 'strike' }] },
+      { type: 'text', text: ' ' },
+      { type: 'text', text: 'em', marks: [{ type: 'em' }] },
+      { type: 'text', text: ' ' },
+      { type: 'text', text: 'x', marks: [{ type: 'link', attrs: { href: 'https://x.dev' } }] },
+    ]);
+    expect(inline('5 * 3 = 15 *')).toEqual([{ type: 'text', text: '5 * 3 = 15 *' }]);
+    expect(inline('[not a link](has space)')).toEqual([{ type: 'text', text: '[not a link](has space)' }]);
+  });
+
+  test('a line starting with ``` that is not a code fence is a paragraph (used to hang)', () => {
+    expect(markdownToAdf('```js extra\nmore').content).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: '```js extra' }, { type: 'hardBreak' }, { type: 'text', text: 'more' }] },
+    ]);
+  });
+
+  test('long lines of unclosed markers stay fast', () => {
+    const start = Date.now();
+    markdownToAdf('['.repeat(100_000));
+    markdownToAdf('[a](b'.repeat(20_000));
+    expect(Date.now() - start).toBeLessThan(500);
+  });
+
   test('line breaks inside a paragraph are kept', () => {
     expect(adfToMarkdown(markdownToAdf('line one\nline two'))).toBe('line one\nline two');
   });

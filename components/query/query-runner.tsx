@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
@@ -17,13 +17,34 @@ const EXAMPLE = "Which 5 products sold the most units this year?";
 
 function formatCell(value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value.toString();
+  // Objects/arrays (json columns, dates as objects…) as JSON, not "[object Object]".
+  return JSON.stringify(value);
+}
+
+function rowCountLabel(count: number, truncated: boolean | undefined): string {
+  if (truncated) {
+    return `Showing the first ${count} rows; more matched.`;
+  }
+  return `${count} ${count === 1 ? "row" : "rows"}`;
+}
+
+function cellClass(value: unknown): string {
+  const empty = value === null || value === undefined ? "text-muted-foreground" : "";
+  const numeric = typeof value === "number" ? "text-right" : "";
+  return `px-3 py-1.5 align-top ${empty} ${numeric}`;
+}
+
+// Result rows have no id of their own (and column names can repeat, e.g. two
+// "count"), so each answer's columns and rows get one when it arrives.
+function withIds<T>(items: T[]): { id: string; item: T }[] {
+  return items.map((item) => ({ id: crypto.randomUUID(), item }));
 }
 
 function ResultTable({ answer }: Readonly<{ answer: QueryAnswer }>) {
-  const columns = answer.columns ?? [];
-  const rows = answer.rows ?? [];
+  const columns = useMemo(() => withIds(answer.columns ?? []), [answer]);
+  const rows = useMemo(() => withIds(answer.rows ?? []), [answer]);
 
   if (rows.length === 0) {
     return <p className="smalltext text-muted-foreground">The query ran and returned no rows.</p>;
@@ -31,31 +52,24 @@ function ResultTable({ answer }: Readonly<{ answer: QueryAnswer }>) {
 
   return (
     <div className="space-y-2">
-      <p className="smalltext text-muted-foreground">
-        {answer.truncated ? `Showing the first ${rows.length} rows; more matched.` : `${rows.length} ${rows.length === 1 ? "row" : "rows"}`}
-      </p>
+      <p className="smalltext text-muted-foreground">{rowCountLabel(rows.length, answer.truncated)}</p>
       <div className="max-h-[28rem] overflow-auto rounded-md border border-border/60">
         <table className="w-full smalltext tabular-nums">
           <thead className="sticky top-0 bg-muted">
             <tr>
-              {columns.map((column, i) => (
-                <th key={`${column}-${i}`} scope="col" className="px-3 py-2 text-left font-medium whitespace-nowrap">
-                  {column}
+              {columns.map((column) => (
+                <th key={column.id} scope="col" className="px-3 py-2 text-left font-medium whitespace-nowrap">
+                  {column.item}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, r) => (
-              <tr key={r} className="border-t border-border/60 hover:bg-muted/30">
-                {row.map((value, c) => (
-                  <td
-                    key={c}
-                    className={`px-3 py-1.5 align-top ${value === null || value === undefined ? "text-muted-foreground" : ""} ${
-                      typeof value === "number" ? "text-right" : ""
-                    }`}
-                  >
-                    {formatCell(value)}
+            {rows.map((row) => (
+              <tr key={row.id} className="border-t border-border/60 hover:bg-muted/30">
+                {columns.map((column, c) => (
+                  <td key={column.id} className={cellClass(row.item[c])}>
+                    {formatCell(row.item[c])}
                   </td>
                 ))}
               </tr>
@@ -106,7 +120,7 @@ export function QueryRunner({ dataSources }: Readonly<{ dataSources: DataSource[
           {askable.length > 1 && (
             <div className="space-y-1.5 sm:max-w-xs">
               <Label htmlFor="query-connection">Connection</Label>
-              <Select value={dataSourceId} onValueChange={setChosenId}>
+              <Select value={dataSourceId} onValueChange={setChosenId} disabled={ask.isPending}>
                 <SelectTrigger id="query-connection">
                   <SelectValue />
                 </SelectTrigger>
@@ -129,6 +143,9 @@ export function QueryRunner({ dataSources }: Readonly<{ dataSources: DataSource[
               id="query-question"
               rows={3}
               maxLength={2000}
+              // Locked while the question is being answered (good or error).
+              readOnly={ask.isPending}
+              aria-busy={ask.isPending}
               placeholder={EXAMPLE}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -139,7 +156,7 @@ export function QueryRunner({ dataSources }: Readonly<{ dataSources: DataSource[
                   submit();
                 }
               }}
-              className="w-full rounded-lg border border-border bg-background smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background smalltext text-foreground placeholder:text-muted-foreground p-2.5 resize-y focus:outline-none focus:ring-1 focus:ring-ring read-only:cursor-not-allowed read-only:opacity-60"
             />
           </div>
 

@@ -65,9 +65,11 @@ export function useUnreadChats() {
     let cancelled = false;
     const refresh = async () => {
       const rows = await fetchUnreadChatNotifications();
-      if (!cancelled) setUnread(rows);
+      if (!cancelled) {
+        setUnread(rows);
+      }
     };
-    refresh();
+    void refresh();
 
     // Any change to this user's notifications (a new message, one re-pointed
     // at a newer message, one read here or from the bell) → re-read the set.
@@ -76,13 +78,13 @@ export function useUnreadChats() {
       .on(
         "postgres_changes",
         { event: "*", schema: "portal", table: "notifications", filter: `user_id=eq.${profile.id}` },
-        refresh,
+        () => void refresh(),
       )
       .subscribe();
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [profile?.id, instanceId]);
 

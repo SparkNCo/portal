@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CometChat } from "@cometchat/chat-sdk-javascript";
 import { Ban, Check, CornerUpLeft, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +48,236 @@ const NO_USERS: readonly MentionOption[] = [];
 const ACTION_BUTTON =
   "rounded p-1 text-muted-foreground hover:text-primary hover:bg-secondary/60 transition-colors disabled:opacity-50";
 
+function BusyCheck({ busy }: { readonly busy: boolean }) {
+  return busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />;
+}
+
+// The edit box that replaces the bubble while the user edits their message.
+function EditBox({
+  draft,
+  busy,
+  editRef,
+  onDraftChange,
+  onSave,
+  onCancel,
+}: {
+  readonly draft: string;
+  readonly busy: boolean;
+  readonly editRef: React.RefObject<HTMLTextAreaElement>;
+  readonly onDraftChange: (value: string) => void;
+  readonly onSave: () => void;
+  readonly onCancel: () => void;
+}) {
+  return (
+    <div className="min-w-0 flex-1 space-y-1">
+      <textarea
+        ref={editRef}
+        aria-label="Edit message"
+        value={draft}
+        onChange={(e) => onDraftChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSave();
+          } else if (e.key === "Escape") {
+            // Don't let Escape also close a surrounding dialog (ticket chat).
+            e.stopPropagation();
+            onCancel();
+          }
+        }}
+        rows={Math.min(6, Math.max(1, draft.split("\n").length))}
+        disabled={busy}
+        className="w-full min-w-[12rem] resize-none rounded-lg border border-primary bg-background px-2.5 py-1.5 smalltext text-foreground focus:outline-none"
+      />
+      <div className="flex justify-end gap-1">
+        <button type="button" onClick={onCancel} disabled={busy} className={ACTION_BUTTON} aria-label="Cancel edit">
+          <X className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" onClick={onSave} disabled={busy || !draft.trim()} className={ACTION_BUTTON} aria-label="Save edit">
+          <BusyCheck busy={busy} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// The message itself when it isn't being edited: deleted placeholder,
+// attachment (+ caption) or text bubble.
+function MessageContent({
+  text,
+  mentions,
+  attachment,
+  deleted,
+  isMe,
+  meUid,
+  compact,
+}: {
+  readonly text: string;
+  readonly mentions: readonly MentionOption[];
+  readonly attachment: any;
+  readonly deleted: boolean;
+  readonly isMe: boolean;
+  readonly meUid: string;
+  readonly compact: boolean;
+}) {
+  const bubbleShape = compact ? "px-2.5 py-1.5 rounded-xl" : "px-3 py-2 rounded-2xl";
+  if (deleted) {
+    return (
+      <div
+        className={`min-w-0 smalltext italic text-muted-foreground border border-dashed border-border flex items-center gap-1.5 ${bubbleShape}`}
+      >
+        <Ban className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        This message was deleted
+      </div>
+    );
+  }
+  if (attachment) {
+    return (
+      <div className="min-w-0 space-y-1">
+        <ChatAttachmentView attachment={attachment} isMe={isMe} compact={compact} />
+        {text && <div className={`smalltext px-1 ${isMe ? "text-right" : ""}`}>{text}</div>}
+      </div>
+    );
+  }
+  const bubbleColor = isMe
+    ? "bg-primary text-primary-foreground rounded-tr-sm"
+    : "bg-secondary text-secondary-foreground rounded-tl-sm";
+  return (
+    <div className={`min-w-0 smalltext whitespace-pre-wrap break-words ${bubbleShape} ${bubbleColor}`}>
+      <MentionText text={text} mentions={mentions} meUid={meUid} />
+    </div>
+  );
+}
+
+// Reply / Edit / Delete next to the bubble, or "Delete? ✓ ✕" while confirming.
+// Shown on hover on desktop; always there on touch screens (no hover).
+function MessageActions({
+  canReply,
+  canEdit,
+  canChange,
+  confirmingDelete,
+  busy,
+  onReply,
+  onEdit,
+  onAskDelete,
+  onConfirmDelete,
+  onCancelDelete,
+}: {
+  readonly canReply: boolean;
+  readonly canEdit: boolean;
+  readonly canChange: boolean;
+  readonly confirmingDelete: boolean;
+  readonly busy: boolean;
+  readonly onReply: () => void;
+  readonly onEdit: () => void;
+  readonly onAskDelete: () => void;
+  readonly onConfirmDelete: () => void;
+  readonly onCancelDelete: () => void;
+}) {
+  if (confirmingDelete) {
+    return (
+      <div className="flex shrink-0 items-center self-center transition-opacity">
+        <span className="smalltext text-muted-foreground px-1">Delete?</span>
+        <button type="button" onClick={onConfirmDelete} disabled={busy} className={`${ACTION_BUTTON} hover:text-destructive`} aria-label="Confirm delete">
+          <BusyCheck busy={busy} />
+        </button>
+        <button type="button" onClick={onCancelDelete} disabled={busy} className={ACTION_BUTTON} aria-label="Cancel delete">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex shrink-0 items-center self-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+      {canReply && (
+        <button type="button" onClick={onReply} className={ACTION_BUTTON} aria-label="Reply to message" title="Reply">
+          <CornerUpLeft className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {canEdit && (
+        <button type="button" onClick={onEdit} className={ACTION_BUTTON} aria-label="Edit message" title="Edit">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {canChange && (
+        <button
+          type="button"
+          onClick={onAskDelete}
+          className={`${ACTION_BUTTON} hover:text-destructive`}
+          aria-label="Delete message"
+          title="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The message this one answers: who wrote it and a line of it. Clicking it
+// goes to that message.
+function QuotedMessage({ quoted, onJump }: { readonly quoted: any; readonly onJump: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onJump}
+      aria-label={`Replying to ${quoted.senderName} — go to that message`}
+      className="mb-1 block max-w-full rounded-md border-l-2 border-primary bg-background bg-gradient-to-r from-primary/10 to-primary/10 px-2 py-1 text-left hover:from-primary/20 hover:to-primary/20 transition-colors"
+    >
+      <span className="block truncate smalltext font-semibold text-primary">{quoted.senderName}</span>
+      <span className={`block truncate smalltext text-foreground/80 ${quoted.deleted ? "italic" : ""}`}>
+        {quoted.deleted ? "This message was deleted" : quoted.text}
+      </span>
+    </button>
+  );
+}
+
+// Someone else's avatar, or an empty spacer under the first message of a group
+// so the bubbles stay aligned.
+function SenderAvatar({
+  name,
+  compact,
+  continuesGroup,
+}: {
+  readonly name: string;
+  readonly compact: boolean;
+  readonly continuesGroup: boolean;
+}) {
+  if (continuesGroup) {
+    return <div className={`${compact ? "w-6" : "w-7"} shrink-0`} aria-hidden="true" />;
+  }
+  return <MessageAvatar name={name} className={compact ? "w-6 h-6 smalltext" : undefined} />;
+}
+
+// Class names for the bubble's layout: own messages on the right, compact
+// spacing in the small chat, closer spacing inside a group.
+function bubbleLayout({
+  compact,
+  isMe,
+  continuesGroup,
+  highlighted,
+  editing,
+}: {
+  compact: boolean;
+  isMe: boolean;
+  continuesGroup: boolean;
+  highlighted: boolean;
+  editing: boolean;
+}) {
+  const direction = isMe ? "flex-row-reverse" : "flex-row";
+  return {
+    row: `group flex rounded-lg transition-colors duration-700 ${compact ? "gap-1.5" : "gap-2"} ${direction} ${
+      continuesGroup ? "!mt-1" : ""
+    } ${highlighted ? "bg-primary/15" : ""}`,
+    column: `flex flex-col ${editing ? "flex-1" : ""} ${compact ? "max-w-[70%]" : "max-w-[65%]"} ${
+      isMe ? "items-end" : "items-start"
+    }`,
+    name: `smalltext ${compact ? "mb-0.5" : "mb-1"} text-muted-foreground px-1`,
+    line: `flex items-end gap-1.5 max-w-full ${editing ? "w-full" : ""} ${direction}`,
+    lastTime: `flex items-center ${compact ? "mt-0.5" : "mt-1"}`,
+  };
+}
+
 export function MessageBubble({
   msg,
   index,
@@ -87,6 +317,14 @@ export function MessageBubble({
   readonly highlighted?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  // Put the cursor in the box once the user clicks Edit.
+  useEffect(() => {
+    if (editing) {
+      editRef.current?.focus();
+    }
+  }, [editing]);
   const [draft, setDraft] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -142,168 +380,52 @@ export function MessageBubble({
     }
   };
 
-  const bubbleShape = compact ? "px-2.5 py-1.5 rounded-xl" : "px-3 py-2 rounded-2xl";
-  const bubbleColor = isMe
-    ? "bg-primary text-primary-foreground rounded-tr-sm"
-    : "bg-secondary text-secondary-foreground rounded-tl-sm";
-
-  let body: React.ReactNode;
-  if (deleted) {
-    body = (
-      <div
-        className={`min-w-0 smalltext italic text-muted-foreground border border-dashed border-border flex items-center gap-1.5 ${bubbleShape}`}
-      >
-        <Ban className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        This message was deleted
-      </div>
-    );
-  } else if (editing) {
-    body = (
-      <div className="min-w-0 flex-1 space-y-1">
-        <textarea
-          aria-label="Edit message"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              saveEdit();
-            } else if (e.key === "Escape") {
-              // Don't let Escape also close a surrounding dialog (ticket chat).
-              e.stopPropagation();
-              setEditing(false);
-            }
-          }}
-          rows={Math.min(6, Math.max(1, draft.split("\n").length))}
-          autoFocus
-          disabled={busy}
-          className="w-full min-w-[12rem] resize-none rounded-lg border border-primary bg-background px-2.5 py-1.5 smalltext text-foreground focus:outline-none"
-        />
-        <div className="flex justify-end gap-1">
-          <button type="button" onClick={() => setEditing(false)} disabled={busy} className={ACTION_BUTTON} aria-label="Cancel edit">
-            <X className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={saveEdit}
-            disabled={busy || !draft.trim()}
-            className={ACTION_BUTTON}
-            aria-label="Save edit"
-          >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-      </div>
-    );
-  } else if (attachment) {
-    body = (
-      <div className="min-w-0 space-y-1">
-        <ChatAttachmentView attachment={attachment} isMe={isMe} compact={compact} />
-        {text && <div className={`smalltext px-1 ${isMe ? "text-right" : ""}`}>{text}</div>}
-      </div>
-    );
-  } else {
-    body = (
-      <div className={`min-w-0 smalltext whitespace-pre-wrap break-words ${bubbleShape} ${bubbleColor}`}>
-        <MentionText text={text} mentions={mentions} meUid={user.getUid()} />
-      </div>
-    );
-  }
-
-  // Shown on hover on desktop; always there on touch screens (no hover).
-  const actions = (canChange || canReply) && !editing && (
-    <div
-      className={`flex shrink-0 items-center self-center ${
-        confirmingDelete ? "" : "sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-      } transition-opacity`}
-    >
-      {confirmingDelete ? (
-        <>
-          <span className="smalltext text-muted-foreground px-1">Delete?</span>
-          <button type="button" onClick={confirmDelete} disabled={busy} className={`${ACTION_BUTTON} hover:text-destructive`} aria-label="Confirm delete">
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          </button>
-          <button type="button" onClick={() => setConfirmingDelete(false)} disabled={busy} className={ACTION_BUTTON} aria-label="Cancel delete">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </>
-      ) : (
-        <>
-          {canReply && (
-            <button type="button" onClick={() => onReply?.(msg)} className={ACTION_BUTTON} aria-label="Reply to message" title="Reply">
-              <CornerUpLeft className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {canEdit && (
-            <button type="button" onClick={startEditing} className={ACTION_BUTTON} aria-label="Edit message" title="Edit">
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {canChange && (
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(true)}
-              className={`${ACTION_BUTTON} hover:text-destructive`}
-              aria-label="Delete message"
-              title="Delete"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </>
-      )}
-    </div>
-  );
-
+  // Editing replaces the bubble; deleted messages can't be edited.
+  const showEditBox = editing && !deleted;
   const editedMark = edited && !deleted && <span className="smalltext text-muted-foreground px-1">(edited)</span>;
-
-  // The message this one answers: who wrote it and a line of it. Clicking it
-  // goes to that message.
-  const quote = quoted && !deleted && !editing && (
-    <button
-      type="button"
-      onClick={() => onJumpToMessage?.(quoted.id)}
-      aria-label={`Replying to ${quoted.senderName} — go to that message`}
-      className="mb-1 block max-w-full rounded-md border-l-2 border-primary bg-background bg-gradient-to-r from-primary/10 to-primary/10 px-2 py-1 text-left hover:from-primary/20 hover:to-primary/20 transition-colors"
-    >
-      <span className="block truncate smalltext font-semibold text-primary">{quoted.senderName}</span>
-      <span className={`block truncate smalltext text-foreground/80 ${quoted.deleted ? "italic" : ""}`}>
-        {quoted.deleted ? "This message was deleted" : quoted.text}
-      </span>
-    </button>
-  );
+  const layout = bubbleLayout({ compact, isMe, continuesGroup, highlighted, editing });
 
   return (
-    <div
-      data-message-id={String(data.id)}
-      className={`group flex rounded-lg transition-colors duration-700 ${compact ? "gap-1.5" : "gap-2"} ${
-        isMe ? "flex-row-reverse" : "flex-row"
-      } ${continuesGroup ? "!mt-1" : ""} ${highlighted ? "bg-primary/15" : ""}`}
-    >
-      {!isMe &&
-        (continuesGroup ? (
-          // Keeps the bubble aligned with the ones above.
-          <div className={`${compact ? "w-6" : "w-7"} shrink-0`} aria-hidden="true" />
-        ) : (
-          <MessageAvatar
-            name={senderName}
-            className={compact ? "w-6 h-6 smalltext" : undefined}
-          />
-        ))}
-      <div
-        className={`flex flex-col ${editing ? "flex-1" : ""} ${compact ? "max-w-[70%]" : "max-w-[65%]"} ${
-          isMe ? "items-end" : "items-start"
-        }`}
-      >
-        {!isMe && !continuesGroup && (
-          <span className={`smalltext ${compact ? "mb-0.5" : "mb-1"} text-muted-foreground px-1`}>
-            {senderName}
-          </span>
-        )}
-        {quote}
-        <div className={`flex items-end gap-1.5 max-w-full ${editing ? "w-full" : ""} ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-          {body}
-          {actions}
+    <div data-message-id={String(data.id)} className={layout.row}>
+      {!isMe && <SenderAvatar name={senderName} compact={compact} continuesGroup={continuesGroup} />}
+      <div className={layout.column}>
+        {!isMe && !continuesGroup && <span className={layout.name}>{senderName}</span>}
+        {quoted && !deleted && !editing && <QuotedMessage quoted={quoted} onJump={() => onJumpToMessage?.(quoted.id)} />}
+        <div className={layout.line}>
+          {showEditBox ? (
+            <EditBox
+              draft={draft}
+              busy={busy}
+              editRef={editRef}
+              onDraftChange={setDraft}
+              onSave={() => void saveEdit()}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            <MessageContent
+              text={text}
+              mentions={mentions}
+              attachment={attachment}
+              deleted={!!deleted}
+              isMe={isMe}
+              meUid={user.getUid()}
+              compact={compact}
+            />
+          )}
+          {(canChange || canReply) && !editing && (
+            <MessageActions
+              canReply={canReply}
+              canEdit={canEdit}
+              canChange={canChange}
+              confirmingDelete={confirmingDelete}
+              busy={busy}
+              onReply={() => onReply?.(msg)}
+              onEdit={startEditing}
+              onAskDelete={() => setConfirmingDelete(true)}
+              onConfirmDelete={() => void confirmDelete()}
+              onCancelDelete={() => setConfirmingDelete(false)}
+            />
+          )}
           {sentDate && !isLast && !editing && (
             <>
               {editedMark}
@@ -312,7 +434,7 @@ export function MessageBubble({
           )}
         </div>
         {sentDate && isLast && (
-          <div className={`flex items-center ${compact ? "mt-0.5" : "mt-1"}`}>
+          <div className={layout.lastTime}>
             {editedMark}
             <LastMessageTime date={sentDate} />
           </div>

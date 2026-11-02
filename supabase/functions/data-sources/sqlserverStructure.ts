@@ -21,7 +21,9 @@ export function sqlServerType(row: any): string {
 // values: SQL Server stores `status IN ('a', 'b')` as
 // "([status]='a' OR [status]='b')". Null for any other kind of CHECK.
 export function checkValues(definition: string): { column: string; values: string[] } | null {
-  const comparison = /\[([^\]]+)\]\s*=\s*N?'((?:[^']|'')*)'/g;
+  // Column names can't contain "[" and "''" is an escaped quote; both parts are
+  // written so each character has only one way to match (no backtracking).
+  const comparison = /\[([^[\]]+)\]\s*=\s*N?'([^']*(?:''[^']*)*)'/g;
   const matches = [...definition.matchAll(comparison)];
   if (!matches.length) return null;
 

@@ -8,7 +8,7 @@
 import { serveWithCors } from "../utils/serve.ts";
 import { supabase } from "../client.ts";
 import { resolveCaller } from "../users/resolveCaller.ts";
-import { aiEnabled } from "../lib/aiClient.ts";
+import { AiBusyError, aiEnabled } from "../lib/aiClient.ts";
 import { SCHEMAS_BUCKET } from "../data-sources/columns.ts";
 import { findDataSource, storedPassword } from "../data-sources/manageDataSources.ts";
 import { configFor, engineFor } from "../data-sources/engines.ts";
@@ -21,6 +21,23 @@ async function loadStructure(schemaPath: string) {
   const { data, error } = await supabase.storage.from(SCHEMAS_BUCKET).download(schemaPath);
   if (error || !data) throw new Error("Couldn't load the database's structure. Try Refresh structure.");
   return JSON.parse(await data.text());
+}
+
+// The AI writes the SQL. Timed (also when it fails) so the logs show where a
+// slow answer's time goes. A busy provider becomes a 503 with a readable message.
+async function writeSql(structure: any, question: string, dataSource: any) {
+  const start = Date.now();
+  try {
+    const generated = await generateQuery(structure, question, dataSource.type);
+    console.log("[query] AI wrote the SQL", { id: dataSource.id, ms: Date.now() - start, tables: structure.tables?.length });
+    return generated;
+  } catch (err) {
+    console.error("[query] AI call failed", { id: dataSource.id, ms: Date.now() - start, error: err?.message });
+    if (err instanceof AiBusyError) {
+      return Response.json({ error: err.message }, { status: 503 });
+    }
+    throw err;
+  }
 }
 
 serveWithCors("query API Error", async (req) => {
@@ -46,7 +63,8 @@ serveWithCors("query API Error", async (req) => {
   }
 
   const structure = await loadStructure(dataSource.schema_path);
-  const generated = await generateQuery(structure, question, dataSource.type);
+  const generated = await writeSql(structure, question, dataSource);
+  if (generated instanceof Response) return generated;
   const answer = { question, explanation: generated.explanation, sql: generated.sql };
 
   if (!generated.answerable) return Response.json({ ...answer, error: generated.explanation });
@@ -58,7 +76,9 @@ serveWithCors("query API Error", async (req) => {
   const config = configFor(dataSource, await storedPassword(dataSource.id));
 
   try {
+    const sqlStart = Date.now();
     const result = await engine.run(config, checked.sql);
+    console.log("[query] SQL ran", { id: dataSource.id, ms: Date.now() - sqlStart });
     return Response.json({ ...answer, sql: checked.sql, ...result });
   } catch (err) {
     console.error("[query] running the generated SQL failed", { id: dataSource.id, code: err?.code, error: err?.message });

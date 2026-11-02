@@ -42,7 +42,19 @@ export function normalizeJiraProjectKey(input: unknown): string | null {
   return /^[A-Z][A-Z0-9_]{0,9}$/.test(key) ? key : null;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// "name@domain.tld": no spaces, exactly one "@", something before it, and a
+// dot inside the domain (not first or last). Checked by hand instead of a
+// regex, which backtracked on domains with many dots.
+function looksLikeEmail(value: string): boolean {
+  if (/\s/.test(value)) {
+    return false;
+  }
+  const parts = value.split("@");
+  if (parts.length !== 2 || !parts[0]) {
+    return false;
+  }
+  return parts[1].slice(1, -1).includes(".");
+}
 
 // The Jira details from a request body, checked. `error` is for the admin.
 export function parseJiraInput(
@@ -53,7 +65,7 @@ export function parseJiraInput(
   if (!base_url) return { error: "Enter the Jira URL, e.g. https://acme.atlassian.net" };
 
   const email = typeof jira?.email === "string" ? jira.email.trim() : "";
-  if (!EMAIL_RE.test(email)) return { error: "Enter the email of the Jira account the portal connects with" };
+  if (!looksLikeEmail(email)) return { error: "Enter the email of the Jira account the portal connects with" };
 
   const key = normalizeJiraProjectKey(projectKey);
   if (!key) return { error: "Enter the Jira project key — the letters before the ticket numbers, e.g. ACME for ACME-12" };

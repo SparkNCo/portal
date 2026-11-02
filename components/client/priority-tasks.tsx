@@ -80,6 +80,166 @@ function boardColumns(issues: Issue[], selectedStatuses: string[]) {
   return statuses.map((status) => ({ status, issues: byStatus.get(status) ?? [] }));
 }
 
+// What every ticket card/row needs from the page.
+type IssueItemProps = {
+  readonly onOpen: (issue: Issue) => void;
+  readonly hasUpdate: (issue: Issue) => boolean;
+  readonly lightCard: boolean;
+  readonly showProject: boolean;
+};
+
+const SCROLL_LIMIT = "max-h-[600px] overflow-y-auto";
+
+function IssueRows({ issues, className, ...item }: IssueItemProps & { readonly issues: Issue[]; readonly className: string }) {
+  return (
+    <div className={className}>
+      {issues.map((issue) => (
+        <IssueListRow
+          key={issue.id}
+          issue={issue}
+          onOpen={() => item.onOpen(issue)}
+          hasUpdate={item.hasUpdate(issue)}
+          lightCard={item.lightCard}
+          showProject={item.showProject}
+        />
+      ))}
+    </div>
+  );
+}
+
+// The small card's body: skeletons, "No issues." or the rows.
+function CompactIssues({ loading, issues, ...item }: IssueItemProps & { readonly loading: boolean; readonly issues: Issue[] }) {
+  if (loading) {
+    return <IssueSkeletons view="list" count={4} />;
+  }
+  if (issues.length === 0) {
+    return <p className="smalltext text-muted-foreground italic px-1">No issues.</p>;
+  }
+  return (
+    <IssueRows issues={issues} className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar" {...item} />
+  );
+}
+
+function BoardView({
+  issues,
+  selectedStatuses,
+  expanded,
+  ...item
+}: IssueItemProps & { readonly issues: Issue[]; readonly selectedStatuses: string[]; readonly expanded: boolean }) {
+  return (
+    <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
+      {boardColumns(issues, selectedStatuses).map(({ status, issues: columnIssues }) => (
+        <section
+          key={status}
+          aria-label={`${status}, ${columnIssues.length} ticket${columnIssues.length === 1 ? "" : "s"}`}
+          className="flex w-72 shrink-0 flex-col rounded-lg bg-muted/30 p-2"
+        >
+          <header className="flex items-center justify-between px-1 pb-2">
+            <span
+              className={`smalltext rounded px-2 py-0.5 font-medium ${
+                statusColors[status as keyof typeof statusColors] ?? "bg-muted text-muted-foreground"
+              }`}
+            >
+              {status}
+            </span>
+            <span className="smalltext tabular-nums text-muted-foreground">{columnIssues.length}</span>
+          </header>
+          <div className={`flex flex-col gap-2 custom-scrollbar ${expanded ? "" : SCROLL_LIMIT}`}>
+            {columnIssues.length === 0 && <p className="smalltext text-muted-foreground italic px-1 py-3">No tickets</p>}
+            {columnIssues.map((issue) => (
+              <IssueCard
+                key={issue.id}
+                issue={issue}
+                onOpen={() => item.onOpen(issue)}
+                hasUpdate={item.hasUpdate(issue)}
+                lightCard={item.lightCard}
+                showProject={item.showProject}
+                statusAndCycleOnly
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function GridView({
+  issues,
+  expanded,
+  scrollRef,
+  ...item
+}: IssueItemProps & {
+  readonly issues: Issue[];
+  readonly expanded: boolean;
+  readonly scrollRef: React.RefObject<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={scrollRef}
+      className={`
+        grid gap-2 grid-flow-row auto-rows-auto pt-3
+        grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
+        custom-scrollbar
+        overflow-x-hidden
+        ${expanded ? "overflow-y-visible h-auto" : SCROLL_LIMIT}
+      `}
+    >
+      {issues.map((issue) => (
+        <IssueCard
+          key={issue.id}
+          issue={issue}
+          onOpen={() => item.onOpen(issue)}
+          hasUpdate={item.hasUpdate(issue)}
+          lightCard={item.lightCard}
+          showProject={item.showProject}
+        />
+      ))}
+    </div>
+  );
+}
+
+// The full card's body: skeletons, the empty state, or the tickets in the
+// chosen view (board, list or grid).
+function IssueViews({
+  loading,
+  issues,
+  viewMode,
+  emptyState,
+  selectedStatuses,
+  expanded,
+  scrollRef,
+  ...item
+}: IssueItemProps & {
+  readonly loading: boolean;
+  readonly issues: Issue[];
+  readonly viewMode: IssueViewMode;
+  readonly emptyState: React.ReactNode;
+  readonly selectedStatuses: string[];
+  readonly expanded: boolean;
+  readonly scrollRef: React.RefObject<HTMLDivElement>;
+}) {
+  if (loading) {
+    return <IssueSkeletons view={viewMode} />;
+  }
+  if (issues.length === 0) {
+    return emptyState ?? <p className="smalltext text-muted-foreground italic p-2">No issues match the current filters.</p>;
+  }
+  if (viewMode === "board") {
+    return <BoardView issues={issues} selectedStatuses={selectedStatuses} expanded={expanded} {...item} />;
+  }
+  if (viewMode === "list") {
+    return (
+      <IssueRows
+        issues={issues}
+        className={`flex flex-col gap-0.5 pt-3 custom-scrollbar ${expanded ? "" : SCROLL_LIMIT}`}
+        {...item}
+      />
+    );
+  }
+  return <GridView issues={issues} expanded={expanded} scrollRef={scrollRef} {...item} />;
+}
+
 export function PriorityTasks({
   issuesData,
   filterState,
@@ -145,6 +305,13 @@ export function PriorityTasks({
       })
     : issuesData;
 
+  const itemProps: IssueItemProps = {
+    onOpen: setSelectedIssue,
+    hasUpdate: (issue) => hasUnseenUpdate(issue, profile?.email),
+    lightCard,
+    showProject,
+  };
+
   // Pages spanning multiple customers (the developer dashboard) don't pass a
   // fixed `slug` — fall back to the selected issue's own `_project` tag.
   const modal = selectedIssue && (
@@ -181,24 +348,7 @@ export function PriorityTasks({
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col overflow-hidden px-2 pb-3">
-          {loading ? (
-            <IssueSkeletons view="list" count={4} />
-          ) : visibleIssues.length === 0 ? (
-            <p className="smalltext text-muted-foreground italic px-1">No issues.</p>
-          ) : (
-            <div className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              {visibleIssues.map((issue) => (
-                <IssueListRow
-                  key={issue.id}
-                  issue={issue}
-                  onOpen={() => setSelectedIssue(issue)}
-                  hasUpdate={hasUnseenUpdate(issue, profile?.email)}
-                  lightCard={lightCard}
-                  showProject={showProject}
-                />
-              ))}
-            </div>
-          )}
+          <CompactIssues loading={loading} issues={visibleIssues} {...itemProps} />
         </CardContent>
         {modal}
       </Card>
@@ -293,100 +443,16 @@ export function PriorityTasks({
         </div>
       )}
       <CardContent className="flex-1 overflow-hidden overflow-x-hidden">
-        {loading ? (
-          <IssueSkeletons view={viewMode} />
-        ) : visibleIssues.length === 0 ? (
-          emptyState ?? (
-            <p className="smalltext text-muted-foreground italic p-2">
-              No issues match the current filters.
-            </p>
-          )
-        ) : viewMode === "board" ? (
-          <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
-            {boardColumns(visibleIssues, selectedStatuses).map(({ status, issues }) => (
-              <section
-                key={status}
-                aria-label={`${status}, ${issues.length} ticket${issues.length === 1 ? "" : "s"}`}
-                className="flex w-72 shrink-0 flex-col rounded-lg bg-muted/30 p-2"
-              >
-                <header className="flex items-center justify-between px-1 pb-2">
-                  <span
-                    className={`smalltext rounded px-2 py-0.5 font-medium ${
-                      statusColors[status as keyof typeof statusColors] ?? "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {status}
-                  </span>
-                  <span className="smalltext tabular-nums text-muted-foreground">{issues.length}</span>
-                </header>
-                <div
-                  className={`flex flex-col gap-2 custom-scrollbar ${
-                    expanded ? "" : "max-h-[600px] overflow-y-auto"
-                  }`}
-                >
-                  {issues.length === 0 ? (
-                    <p className="smalltext text-muted-foreground italic px-1 py-3">No tickets</p>
-                  ) : (
-                    issues.map((issue) => (
-                      <IssueCard
-                        key={issue.id}
-                        issue={issue}
-                        onOpen={() => setSelectedIssue(issue)}
-                        hasUpdate={hasUnseenUpdate(issue, profile?.email)}
-                        lightCard={lightCard}
-                        showProject={showProject}
-                        statusAndCycleOnly
-                      />
-                    ))
-                  )}
-                </div>
-              </section>
-            ))}
-          </div>
-        ) : viewMode === "list" ? (
-          <div
-            className={`flex flex-col gap-0.5 pt-3 custom-scrollbar ${
-              expanded ? "" : "max-h-[600px] overflow-y-auto"
-            }`}
-          >
-            {visibleIssues.map((issue) => (
-              <IssueListRow
-                key={issue.id}
-                issue={issue}
-                onOpen={() => setSelectedIssue(issue)}
-                hasUpdate={hasUnseenUpdate(issue, profile?.email)}
-                lightCard={lightCard}
-                showProject={showProject}
-              />
-            ))}
-          </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            className={`
-              grid gap-2 grid-flow-row auto-rows-auto pt-3
-              grid-cols-[repeat(auto-fit,minmax(280px,1fr))]
-              custom-scrollbar
-              overflow-x-hidden
-              ${
-                expanded
-                  ? "overflow-y-visible h-auto"
-                  : "max-h-[600px] overflow-y-auto"
-              }
-            `}
-          >
-            {visibleIssues.map((issue) => (
-              <IssueCard
-                key={issue.id}
-                issue={issue}
-                onOpen={() => setSelectedIssue(issue)}
-                hasUpdate={hasUnseenUpdate(issue, profile?.email)}
-                lightCard={lightCard}
-                showProject={showProject}
-              />
-            ))}
-          </div>
-        )}
+        <IssueViews
+          loading={loading}
+          issues={visibleIssues}
+          viewMode={viewMode}
+          emptyState={emptyState}
+          selectedStatuses={selectedStatuses}
+          expanded={expanded}
+          scrollRef={scrollRef}
+          {...itemProps}
+        />
       </CardContent>
       {modal}
     </Card>

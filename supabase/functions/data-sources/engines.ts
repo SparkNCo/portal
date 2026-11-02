@@ -29,9 +29,16 @@ export type Engine = {
 // handshake (ECONNRESET), and Supabase's edge runtime is on Deno 2.1.4 as of
 // October 2026. Until it's upgraded, SQL Server is refused with this reason
 // instead of failing obscurely; once it is, it works with no code change.
+// Locally Deno.version.deno is "2.1.4"; on Supabase it's like
+// "supabase-edge-runtime-1.x (compatible with Deno v2.1.4)". The version is
+// always the last word, so read that instead of regex-scanning the string.
 function denoVersion(): [number, number] {
-  const match = String(Deno.version?.deno ?? "").match(/(\d+)\.(\d+)(?:\.\d+)?\)?$/);
-  return match ? [Number(match[1]), Number(match[2])] : [0, 0];
+  const lastWord = String(Deno.version?.deno ?? "").trim().split(" ").pop() ?? "";
+  const [major, minor] = lastWord.replace(/^v/, "").replace(/\)$/, "").split(".").map(Number);
+  if (Number.isInteger(major) && Number.isInteger(minor)) {
+    return [major, minor];
+  }
+  return [0, 0];
 }
 
 export function sqlServerUnavailable(): string | null {

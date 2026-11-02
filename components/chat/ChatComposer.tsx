@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CornerUpLeft, FileText, Paperclip, Send, X } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { encodeMentions, matchMentionOptions, mentionQueryAt, type MentionOption } from "./mentions";
 
 // Per-file cap, checked in the browser before anything is uploaded.
 export const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
+
+// The message box grows to about 6 lines, then scrolls.
+const MAX_INPUT_PX = 144;
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -63,7 +65,7 @@ export function ChatComposer({
   const [sending, setSending] = useState(false);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // @mention picker: open while the caret sits right after an "@…" that
   // matches someone, until one is picked or it's dismissed with Escape.
@@ -80,6 +82,17 @@ export function ChatComposer({
     mentionQuery && !suggestionsDismissed && !mentionCompleted
       ? matchMentionOptions(mentionOptions ?? [], mentionQuery.query)
       : [];
+
+  // The box grows with its text (Shift+Enter adds a line) up to MAX_INPUT_PX,
+  // then scrolls.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_INPUT_PX)}px`;
+  }, [text]);
 
   // Picking "Reply" on a message puts the cursor in the input.
   const replyKey = replyingTo ? `${replyingTo.author}|${replyingTo.text}` : "";
@@ -226,7 +239,7 @@ export function ChatComposer({
         </ul>
       )}
 
-      <div className={`flex items-center ${compact ? "gap-1.5" : "gap-2"}`}>
+      <div className={`flex items-end ${compact ? "gap-1.5" : "gap-2"}`}>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -274,14 +287,15 @@ export function ChatComposer({
               ))}
             </ul>
           )}
-          <Input
+          <textarea
             ref={inputRef}
             id={inputId}
+            rows={1}
             aria-label="Type a message"
-            className={`h-auto border-0 bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 smalltext ${
+            className={`block w-full resize-none overflow-y-auto border-0 bg-transparent px-0 shadow-none outline-none focus-visible:outline-none smalltext disabled:cursor-not-allowed disabled:opacity-50 custom-scrollbar ${
               compact
-                ? "text-card-foreground placeholder:text-card-foreground/40"
-                : "text-secondary-foreground placeholder:text-secondary-foreground/40"
+                ? "py-0 text-card-foreground placeholder:text-card-foreground/40"
+                : "py-1 text-secondary-foreground placeholder:text-secondary-foreground/40"
             }`}
             value={text}
             onChange={(e) => {
@@ -331,14 +345,14 @@ export function ChatComposer({
               }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                send();
+                void send();
               }
             }}
           />
         </div>
         <button
           type="button"
-          onClick={send}
+          onClick={() => void send()}
           disabled={!canSend}
           aria-label="Send message"
           className={`${buttonSize} flex items-center justify-center bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0`}
