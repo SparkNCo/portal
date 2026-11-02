@@ -50,6 +50,15 @@ After the data loads, a `useEffect` flattens all milestones from all projects in
 
 The slug resolution priority is the same as other pages: `CustomerSlugContext` → URL param → `profile.linear_slug`.
 
+#### Linear or Jira
+
+The `roadmap` function goes through the ticket-system wrapper (`docs/TICKET_SYSTEMS.md`): `supabase/functions/lib/tickets/linear/roadmap.ts` for Linear customers, `lib/tickets/jira/roadmap.ts` for Jira customers. Both return the shape above. The response is fetched once per group (`group=active|completed|upcoming`, 10 projects per page, `projectsAfter` for more), and `cycles` only comes with the first page of the active group.
+
+For a Jira customer:
+- **Projects** are the project's **epics**. Their status category picks the group: to do → Upcoming (`status.name = "Backlog"`), done → Completed (`"In Production"`), in progress → Active.
+- **Milestones** are the **versions** the epic's tickets are in. Tickets with no version go in a "No version" milestone.
+- **Cycles** are the board's **sprints**, labelled by name. Sprints need start and end dates to show as columns, and with no sprints the timeline shows "No cycles found for this team".
+
 ### `GET /roadmap?cycleId=...` (on demand, not on mount)
 
 A second, distinct use of the same `roadmap` function — fetches the *real, complete, team-wide* set of issues in one cycle (optionally narrowed to a project and/or milestone via `projectId`/`milestoneId` filters), paginated 25 at a time. This only fires when a cycle cell is clicked in the timeline (Section 1) — see "Cycle drill-down" below. It exists because each milestone's embedded `issues.nodes` above is capped at 25 and doesn't include issues outside that milestone that still belong to the same cycle.
@@ -301,11 +310,12 @@ User lands on /{slug}/monitor
 | `components/client/issue-detail-modal.tsx` | Issue detail modal opened from the cycle drill-down panel |
 | `components/build/edit-issue-modal.tsx` | Edit modal opened from the same drill-down panel's pencil button |
 | `context/CustomerSlugContext.tsx` | Provides the active customer slug when admin is previewing |
-| `supabase/functions/roadmap/index.ts` | Backend: `GET ?slug=` (initiative + projects + milestones + team cycles) and `GET ?cycleId=` (team-wide, paginated cycle issues) |
-| `supabase/functions/roadmap/query.ts` | The four Linear GraphQL queries backing the above (`PROJECTS_QUERY`, `PROJECT_TEAM_QUERY`, `TEAM_CYCLES_QUERY`, `CYCLE_ISSUES_QUERY`) |
+| `supabase/functions/roadmap/index.ts` | Backend: `GET ?slug=` (initiative + projects + milestones + team cycles) and `GET ?cycleId=` / `?milestoneId=` / `?projectId=` (paginated issues). Routes through the ticket-system wrapper |
+| `supabase/functions/lib/tickets/linear/roadmap.ts`, `roadmapQueries.ts` | Linear adapter and its GraphQL queries (moved from `roadmap/query.ts`) |
+| `supabase/functions/lib/tickets/jira/roadmap.ts`, `roadmapMap.ts` | Jira adapter: epics, versions, sprints → the same shape |
 | `supabase/functions/dora/` | Backend: computes 7 of the 9 SDLC metrics from Git branch/commit history, on its own cron (`allCustomers`) — see [dora-flow.mmd](../supabase/functions/dora/diagrams/dora-flow.mmd) |
 | `supabase/functions/get-dora-metrics/` | Read-only endpoint `SoftwareKPIs` calls — reads cached `dora_metrics` rows |
 | `supabase/functions/manual-metrics/` | `PATCH` endpoint for the 2 manually-entered SDLC metrics (Code Coverage, Sonar Quality Gate) |
 | `supabase/functions/issueMetrics/` | Backend: builds `issue_metrics`/`cycle_metrics` from Linear cycle data — see [issueMetrics.mmd](../supabase/functions/issueMetrics/issueMetrics.mmd) |
 
-**Unused in `supabase/functions/roadmap/`:** `getRoadMap.ts` (a fully commented-out Redis-caching prototype) and `redis.ts`/`saveGetRoadMapData.ts` are not imported by `index.ts` or anywhere else — dead code, left in place.
+The old unused files in `supabase/functions/roadmap/` (`getRoadMap.ts`, a commented-out Redis-caching prototype, plus `redis.ts`, `saveGetRoadMapData.ts` and `zod.ts`) were removed when the roadmap moved behind the ticket-system wrapper; they're in git history.

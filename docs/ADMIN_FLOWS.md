@@ -105,13 +105,19 @@ This is the most complete flow because a customer requires two external integrat
 |---|---|---|
 | Client name | ✅ Yes | Sent as `clientName` — display name seen by developers, and the "who's this row" fallback used across the portal wherever a customer name is shown |
 | Email | ✅ Yes | |
-| Linear Slug | ✅ Yes | Identifies the customer's Linear workspace — needed to create and list issues |
+| Ticket System | ✅ Yes | `Linear` (default) or `Jira` — where this customer's tickets live. See `docs/TICKET_SYSTEMS.md` |
+| Linear Slug / Jira project key | ✅ Yes | Sent as `linear_slug`. The label follows the ticket system: the Linear initiative slug, or the Jira project key (the letters before ticket numbers, e.g. `ACME`) — needed to create and list issues |
+| Jira URL | Jira only | e.g. `https://acme.atlassian.net` |
+| Jira account email | Jira only | The account the portal connects with (ideally a bot user), not the customer's portal login |
+| API token | Jira only | That account's Atlassian API token. Stored in Supabase Vault, never shown again |
 | First name | No | |
 | Last name | No | |
 | Phone number | No | |
 | Stripe Customer ID | No | Sent as `customer_id`, only included in the request at all if non-empty. Used for billing once set — a customer can be created without one and have it added later |
 
-> **Important:** The "Create" button stays disabled until Client name, Email, and Linear Slug are filled in. **Stripe Customer ID is not required to create a customer** — this changed from an earlier version where it was mandatory.
+> **Important:** The "Create" button stays disabled until Client name, Email and the ticket system fields are filled in. **Stripe Customer ID is not required to create a customer** — this changed from an earlier version where it was mandatory.
+
+**Test connection** (Jira only) checks the email and token, then that the project exists and the account can see it, and shows "Connected as {name} · {project}" or what failed. Saving runs the same check first: if it fails, nothing is created.
 
 On confirm, calls `POST /users?type=customer` with all fields.  
 The customer receives an invitation email, just like developers.
@@ -120,8 +126,9 @@ The `linear_slug` is critical: without it the customer won't see their issues in
 
 **Backend side-effects (`createCustomerFlow`, `supabase/functions/users/createCustomerFlow.ts`):**
 
-1. Creates the `customers` row with `linear_slug`, `clientName`, and the Stripe ID.
-2. Looks up the Linear initiative identified by `linear_slug`, collects its projects (`linear_projects`), and for each project scans its issues' attachments for a linked GitHub issue/PR to derive the repo's GitHub URL (`project_url`). Both are saved back onto the `customers` row. This step is best-effort — if Linear lookups fail or return nothing, customer creation still succeeds.
+0. Resolves the ticket system (`resolveTicketSystem` in `ticketSystemSettings.ts`). For Jira, it validates the fields and tests the connection before anything is created.
+1. Creates the `customers` row with `linear_slug`, `clientName`, and the Stripe ID. For Jira, it then saves `systems.tickets = "jira"` and `systems.jira = { base_url, email }`, and stores the token in Vault (`portal.set_ticket_token`); if that fails, the Auth user and `customers` row are removed again.
+2. **Linear customers only:** looks up the Linear initiative identified by `linear_slug`, collects its projects (`linear_projects`), and for each project scans its issues' attachments for a linked GitHub issue/PR to derive the repo's GitHub URL (`project_url`). Both are saved back onto the `customers` row. This step is best-effort — if Linear lookups fail or return nothing, customer creation still succeeds.
 3. Upserts the `users` row for the customer and sends the invite email.
 4. If `linear_projects`/`project_url` were successfully populated, fires `POST /functions/v1/issueMetrics` (no body) to immediately compute Linear cycle/issue metrics for the new customer. This **no longer** cascades into SDLC metrics — `issueMetrics` and `dora` were decoupled onto separate crons (GitHub's API is slower/more rate-limited than Linear's), so this customer's SDLC metric tiles stay empty until the next scheduled `dora` cron run picks them up, not immediately. See `app/docs/ROADMAP_FLOWS.md` for how `dora`'s own cron and since-window work.
 
@@ -212,7 +219,8 @@ The only editable place for a customer's own contact/identity fields and Linear 
 ### Editing
 
 - **First/Last Name, Phone** — `portal.users` fields.
-- **Client Name, Linear Slug** — `portal.customers` fields; both required, non-empty.
+- **Client Name, Linear Slug / Jira project key** — `portal.customers` fields; both required, non-empty.
+- **Ticket System and Jira connection** — the same fields as Add Customer (shared `TicketSystemFields`). The read-only view shows the ticket system, and for Jira the URL and account email. When editing, a blank API token keeps the stored one; **changing the Jira URL requires the token again**. Saving tests the Jira connection first. Switching back to Linear deletes the stored token. Admin-only.
 - **Email** — changes the user's actual login email (Supabase Auth), not just a display field.
 - **Preview Links** — see below.
 
@@ -222,7 +230,7 @@ The only editable place for a customer's own contact/identity fields and Linear 
 
 Two sequential `PATCH` calls, both with the admin's real session token attached (`supabase.auth.getSession()` — the anon key API_JSON_HEADERS ships by default isn't a real session, and the backend needs to verify the caller is actually an admin):
 
-1. `PATCH /users?type=customer` — `{ customer_id, clientName, linear_slug, preview_links }`.
+1. `PATCH /users?type=customer` — `{ customer_id, clientName, ticket_system, linear_slug, jira?: { base_url, email, api_token? }, preview_links }`.
 2. `PATCH /users` (generic) — `{ id, email, firstName, lastName, phoneNumber }`.
 
 On success both `users` and `customers` queries are invalidated and the modal closes.
@@ -264,7 +272,7 @@ Recommended order when bringing a new customer into the system:
 
 ```
 1. Create the Customer
-   → Requires email + Stripe ID + Linear slug
+   → Requires email + ticket system (Linear slug, or Jira URL + account + token + project key); Stripe ID optional
    → Customer receives an invitation email
 
 2. Create the Developers who will work on the project
@@ -305,6 +313,7 @@ Recommended order when bringing a new customer into the system:
 | Get a customer's Preview Links by slug (any role) | GET | `/users?type=customer-preview-links&slug={clientName}` |
 | Update any user's name/username/phone/email (admin session required if changing email) | PATCH | `/users` |
 | Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |
+| Test a Jira connection before saving (admin session required; a blank token uses the customer's stored one, for the same URL only) | POST | `/users?type=ticket-connection-test` |
 | Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
 ---
@@ -328,7 +337,10 @@ Recommended order when bringing a new customer into the system:
 | `components/shared/expandable-dialog-chrome.tsx` | Shared accent-bar + expand/shrink toggle — used by Customer Profile among others |
 | `components/client/preview-links-banner.tsx` | Renders a customer's Preview Links — used by the Demo tab and the Demos sidebar page |
 | `lib/demo-video-utils.ts` | `fetchPreviewLinks` and other Demo-tab/Demos-page data helpers |
-| `supabase/functions/users/updateCustomer.ts` | Validates and writes `clientName`/`linear_slug`/`preview_links` onto `portal.customers` |
+| `supabase/functions/users/updateCustomer.ts` | Validates and writes `clientName`/`linear_slug`/`preview_links` and the ticket system onto `portal.customers` |
+| `supabase/functions/users/ticketSystemSettings.ts` | Validates, tests and saves a customer's ticket system (Linear / Jira + Vault token); backs Test connection |
+| `components/shared/ticket-system-fields.tsx` | Ticket System dropdown and Jira fields, shared by Add Customer and Customer Profile |
+| `lib/ticket-systems.ts`, `lib/ticket-systems-api.ts` | Ticket system options, form state and the Test connection call |
 | `supabase/functions/users/resendAccountEmail.ts` | Resends a user's invite or password-reset email without touching `users`/`customers` |
 | `supabase/functions/developer-requests/` | Edge function — emails all admins when a customer requests a Spark & Co FDE developer |
 | `context/UserContext.tsx` | Provides `profile.role` for access control |

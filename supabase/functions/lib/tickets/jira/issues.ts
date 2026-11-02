@@ -13,31 +13,19 @@ import { jiraSession } from "./client.ts";
 import { JIRA_PRIORITY_NAME, isEpic, mapIssue, portalLabel, sprintToCycle } from "./map.ts";
 import { pickTransition, portalStateName } from "./status.ts";
 
-const MAX_ISSUES = 300;
-const BASE_FIELDS = [
-  "summary",
-  "status",
-  "description",
-  "issuetype",
-  "priority",
-  "labels",
-  "assignee",
-  "creator",
-  "reporter",
-  "created",
-  "updated",
-  "resolutiondate",
-  "statuscategorychangedate",
-  "duedate",
-  "parent",
-  "comment",
-  "attachment",
-];
 // Labels the adapter shows from the issue type; never sent to Jira as labels.
 const TYPE_LABELS = new Set(["bug", "feature"]);
 
-function notYet(what: string): never {
-  throw new TicketError(`${what} isn't available for Jira customers yet.`, 501);
+function notYet(what: string): Promise<never> {
+  return Promise.reject(new TicketError(`${what} isn't available for Jira customers yet.`, 501));
+}
+
+// The issue type a portal ticket kind is created as.
+function ticketKind(type: unknown): "bug" | "feature" | "task" {
+  if (type === "bug" || type === "feature") {
+    return type;
+  }
+  return "task";
 }
 
 // The Jira key / native id inside a portal id (`jira:{customer}:{native}`).
@@ -57,37 +45,9 @@ function jiraLabel(name: string): string {
 export function jiraTickets(customer: TicketCustomer, options: { token?: string } = {}): TicketsAdapter {
   const jira = jiraSession(customer, options);
 
-  async function issueFields(): Promise<string[]> {
-    const f = await jira.fields();
-    return [...BASE_FIELDS, ...(f.sprintField ? [f.sprintField] : []), ...f.storyPointFields];
-  }
-
-  // All matching issues, newest activity first, up to MAX_ISSUES.
-  async function search(jql: string, fields: string[]): Promise<any[]> {
-    const issues: any[] = [];
-    let nextPageToken: string | undefined;
-    do {
-      const page = await jira.request("POST", "/rest/api/3/search/jql", { jql, fields, maxResults: 100, ...(nextPageToken && { nextPageToken }) });
-      issues.push(...(page?.issues ?? []));
-      nextPageToken = page?.nextPageToken;
-    } while (nextPageToken && issues.length < MAX_ISSUES);
-    return issues.slice(0, MAX_ISSUES);
-  }
-
   async function fetchIssue(key: string) {
-    const fields = await issueFields();
+    const fields = await jira.issueFields();
     return await jira.request("GET", `/rest/api/3/issue/${encodeURIComponent(key)}?fields=${fields.join(",")}`);
-  }
-
-  // The project's issue type for a kind of ticket.
-  async function issueTypeFor(kind: "bug" | "feature" | "task" | "epic") {
-    const types: any[] = ((await jira.project())?.issueTypes ?? []).filter((t: any) => !t.subtask);
-    const byName = (re: RegExp) => types.find((t) => re.test(t.name ?? ""));
-    if (kind === "epic") return types.find((t) => t.hierarchyLevel === 1) ?? byName(/^epic$/i);
-    const standard = types.filter((t) => (t.hierarchyLevel ?? 0) === 0);
-    if (kind === "bug") return byName(/^bug$/i) ?? byName(/^task$/i) ?? standard[0];
-    if (kind === "feature") return byName(/^(story|feature|new feature)$/i) ?? byName(/^task$/i) ?? standard[0];
-    return byName(/^task$/i) ?? standard[0];
   }
 
   // Creates an issue; when Jira refuses an optional field (not on that
@@ -110,7 +70,7 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
 
     async listIssues(statuses?: string[]) {
       const [issues, ctx] = await Promise.all([
-        search(`project = "${jira.projectKey}" ORDER BY updated DESC`, await issueFields()),
+        jira.searchAll(`project = "${jira.projectKey}" ORDER BY updated DESC`, await jira.issueFields()),
         jira.mapContext(),
       ]);
       const tickets = issues.filter((issue) => !isEpic(issue)).map((issue) => mapIssue(issue, ctx));
@@ -202,13 +162,13 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
 
     // Open epics: what a ticket can be filed under.
     async listProjects() {
-      const epicType = await issueTypeFor("epic");
+      const epicType = await jira.issueTypeFor("epic");
       if (!epicType) return [];
-      const epics = await search(`project = "${jira.projectKey}" AND issuetype = ${epicType.id} AND statusCategory != Done ORDER BY created ASC`, ["summary"]);
+      const epics = await jira.searchAll(`project = "${jira.projectKey}" AND issuetype = ${epicType.id} AND statusCategory != Done ORDER BY created ASC`, ["summary"]);
       return epics.map((e) => ({ id: jiraId(jira.customerId, e.key), name: e.fields?.summary ?? e.key }));
     },
 
-    listInitiativeProjects: async () => notYet("Initiatives"),
+    listInitiativeProjects: () => notYet("Initiatives"),
 
     // Unreleased versions of the project (Jira versions belong to the
     // project, not to an epic, so every epic offers the same ones).
@@ -236,8 +196,8 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
     },
 
     async createIssue(body: Record<string, any>) {
-      const kind = body.type === "bug" ? "bug" : body.type === "feature" ? "feature" : "task";
-      const issueType = await issueTypeFor(kind);
+      const kind = ticketKind(body.type);
+      const issueType = await jira.issueTypeFor(kind);
       if (!issueType) throw new TicketError(`The Jira project ${jira.projectKey} has no issue type to create this ticket with.`, 400);
 
       const { writeStoryPointField } = await jira.fields();
@@ -266,7 +226,7 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
 
     // A Linear project is an Epic in Jira.
     async createProject({ name, description, targetDate }: Record<string, any>) {
-      const epicType = await issueTypeFor("epic");
+      const epicType = await jira.issueTypeFor("epic");
       if (!epicType) throw new TicketError(`The Jira project ${jira.projectKey} has no Epic issue type.`, 400);
 
       const created = await createWithFallback(
@@ -286,8 +246,8 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
       };
     },
 
-    uploadFile: async () => notYet("Uploading files"),
-    createAttachment: async () => notYet("Attaching files"),
+    uploadFile: () => notYet("Uploading files"),
+    createAttachment: () => notYet("Attaching files"),
 
     // Files on a ticket, newest first. Their links open in Jira (viewing
     // them needs a Jira login until the image proxy supports Jira).

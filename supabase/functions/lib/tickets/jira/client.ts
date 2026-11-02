@@ -127,7 +127,69 @@ export function jiraSession(customer: TicketCustomer, options: { token?: string 
       boardId = (list.find((b: any) => b.type === "scrum") ?? list.find((b: any) => b.type === "simple") ?? list[0])?.id ?? null;
       return boardId;
     },
+
+    // Every field mapIssue reads, including this site's sprint/points fields.
+    async issueFields(): Promise<string[]> {
+      const f = await this.fields();
+      return [...ISSUE_FIELDS, ...(f.sprintField ? [f.sprintField] : []), ...f.storyPointFields];
+    },
+
+    // One page of a JQL search. `nextPageToken` continues a previous page.
+    async searchPage(jql: string, fieldList: string[], maxResults: number, nextPageToken?: string | null) {
+      const page = await request("POST", "/rest/api/3/search/jql", {
+        jql,
+        fields: fieldList,
+        maxResults,
+        ...(nextPageToken && { nextPageToken }),
+      });
+      return { issues: page?.issues ?? [], nextPageToken: page?.nextPageToken ?? null };
+    },
+
+    // Every match of a JQL search, up to `max`.
+    async searchAll(jql: string, fieldList: string[], max = 300): Promise<any[]> {
+      const issues: any[] = [];
+      let token: string | null = null;
+      do {
+        const page = await this.searchPage(jql, fieldList, 100, token);
+        issues.push(...page.issues);
+        token = page.nextPageToken;
+      } while (token && issues.length < max);
+      return issues.slice(0, max);
+    },
+
+    // The project's issue type for a kind of ticket.
+    async issueTypeFor(kind: "bug" | "feature" | "task" | "epic") {
+      const types: any[] = ((await this.project())?.issueTypes ?? []).filter((t: any) => !t.subtask);
+      const byName = (re: RegExp) => types.find((t) => re.test(t.name ?? ""));
+      if (kind === "epic") return types.find((t) => t.hierarchyLevel === 1) ?? byName(/^epic$/i);
+      const standard = types.filter((t) => (t.hierarchyLevel ?? 0) === 0);
+      if (kind === "bug") return byName(/^bug$/i) ?? byName(/^task$/i) ?? standard[0];
+      if (kind === "feature") return byName(/^(story|feature|new feature)$/i) ?? byName(/^task$/i) ?? standard[0];
+      return byName(/^task$/i) ?? standard[0];
+    },
   };
 }
+
+// The fields of an issue the portal shows (see map.ts).
+const ISSUE_FIELDS = [
+  "summary",
+  "status",
+  "description",
+  "issuetype",
+  "priority",
+  "labels",
+  "assignee",
+  "creator",
+  "reporter",
+  "created",
+  "updated",
+  "resolutiondate",
+  "statuscategorychangedate",
+  "duedate",
+  "parent",
+  "comment",
+  "attachment",
+  "fixVersions",
+];
 
 export type JiraSession = ReturnType<typeof jiraSession>;

@@ -1,3 +1,6 @@
+// @ts-nocheck
+// Linear GraphQL for the roadmap (moved from roadmap/query.ts).
+
 // Keep lean: nested `first: N` (projects → milestones → issues) multiplies
 // Linear's query complexity, so every issue field is paid for many times over.
 // The timeline only needs each issue's cycle (getCycleIds in ProjectRow.tsx);

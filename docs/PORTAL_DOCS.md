@@ -20,6 +20,7 @@
 11. [Environments & Schema Routing](#11-environments--schema-routing)
 12. [AI Features & Config-Driven AI Client](#12-ai-features--config-driven-ai-client)
 13. [Query](#13-query)
+14. [Ticket Systems (Linear / Jira)](#14-ticket-systems-linear--jira)
 
 ---
 
@@ -123,7 +124,7 @@ Every customer (`portal.customers`) carries two different identifiers that are e
 | Field | What it is | Example | Used for |
 |---|---|---|---|
 | `clientName` | Display name for the initiative, set by whoever created the customer | `Spark-Portal` | Route slugs (`/{clientName}/...`, usually lowercased), UI labels, `?slug=` params on manual-trigger endpoints like `linear-vector-sync` |
-| `linear_slug` | The customer's actual Linear initiative id — Linear's own code for that workspace, not something this app generates | `f12c1e4fa44b` | Scoping data to "this customer's stuff" wherever it has to line up with Linear or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
+| `linear_slug` | The customer's id in its ticket system: for Linear customers, the Linear initiative id (Linear's own code, not something this app generates); for Jira customers, the Jira project key (see §14) | `f12c1e4fa44b` / `SPA` | Scoping data to "this customer's stuff" wherever it has to line up with the ticket system or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
 
 They're resolved separately throughout the app (see §8.1's "Resolving scope" for the Documents panel's version of this) precisely because a page's route slug (`clientName`-based) and the value needed to actually query Linear or a vector store (`linear_slug`) aren't the same string, and one can't be derived from the other — both live on the `customers` row and have to be looked up independently.
 
@@ -308,13 +309,15 @@ Calls `POST /users?type=developer` with `developerType` and, for internal develo
 |---|---|---|
 | Client name | ✅ Yes | Sent as `clientName` — display name seen by developers |
 | Email | ✅ Yes | |
-| Linear Slug | ✅ Yes | Identifies the customer's Linear workspace |
+| Ticket System | ✅ Yes | `Linear` (default) or `Jira` — see §14 |
+| Linear Slug / Jira project key | ✅ Yes | Sent as `linear_slug`. The customer's Linear initiative, or its Jira project key |
+| Jira URL, account email, API token | Jira only | The customer's Jira site and the account the portal connects with. **Test connection** checks them; the token is stored in Vault |
 | First name | No | |
 | Last name | No | |
 | Phone number | No | |
 | Stripe Customer ID | No | Sent as `customer_id` only if non-empty — can be added later; billing isn't set up at creation time |
 
-> "Create" is disabled until Client name, Email, and Linear Slug are filled. **Stripe Customer ID is optional** (changed from an earlier required version). `linear_slug` is critical — without it the customer won't see issues and the team can't create requests.
+> "Create" is disabled until Client name, Email and the ticket system fields are filled. **Stripe Customer ID is optional** (changed from an earlier required version). `linear_slug` is critical — without it the customer won't see issues and the team can't create requests. For Jira, saving tests the connection first and nothing is created if it fails.
 
 Calls `POST /users?type=customer`.
 
@@ -390,6 +393,7 @@ Customers can request a Spark & Co FDE developer from their own Staffing tab (§
 | Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
 | Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
 | Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |
+| Test a customer's Jira connection (admin session required) | POST | `/users?type=ticket-connection-test` |
 | Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
 ### 3.12 File Map
@@ -834,6 +838,8 @@ Three independent fetches: `GET /issues?slug=` (feeds `ProgressPieChart`/"Projec
 ```
 
 `cycles` is resolved separately (cycles belong to a **team**, not a project — the backend looks up the first project's team, then that team's cycles) and is what drives the Projects Timeline's columns (7.3) — an axis independent of the milestones' own dates. A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each, and builds a `projectIdsByName` map used by the cycle drill-down.
+
+The `roadmap` function goes through the ticket-system wrapper (§14). For a Jira customer, the same shape comes from Jira: epics are the projects, versions the milestones, sprints the cycles (see `docs/TICKET_SYSTEMS.md` → "Roadmap").
 
 ### 7.2 Software KPIs (SDLC Metrics) — `SoftwareKPIs`
 
@@ -1387,3 +1393,24 @@ See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
 | `supabase/functions/data-sources/` | Connections and structure |
 | `supabase/functions/query/` | Questions → SQL → rows |
 | `supabase/migrations/20261014120000_add_data_sources.sql`, `20261015120000_data_sources_delete_vault_secret.sql` | Table, Vault functions and trigger, bucket |
+
+---
+
+## 14. Ticket Systems (Linear / Jira)
+
+> Full reference: `docs/TICKET_SYSTEMS.md`.
+
+Each customer's tickets live either in Spark & Co's **Linear** workspace (the default) or in the customer's own **Jira**. It's chosen per customer in Add/Edit Customer (§3.4). The portal sends ticket requests through one wrapper (`supabase/functions/lib/tickets/provider.ts`), which routes each one to the customer's system. Both adapters return the same shapes, so the pages don't branch.
+
+**Stored:** `customers.systems.tickets` (`"linear"` / `"jira"`; missing = Linear), `customers.systems.jira = { base_url, email }`, the Jira API token in Supabase Vault (`ticket_token:{customer_id}`), and the Linear slug or Jira project key in `customers.linear_slug`. No new tables or columns.
+
+**Covered so far:** the `issues` function (Build and Bugs pages, ticket detail) and the `roadmap` function. Other Linear callers (dashboard panels, metrics, suggested features, chat, demo videos, vector sync…) still call Linear directly, so for Jira customers they're empty or show an error. File attachments aren't supported for Jira yet.
+
+**Jira in short:** project key = customer; epics = projects; versions = milestones; sprints = cycles; issue type Bug/Story = the `bug`/`feature` labels the pages filter by. A Jira status with the same name as a portal state (Business Review, QA, UAT…) is that state; anything else goes by category (to do → Backlog, in progress → Development, done → Done).
+
+| File | Purpose |
+|---|---|
+| `supabase/functions/lib/tickets/` | Wrapper, ids, Linear and Jira adapters |
+| `supabase/functions/users/ticketSystemSettings.ts` | Validate, test and save a customer's ticket system |
+| `components/shared/ticket-system-fields.tsx`, `lib/ticket-systems*.ts` | Ticket system fields in Add/Edit Customer |
+| `supabase/migrations/20261101120000_ticket_system_vault_token.sql` | Vault token functions |

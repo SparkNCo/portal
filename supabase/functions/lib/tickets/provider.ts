@@ -13,6 +13,8 @@ import { parseTicketId } from "./ids.ts";
 import { ticketSystemOf } from "./ticketSystem.ts";
 import { linearTickets, type TicketsAdapter } from "./linear/issues.ts";
 import { jiraTickets } from "./jira/issues.ts";
+import { linearRoadmap, type RoadmapAdapter } from "./linear/roadmap.ts";
+import { jiraRoadmap } from "./jira/roadmap.ts";
 
 const CUSTOMER_COLUMNS = "customer_id, clientName, linear_slug, linear_projects, systems";
 
@@ -44,12 +46,29 @@ export async function ticketsForSlug(slug: string): Promise<{ customer: TicketCu
   return { customer, tickets: ticketsForCustomer(customer) };
 }
 
+// The Jira customer a `jira:…` id belongs to.
+async function jiraCustomerOf(customerId: string): Promise<TicketCustomer> {
+  const customer = await customerById(customerId);
+  if (!customer || ticketSystemOf(customer.systems) !== "jira") throw new TicketError("Ticket not found", 404);
+  return customer;
+}
+
 // A Linear id needs no customer (one workspace); a Jira id names its own.
 export async function ticketsForId(id: string): Promise<TicketsAdapter> {
   const parsed = parseTicketId(id);
   if (parsed.system === "linear") return linearTickets(null);
+  return jiraTickets(await jiraCustomerOf(parsed.customerId));
+}
 
-  const customer = await customerById(parsed.customerId);
-  if (!customer || ticketSystemOf(customer.systems) !== "jira") throw new TicketError("Ticket not found", 404);
-  return jiraTickets(customer);
+// ── Roadmap ───────────────────────────────────────────────────────────────
+
+export function roadmapForCustomer(customer: TicketCustomer): RoadmapAdapter {
+  return ticketSystemOf(customer.systems) === "jira" ? jiraRoadmap(customer) : linearRoadmap(customer);
+}
+
+// For requests that only carry a cycle / project / milestone id.
+export async function roadmapForId(id: string): Promise<RoadmapAdapter> {
+  const parsed = parseTicketId(id);
+  if (parsed.system === "linear") return linearRoadmap(null);
+  return jiraRoadmap(await jiraCustomerOf(parsed.customerId));
 }

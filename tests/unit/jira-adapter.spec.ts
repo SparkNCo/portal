@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 import { adfToMarkdown, markdownToAdf } from '../../supabase/functions/lib/tickets/jira/adf';
 import { jiraCategoryOf, pickTransition, portalStateName } from '../../supabase/functions/lib/tickets/jira/status';
 import { isEpic, mapIssue, sprintToCycle, typeLabel } from '../../supabase/functions/lib/tickets/jira/map';
+import {
+  epicStatusName,
+  milestoneJql,
+  milestoneStatus,
+  roadmapCycle,
+  roadmapProject,
+} from '../../supabase/functions/lib/tickets/jira/roadmapMap';
 
 // Jira adapter pure logic: ADF ↔ Markdown, status mapping, issue mapping.
 
@@ -133,5 +140,61 @@ test.describe('Jira issue → portal ticket', () => {
     expect(sprintToCycle([{ id: 1, state: 'closed' }, { id: 2, state: 'future' }], CUSTOMER)?.isFuture).toBe(true);
     expect(sprintToCycle([], CUSTOMER)).toBeNull();
     expect(sprintToCycle(null, CUSTOMER)).toBeNull();
+  });
+});
+
+test.describe('Jira roadmap', () => {
+  const status = (key: string, name = key) => ({ name, statusCategory: { key } });
+
+  test('an epic’s status picks its timeline group', () => {
+    expect(epicStatusName(status('new', 'Por hacer'))).toBe('Backlog');
+    expect(epicStatusName(status('done', 'Listo'))).toBe('In Production');
+    expect(epicStatusName(status('indeterminate', 'En curso'))).toBe('En curso');
+    // Never mistaken for the two names the timeline sets apart.
+    expect(epicStatusName(status('indeterminate', 'Backlog'))).toBe('In Progress');
+  });
+
+  test('milestone status from its version and tickets', () => {
+    const today = '2026-11-02';
+    const t = (key: string) => ({ fields: { status: status(key) } });
+    expect(milestoneStatus({ released: true }, [t('new')], today)).toBe('done');
+    expect(milestoneStatus(null, [t('done'), t('done')], today)).toBe('done');
+    expect(milestoneStatus({ releaseDate: '2026-10-01' }, [t('new')], today)).toBe('overdue');
+    expect(milestoneStatus({ releaseDate: '2026-12-01' }, [t('new'), t('indeterminate')], today)).toBe('in-progress');
+    expect(milestoneStatus(null, [t('new')], today)).toBe('unstarted');
+  });
+
+  test('an epic becomes a row: milestones per version (within the epic), the rest under "No version"', () => {
+    const child = (key: string, version: any, sprint: any) => ({
+      key,
+      fields: { parent: { key: 'SPA-1' }, status: status('new'), fixVersions: version ? [version] : [], customfield_10020: sprint ? [sprint] : null },
+    });
+    const children = [
+      child('SPA-4', { id: '10001', name: 'V1.1' }, { id: 7, state: 'active' }),
+      child('SPA-5', { id: '10001', name: 'V1.1' }, null),
+      child('SPA-9', null, { id: 8, state: 'future' }),
+    ];
+    const versions = new Map([['10001', { id: '10001', name: 'V1.1', releaseDate: '2026-12-01' }]]);
+    const epic = { key: 'SPA-1', fields: { summary: 'Auth', duedate: '2026-12-15', status: status('indeterminate', 'En curso') } };
+
+    const row = roadmapProject(epic, children, versions, ctx, '2026-11-02');
+    expect(row).toMatchObject({ id: `jira:${CUSTOMER}:SPA-1`, name: 'Auth', targetDate: '2026-12-15', status: { name: 'En curso' } });
+    expect(row.projectMilestones.nodes.map((m) => [m.name, m.id])).toEqual([
+      ['V1.1', `jira:${CUSTOMER}:version:10001:SPA-1`],
+      ['No version', `jira:${CUSTOMER}:noversion:SPA-1`],
+    ]);
+    expect(row.projectMilestones.nodes[0].issues.nodes.map((n) => n.cycle?.id ?? null)).toEqual([`jira:${CUSTOMER}:sprint:7`, null]);
+  });
+
+  test('milestone ids narrow the issue search to that epic', () => {
+    expect(milestoneJql('version:10001:SPA-1')).toBe('fixVersion = 10001 AND parent = "SPA-1"');
+    expect(milestoneJql('version:10001')).toBe('fixVersion = 10001');
+    expect(milestoneJql('noversion:SPA-1')).toBe('parent = "SPA-1" AND fixVersion is EMPTY');
+  });
+
+  test('sprints become columns labelled by name', () => {
+    expect(roadmapCycle({ id: 7, name: 'Sprint 2', state: 'active', startDate: 'a', endDate: 'b' }, CUSTOMER)).toEqual({
+      id: `jira:${CUSTOMER}:sprint:7`, number: null, name: 'Sprint 2', startsAt: 'a', endsAt: 'b', isActive: true, isPast: false, isFuture: false,
+    });
   });
 });
