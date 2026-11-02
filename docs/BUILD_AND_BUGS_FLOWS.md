@@ -33,6 +33,12 @@ via `fetchIssues` (defined in `app/[slug]/(portal)/dashboard/page.tsx` and reuse
 - **Build page** shows all issues (no label filter).
 - **Bugs page** filters `allIssues` down to issues that have a label named `"bug"` (case-insensitive) → `bugIssues`.
 
+**Linear or Jira:** the `issues` function goes through the ticket-system wrapper (`docs/TICKET_SYSTEMS.md`), so these pages work the same for a customer whose tickets are in Jira. For Jira:
+- Bugs and stories come back with a `bug` / `feature` label taken from their issue type, so the filter above still works.
+- Statuses are translated to the portal's (a Jira "Business Review", "QA" or "UAT" status keeps its name; anything else goes by category: to do → Backlog, in progress → Development, done → Done).
+- Creating a bug or feature creates a Bug or Story in the customer's Jira project, under the chosen epic and version.
+- File attachments aren't supported for Jira yet.
+
 ---
 
 ## Build Page

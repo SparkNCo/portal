@@ -21,6 +21,16 @@ import {
   ModalError,
   ModalFooter,
 } from "@/components/shared/add-user-modal-fields";
+import { TicketSystemFields } from "@/components/shared/ticket-system-fields";
+import {
+  type CustomerSystems,
+  type TicketSettings,
+  ticketSettingsBody,
+  ticketSettingsComplete,
+  ticketSettingsFrom,
+  ticketSystemInfo,
+  ticketSystemOf,
+} from "@/lib/ticket-systems";
 import { Pencil, Plus, X, Link as LinkIcon } from "lucide-react";
 
 type PreviewLink = { url: string; text: string };
@@ -34,6 +44,8 @@ type Props = {
   phoneNumber?: string | null;
   clientName?: string | null;
   linearSlug?: string | null;
+  // `customers.systems`: which ticket system (and Jira's URL/email) it uses.
+  systems?: CustomerSystems;
   previewLinks: PreviewLink[];
   onClose: () => void;
 };
@@ -59,9 +71,14 @@ export default function EditClientModal({
   phoneNumber: initialPhoneNumber,
   clientName: initialClientName,
   linearSlug: initialLinearSlug,
+  systems,
   previewLinks: initialPreviewLinks,
   onClose,
 }: Props) {
+  const initialTickets = ticketSettingsFrom(systems, initialLinearSlug);
+  const initialTicketInfo = ticketSystemInfo(initialTickets.system);
+  // Already on Jira: its token is in Vault, so a blank token keeps it.
+  const hasStoredToken = ticketSystemOf(systems) === "jira";
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [email, setEmail] = useState(userEmail);
@@ -69,7 +86,7 @@ export default function EditClientModal({
   const [lastName, setLastName] = useState(initialLastName ?? "");
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? "");
   const [clientName, setClientName] = useState(initialClientName ?? "");
-  const [linearSlug, setLinearSlug] = useState(initialLinearSlug ?? "");
+  const [tickets, setTickets] = useState<TicketSettings>(initialTickets);
   const [previewLinks, setPreviewLinks] = useState<PreviewLink[]>(
     initialPreviewLinks,
   );
@@ -87,7 +104,7 @@ export default function EditClientModal({
     setLastName(initialLastName ?? "");
     setPhoneNumber(initialPhoneNumber ?? "");
     setClientName(initialClientName ?? "");
-    setLinearSlug(initialLinearSlug ?? "");
+    setTickets(initialTickets);
     setPreviewLinks(initialPreviewLinks);
     setSubmitted(false);
     setIsEditing(false);
@@ -135,7 +152,7 @@ export default function EditClientModal({
           body: JSON.stringify({
             customer_id: customerId,
             clientName: clientName.trim(),
-            linear_slug: linearSlug.trim(),
+            ...ticketSettingsBody(tickets),
             preview_links: cleanedLinks,
           }),
         },
@@ -175,7 +192,7 @@ export default function EditClientModal({
 
   const handleSubmit = () => {
     setSubmitted(true);
-    if (isPhoneValid && email.trim() && clientName.trim() && linearSlug.trim()) {
+    if (isPhoneValid && email.trim() && clientName.trim() && ticketSettingsComplete(tickets, hasStoredToken)) {
       mutate();
     }
   };
@@ -260,19 +277,14 @@ export default function EditClientModal({
               showError={submitted && !isPhoneValid}
             />
 
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-client-linear-slug" className="smalltext">Linear Slug</Label>
-              <Input
-                id="edit-client-linear-slug"
-                value={linearSlug}
-                onChange={(e) => setLinearSlug(e.target.value)}
-                className="smalltext bg-secondary border-0"
-                placeholder="e.g. acme"
-              />
-              {submitted && !linearSlug.trim() && (
-                <p className="smalltext text-red-400">Linear Slug is required.</p>
-              )}
-            </div>
+            <TicketSystemFields
+              value={tickets}
+              onChange={setTickets}
+              idPrefix="edit-client"
+              customerId={customerId}
+              hasStoredToken={hasStoredToken}
+              showErrors={submitted}
+            />
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -357,7 +369,14 @@ export default function EditClientModal({
             <ProfileField label="Client Name" value={initialClientName} />
             <ProfileField label="Email" value={userEmail} />
             <ProfileField label="Phone Number" value={initialPhoneNumber} />
-            <ProfileField label="Linear Slug" value={initialLinearSlug} />
+            <ProfileField label="Ticket System" value={initialTicketInfo.label} />
+            <ProfileField label={initialTicketInfo.idLabel} value={initialLinearSlug} />
+            {initialTickets.system === "jira" && (
+              <div className="grid grid-cols-2 gap-3">
+                <ProfileField label="Jira URL" value={initialTickets.jiraBaseUrl} />
+                <ProfileField label="Jira account email" value={initialTickets.jiraEmail} />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <p className="smalltext font-medium text-muted-foreground flex items-center gap-1.5">

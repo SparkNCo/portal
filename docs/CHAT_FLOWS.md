@@ -18,7 +18,7 @@ There are two distinct chat surfaces in the app:
 - **This page** (`/{slug}/chat`) — the full standalone chat experience with a sidebar and conversation view.
 - **Issue chat** (`IssueCometChat`) — the Chat tab embedded inside the Issue Detail Modal, scoped to a single issue. See "Issue Chat" below and `app/docs/FEATURES_FLOWS.md`.
 
-**A fourth route reuses the same page:** the admin **Dashboards** preview (`components/dashboard/panel-renderer.tsx`, `case "chat"`) renders the identical `ChatPage` (the `/[slug]/(portal)/chat` one) while previewing one specific customer — `CustomerSlugContext` resolves to that customer's slug instead of the admin's own, which is what scopes the inbox down to just that customer (see "Scoping to a single customer" below).
+**Admins use the same page:** an admin browsing an initiative opens that customer's own `/{slug}/chat` — `app/[slug]/(portal)/layout.tsx` wraps admins in a `CustomerSlugProvider` with the URL's slug, so `CustomerSlugContext` resolves to that customer instead of the admin, which is what scopes the inbox down to just that customer (see "Scoping to a single customer" below). (The old nested Dashboards preview route that rendered this page was removed.)
 
 ---
 
@@ -114,6 +114,40 @@ The active group is highlighted with an accent left border. When `canLeaveChats`
 
 `ChatSideBar` and `DirectChat.tsx` still fully support a list of AI-agent direct conversations (bot icon, title, "AI Agent" subtitle, its own message thread via `CometChat.RECEIVER_TYPE.USER`) — but nothing in the current UI actually creates a new entry in that list. `ChatLayout`'s `directChats` state starts empty and is only ever read from or filtered (on close); no button or flow calls `setDirectChats` to add one. Functionally dead today, not removed.
 
+### Unread chats (dot and filter)
+
+A chat with messages the user hasn't seen shows an orange dot and a bold title in the sidebar, and an **"Unread (n)"** toggle above the list narrows it to just those. Both chat systems (CometChat and Realtime) share this — `components/chat/unread-chats.tsx`.
+
+There is no separate "last read" data. Every chat message already leaves each recipient **one unread bell notification per chat** (`portal.notifications` → `portal.events` with `object_type = 'chat'` and `object_id` = the chat's id: a `portal.chats` id on Realtime, the group's guid on CometChat — written by the `notify_chat_message` trigger and the `cometchat` webhook). So:
+
+- **Unread** = the user has an unread chat notification for that chat (`useUnreadChats`, kept live with a Postgres Changes subscription on the user's notifications).
+- **Reading** = the chat being open marks that notification read (`useMarkOpenChatRead`) — on opening it, and again if a message arrives while it's open. That also clears it from the bell; conversely, clearing it in the bell ("Clear all") clears the dot.
+- The same applies to a ticket's chat tab (`IssueRealtimeChat` / `IssueGroupChat`): reading the chat there marks it read.
+
+It's an indicator, not a message count (there's one notification per chat, however many messages). Direct chats with the AI agent aren't tracked and are hidden while the Unread filter is on. The sender never gets a notification for their own message, so their own chat never shows as unread to them.
+
+### @mentions (CometChat)
+
+Typing `@` in a group chat (the Chat page or a ticket's chat tab) offers the people in that group; picking one inserts `@Name`. `components/chat/mentions.ts` holds the logic, `ChatComposer` the picker.
+
+- **In the message**, a mention is stored as `<@uid:UID>` — CometChat's own mention format — so who was mentioned depends on their id, never on how a name is spelled. The composer converts `@Name` → token when sending; messages convert it back to `@Name` (bold; underlined when it's the reader) when shown. Editing a message keeps its mentions.
+- **Names** come from the portal (`GET /users`), not CometChat, whose "name" for a user is often their email or uid (`useGroupMembers`). Someone in a group under two uids (portal id and Auth id) is listed once.
+- **Notification** (`supabase/functions/cometchat`): the mentioned person gets **"X mentioned you in <chat>"** (`action`/`object_type` = `chat_mention`) instead of the plain "sent a message", which still goes to everyone else. Its preview shows `@Name`, not the token. A mention notification is kept apart from the chat's plain one (one unread of each per chat), so later messages don't replace "mentioned you".
+- **In the chat list**, a chat where the user was mentioned shows an **@** badge instead of the plain unread dot. Opening the chat reads both.
+
+Not on Realtime chats yet, nor in direct chats with the AI agent.
+
+### Replying to a message (CometChat)
+
+Every message in a group chat (the Chat page or a ticket's chat tab) has a **Reply** action. Picking it shows a "Replying to <name>" bar above the input (✕ or Escape cancels); the message sent next **quotes** that one — it stays in the conversation, with the quoted author and a line of the quoted message on top. It's a quote, not a thread.
+
+- **How it's stored:** CometChat's own quoted message (`setQuotedMessageId` on send; the reply comes back with `quotedMessage`). Nothing of ours is stored. `useMessageReplies` (which message is being answered, jump-to-message) and `chatUtils` (`quoteSummary`, `sendGroupMessages`).
+- **The quote** shows the text, or for an attachment its caption/file name, or "This message was deleted". Clicking it scrolls to the quoted message and highlights it for a moment — if it's among the loaded ones (only the latest 50 are); otherwise a toast says it's further back.
+- **Editing** a reply keeps its quote. Deleting the quoted message doesn't delete its replies.
+- **Notification** (`supabase/functions/cometchat`): the author of the quoted message gets **"X replied to you in <chat>"** (`action` = `chat_reply`, `object_type` = `chat_mention`, so it's grouped and shown like a mention — the **@** badge in the chat list) instead of the plain one. Not for a reply to your own message; and someone both quoted and @mentioned gets the mention only.
+
+People's names in a chat (above messages, in quotes) come from the portal, not CometChat — see @mentions above.
+
 ### New Chat button
 
 A **"New Chat"** button sits at the bottom of the sidebar, visible to all users. The `+New` button also appears in the header, but only for customers (`isCustomer` check). Both open the `CreateChatModal`.
@@ -189,10 +223,13 @@ User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
 
 | File | Responsibility |
 |---|---|
-| `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and admin previewing a customer via Dashboards) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
+| `components/chat/mentions.ts` | @mention logic — `<@uid:…>` tokens ↔ `@Name`, what's being typed after `@`, who to offer (unit-tested in `tests/unit/mentions.spec.ts`) |
+| `components/chat/CometChat/useGroupMembers.ts` | A group's people with their portal names — who can be mentioned, and the names shown on messages |
+| `components/chat/CometChat/useMessageReplies.ts` | Replying: the message being answered, finding a quoted message, jumping to it |
+| `components/chat/unread-chats.tsx` | Unread chats — `useUnreadChats` (live set from the bell's notifications), `useMarkOpenChatRead`, the sidebar dot and the "Unread" filter toggle |
+| `app/[slug]/(portal)/chat/page.tsx` | Page entry for customer/stakeholder (and an admin browsing that initiative) — reads `?newChat`, wraps in Suspense, passes `fallbackProjectSlug` |
 | `app/dev/chat/page.tsx`, `app/admin/chats/page.tsx` | Redirect old links to `/{slug}/chat` (`components/chat/chat-route-redirect.tsx`) |
 | `lib/chat-links.ts` | `resolveChatRouteSlug` — which customer's `/{slug}/chat` a chat id belongs to (redirects and chat notifications) |
-| `components/dashboard/panel-renderer.tsx` | Renders the same `ChatPage` inside the Dashboards customer-preview panel (`case "chat"`) |
 | `components/chat/CometChat/ChatLayout.tsx` | Two-panel layout, customer scoping/filter, group selection state, auto-open modal logic |
 | `components/chat/CometChat/ChatSideBar.tsx` | Sidebar — group list (grouped by projectSlug), direct chats, admin customer filter |
 | `components/chat/CometChat/useCometChat.ts` | Group fetching/pagination, group creation (`createSupportGroup`), `leaveGroup` |

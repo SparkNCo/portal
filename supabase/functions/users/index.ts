@@ -11,6 +11,13 @@ import { updateCustomer } from "./updateCustomer.ts";
 import { getDeveloperProfile } from "./getDeveloperProfile.ts";
 import { updateDeveloperProfile } from "./updateDeveloperProfile.ts";
 import { resolveCaller } from "./resolveCaller.ts";
+import { testTicketConnection } from "./ticketSystemSettings.ts";
+import { resolveTestMode, testModeBody, TestModeRejected, type TestRun } from "../lib/testMode.ts";
+
+// The requests that can run in test mode (lib/testMode.ts): POST with one of
+// these `type`s. Any other request carrying the test-mode header is refused
+// rather than run for real.
+const TEST_MODE_POST_TYPES = new Set(["", "developer", "stakeholder", "customer"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +27,13 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const schema = "portal";
+
+    const testRun = resolveTestMode(req);
+    if (testRun) {
+      const supported = req.method === "POST" && TEST_MODE_POST_TYPES.has(url.searchParams.get("type") ?? "");
+      if (!supported) return jsonResponse({ error: "Test mode isn't supported for this request" }, 400);
+      return await handlePost(req, url, schema, testRun);
+    }
 
     if (req.method === "GET") {
       console.log("[users GET]", {
@@ -36,6 +50,7 @@ Deno.serve(async (req) => {
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
+    if (error instanceof TestModeRejected) return jsonResponse({ error: error.message }, 403);
     console.error("[Supabase Error]", error);
     return jsonResponse({ error: error.message }, 500);
   }
@@ -135,25 +150,33 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   return jsonResponse(updatedUser);
 };
 
-const handlePost = async (req: Request, url: URL, schema: string) => {
+const handlePost = async (req: Request, url: URL, schema: string, testRun: TestRun | null = null) => {
   const body = await req.json();
   const type = url.searchParams.get("type");
 
   if (!type || type === "developer" || type === "stakeholder") {
-    const newUser = await createUser(body, schema);
-    return jsonResponse(newUser);
+    const newUser = await createUser(body, schema, testRun);
+    return jsonResponse(testRun ? testModeBody(testRun, newUser) : newUser);
   }
 
   if (type === "customer") {
-    const result = await createCustomerFlow(body, schema);
-    return jsonResponse(result);
+    const result = await createCustomerFlow(body, schema, testRun);
+    return jsonResponse(testRun ? testModeBody(testRun, result) : result);
+  }
+
+  if (type === "ticket-connection-test") {
+    // Add/Edit Customer's "Test connection" for Jira. Admins only: it can
+    // use a customer's stored token.
+    const refused = await refuseNonAdmin(req, schema);
+    if (refused) return refused;
+
+    return jsonResponse(await testTicketConnection(body));
   }
 
   if (type === "resend-account-email") {
     // Authorize by the bearer token, never body.requestedBy (spoofable).
-    const caller = await resolveCaller(req, schema);
-    if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
-    if (caller.role !== "admin") return jsonResponse({ error: "Unauthorized" }, 403);
+    const refused = await refuseNonAdmin(req, schema);
+    if (refused) return refused;
 
     const result = await resendAccountEmail(body, schema);
     return jsonResponse(result);
@@ -169,6 +192,14 @@ const handlePost = async (req: Request, url: URL, schema: string) => {
 // `users.customer_id` may still hold legacy Stripe customer IDs (e.g. "cus_...")
 // for rows that predate the customers table migration; only UUIDs match `customers.customer_id`.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// A 401/403 response unless the bearer token belongs to an admin.
+const refuseNonAdmin = async (req: Request, schema: string): Promise<Response | null> => {
+  const caller = await resolveCaller(req, schema);
+  if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
+  if (caller.role !== "admin") return jsonResponse({ error: "Unauthorized" }, 403);
+  return null;
+};
 
 const jsonResponse = (data: any, status = 200) => {
   return new Response(JSON.stringify(data), {

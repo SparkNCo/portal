@@ -6,5 +6,8 @@ const nextConfig = {
   // never hydrates (silently — no console error, just every useEffect never
   // running, so the UI stays frozen in its server-rendered initial state).
   allowedDevOrigins: ["192.168.0.17"],
+  // Docker builds (see Dockerfile) set NEXT_OUTPUT=standalone to get a
+  // self-contained server. Normal and Vercel builds are unchanged.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" } : {}),
 };
 module.exports = nextConfig;
