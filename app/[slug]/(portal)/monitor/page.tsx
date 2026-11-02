@@ -44,6 +44,8 @@ export default function RoadmapPage() {
     hasMoreProjects,
     loadingMoreProjects,
     onLoadMoreProjects: handleLoadMoreProjects,
+    completedPaging,
+    upcomingPaging,
   } = useRoadmapData(slug);
 
   return (
@@ -89,6 +91,8 @@ export default function RoadmapPage() {
                 hasMoreProjects={hasMoreProjects}
                 loadingMoreProjects={loadingMoreProjects}
                 onLoadMoreProjects={handleLoadMoreProjects}
+                completedPaging={completedPaging}
+                upcomingPaging={upcomingPaging}
               />
             )}
           </div>

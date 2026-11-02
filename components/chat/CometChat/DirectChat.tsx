@@ -118,7 +118,7 @@ export default function DirectChat({ user, receiverUID, title }: Props) {
 
         {messages.map((msg, i) => {
           const data = extractChatMessage(msg, i);
-          if (!data) return null;
+          if (!data || data.deleted) return null;
           const { id, senderUid, text, sentAt } = data;
           const isMe = senderUid === user.getUid();
           const sentDate = sentAt ? new Date(sentAt * 1000) : null;

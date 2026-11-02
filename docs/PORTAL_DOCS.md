@@ -19,6 +19,8 @@
 10. [Settings](#10-settings)
 11. [Environments & Schema Routing](#11-environments--schema-routing)
 12. [AI Features & Config-Driven AI Client](#12-ai-features--config-driven-ai-client)
+13. [Query](#13-query)
+14. [Ticket Systems (Linear / Jira)](#14-ticket-systems-linear--jira)
 
 ---
 
@@ -122,7 +124,7 @@ Every customer (`portal.customers`) carries two different identifiers that are e
 | Field | What it is | Example | Used for |
 |---|---|---|---|
 | `clientName` | Display name for the initiative, set by whoever created the customer | `Spark-Portal` | Route slugs (`/{clientName}/...`, usually lowercased), UI labels, `?slug=` params on manual-trigger endpoints like `linear-vector-sync` |
-| `linear_slug` | The customer's actual Linear initiative id — Linear's own code for that workspace, not something this app generates | `f12c1e4fa44b` | Scoping data to "this customer's stuff" wherever it has to line up with Linear or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
+| `linear_slug` | The customer's id in its ticket system: for Linear customers, the Linear initiative id (Linear's own code, not something this app generates); for Jira customers, the Jira project key (see §14) | `f12c1e4fa44b` / `SPA` | Scoping data to "this customer's stuff" wherever it has to line up with the ticket system or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
 
 They're resolved separately throughout the app (see §8.1's "Resolving scope" for the Documents panel's version of this) precisely because a page's route slug (`clientName`-based) and the value needed to actually query Linear or a vector store (`linear_slug`) aren't the same string, and one can't be derived from the other — both live on the `customers` row and have to be looked up independently.
 
@@ -183,7 +185,7 @@ The user clicks "Forgot your password?" on the login form. A modal appears with 
 
 **Step 2 — Request the reset email**
 
-The app calls `POST /reset-password` with `{ email }`. On success, the modal switches to a confirmation screen. On failure, an error appears inside the modal.
+The app calls `POST /reset-password` with `{ email }`. On success, the modal switches to a confirmation screen ("If an account exists for [email], you'll get a password reset link shortly."). The email is only sent to portal users (`portal.users` row + Auth account); for any other address nothing is sent, with the same answer. On failure, an error appears inside the modal.
 
 **Step 3 — User clicks the link in their email**
 
@@ -221,8 +223,10 @@ The invitation email link lands the user on `/set-password`. The page detects th
 
 | Role | Redirect |
 |---|---|
-| `customer` | `/{clientName}/dashboards/{clientName}/dashboard` |
-| Everyone else | `/{clientName}/dashboards` |
+| `customer` | `/{clientName}/dashboard` |
+| `admin` | `/admin/users` |
+| `developer` | `/dev/developer`, which forwards to `/{slug}/developer` for their first initiative |
+| `stakeholder` | The dashboard of the initiative they're assigned to |
 
 ### 2.4 Error states
 
@@ -305,13 +309,15 @@ Calls `POST /users?type=developer` with `developerType` and, for internal develo
 |---|---|---|
 | Client name | ✅ Yes | Sent as `clientName` — display name seen by developers |
 | Email | ✅ Yes | |
-| Linear Slug | ✅ Yes | Identifies the customer's Linear workspace |
+| Ticket System | ✅ Yes | `Linear` (default) or `Jira` — see §14 |
+| Linear Slug / Jira project key | ✅ Yes | Sent as `linear_slug`. The customer's Linear initiative, or its Jira project key |
+| Jira URL, account email, API token | Jira only | The customer's Jira site and the account the portal connects with. **Test connection** checks them; the token is stored in Vault |
 | First name | No | |
 | Last name | No | |
 | Phone number | No | |
 | Stripe Customer ID | No | Sent as `customer_id` only if non-empty — can be added later; billing isn't set up at creation time |
 
-> "Create" is disabled until Client name, Email, and Linear Slug are filled. **Stripe Customer ID is optional** (changed from an earlier required version). `linear_slug` is critical — without it the customer won't see issues and the team can't create requests.
+> "Create" is disabled until Client name, Email and the ticket system fields are filled. **Stripe Customer ID is optional** (changed from an earlier required version). `linear_slug` is critical — without it the customer won't see issues and the team can't create requests. For Jira, saving tests the connection first and nothing is created if it fails.
 
 Calls `POST /users?type=customer`.
 
@@ -387,6 +393,7 @@ Customers can request a Spark & Co FDE developer from their own Staffing tab (§
 | Get a developer's bio/tech stack | GET | `/users?type=developer-profile&userId={id}` |
 | Update a developer's bio/tech stack | PATCH | `/users?type=developer-profile` |
 | Resend a user's invite or password-reset email | POST | `/users?type=resend-account-email` |
+| Test a customer's Jira connection (admin session required) | POST | `/users?type=ticket-connection-test` |
 | Request a Spark & Co FDE developer (customer-only, emails all admins) | POST | `/developer-requests` |
 
 ### 3.12 File Map
@@ -832,6 +839,8 @@ Three independent fetches: `GET /issues?slug=` (feeds `ProgressPieChart`/"Projec
 
 `cycles` is resolved separately (cycles belong to a **team**, not a project — the backend looks up the first project's team, then that team's cycles) and is what drives the Projects Timeline's columns (7.3) — an axis independent of the milestones' own dates. A `useEffect` flattens all milestones into `allMilestones[]`, injecting `projectName` onto each, and builds a `projectIdsByName` map used by the cycle drill-down.
 
+The `roadmap` function goes through the ticket-system wrapper (§14). For a Jira customer, the same shape comes from Jira: epics are the projects, versions the milestones, sprints the cycles (see `docs/TICKET_SYSTEMS.md` → "Roadmap").
+
 ### 7.2 Software KPIs (SDLC Metrics) — `SoftwareKPIs`
 
 **Data:** `GET /get-dora-metrics?linear_name={slug}` → cached row from `portal.dora_metrics`.
@@ -1053,7 +1062,7 @@ All three render the same `ChatLayout`. See `app/docs/CHAT_FLOWS.md` for the ful
 `customer`, `developer`, `stakeholder`, and `admin`. All roles open chat at `/{slug}/chat`, scoped to the initiative in the URL (admins: Initiative dropdown; developers: "Working on"). Admins' New Chat is locked to that customer. Old `/admin/chats` and `/dev/chat` links redirect to the right `/{slug}/chat` (see `app/docs/CHAT_FLOWS.md`).
 
 Two distinct chat surfaces exist:
-- **The standalone page** — full chat with a sidebar and conversation view. The admin Dashboards preview (`panel-renderer.tsx`, `case "chat"`) renders the `/[slug]/(portal)/chat` version scoped to whichever customer is being previewed.
+- **The standalone page** — full chat with a sidebar and conversation view. Admins open the same `/{slug}/chat` page of whichever initiative they're browsing, scoped to that customer.
 - **Issue Chat** (`IssueCometChat`) — the Chat tab inside the Issue Detail Modal, scoped to one issue (see Issue Flows section).
 
 ### 9.1 CometChat Initialization — `initCometChatUser`
@@ -1285,7 +1294,7 @@ When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-desi
 
 ## 12. AI Features & Config-Driven AI Client
 
-Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change.
+Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers and Query (§13).
 
 ### 12.1 Environment variables
 
@@ -1294,11 +1303,24 @@ Set these as Supabase Edge Function secrets (`supabase secrets set ...`), or in 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `AI_API_KEY` | **Yes** | — | Bearer token sent to the provider. **If unset, AI features are off** (see 12.3) |
-| `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
+| `AI_MODEL` | **Yes** | — | Model id sent as `model`, e.g. `gemini-3.8-flash`, `gpt-4.1-mini`, or `Qwen/Qwen2.5-Coder-3B-Instruct` on the HF router |
 | `AI_BASE_URL` | No | `https://api.openai.com/v1` | OpenAI-compatible base URL. Trailing slashes are stripped, and requests go to `{AI_BASE_URL}/chat/completions` |
-| `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `huggingface error: ...`). It does **not** change the request format |
+| `AI_PROVIDER` | No | `openai` | Label only, used as the prefix of error messages (e.g. `gemini error: ...`). It does **not** change the request format |
+| `AI_REASONING_EFFORT` | No | — (not sent) | Sent as `reasoning_effort` when set. Gemini flash models "think" by default, which can make one call take 30–90 s (Query felt stuck). `low` cuts that to a few seconds, and `none` turns thinking off where the model allows it. Leave unset for models that reject the parameter (e.g. `gpt-4.1-mini`, Qwen) |
+| `AI_FALLBACK_MODEL` | No | — | Another model on the same provider, tried once when `AI_MODEL` still answers "busy" (429/5xx, e.g. Gemini's 503 "high demand") after the retries. Busy answers are retried after 1 s and 3 s first; if they stay busy, callers get "The AI model is busy right now…" (Query shows it as is) |
 
-Example (Hugging Face Inference Providers router):
+Current configuration (since November 2026, before that `gemini-2.5-flash`): Google Gemini through its OpenAI-compatible endpoint, on the free tier (rate-limited; the limits per project are in Google AI Studio). Key from https://aistudio.google.com → Get API key. `AI_REASONING_EFFORT=low` keeps Query answers to a few seconds; `none` may not be accepted by Gemini 3 models.
+
+```
+AI_PROVIDER=gemini
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AI_MODEL=gemini-3.8-flash
+AI_REASONING_EFFORT=low
+AI_FALLBACK_MODEL=gemini-2.5-flash
+AI_API_KEY=AIza...
+```
+
+Previous configuration, Hugging Face Inference Providers router. Hugging Face stopped giving Free accounts monthly credits in October 2026, so this needs prepaid credits or PRO now; without them every call fails with "You have no remaining credits":
 
 ```
 AI_PROVIDER=huggingface
@@ -1306,6 +1328,8 @@ AI_BASE_URL=https://router.huggingface.co/v1
 AI_MODEL=Qwen/Qwen2.5-Coder-3B-Instruct
 AI_API_KEY=hf_...
 ```
+
+On Gemini's free tier, Google may use what's sent (prompts) to improve its products. For Query that means questions and database structure, never rows. Consider a paid tier before using it with client databases.
 
 > **Migration note:** before SPA-514 the debounce analyzers read `OPENAI_API_KEY` and hardcoded `gpt-4.1-mini` against OpenAI's `/v1/responses` endpoint, and `generateSuggestion.ts` was hardcoded to Hugging Face. `OPENAI_API_KEY` is **no longer read by anything**. To keep the previous behavior, set `AI_API_KEY` to the old OpenAI key and `AI_MODEL=gpt-4.1-mini` (leave `AI_BASE_URL` unset).
 
@@ -1330,6 +1354,7 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `debounce` → `analyze-current-state` | Same pattern, all-false flags (`user/capability/reason/limitations: false`) |
 | `suggested-features` → `generate` | Returns a `500` with the error message |
 | `suggested-features` → `generate-all` (cron) | Each project's failure is logged and counted in `failed`. The run continues and creates no suggestions |
+| `query` | No key: `503` "AI isn't configured for the portal". A provider error: `500` with the provider's message, shown on the Query page |
 
 ### 12.4 AI-driven files
 
@@ -1341,9 +1366,55 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `supabase/functions/debounce/analyze-current-state.ts` | Classifies a message for user / capability / reason / limitations (schema `current_state_analysis`) |
 | `supabase/functions/suggested-features/generateSuggestion.ts` | Prompt + one suggested feature per Linear project (schema `suggested_feature`: `title`, `description`, `milestoneId`) |
 | `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron loop that calls `generateSuggestionForProject` for every customer's projects |
+| `supabase/functions/query/prompt.ts` | Turns a plain-text question into SQL from a client database's structure (schema `sql_query`: `answerable`, `sql`, `explanation`). See §13 |
 | `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: the Linear context fed into the suggestion prompt |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Schedules the weekly AI generation run (Mon 06:00 UTC) |
 
 The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
 
 The vector/semantic search features (similar issues, similar tests, document search) use embeddings through Upstash/pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.
+
+---
+
+## 13. Query
+
+See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
+
+**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
+
+**Where:** `/{slug}/query`, the **Query** item in the admin's initiative menu. Admins only: other roles are redirected home, and both edge functions (`data-sources`, `query`) check for an admin session token (`401` / `403`).
+
+**Connections:** stored in `portal.data_sources`, with the password in Supabase Vault (one secret per connection, removed by trigger when the connection is deleted). Each save is tested first ("Test connection" can be run on its own). Cards can be edited (an empty password keeps the stored one) and deleted after a confirmation.
+
+**Structure:** read from `pg_catalog` after every save or edit, or with Refresh structure. It covers tables, views, columns and types, keys and enum values, only what the connecting user can read. It's stored as JSON in the private bucket `data_source_schemas` (`{customer_id}/{data_source_id}.json`), and the cards show it under "View structure".
+
+**Questions:** `POST /query` → the AI (§12) returns one `SELECT`. Anything else is refused before it's sent. It runs in a `READ ONLY` transaction with a 15 s timeout and at most 500 rows. The page shows the explanation, the SQL used and the rows, or why there are none.
+
+| File | Purpose |
+|---|---|
+| `app/[slug]/(portal)/query/page.tsx` | The page |
+| `components/query/*` | Connection form, cards, structure viewer, question panel |
+| `supabase/functions/data-sources/` | Connections and structure |
+| `supabase/functions/query/` | Questions → SQL → rows |
+| `supabase/migrations/20261014120000_add_data_sources.sql`, `20261015120000_data_sources_delete_vault_secret.sql` | Table, Vault functions and trigger, bucket |
+
+---
+
+## 14. Ticket Systems (Linear / Jira)
+
+> Full reference: `docs/TICKET_SYSTEMS.md`.
+
+Each customer's tickets live either in Spark & Co's **Linear** workspace (the default) or in the customer's own **Jira**. It's chosen per customer in Add/Edit Customer (§3.4). The portal sends ticket requests through one wrapper (`supabase/functions/lib/tickets/provider.ts`), which routes each one to the customer's system. Both adapters return the same shapes, so the pages don't branch.
+
+**Stored:** `customers.systems.tickets` (`"linear"` / `"jira"`; missing = Linear), `customers.systems.jira = { base_url, email }`, the Jira API token in Supabase Vault (`ticket_token:{customer_id}`), and the Linear slug or Jira project key in `customers.linear_slug`. No new tables or columns.
+
+**Covered so far:** the `issues` function (Build and Bugs pages, ticket detail) and the `roadmap` function. Other Linear callers (dashboard panels, metrics, suggested features, chat, demo videos, vector sync…) still call Linear directly, so for Jira customers they're empty or show an error. File attachments aren't supported for Jira yet.
+
+**Jira in short:** project key = customer; epics = projects; versions = milestones; sprints = cycles; issue type Bug/Story = the `bug`/`feature` labels the pages filter by. A Jira status with the same name as a portal state (Business Review, QA, UAT…) is that state; anything else goes by category (to do → Backlog, in progress → Development, done → Done).
+
+| File | Purpose |
+|---|---|
+| `supabase/functions/lib/tickets/` | Wrapper, ids, Linear and Jira adapters |
+| `supabase/functions/users/ticketSystemSettings.ts` | Validate, test and save a customer's ticket system |
+| `components/shared/ticket-system-fields.tsx`, `lib/ticket-systems*.ts` | Ticket system fields in Add/Edit Customer |
+| `supabase/migrations/20261101120000_ticket_system_vault_token.sql` | Vault token functions |

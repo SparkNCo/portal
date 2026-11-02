@@ -1,11 +1,14 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
+import { resolveTestMode, testModeBody } from "../lib/testMode.ts";
 import { sendDeveloperRequestMail } from "./sendDeveloperRequestMail.ts";
 
 // POST /developer-requests — customer requests a Spark & Co FDE developer be
 // assigned to their team. No user/assignment is created here; admins get
 // emailed and assign someone manually from the Admin Panel.
 export async function createDeveloperRequest(req: Request): Promise<Response> {
+  // Test mode (lib/testMode.ts): the admins' emails are recorded, not sent.
+  const testRun = resolveTestMode(req);
   const { role, allocation, notes, requestedBy, clientName } = await req.json();
 
   if (!role) {
@@ -34,6 +37,7 @@ export async function createDeveloperRequest(req: Request): Promise<Response> {
   for (const admin of admins) {
     await sendDeveloperRequestMail({
       email: admin.email,
+      testRun,
       role: String(role).trim(),
       allocation: allocation ?? undefined,
       notes: notes ?? undefined,
@@ -42,5 +46,6 @@ export async function createDeveloperRequest(req: Request): Promise<Response> {
     });
   }
 
-  return Response.json({ sent: true });
+  const result = { sent: true };
+  return Response.json(testRun ? testModeBody(testRun, result) : result);
 }

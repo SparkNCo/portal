@@ -37,7 +37,11 @@ export async function postCreateIssue(payload: CreateIssuePayload) {
     headers: API_HEADERS,
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to create issue");
+  if (!res.ok) {
+    // The server says why when it has a reason (e.g. a completed project).
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? "Failed to create issue");
+  }
   return res.json();
 }
 

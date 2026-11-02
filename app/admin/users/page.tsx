@@ -11,6 +11,7 @@ import AssignCustomerModal from "./AssignCustomerModal";
 import EditDeveloperProfileModal from "./EditDeveloperProfileModal";
 import ViewDeveloperProfileModal from "./ViewDeveloperProfileModal";
 import EditClientModal from "./EditClientModal";
+import type { CustomerSystems } from "@/lib/ticket-systems";
 import EditStakeholderModal from "./EditStakeholderModal";
 import ViewStakeholderModal from "./ViewStakeholderModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,6 +137,7 @@ export default function AdminUsersPage() {
       linear_slug: string | null;
       stripe_customer_id: string | null;
       preview_links: PreviewLink[];
+      systems: CustomerSystems;
     }[]
   >({
     queryKey: ["customers"],
@@ -387,6 +389,7 @@ export default function AdminUsersPage() {
           phoneNumber={editingClientUser.phoneNumber}
           clientName={initiativeNameByCustomerId.get(editingClientUser.id)}
           linearSlug={customerRecordByUserId.get(editingClientUser.id)?.linear_slug}
+          systems={customerRecordByUserId.get(editingClientUser.id)?.systems}
           previewLinks={
             customerRecordByUserId.get(editingClientUser.id)?.preview_links ??
             []

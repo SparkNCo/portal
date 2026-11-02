@@ -1,64 +1,83 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { API_HEADERS } from "@/lib/api-headers";
 
-// Shared between the Roadmap page (app/[slug]/(portal)/monitor/page.tsx) and
-// the pinned "roadmap_timeline" panel (components/dashboard/pinned-panel-renderer.tsx)
-// — both need the exact same fetch/paginate/derive logic for RoadmapTimeline's
-// props, so it lives here once instead of being duplicated in both places.
-export function useRoadmapData(slug: string) {
-  const {
-    data: roadmap,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["roadmap", slug],
-    queryFn: async () => {
+type ProjectGroup = "active" | "completed" | "upcoming";
+
+// Each group is a separate call to the roadmap function, filtered by Linear
+// project status, so each one gets its own 10-projects-per-page budget
+// instead of finished/backlog projects eating into the active list's.
+function useProjectGroup(slug: string, group: ProjectGroup) {
+  const query = useInfiniteQuery({
+    queryKey: ["roadmap", slug, group],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ slug, group });
+      if (pageParam) params.set("projectsAfter", pageParam);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?${params.toString()}`,
         { headers: API_HEADERS },
       );
-      if (!res.ok) throw new Error("Failed to fetch roadmap");
+      if (!res.ok) throw new Error(`Failed to fetch ${group} roadmap projects`);
       return res.json();
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage: any) =>
+      lastPage?.initiative?.projects?.pageInfo?.hasNextPage
+        ? (lastPage.initiative.projects.pageInfo.endCursor ?? null)
+        : null,
     enabled: Boolean(slug),
   });
 
-  const [projectNodes, setProjectNodes] = useState<any[]>([]);
-  const [projectsCursor, setProjectsCursor] = useState<string | null>(null);
-  const [hasMoreProjects, setHasMoreProjects] = useState(false);
-  const [loadingMoreProjects, setLoadingMoreProjects] = useState(false);
+  const pages = query.data?.pages;
+  const projectNodes = useMemo(
+    () =>
+      (pages ?? []).flatMap(
+        (page: any) => page?.initiative?.projects?.nodes ?? [],
+      ),
+    [pages],
+  );
 
-  useEffect(() => {
-    if (!roadmap?.initiative?.projects) return;
+  return {
+    projectNodes,
+    // Cycles only come back on the first page of the active group.
+    cycles: pages?.[0]?.cycles?.nodes ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    hasMore: query.hasNextPage,
+    loadingMore: query.isFetchingNextPage,
+    loadMore: () => {
+      if (query.hasNextPage && !query.isFetchingNextPage) query.fetchNextPage();
+    },
+  };
+}
 
-    setProjectNodes(roadmap.initiative.projects.nodes ?? []);
-    setProjectsCursor(roadmap.initiative.projects.pageInfo?.endCursor ?? null);
-    setHasMoreProjects(roadmap.initiative.projects.pageInfo?.hasNextPage ?? false);
-  }, [roadmap]);
+export type ProjectGroupPaging = {
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+};
 
-  async function handleLoadMoreProjects() {
-    if (!slug || !projectsCursor || loadingMoreProjects) return;
-    setLoadingMoreProjects(true);
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/roadmap/?slug=${encodeURIComponent(slug)}&projectsAfter=${encodeURIComponent(projectsCursor)}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to load more projects");
-      const data = await res.json();
-      const nextProjects = data?.initiative?.projects;
-      setProjectNodes((prev) => [...prev, ...(nextProjects?.nodes ?? [])]);
-      setProjectsCursor(nextProjects?.pageInfo?.endCursor ?? null);
-      setHasMoreProjects(nextProjects?.pageInfo?.hasNextPage ?? false);
-    } catch (err) {
-      console.error("Failed to load more projects:", err);
-    } finally {
-      setLoadingMoreProjects(false);
-    }
-  }
+function toPaging(
+  group: ReturnType<typeof useProjectGroup>,
+): ProjectGroupPaging {
+  return {
+    hasMore: group.hasMore,
+    loadingMore: group.loadingMore,
+    onLoadMore: group.loadMore,
+  };
+}
+
+export function useRoadmapData(slug: string) {
+  const active = useProjectGroup(slug, "active");
+  const completed = useProjectGroup(slug, "completed");
+  const upcoming = useProjectGroup(slug, "upcoming");
 
   const derived = useMemo(() => {
+    const projectNodes = [
+      ...active.projectNodes,
+      ...completed.projectNodes,
+      ...upcoming.projectNodes,
+    ];
     const milestones = projectNodes.flatMap((project: any) =>
       (project.projectMilestones?.nodes ?? []).map((milestone: any) => ({
         ...milestone,
@@ -79,10 +98,13 @@ export function useRoadmapData(slug: string) {
         .filter((project: any) => project.status?.name)
         .map((project: any) => [project.name, project.status.name]),
     );
-    const projectTargetDateByName: Record<string, string | null> = Object.fromEntries(
-      projectNodes.map((project: any) => [project.name, project.targetDate ?? null]),
-    );
-    const cycles = roadmap?.cycles?.nodes ?? [];
+    const projectTargetDateByName: Record<string, string | null> =
+      Object.fromEntries(
+        projectNodes.map((project: any) => [
+          project.name,
+          project.targetDate ?? null,
+        ]),
+      );
     return {
       milestones,
       projectNames,
@@ -90,16 +112,26 @@ export function useRoadmapData(slug: string) {
       projectColorByName,
       projectStatusByName,
       projectTargetDateByName,
-      cycles,
+      cycles: active.cycles,
     };
-  }, [projectNodes, roadmap]);
+  }, [
+    active.projectNodes,
+    completed.projectNodes,
+    upcoming.projectNodes,
+    active.cycles,
+  ]);
 
   return {
     ...derived,
-    isLoading,
-    error,
-    hasMoreProjects,
-    loadingMoreProjects,
-    onLoadMoreProjects: handleLoadMoreProjects,
+    // The page waits on the active group (it carries the cycles); the
+    // completed/upcoming dividers simply appear once their calls land, and a
+    // failure there just leaves that divider out instead of erroring the page.
+    isLoading: active.isLoading,
+    error: active.error,
+    hasMoreProjects: active.hasMore,
+    loadingMoreProjects: active.loadingMore,
+    onLoadMoreProjects: active.loadMore,
+    completedPaging: toPaging(completed),
+    upcomingPaging: toPaging(upcoming),
   };
 }

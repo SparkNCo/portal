@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Film, Loader2, Upload, Link as LinkIcon, Plus, Search, Video, X } from "lucide-react";
 import { Header } from "@/components/headerDashboard";
-import { LoadingDataPanel } from "@/components/loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
@@ -302,6 +301,42 @@ function UploadDemoForm({
 // rows sharing the same content (see groupDemosByContent) collapse into one
 // card here, listing every ticket that content is attached to instead of
 // showing up once per ticket.
+// Placeholder for the Demos card while it loads: its heading, the search
+// row, and a grid of demo cards (round icon, title, demo id, ticket chips) —
+// the same shape that's about to appear.
+function DemosSkeleton() {
+  const bar = "rounded bg-muted-foreground/20";
+  return (
+    <Card role="status" aria-live="polite" className="bg-background border-border text-foreground">
+      <span className="sr-only">Loading demos…</span>
+      <CardHeader className="flex flex-col gap-2 animate-pulse">
+        <div className={`${bar} h-5 w-28`} />
+        <div className={`${bar} h-10 w-full sm:w-80`} />
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="relative rounded-lg border border-border p-5 pl-6 space-y-4">
+              <span className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary/40" aria-hidden="true" />
+              <div className="flex items-start gap-3.5">
+                <div className={`${bar} h-14 w-14 shrink-0 rounded-full`} />
+                <div className="flex-1 space-y-2 pt-1">
+                  <div className={`${bar} h-4 w-4/5`} />
+                  <div className={`${bar} h-3 w-1/3`} />
+                </div>
+              </div>
+              <div className="flex gap-1.5">
+                <div className={`${bar} h-5 w-16 rounded-full`} />
+                <div className={`${bar} h-5 w-20 rounded-full`} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function DemoCard({
   group,
   onOpen,
@@ -482,7 +517,7 @@ export default function DemosPage() {
             )}
 
             {isLoading ? (
-              <LoadingDataPanel />
+              <DemosSkeleton />
             ) : isError ? (
               <p className="smalltext text-destructive">Failed to load demos.</p>
             ) : demoGroups.length === 0 ? (

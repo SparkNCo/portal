@@ -260,6 +260,9 @@ export type PriorityTasksProps = {
   // globals.css) instead of the default dark bg-background rows — opt-in per
   // panel rather than a global IssueListRow change.
   lightCard?: boolean;
+  // Shows each ticket's Linear project on its card/row (the developer
+  // dashboard, where a customer's tickets span several projects).
+  showProject?: boolean;
   headerAction?: ReactNode;
   // Optional sort control rendered next to the Filter button — omit both to
   // leave sorting out of the toolbar entirely (pages that sort elsewhere).
@@ -293,4 +296,6 @@ export type PriorityTasksProps = {
   onViewModeChange?: (mode: IssueViewMode) => void;
   // Replaces the default "No issues match the current filters." text.
   emptyState?: ReactNode;
+  /** The tickets are still being fetched: show placeholders, not "no issues". */
+  loading?: boolean;
 };
