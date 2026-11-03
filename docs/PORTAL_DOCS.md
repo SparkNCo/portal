@@ -1380,7 +1380,7 @@ The vector/semantic search features (similar issues, similar tests, document sea
 
 See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
 
-**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
+**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL and MySQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
 
 **Where:** `/{slug}/query`, the **Query** item in the admin's initiative menu. Admins only: other roles are redirected home, and both edge functions (`data-sources`, `query`) check for an admin session token (`401` / `403`).
 

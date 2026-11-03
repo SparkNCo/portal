@@ -1,7 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { parseConnectionInput } from '../../supabase/functions/data-sources/connectionInput';
-import { describeConnectionError, describeSqlServerError } from '../../supabase/functions/data-sources/connectionErrors';
+import {
+  describeConnectionError,
+  describeMysqlError,
+  describeMysqlQueryError,
+  describeSqlServerError,
+} from '../../supabase/functions/data-sources/connectionErrors';
 import { buildSqlServerStructure, checkValues, sqlServerType } from '../../supabase/functions/data-sources/sqlserverStructure';
+import { buildMysqlStructure, enumValues } from '../../supabase/functions/data-sources/mysqlStructure';
 import { readStructure } from '../../supabase/functions/data-sources/introspect';
 import { checkSql } from '../../supabase/functions/query/checkSql';
 import { buildPrompt, describeStructure, MAX_ROWS } from '../../supabase/functions/query/describeStructure';
@@ -172,7 +178,7 @@ test.describe('SQL Server — connection input and errors', () => {
   test('the engine sets the default port, and unknown engines are refused', () => {
     const parsed = parseConnectionInput({ type: 'sqlserver', host: 'shop.database.windows.net', database: 'shop', username: 'reader', password: 'p' });
     expect(parsed).toEqual({ config: { ...azure, password: 'p' } });
-    expect(parseConnectionInput({ ...azure, type: 'oracle' })).toEqual({ error: 'Database type must be PostgreSQL or SQL Server' });
+    expect(parseConnectionInput({ ...azure, type: 'oracle' })).toEqual({ error: 'Database type must be PostgreSQL, SQL Server or MySQL' });
   });
 
   test("Azure's firewall, logins and missing databases are told apart", () => {
@@ -270,5 +276,109 @@ test.describe('SQL Server — prompt', () => {
     const prompt = buildPrompt(shop, 'q', '2026-10-16');
     expect(prompt).toContain('You write PostgreSQL queries');
     expect(prompt).toContain('add a LIMIT');
+  });
+});
+
+// ── MySQL ────────────────────────────────────────────────────────────────────
+
+const aiven = { ...config, type: 'mysql' as const, host: 'shop.aivencloud.com', port: 3306 };
+
+test.describe('MySQL — connection input and errors', () => {
+  test('MySQL defaults to port 3306', () => {
+    const parsed = parseConnectionInput({ type: 'mysql', host: 'shop.aivencloud.com', database: 'shop', username: 'reader', password: 'p' });
+    expect(parsed).toEqual({ config: { ...aiven, password: 'p' } });
+  });
+
+  test('logins, databases, SSL and the network are told apart', () => {
+    expect(describeMysqlError({ code: 'ER_ACCESS_DENIED_ERROR', errno: 1045, sqlMessage: "Access denied for user 'reader'@'1.2.3.4'" }, aiven)).toBe(
+      'Wrong username or password.',
+    );
+    // TiDB Cloud says it without the MySQL code.
+    expect(describeMysqlError({ code: 'ER_UNKNOWN_ERROR', message: 'Access denied. Please check your user name and password.' }, aiven)).toBe(
+      'Wrong username or password.',
+    );
+    expect(describeMysqlError({ errno: 1044, sqlMessage: "Access denied for user 'reader'@'%' to database 'shop'" }, aiven)).toBe(
+      'This user isn\'t allowed to open the database "shop".',
+    );
+    expect(describeMysqlError({ errno: 1049, sqlMessage: "Unknown database 'shop'" }, aiven)).toBe('The database "shop" doesn\'t exist on this server.');
+    expect(describeMysqlError({ errno: 1130, message: "Host '1.2.3.4' is not allowed to connect to this MySQL server" }, aiven)).toContain(
+      "refused connections from the portal's address",
+    );
+    expect(describeMysqlError({ message: 'Connections using insecure transport are prohibited' }, { ...aiven, ssl: false })).toBe(
+      'The server only accepts encrypted connections. Turn SSL on.',
+    );
+    expect(describeMysqlError({ code: 'HANDSHAKE_NO_SSL_SUPPORT', message: 'Server does not support secure connection' }, aiven)).toBe(
+      "The server doesn't support encrypted connections. Turn SSL off.",
+    );
+    expect(describeMysqlError({ code: 'ETIMEDOUT', message: 'connect ETIMEDOUT' }, aiven)).toContain("didn't answer within 10 seconds");
+    expect(describeMysqlError({ code: 'ENOTFOUND', message: 'getaddrinfo ENOTFOUND shop.aivencloud.com' }, aiven)).toBe(
+      'Couldn\'t find the host "shop.aivencloud.com". Check the address.',
+    );
+  });
+
+  test('query failures say what to do', () => {
+    expect(describeMysqlQueryError({ errno: 3024 }, aiven)).toContain('took longer than 15 seconds');
+    expect(describeMysqlQueryError({ code: 'PROTOCOL_SEQUENCE_TIMEOUT' }, aiven)).toContain('took longer than 15 seconds');
+    expect(describeMysqlQueryError({ errno: 1792 }, aiven)).toContain('Query only reads');
+    expect(describeMysqlQueryError({ errno: 1142, sqlMessage: 'SELECT command denied' }, aiven)).toContain("isn't allowed to read");
+    expect(describeMysqlQueryError({ errno: 1146, sqlMessage: "Table 'shop.refunds' doesn't exist" }, aiven)).toContain('Try Refresh structure');
+    expect(
+      describeMysqlQueryError({ errno: 1235, sqlMessage: "This version of MySQL doesn't yet support 'LIMIT & IN/ALL/ANY/SOME subquery'" }, aiven),
+    ).toContain("can't run the query as written");
+    expect(describeMysqlQueryError({ errno: 1055, sqlMessage: 'Expression #1 of ORDER BY clause is not in GROUP BY clause' }, aiven)).toContain(
+      "can't run the query as written",
+    );
+    expect(describeMysqlQueryError({ errno: 1064, sqlMessage: 'You have an error in your SQL syntax' }, aiven)).toBe(
+      'The query failed: You have an error in your SQL syntax',
+    );
+  });
+});
+
+test.describe('MySQL — structure', () => {
+  test('ENUM columns keep their values, other types stay as they are', () => {
+    expect(enumValues("enum('pending','paid','it''s')")).toEqual(['pending', 'paid', "it's"]);
+    expect(enumValues('varchar(100)')).toBeNull();
+    expect(enumValues("set('a','b')")).toBeNull();
+  });
+
+  test('catalog rows become the same structure Postgres produces', () => {
+    const structure = buildMysqlStructure(
+      {
+        columns: [
+          { schema: 'shop', table: 'orders', kind: 'BASE TABLE', table_comment: 'One purchase', column: 'id', column_type: 'int', is_nullable: 'NO', column_comment: '' },
+          { schema: 'shop', table: 'orders', kind: 'BASE TABLE', table_comment: 'One purchase', column: 'customer_id', column_type: 'int unsigned', is_nullable: 'NO', column_comment: '' },
+          { schema: 'shop', table: 'orders', kind: 'BASE TABLE', table_comment: 'One purchase', column: 'status', column_type: "enum('paid','cancelled')", is_nullable: 'NO', column_comment: 'Where the order is' },
+          { schema: 'shop', table: 'monthly', kind: 'VIEW', table_comment: 'VIEW', column: 'total', column_type: 'decimal(10,2)', is_nullable: 'YES', column_comment: '' },
+        ],
+        primaryKeys: [{ schema: 'shop', table: 'orders', column: 'id' }],
+        foreignKeys: [
+          { fk_name: 'orders_ibfk_1', schema: 'shop', table: 'orders', column: 'customer_id', ref_schema: 'shop', ref_table: 'customers', ref_column: 'id' },
+        ],
+      },
+      'ds-3',
+      'shop',
+    );
+
+    expect(structure.tables.map((t: any) => `${t.schema}.${t.name}:${t.kind}`)).toEqual(['shop.orders:table', 'shop.monthly:view']);
+    const orders = structure.tables[0];
+    expect(orders.comment).toBe('One purchase');
+    expect(orders.primaryKey).toEqual(['id']);
+    expect(orders.foreignKeys).toEqual([{ columns: ['customer_id'], references: { schema: 'shop', table: 'customers', columns: ['id'] } }]);
+    expect(orders.columns[0]).toEqual({ name: 'id', type: 'int', nullable: false, comment: null });
+    expect(orders.columns[2]).toEqual({ name: 'status', type: 'enum', nullable: false, comment: 'Where the order is', values: ['paid', 'cancelled'] });
+    // A view's comment is "VIEW" in MySQL; that's not a description.
+    expect(structure.tables[1].comment).toBeNull();
+    expect(structure.tables[1].columns[0]).toMatchObject({ type: 'decimal(10,2)', nullable: true });
+  });
+
+  test('the prompt asks for MySQL', () => {
+    const prompt = buildPrompt(shop, 'q', '2026-11-03', 'mysql');
+    expect(prompt).toContain('You write MySQL queries');
+    expect(prompt).toContain('In MySQL the schema is the database');
+    expect(prompt).toContain('MySQL refuses LIMIT inside IN / ANY / ALL / SOME subqueries');
+    expect(prompt).toContain('ORDER BY MAX(o.ordered_at) DESC');
+    expect(prompt).toContain('add a LIMIT');
+    expect(prompt).toContain('`backticks`');
+    expect(prompt).not.toContain('ILIKE');
   });
 });

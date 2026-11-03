@@ -3,8 +3,14 @@
 // Everything engine-specific goes through here: testing a connection,
 // reading the structure, running a generated query and explaining failures.
 import { type ConnectionConfig, type DatabaseEngine, testConnection, withConnection } from "./postgresClient.ts";
-import { describeConnectionError, describeSqlServerError } from "./connectionErrors.ts";
+import {
+  describeConnectionError,
+  describeMysqlError,
+  describeMysqlQueryError,
+  describeSqlServerError,
+} from "./connectionErrors.ts";
 import { readStructure } from "./introspect.ts";
+import { readMysqlStructure, runMysqlQuery, testMysqlConnection } from "./mysql.ts";
 import {
   describeSqlServerQueryError,
   readSqlServerStructure,
@@ -81,6 +87,13 @@ const ENGINES: Record<DatabaseEngine, Engine> = {
     },
     sqlServerUnavailable,
   ),
+  mysql: {
+    test: testMysqlConnection,
+    readStructure: readMysqlStructure,
+    run: runMysqlQuery,
+    describeConnectionError: describeMysqlError,
+    describeQueryError: describeMysqlQueryError,
+  },
 };
 
 export function engineFor(type: DatabaseEngine | string | null | undefined): Engine {

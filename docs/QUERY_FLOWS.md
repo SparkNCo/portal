@@ -20,7 +20,7 @@ Opening Query to customers later means changing `PAGE_ROLES`, the menus and the 
 
 ## What it is, end to end
 
-A client has its own database (shop orders, CRM, analytics…), in **PostgreSQL or SQL Server** (including Azure SQL Database). See "Database engines" below. An admin connects it to the portal. The portal reads the database's **structure** (tables, columns, types, keys, enum values) and stores it. Then anyone on the page can ask a question in plain text: the AI turns it into SQL using that structure, the portal runs the SQL **read-only** against the client's database and shows the rows.
+A client has its own database (shop orders, CRM, analytics…), in **PostgreSQL, MySQL or SQL Server** (MySQL-compatible servers and Azure SQL Database included). See "Database engines" below. An admin connects it to the portal. The portal reads the database's **structure** (tables, columns, types, keys, enum values) and stores it. Then anyone on the page can ask a question in plain text: the AI turns it into SQL using that structure, the portal runs the SQL **read-only** against the client's database and shows the rows.
 
 1. **Connect:** an admin enters host, port, database, user, password and SSL. The connection is tested, then saved.
 2. **Store:** the connection details go to `portal.data_sources`, and the password to Supabase Vault.
@@ -59,7 +59,7 @@ Loading shows a skeleton; a failed load shows the error.
 
 `components/query/data-source-form.tsx`, opened by **Connect database** or by **Edit** on a card.
 
-**Fields:** database type (PostgreSQL or SQL Server; changing it moves the port to that engine's default unless one was typed in), name (unique per client, e.g. "Production"), host, port (default `5432` / `1433`), database, username, password, and "Connect with SSL" (on by default). The dialog asks for a read-only user.
+**Fields:** database type (PostgreSQL, MySQL or SQL Server; changing it moves the port to that engine's default unless one was typed in), name (unique per client, e.g. "Production"), host, port (default `5432` / `3306` / `1433`), database, username, password, and "Connect with SSL" (on by default). The dialog asks for a read-only user.
 
 **Test connection** → `POST /data-sources/test` connects, runs `select 1` with a 5 s connect timeout, and closes. The result shows under the form, in green ("Connected successfully.") or red. It clears when any field changes.
 
@@ -107,18 +107,18 @@ The Vault secret is removed by the `data_sources_delete_vault_secret` trigger (`
 
 Each connection has a `type`, and everything engine-specific goes through `engineFor(type)` (`supabase/functions/data-sources/engines.ts`): testing a connection, reading the structure, running a generated query and explaining failures. The rest (the table, Vault, Storage, the page, the AI call) is shared.
 
-| | PostgreSQL (`postgres`) | SQL Server / Azure SQL (`sqlserver`) |
-|---|---|---|
-| Driver | `npm:postgres` (`postgresClient.ts`) | `npm:mssql` (`sqlserver.ts`) |
-| Default port | 5432 | 1433 |
-| Connect timeout | 5 s | 30 s: Azure SQL serverless databases (the free offer among them) pause when idle and take a while to wake up |
-| Encryption (SSL on) | `ssl: "require"` | TDS 8.0 **`strict`** first (a plain TLS connection, which works in the edge runtime), then the classic mode for servers older than SQL Server 2022. The classic mode alone fails in Deno with `ECONNRESET` |
-| Structure | `pg_catalog`: tables, views, columns, keys, **enum types** (`introspect.ts`) | `INFORMATION_SCHEMA` + `sys.*`: tables, views, columns, keys, `MS_Description` comments. No enums: a `CHECK` that limits a column to fixed values (`status IN ('paid', …)`) becomes that column's `values` (`sqlserverStructure.ts`) |
-| Dialect asked of the AI | PostgreSQL: `LIMIT`, `ILIKE`, `public.table` | T-SQL: `TOP (n)`, no `LIMIT`, `GETDATE()`/`DATEADD`, `dbo.table`, `[brackets]` |
-| Read-only | `READ ONLY` transaction | No read-only transactions in SQL Server: the query runs in a transaction that is **always rolled back** |
-| Timeout | `statement_timeout` 15 s | Request timeout 15 s |
-| Row cap | Wrapped in `select * from (…) limit 501` | `SET ROWCOUNT 501` (T-SQL can't wrap a CTE in a subquery) |
-| Errors | Postgres codes (`28P01`, `3D000`, `57014`, `25006`, `42501`) | SQL Server numbers (`18456` login, `4060` database, `40615` / "Client with IP address … is not allowed" **firewall**, `229` permission, `208` missing table, `ETIMEOUT`) |
+| | PostgreSQL (`postgres`) | MySQL (`mysql`) | SQL Server / Azure SQL (`sqlserver`) |
+|---|---|---|---|
+| Driver | `npm:postgres` (`postgresClient.ts`) | `npm:mysql2` (`mysql.ts`) | `npm:mssql` (`sqlserver.ts`) |
+| Default port | 5432 | 3306 | 1433 |
+| Connect timeout | 5 s | 10 s: some hosted MySQL (TiDB Serverless, Aiven free) are slow on the first connection | 30 s: Azure SQL serverless databases (the free offer among them) pause when idle and take a while to wake up |
+| Encryption (SSL on) | `ssl: "require"` | TLS 1.2+, not verified against a CA (like Postgres's `require`; Aiven signs with its own CA) | TDS 8.0 **`strict`** first (a plain TLS connection, which works in the edge runtime), then the classic mode for servers older than SQL Server 2022. The classic mode alone fails in Deno with `ECONNRESET` |
+| Structure | `pg_catalog`: tables, views, columns, keys, **enum types** (`introspect.ts`) | `information_schema` of **the connection's database only** (in MySQL a schema is a database): tables, views, columns, keys, comments. `ENUM` columns keep their values as the column's `values` (`mysqlStructure.ts`) | `INFORMATION_SCHEMA` + `sys.*`: tables, views, columns, keys, `MS_Description` comments. No enums: a `CHECK` that limits a column to fixed values (`status IN ('paid', …)`) becomes that column's `values` (`sqlserverStructure.ts`) |
+| Dialect asked of the AI | PostgreSQL: `LIMIT`, `ILIKE`, `public.table` | MySQL: `LIMIT` (never inside an `IN (…)` subquery, which MySQL refuses: JOIN a derived table or CTE instead), `NOW()`/`DATE_SUB`, `database.table`, `` `backticks` `` | T-SQL: `TOP (n)`, no `LIMIT`, `GETDATE()`/`DATEADD`, `dbo.table`, `[brackets]` |
+| Read-only | `READ ONLY` transaction | `START TRANSACTION READ ONLY`, always rolled back | No read-only transactions in SQL Server: the query runs in a transaction that is **always rolled back** |
+| Timeout | `statement_timeout` 15 s | `max_execution_time` 15 s (where the server has it) and the driver's 15 s timeout | Request timeout 15 s |
+| Row cap | Wrapped in `select * from (…) limit 501` | `sql_select_limit = 501` (no wrapping: MySQL may drop a subquery's `ORDER BY`) | `SET ROWCOUNT 501` (T-SQL can't wrap a CTE in a subquery) |
+| Errors | Postgres codes (`28P01`, `3D000`, `57014`, `25006`, `42501`) | MySQL errnos (`1045` login, `1044`/`1049` database, `1130` host not allowed, `3159` SSL required, `3024` timeout, `1792` write, `1142` permission, `1146` missing table, `1235` SQL this MySQL version can't run) | SQL Server numbers (`18456` login, `4060` database, `40615` / "Client with IP address … is not allowed" **firewall**, `229` permission, `208` missing table, `ETIMEOUT`) |
 
 **Azure SQL firewall:** Azure refuses every address by default, and edge functions have no fixed IP. The server's Networking settings need public access and a rule that lets the portal in; for a test database, `0.0.0.0`–`255.255.255.255`. Without it the form shows "The server's firewall refused the connection from <ip>".
 
@@ -218,7 +218,7 @@ All endpoints are admins only, with the session token as bearer.
 |---|---|
 | `GET /data-sources?slug=` | The client's connections, by name |
 | `POST /data-sources/test` | Tests details without saving. With `id`: a saved connection, with its stored password unless a new one is sent |
-| `POST /data-sources` | `{ slug, name, type, host, port, database, username, password, ssl }` (`type`: `postgres` or `sqlserver`, default `postgres`): tests, saves and reads the structure (`201`) |
+| `POST /data-sources` | `{ slug, name, type, host, port, database, username, password, ssl }` (`type`: `postgres`, `mysql` or `sqlserver`, default `postgres`): tests, saves and reads the structure (`201`) |
 | `PATCH /data-sources/:id` | Same fields; an empty password keeps the stored one. Tests, saves, reads the structure again |
 | `DELETE /data-sources/:id` | Removes the connection, its structure file and (trigger) its password |
 | `POST /data-sources/:id/refresh-structure` | Reads the structure again. Answers with the updated row even when it fails (`schema_error`) |
@@ -236,7 +236,7 @@ All endpoints are admins only, with the session token as bearer.
 | `id` | uuid PK |
 | `customer_id` | → `portal.customers.customer_id`, `ON DELETE CASCADE` |
 | `name` | Unique per client (`UNIQUE (customer_id, name)`) |
-| `type` | `postgres` or `sqlserver` (`data_sources_type_check`, widened in `20261016120000_data_sources_sqlserver.sql`) |
+| `type` | `postgres`, `mysql` or `sqlserver` (`data_sources_type_check`, widened in `20261016120000_data_sources_sqlserver.sql` and `20261103120000_data_sources_mysql.sql`) |
 | `host`, `port`, `database_name`, `username`, `ssl` | Connection details. Port 1–65535, SSL on by default |
 | `password_secret_id` | The `vault.secrets` id holding the password. The password itself is never in the table |
 | `schema_path`, `schema_refreshed_at`, `schema_error` | The structure file, when it was last read, and why the last read failed |
@@ -277,6 +277,13 @@ grant select on all tables in schema public to portal_reader;
 alter default privileges in schema public grant select on tables to portal_reader;
 ```
 
+**MySQL** (Aiven and TiDB Cloud have free plans; run as an admin user):
+
+```sql
+CREATE USER 'portal_reader'@'%' IDENTIFIED BY '<a long password>';
+GRANT SELECT ON shop.* TO 'portal_reader'@'%';
+```
+
 **SQL Server / Azure SQL** (Azure SQL Database has a free offer; run in the database itself, e.g. the portal's Query editor):
 
 ```sql
@@ -305,7 +312,7 @@ The pure helpers live in files with no Deno-only imports (`connectionInput.ts`, 
 |---|---|
 | Query security beyond the minimum | Only the single-SELECT check, `READ ONLY`, the 15 s timeout and the 500-row cap. There's no SQL parsing, no per-client limits, and no enforced read-only user. A semicolon inside a string literal makes a query count as "more than one statement" |
 | Network | Edge functions have no fixed IP. A client database behind a firewall needs an allow-list or another route |
-| Other engines | PostgreSQL and SQL Server only. MySQL would be the next one: an entry in `ENGINES` with its driver, structure and dialect (see "Database engines") |
+| Other engines | PostgreSQL, MySQL and SQL Server only. Another one is an entry in `ENGINES` with its driver, structure and dialect (see "Database engines") |
 | Access for clients | Admins only (see "Who sees this page") |
 | History | Questions and results aren't saved; reloading clears them |
 
@@ -328,6 +335,8 @@ The pure helpers live in files with no Deno-only imports (`connectionInput.ts`, 
 | `supabase/functions/data-sources/postgresClient.ts` | Postgres: one short-lived connection per call (`npm:postgres`) |
 | `supabase/functions/data-sources/sqlserver.ts` | SQL Server: connection, catalog queries, run in an always-rolled-back transaction (`npm:mssql`) |
 | `supabase/functions/data-sources/sqlserverStructure.ts` | SQL Server catalog rows → structure JSON (types, CHECK values) |
+| `supabase/functions/data-sources/mysql.ts` | MySQL: connection, catalog queries, run in a read-only transaction (`npm:mysql2`) |
+| `supabase/functions/data-sources/mysqlStructure.ts` | MySQL catalog rows → structure JSON (ENUM values) |
 | `supabase/functions/data-sources/connectionErrors.ts` | Connection errors in plain words, per engine |
 | `supabase/functions/data-sources/connectionInput.ts` | Form fields checked and normalized |
 | `supabase/functions/data-sources/introspect.ts` | The catalog queries → `DatabaseStructure` |
@@ -341,3 +350,4 @@ The pure helpers live in files with no Deno-only imports (`connectionInput.ts`, 
 | `supabase/migrations/20261014120000_add_data_sources.sql` | Table, Vault functions, bucket |
 | `supabase/migrations/20261015120000_data_sources_delete_vault_secret.sql` | Vault clean-up trigger |
 | `supabase/migrations/20261016120000_data_sources_sqlserver.sql` | Allows `type = 'sqlserver'` |
+| `supabase/migrations/20261103120000_data_sources_mysql.sql` | Allows `type = 'mysql'` |
