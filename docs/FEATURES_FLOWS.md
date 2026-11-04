@@ -194,7 +194,7 @@ Data is fetched from Supabase's `decisions` table on modal open. Every row still
 1. Anyone opens an issue → **Clarifications** tab → **"Update Requirement"**.
 2. Types a plain-text description of what changed, submits with the button or `Cmd/Ctrl + Enter`.
 3. `POST /issues` is called the same way as 4a, but with `type: "requirement_update"`.
-4. It appears in the list immediately, labeled "Requirement Update" instead of "Question" — no answer form, no delete button, and it doesn't count toward the unanswered badge. Notifies the project as `requirement_update_added` (`FileEdit` icon, "posted a requirement update" — see `NotificationBell.tsx`).
+4. It appears in the list immediately, labeled "Requirement update" instead of "Question" — no answer form, no delete button, and it doesn't count toward the unanswered badge. Notifies the project as `requirement_update_added` (`FileEdit` icon, "posted a requirement update" — see `NotificationBell.tsx`).
 
 **Unread badge:** When an issue has unanswered *questions* (requirement updates excluded) the count shows as a badge on the issue card. Opening the modal automatically calls `POST /decisions/read`, which clears the badge locally via `locallyRead` state in `PriorityTasks`.
 

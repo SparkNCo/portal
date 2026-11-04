@@ -655,8 +655,8 @@ function DecisionsTab({
           <div key={d.id} className="rounded-lg bg-muted/40 p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="smalltext font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-                  {isRequirementUpdate ? "Requirement Update" : "Question"}
+                <p className="smalltext font-semibold text-muted-foreground mb-0.5">
+                  {isRequirementUpdate ? "Requirement update" : "Question"}
                 </p>
                 <ClarificationText text={d.question} className="text-foreground" />
               </div>
