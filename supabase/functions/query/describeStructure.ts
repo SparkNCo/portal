@@ -10,9 +10,6 @@ export type Structure = {
     name: string;
     kind: string;
     comment: string | null;
-    // `values`: the only values a column allows (a SQL Server CHECK, see
-    // data-sources/sqlserverStructure.ts, or a MySQL ENUM column, see
-    // data-sources/mysqlStructure.ts). Postgres has enum types instead.
     columns: { name: string; type: string; nullable: boolean; comment: string | null; values?: string[] }[];
     primaryKey: string[];
     foreignKeys: { columns: string[]; references: { schema: string; table: string; columns: string[] } }[];
@@ -57,8 +54,6 @@ export function describeStructure(structure: Structure): string {
   return lines.join("\n");
 }
 
-// What changes between engines: the SQL dialect, how to cap rows and how to
-// compare text. Everything else in the prompt is the same.
 const DIALECTS: Record<string, { name: string; example: string; rules: string[] }> = {
   postgres: {
     name: "PostgreSQL",
