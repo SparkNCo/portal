@@ -1,0 +1,106 @@
+# Portal overrides for the official self-hosted Supabase stack.
+#
+# Base: supabase/supabase tag self-hosted/v0.8.3, docker/ folder
+# https://github.com/supabase/supabase/tree/self-hosted/v0.8.3/docker
+# Only the files this stack uses were copied: docker-compose.yml, .env.example,
+# volumes/api/envoy and volumes/db. They stay untouched; every portal change
+# lives here or in portal/.
+#
+# To update: download the new tag's docker/ folder, diff those same files
+# against these and copy them over, then check this file still applies.
+#
+# Loaded through COMPOSE_FILE in .env:
+#   COMPOSE_PATH_SEPARATOR=:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.portal.yml
+#
+# What changes:
+#   - imgproxy off: the portal never asks Storage for image transformations.
+#   - supavisor off: no pooler locally; Postgres is published on
+#     127.0.0.1:5433 so Prisma (DATABASE_URL) and psql connect to it directly.
+#   - mail added: Mailpit catches Auth emails (invites, resets) so nothing
+#     is really sent. Inbox at http://localhost:8025
+#   - functions: the repo's supabase/functions with a portal router
+#     (portal/functions-main) that checks JWT per function like the cloud.
+#     Secrets come from functions.env (see functions.env.example).
+#   - analytics/vector (dashboard logs) are not in the base file anymore;
+#     upstream ships them as an optional override that isn't copied here.
+
+services:
+
+  # Disabled services: an unused profile keeps them out of `docker compose up`.
+  imgproxy:
+    profiles: ["disabled"]
+
+  supavisor:
+    profiles: ["disabled"]
+
+  storage:
+    depends_on: !override
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+
+  # Host port 5433: 5432 is usually taken by a Postgres installed on Windows.
+  # Inside Docker it stays on POSTGRES_PORT (5432).
+  db:
+    ports:
+      - 127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432
+
+  # The gateway also answers as supabase.localhost inside Docker. Browsers send
+  # *.localhost to this machine (localhost:8000 = the same gateway), so a URL
+  # built by a function with PROJECT_URL works from both sides.
+  api-gw:
+    networks:
+      default:
+        aliases:
+          - supabase.localhost
+
+  # Edge functions: the repo's supabase/functions, served by the portal router.
+  functions:
+    volumes:
+      - ../../supabase/functions:/home/deno/functions:ro,z
+      - ./portal/functions-main:/home/deno/main:ro,z
+    command:
+      [
+        "start",
+        "--user-worker-request-idle-timeout",
+        "150000",
+        "--main-service",
+        "/home/deno/main"
+      ]
+    # External service secrets (Linear, Stripe, AI…). Not in git.
+    env_file:
+      - ./functions.env
+    # Local values; they win over functions.env so they can't point at the cloud.
+    environment:
+      VERIFY_JWT: "true"
+      FUNCTIONS_NO_VERIFY_JWT: cometchat
+      PROJECT_URL: http://supabase.localhost:8000
+      SERVICE_SECRET_KEY: ${SERVICE_ROLE_KEY}
+      APP_URL: http://localhost:3000
+
+  # Studio lists the repo's functions.
+  studio:
+    volumes:
+      - ../../supabase/functions:/app/edge-functions:ro,z
+
+  auth:
+    depends_on:
+      mail:
+        condition: service_started
+
+  mail:
+    container_name: supabase-mail
+    image: axllent/mailpit:v1.21.8
+    restart: unless-stopped
+    environment:
+      # Same port as SMTP_PORT in .env
+      MP_SMTP_BIND_ADDR: 0.0.0.0:2500
+      # Auth sends SMTP_USER/SMTP_PASS; accept them without TLS.
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    ports:
+      - 127.0.0.1:8025:8025

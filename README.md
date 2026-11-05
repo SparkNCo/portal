@@ -10,7 +10,7 @@ This repository is a full-stack production template designed for teams using:
 	•	Playwright for E2E testing
 
 Important
-Architecture and boundaries are enforced by convention and by AI.md.
+Architecture and boundaries are enforced by convention and by docs/AI.md.
 Read that file before making changes.
 
 ⸻

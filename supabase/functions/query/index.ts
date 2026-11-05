@@ -17,6 +17,8 @@ import { checkSql } from "./checkSql.ts";
 
 const MAX_QUESTION_LENGTH = 2000;
 
+
+// get schema from storage
 async function loadStructure(schemaPath: string) {
   const { data, error } = await supabase.storage.from(SCHEMAS_BUCKET).download(schemaPath);
   if (error || !data) throw new Error("Couldn't load the database's structure. Try Refresh structure.");

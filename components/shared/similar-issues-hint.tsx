@@ -17,18 +17,13 @@ type SimilarIssueMatch = {
 // Don't bother querying on very short/partial titles — too little text for the
 // embedding to be meaningful, and it'd just be noise while the user is still typing.
 const MIN_QUERY_LENGTH = 7;
-// Long on purpose — every firing is an Upstash query, so this waits for the user to
+// Long on purpose — every firing embeds the query and runs a vector search, so this waits for the user to
 // actually pause typing rather than re-querying on every short break in typing.
 const DEBOUNCE_MS = 3000;
 
-// Cosine similarity threshold for surfacing a match. Calibrated empirically against
-// the live index back when every issue had a single title+description vector, so an
-// exact-duplicate title only scored ~0.858 (diluted by the description) and close
-// paraphrases landed around ~0.74-0.76 — 0.86 never fired even on real duplicates.
-// Each issue now also has a title-only vector that a query under 15 characters is
-// matched against instead (see queryTopIssueMatches in lib/vector.ts) — scores there
-// run higher since there's no long description to dilute the comparison, so 0.7
-// still clears real matches without needing to be raised for the short-query case.
+// Client-side safety net only: the backend already drops matches under 0.8
+// (SIMILARITY_THRESHOLD in supabase/functions/issues/updateIsste.ts), so this
+// never filters anything today.
 const SIMILARITY_THRESHOLD = 0.7;
 
 async function fetchSimilarIssues(
@@ -57,8 +52,8 @@ async function fetchIssueById(id: string): Promise<Issue> {
 }
 
 // Non-blocking "this might already exist" nudge shown under the title field while
-// creating a Feature Request or Bug Report — backed by the Upstash issues vector
-// index, scoped to the current customer's namespace. Offers a way to edit the
+// creating a Feature Request or Bug Report — backed by the issues vector
+// search (pgvector), scoped to the current customer's namespace. Offers a way to edit the
 // existing ticket instead of filing a near-duplicate.
 export function SimilarIssuesHint({
   slug,

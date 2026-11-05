@@ -2,18 +2,16 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 
-// Below Tailwind's `sm` — where a centered dialog fills most of the screen.
+// Below Tailwind's `sm`.
 const MOBILE_QUERY = "(max-width: 639px)";
-// Breathing room between the dialog and the visible area's edges.
+// Gap between the dialog and the visible area's edges.
 const MARGIN_PX = 16;
+// Just over the dialog's height transition (duration-200).
+const SETTLE_MS = 250;
 
-// Keeps a centered dialog inside the part of the screen that's actually
-// visible on phones — above the on-screen keyboard. Mobile browsers (iOS
-// Safari especially) draw the keyboard over the page instead of shrinking
-// it, so a dialog sized to the viewport ends up with its bottom (e.g. a chat
-// input) hidden behind the keyboard. `window.visualViewport` is the visible
-// part: this returns an inline style that centers the dialog in it and caps
-// its height to fit. Empty on wider screens or without visualViewport.
+// On phones, keeps a centered dialog above the on-screen keyboard: returns a
+// style that fits it into the visible area (window.visualViewport). Empty on
+// wider screens.
 export function useVisualViewportFit(): CSSProperties {
   const [style, setStyle] = useState<CSSProperties>({});
 
@@ -43,6 +41,21 @@ export function useVisualViewportFit(): CSSProperties {
       mobile.removeEventListener("change", update);
     };
   }, []);
+
+  // Once the dialog has resized for the keyboard, scrolls the focused field
+  // back into view.
+  useEffect(() => {
+    if (!style.maxHeight) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      const field = document.activeElement;
+      if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement) {
+        field.scrollIntoView({ block: "nearest" });
+      }
+    }, SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [style.maxHeight]);
 
   return style;
 }

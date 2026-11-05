@@ -8,7 +8,7 @@ import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IssuePriorityPicker, IssueStatusPicker } from "@/components/client/issue-meta-pickers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
@@ -25,8 +25,6 @@ import {
   type Issue,
   priorityColors,
   statusColors,
-  PRIORITY_MENU_OPTIONS,
-  ALL_STATUS_OPTIONS,
 } from "@/components/client/issues.types";
 
 async function patchIssue(payload: {
@@ -125,8 +123,6 @@ export function EditIssueModal({
 
   const [currentPriorityLabel, setCurrentPriorityLabel] = useState(issue.priorityLabel);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
-  const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
   const [advancing, setAdvancing] = useState(false);
 
@@ -257,47 +253,11 @@ export function EditIssueModal({
               {getIssueCode(issue.branchName)}
             </span>
             {canEditTicketMeta ? (
-              <Popover open={priorityMenuOpen} onOpenChange={setPriorityMenuOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={changingPriority}
-                    className="focus:outline-none disabled:cursor-wait"
-                  >
-                    <Badge
-                      variant="outline"
-                      className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
-                        changingPriority ? "opacity-70" : ""
-                      } ${priorityColors[currentPriorityLabel as keyof typeof priorityColors]}`}
-                    >
-                      {changingPriority && <Loader2 className="h-3 w-3 animate-spin" />}
-                      {currentPriorityLabel}
-                    </Badge>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-44 p-1.5 bg-background border-border">
-                  <div className="flex flex-col gap-0.5">
-                    {PRIORITY_MENU_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        disabled={changingPriority}
-                        onClick={() => {
-                          setPriorityMenuOpen(false);
-                          handleChangePriority(opt.value, opt.label);
-                        }}
-                        className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
-                          opt.label === currentPriorityLabel
-                            ? priorityColors[opt.label]
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <IssuePriorityPicker
+                  currentLabel={currentPriorityLabel}
+                  saving={changingPriority}
+                  onChange={handleChangePriority}
+                />
             ) : (
               <Badge
                 variant="outline"
@@ -307,50 +267,11 @@ export function EditIssueModal({
               </Badge>
             )}
             {canEditTicketMeta ? (
-              <Popover open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={advancing}
-                    className="focus:outline-none disabled:cursor-wait"
-                  >
-                    <Badge
-                      variant="secondary"
-                      className={`smalltext gap-1 cursor-pointer hover:opacity-80 transition-opacity ${
-                        advancing ? "opacity-70" : ""
-                      } ${statusColors[currentStateName as keyof typeof statusColors]}`}
-                    >
-                      {advancing && <Loader2 className="h-3 w-3 animate-spin" />}
-                      {currentStateName}
-                    </Badge>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-56 p-1.5 bg-background border-border max-h-72 overflow-y-auto"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    {ALL_STATUS_OPTIONS.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        disabled={advancing}
-                        onClick={() => {
-                          setStatusMenuOpen(false);
-                          handleAdvanceState(status);
-                        }}
-                        className={`smalltext px-2.5 py-1.5 rounded-md text-left font-medium transition-colors disabled:opacity-50 ${
-                          status === currentStateName
-                            ? statusColors[status as keyof typeof statusColors]
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <IssueStatusPicker
+                  currentState={currentStateName}
+                  saving={advancing}
+                  onChange={handleAdvanceState}
+                />
             ) : (
               currentStateName && (
                 <Badge

@@ -21,7 +21,7 @@ import {
 } from "@/lib/data-sources-api";
 
 // "Connect database" (SPA-488) and "Edit connection" (SPA-489): the details
-// of a client's Postgres database. "Test connection" tries them without
+// of a client's own database. "Test connection" tries them without
 // saving; "Save" tests again and stores them (the password in Vault). When
 // editing, an empty password keeps the stored one.
 

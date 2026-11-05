@@ -2,7 +2,7 @@
 import type { ConnectionConfig, DatabaseEngine } from "./postgresClient.ts";
 
 // The engines Query can connect to, and the port each one listens on by default.
-export const DEFAULT_PORTS: Record<DatabaseEngine, number> = { postgres: 5432, sqlserver: 1433 };
+export const DEFAULT_PORTS: Record<DatabaseEngine, number> = { postgres: 5432, sqlserver: 1433, mysql: 3306 };
 
 // The connection form's fields, checked and normalized. Returns the config,
 // or what's missing or wrong.
@@ -10,7 +10,7 @@ export function parseConnectionInput(body: any): { config: ConnectionConfig } | 
   const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
   const type = body?.type === undefined || body?.type === "" ? "postgres" : body.type;
-  if (!(type in DEFAULT_PORTS)) return { error: "Database type must be PostgreSQL or SQL Server" };
+  if (!(type in DEFAULT_PORTS)) return { error: "Database type must be PostgreSQL, SQL Server or MySQL" };
 
   const host = text(body?.host);
   const database = text(body?.database);

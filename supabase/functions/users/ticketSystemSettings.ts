@@ -52,7 +52,7 @@ export async function resolveTicketSystem(
   return { system, projectId: parsed.projectKey, settings: parsed.settings, token, tokenChanged: !!parsed.token };
 }
 
-// `systems` with the ticket system applied, leaving chat/vector untouched.
+// `systems` with the ticket system applied, leaving chat untouched.
 export function applyTicketSystem(systems: any, change: TicketSystemChange) {
   const next = { ...systems, tickets: change.system };
   if (change.system === "jira") next.jira = change.settings;

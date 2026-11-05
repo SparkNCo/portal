@@ -51,8 +51,7 @@ export function useUpdateDocument() {
       if (!res.ok) throw new Error("Failed to update document");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
+    // Returned so isPending (the row's spinner) lasts until the list refetches.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
   });
 }
