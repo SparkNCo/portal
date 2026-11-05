@@ -201,10 +201,10 @@ function RequestRow({
     },
   });
 
-  // Frees up a claim — either automatically when the claimer backs out of
-  // their own upload (see handleCancelFulfill below), or explicitly via the
-  // admin-only "Unassign" button on a request claimed by someone else, for
-  // when a developer claims a request and then goes quiet on it.
+  // Frees up a claim — via the claimer's own unassign button on the row, or
+  // the admin-only "Unassign" button on a request claimed by someone else,
+  // for when a developer claims a request and then goes quiet on it.
+  // Cancelling the upload modal does NOT release the claim.
   const releaseMutation = useMutation({
     mutationFn: () =>
       patchDocumentRequest({ action: "release", id: request.id, releasedBy: profile?.email }),
@@ -243,11 +243,6 @@ function RequestRow({
     } else {
       claimMutation.mutate();
     }
-  }
-
-  function handleCancelFulfill() {
-    setShowFulfill(false);
-    if (claimedByMe) releaseMutation.mutate();
   }
 
   return (
@@ -331,9 +326,8 @@ function RequestRow({
               )}
             </Button>
 
-            {/* Lets the claimer back out without opening the upload modal
-                just to hit Cancel in it — same release action that modal's
-                Cancel already triggers, just reachable directly from the row. */}
+            {/* The only way for the claimer to give up their own claim —
+                cancelling the upload modal keeps the claim. */}
             {claimedByMe && (
               <Button
                 size="sm"
@@ -354,8 +348,8 @@ function RequestRow({
         )}
 
         {/* Admin-only escape hatch for a request stuck claimed by someone
-            who never followed through — everyone else releases their own
-            claim automatically by cancelling the upload modal instead. */}
+            who never followed through — claimers release their own claim
+            with the unassign button above. */}
         {isAdmin && request.status === "pending" && claimedBySomeoneElse && (
           <Button
             size="sm"
@@ -400,7 +394,7 @@ function RequestRow({
       {showFulfill && (
         <FulfillDocumentRequestModal
           request={request}
-          onClose={handleCancelFulfill}
+          onClose={() => setShowFulfill(false)}
           onFulfilled={() => setShowFulfill(false)}
         />
       )}

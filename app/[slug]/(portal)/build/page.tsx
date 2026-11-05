@@ -74,7 +74,23 @@ function BuildPageContent() {
     enabled: !!slug,
   });
 
+  // Done gets its own query: it's the status that piles up the most, so
+  // sharing the 100-issue cap above would crowd out the active panels.
+  const { data: doneData, isLoading: doneLoading } = useQuery({
+    queryKey: ["linear-issues", slug, "Done"],
+    queryFn: () => fetchIssues(slug, ["Done"]),
+    enabled: !!slug,
+  });
+
   const allIssues: any[] = issuesData ?? [];
+
+  const doneIssues = (doneData ?? [])
+    .filter((i: any) => i.state?.name === "Done")
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
+        new Date(a.completedAt ?? a.updatedAt ?? 0).getTime(),
+    );
 
   const businessReviewIssues = allIssues.filter(
     (i: any) => i.state?.name === "Business Review",
@@ -106,7 +122,7 @@ function BuildPageContent() {
 
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
-      [...businessReviewIssues, ...uatIssues, ...backlogIssues]
+      [...businessReviewIssues, ...uatIssues, ...backlogIssues, ...doneIssues]
         .filter((i: any) => i.project?.id && i.project?.name)
         .map((i: any) => [
           i.project.id,
@@ -127,13 +143,19 @@ function BuildPageContent() {
     ? backlogIssues.filter((i: any) => i.project?.id === selectedProject)
     : backlogIssues;
 
-  // The deep-linked issue isn't necessarily in Business Review/UAT/Backlog —
+  const visibleDoneIssues = selectedProject
+    ? doneIssues.filter((i: any) => i.project?.id === selectedProject)
+    : doneIssues;
+
+  // The deep-linked issue isn't necessarily in Business Review/UAT/Backlog/Done —
   // a decision/demo/design notification can point at an issue in any status
   // (In Progress, Todo, Done, ...). Once the three panels above have loaded
   // and it's genuinely not among them, fetch that one issue directly by id
   // (same lookup EditIssueModal's "similar issue" hint already uses) and
   // open it in its own modal instead of leaving the deep link a no-op.
-  const foundInPanels = allIssues.some((i: any) => i.id === openIssueId);
+  const foundInPanels =
+    allIssues.some((i: any) => i.id === openIssueId) ||
+    doneIssues.some((i: any) => i.id === openIssueId);
   const { data: fallbackIssue } = useQuery({
     queryKey: ["issue-by-id", openIssueId],
     queryFn: async () => {
@@ -144,7 +166,7 @@ function BuildPageContent() {
       if (!res.ok) throw new Error("Failed to fetch issue");
       return res.json() as Promise<Issue>;
     },
-    enabled: !!openIssueId && !!issuesData && !foundInPanels,
+    enabled: !!openIssueId && !!issuesData && !!doneData && !foundInPanels,
   });
 
   return (
@@ -219,22 +241,42 @@ function BuildPageContent() {
           </div>
         </div>
 
-        <div className="-mx-4 sm:mx-0 relative flex flex-col">
-          <PinButton panelId="build_backlog" />
-          <div className="pt-12 flex-1">
-            <PriorityTasks
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="relative flex flex-col">
+            <PinButton panelId="build_backlog" />
+            <div className="pt-12 flex-1">
+              <PriorityTasks
                 loading={issuesLoading}
-              issuesData={visibleBacklogIssues}
-              filterState={noopFilterState}
-              onOpenChat={() => {}}
-              onEditIssue={(issue) => setEditingIssue(issue)}
-              title="Backlog"
-              slug={slug}
-              lightCard
-              openIssueId={openIssueId}
-              openIssueTab={openIssueTab}
-              onDeepLinkClose={clearDeepLink}
-            />
+                issuesData={visibleBacklogIssues}
+                filterState={noopFilterState}
+                onOpenChat={() => {}}
+                onEditIssue={(issue) => setEditingIssue(issue)}
+                title="Backlog"
+                slug={slug}
+                lightCard
+                openIssueId={openIssueId}
+                openIssueTab={openIssueTab}
+                onDeepLinkClose={clearDeepLink}
+              />
+            </div>
+          </div>
+          <div className="relative flex flex-col">
+            <PinButton panelId="build_done" />
+            <div className="pt-12 flex-1">
+              <PriorityTasks
+                loading={doneLoading}
+                issuesData={visibleDoneIssues}
+                filterState={noopFilterState}
+                onOpenChat={() => {}}
+                onEditIssue={(issue) => setEditingIssue(issue)}
+                title="Done"
+                slug={slug}
+                lightCard
+                openIssueId={openIssueId}
+                openIssueTab={openIssueTab}
+                onDeepLinkClose={clearDeepLink}
+              />
+            </div>
           </div>
         </div>
       </div>

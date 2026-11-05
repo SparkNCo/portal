@@ -4,18 +4,16 @@
 // supabase/functions/test-executions/index.ts.
 import { corsHeaders } from "../utils/headers.ts";
 import { upsertTestVector, queryTopTestMatches } from "../lib/vector.ts";
-import { resolveVectorProvider } from "../lib/vectorProvider.ts";
 import { resolveLinearSlug } from "../utils/slug.ts";
 
-// Raised from the original 0.7 (see test-picker.tsx) to 0.8 for both
-// providers — unlike issues, this one wasn't split per-provider on request.
-const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.8, pgvector: 0.8 } as const;
+// Raised from the original 0.7 (see test-picker.tsx) to 0.8.
+const SIMILARITY_THRESHOLD = 0.8;
 
 const SCHEMA = "portal";
 
 // Callers send the clientName route slug; tests.project_slug and the vector
 // namespace must be customers.linear_slug. Resolve once here for every handler
-// — trusting the raw value made resolveVectorProvider always fall back to Upstash.
+// — the raw value wouldn't match any stored project_slug.
 async function resolveTestProjectSlug(rawSlug: string): Promise<string | null> {
   return await resolveLinearSlug(SCHEMA, rawSlug);
 }
@@ -47,7 +45,9 @@ Deno.serve(async (req) => {
     const pathname = new URL(req.url).pathname;
     let res: Response;
 
-    if (req.method === "GET" && pathname.endsWith("/similar")) {
+    if (req.method === "POST" && pathname.endsWith("/backfill-vectors")) {
+      res = await handleBackfillTestVectors(req);
+    } else if (req.method === "GET" && pathname.endsWith("/similar")) {
       res = await handleSimilarTests(req);
     } else if (req.method === "GET") {
       res = await handleSearchTests(req);
@@ -113,12 +113,8 @@ async function handleSimilarTests(req: Request): Promise<Response> {
   const project_slug = await resolveTestProjectSlug(rawProjectSlug);
   if (!project_slug) return Response.json([]);
 
-  const [matches, provider] = await Promise.all([
-    queryTopTestMatches(project_slug, q.trim(), 3),
-    resolveVectorProvider(project_slug),
-  ]);
-  const threshold = SIMILARITY_THRESHOLD_BY_PROVIDER[provider];
-  return Response.json(matches.filter((m) => m.score >= threshold));
+  const matches = await queryTopTestMatches(project_slug, q.trim(), 3);
+  return Response.json(matches.filter((m) => m.score >= SIMILARITY_THRESHOLD));
 }
 
 // POST /tests — create a reusable test case (per-ticket data lives in test_executions).
@@ -149,7 +145,7 @@ async function handleCreateTest(req: Request): Promise<Response> {
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to create test", details: data }, { status: 500 });
 
-  const created = data[0] ?? data;
+  const { embedding: _embedding, ...created } = data[0] ?? data;
   await upsertTestVector(project_slug, created);
   return Response.json(created);
 }
@@ -188,9 +184,61 @@ async function handleUpdateTest(req: Request): Promise<Response> {
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to update test", details: data }, { status: 500 });
 
-  const updated = data[0] ?? data;
+  // The returned row includes the (now stale) embedding — not sent to the client.
+  const { embedding: _embedding, ...updated } = data[0] ?? data;
   if (updated.project_slug) await upsertTestVector(updated.project_slug, updated);
   return Response.json(updated);
+}
+
+// Embedding is CPU-heavy (gte-small runs in-process), so a backfill call only
+// handles this many tests; call again until `remaining` is 0.
+const BACKFILL_BATCH_SIZE = 25;
+
+// POST /tests/backfill-vectors { user_id, project_slug? } — admin-only. Embeds
+// tests that don't have an embedding yet (e.g. created while their customer
+// was on Upstash), oldest first, BACKFILL_BATCH_SIZE per call.
+async function handleBackfillTestVectors(req: Request): Promise<Response> {
+  const schema = "portal";
+  const { user_id, project_slug: rawProjectSlug } = await req.json();
+  if (!user_id) return Response.json({ error: "user_id is required" }, { status: 400 });
+
+  const callerRes = await fetch(`${db("users")}?id=eq.${user_id}&select=role`, {
+    headers: headers(schema),
+  });
+  const [caller] = callerRes.ok ? await callerRes.json() : [];
+  if (caller?.role !== "admin") return Response.json({ error: "Admin only" }, { status: 403 });
+
+  const params = new URLSearchParams({
+    embedding: "is.null",
+    select: "id,title,steps,project_slug",
+    order: "created_at.asc",
+    limit: String(BACKFILL_BATCH_SIZE),
+  });
+  if (rawProjectSlug) {
+    const project_slug = await resolveTestProjectSlug(rawProjectSlug);
+    if (!project_slug) {
+      return Response.json({ error: `No customer found for slug "${rawProjectSlug}"` }, { status: 404 });
+    }
+    params.set("project_slug", `ilike.${project_slug}`);
+  }
+
+  const res = await fetch(`${db("tests")}?${params.toString()}`, {
+    headers: headers(schema, { Prefer: "count=exact" }),
+  });
+  if (!res.ok) return Response.json({ error: "Failed to load tests", details: await res.text() }, { status: 500 });
+  const tests = await res.json();
+  // Content-Range: "0-24/137" — the total still missing before this batch.
+  const total = Number(res.headers.get("content-range")?.split("/")[1] ?? tests.length);
+
+  let vectorized = 0;
+  let failed = 0;
+  for (const test of tests) {
+    const ok = await upsertTestVector(test.project_slug, test);
+    if (ok) vectorized++;
+    else failed++;
+  }
+
+  return Response.json({ success: true, vectorized, failed, remaining: Math.max(total - vectorized, 0) });
 }
 
 // DELETE /tests?test_id=xxx — refused if attached to any ticket (the FK cascade

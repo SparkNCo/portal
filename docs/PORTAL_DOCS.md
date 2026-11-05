@@ -124,7 +124,7 @@ Every customer (`portal.customers`) carries two different identifiers that are e
 | Field | What it is | Example | Used for |
 |---|---|---|---|
 | `clientName` | Display name for the initiative, set by whoever created the customer | `Spark-Portal` | Route slugs (`/{clientName}/...`, usually lowercased), UI labels, `?slug=` params on manual-trigger endpoints like `linear-vector-sync` |
-| `linear_slug` | The customer's id in its ticket system: for Linear customers, the Linear initiative id (Linear's own code, not something this app generates); for Jira customers, the Jira project key (see §14) | `f12c1e4fa44b` / `SPA` | Scoping data to "this customer's stuff" wherever it has to line up with the ticket system or an external index: `GET /issues?slug=`, `documents.project_slug`, and the Upstash/pgvector vector namespace (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector provider: Upstash vs. pgvector") |
+| `linear_slug` | The customer's id in its ticket system: for Linear customers, the Linear initiative id (Linear's own code, not something this app generates); for Jira customers, the Jira project key (see §14) | `f12c1e4fa44b` / `SPA` | Scoping data to "this customer's stuff" wherever it has to line up with the ticket system or an external index: `GET /issues?slug=`, `documents.project_slug`, and the pgvector search scope (see §8.1 and `app/docs/FEATURES_FLOWS.md` §8, "Vector search (pgvector)") |
 
 They're resolved separately throughout the app (see §8.1's "Resolving scope" for the Documents panel's version of this) precisely because a page's route slug (`clientName`-based) and the value needed to actually query Linear or a vector store (`linear_slug`) aren't the same string, and one can't be derived from the other — both live on the `customers` row and have to be looked up independently.
 
@@ -977,7 +977,7 @@ Customers/stakeholders no longer upload directly — they submit a **Document Re
 | `permission` | `"owner"`, `"write"`, or `"read"` |
 | `project_slug` | Groups document under a project folder |
 
-**Search** — AI-powered (SPA-513-Cycle20): debounced query sent to `GET /storage?...&search=`, ranked server-side by vector similarity against each document's vectorized title/category/content — Upstash or pgvector depending on `customers.systems.vector` for that customer (same per-customer switch issues/tests use, see `FEATURES_FLOWS.md` §8), namespaced/scoped by `project_slug` either way — with a plain filename/category substring fallback for anything the vector index missed. See `docs/DOCUMENTS_FLOWS.md` for the full breakdown, including the one-shot admin backfill for documents uploaded before this shipped.
+**Search** — AI-powered (SPA-513-Cycle20): debounced query sent to `GET /storage?...&search=`, ranked server-side by vector similarity against each document's vectorized title/category/content — pgvector, scoped by `project_slug` (see `FEATURES_FLOWS.md` §8) — with a plain filename/category substring fallback for anything the vector index missed. See `docs/DOCUMENTS_FLOWS.md` for the full breakdown, including the admin backfill for documents uploaded before this shipped.
 
 **Category filter** — All / Reports / Technical / Design pills.
 
@@ -1372,7 +1372,7 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 
 The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
 
-The vector/semantic search features (similar issues, similar tests, document search) use embeddings through Upstash/pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.
+The vector/semantic search features (similar issues, similar tests, document search) use embeddings through pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.
 
 ---
 
@@ -1380,7 +1380,7 @@ The vector/semantic search features (similar issues, similar tests, document sea
 
 See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
 
-**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
+**What:** admins connect a client's own database (SPA-487 to SPA-492; one adapter per engine in `data-sources/engines.ts`): PostgreSQL and MySQL today; SQL Server / Azure SQL is written but shown as "coming soon" until Supabase's edge runtime reaches Deno 2.7 (see `QUERY_FLOWS.md` → Database engines), the portal reads and stores its structure, and anyone on the page can then ask it questions in plain text. The AI writes the SQL from the structure, and the portal runs it read-only and shows the rows. The client's rows are never copied into Supabase.
 
 **Where:** `/{slug}/query`, the **Query** item in the admin's initiative menu. Admins only: other roles are redirected home, and both edge functions (`data-sources`, `query`) check for an admin session token (`401` / `403`).
 

@@ -10,8 +10,6 @@ export type Structure = {
     name: string;
     kind: string;
     comment: string | null;
-    // `values`: the only values a column allows (a SQL Server CHECK, see
-    // data-sources/sqlserverStructure.ts). Postgres has enum types instead.
     columns: { name: string; type: string; nullable: boolean; comment: string | null; values?: string[] }[];
     primaryKey: string[];
     foreignKeys: { columns: string[]; references: { schema: string; table: string; columns: string[] } }[];
@@ -56,8 +54,6 @@ export function describeStructure(structure: Structure): string {
   return lines.join("\n");
 }
 
-// What changes between engines: the SQL dialect, how to cap rows and how to
-// compare text. Everything else in the prompt is the same.
 const DIALECTS: Record<string, { name: string; example: string; rules: string[] }> = {
   postgres: {
     name: "PostgreSQL",
@@ -76,6 +72,17 @@ const DIALECTS: Record<string, { name: string; example: string; rules: string[] 
       "Quote identifiers with [brackets] when they clash with reserved words.",
     ],
   },
+  mysql: {
+    name: "MySQL",
+    example: "shop.orders",
+    rules: [
+      "In MySQL the schema is the database: qualify tables with the schema shown above.",
+      `At most ${MAX_ROWS} rows: add a LIMIT when the question doesn't already ask for fewer.`,
+      "MySQL refuses LIMIT inside IN / ANY / ALL / SOME subqueries: for a \"top N\" filter, JOIN a derived table or a CTE that has the LIMIT instead.",
+      "Use MySQL functions (NOW(), CURDATE(), DATE_SUB, DATE_FORMAT, YEAR…). Text comparisons with LIKE are case-insensitive under the default collation.",
+      "Quote identifiers with `backticks` when they clash with reserved words.",
+    ],
+  },
 };
 
 export function buildPrompt(structure: Structure, question: string, today: string, engine = "postgres"): string {
@@ -90,6 +97,7 @@ Rules:
 - Write ONE read-only query: a single SELECT (CTEs with WITH are fine). Never INSERT, UPDATE, DELETE, DDL, or more than one statement.
 - Schema-qualify every table (e.g. ${dialect.example}).
 - Give result columns clear names with AS (e.g. total_revenue), and order the rows in the way that best answers the question.
+- With GROUP BY, every column in SELECT, ORDER BY or HAVING must be grouped or inside an aggregate. To order groups by something else, aggregate it (e.g. "latest customers" → ORDER BY MAX(o.ordered_at) DESC).
 ${dialect.rules.map((rule) => `- ${rule}`).join("\n")}
 - Today is ${today}; resolve relative dates ("this year", "last month") from it.
 - If the question can't be answered from these tables, set answerable to false, sql to an empty string, and say why in explanation.

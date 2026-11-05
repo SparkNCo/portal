@@ -10,11 +10,7 @@ export type QueryAnswer = {
   sql: string;
   columns?: string[];
   rows?: unknown[][];
-  // More rows matched than were returned (the cap is 500).
   truncated?: boolean;
-  // Why there are no rows: the question couldn't be answered from the
-  // database, or the SQL was refused or failed. `sql` is still filled when
-  // one was generated.
   error?: string;
 };
 

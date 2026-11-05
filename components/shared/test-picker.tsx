@@ -30,7 +30,7 @@ type SimilarTestMatch = {
 // just noise, same reasoning as the "similar issue" hint on Request a Feature.
 const MIN_QUERY_LENGTH = 7;
 const SIMILARITY_THRESHOLD = 0.7;
-// Long on purpose — every firing is an Upstash query, so this waits for the user to
+// Long on purpose — every firing embeds the query and runs a vector search, so this waits for the user to
 // actually pause typing rather than re-querying on every short break in typing.
 const SIMILAR_DEBOUNCE_MS = 3000;
 
@@ -64,7 +64,7 @@ async function fetchTestById(
 }
 
 // Type-to-search combobox for the "add test case" flow: once there's enough typed
-// text, surfaces semantically similar existing tests (Upstash) to reuse, or falls
+// text, surfaces semantically similar existing tests (pgvector) to reuse, or falls
 // through to creating a brand new test with that name.
 export function TestPicker({
   projectSlug,

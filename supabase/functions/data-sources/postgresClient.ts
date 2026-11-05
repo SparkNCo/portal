@@ -7,7 +7,7 @@ import { CONNECT_TIMEOUT_SECONDS, describeConnectionError } from "./connectionEr
 
 export { describeConnectionError };
 
-export type DatabaseEngine = "postgres" | "sqlserver";
+export type DatabaseEngine = "postgres" | "sqlserver" | "mysql";
 
 export type ConnectionConfig = {
   type: DatabaseEngine;

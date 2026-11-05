@@ -163,6 +163,17 @@ test.describe('Query — page (mocked functions)', () => {
     await expect(dialog.getByLabel('Port')).toHaveValue('5432');
   });
 
+  test('MySQL can be picked and moves the port to 3306', async ({ page }) => {
+    await mockDataSources(page, []);
+    await openQueryPage(page);
+
+    await page.getByRole('button', { name: 'Connect database' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Connect database' });
+    await dialog.getByRole('combobox', { name: 'Database type' }).click();
+    await page.getByRole('option', { name: 'MySQL' }).click();
+    await expect(dialog.getByLabel('Port')).toHaveValue('3306');
+  });
+
   test('a connection shows its structure, tables first and columns on demand', async ({ page }) => {
     await mockDataSources(page, [SHOP]);
     await openQueryPage(page);

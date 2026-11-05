@@ -264,7 +264,7 @@ test.describe('Admin — panels', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Share Document' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('Loading people…')).not.toBeVisible({ timeout: 15_000 });
+    await expect(dialog.getByText('Loading users…')).not.toBeVisible({ timeout: 15_000 });
     // A search over the people listed — no free-text email field.
     await expect(dialog.getByRole('textbox')).toHaveCount(0);
     const search = dialog.getByRole('searchbox', { name: 'Search people' });

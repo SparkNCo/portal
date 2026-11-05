@@ -25,16 +25,20 @@ function extractStoragePath(url: string): string | null {
   }
 }
 
-// SPA-513-Cycle20: AI document search only vectorizes a document going
-// forward (see upload-storage-data.ts) — anything uploaded before that
-// shipped has no vector yet and won't turn up in search until someone
-// re-uploads it. Admin-only, one-shot backfill: walks every document (all
-// projects, or one via `project_slug`) and vectorizes it. Best-effort per
-// document — one bad file (e.g. a dead storage link) shouldn't abort the
-// whole run, so failures are logged and counted, not thrown.
+// Embedding is CPU-heavy (gte-small runs in-process), so one call only
+// handles this many documents; call again until `remaining` is 0.
+const BATCH_SIZE = 25;
+
+// POST /storage/backfill-vectors { user_id, project_slug?, all?, after_id? } —
+// admin-only. By default embeds documents that don't have an embedding yet
+// (uploaded before vector search, or while their customer was on Upstash),
+// BATCH_SIZE per call. `all: true` re-embeds every document instead (e.g.
+// after a change to what gets extracted): pass the returned `next_after_id`
+// back as `after_id` until it comes back null. Best-effort per document — one
+// bad file (e.g. a dead storage link) is logged and counted, not thrown.
 export async function backfillDocumentVectors(req: Request, schema: string) {
   try {
-    const { user_id, project_slug } = await req.json();
+    const { user_id, project_slug, all = false, after_id } = await req.json();
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: "user_id is required" }), {
@@ -57,11 +61,18 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
 
     let query = supabase.schema(schema)
       .from("documents")
-      .select("id, file_name, category, link, project_slug")
-      .not("project_slug", "is", null);
+      .select("id, file_name, category, link, project_slug", { count: "exact" })
+      .not("project_slug", "is", null)
+      .order("id", { ascending: true })
+      .limit(BATCH_SIZE);
     if (project_slug) query = query.ilike("project_slug", project_slug);
+    if (all) {
+      if (after_id != null) query = query.gt("id", after_id);
+    } else {
+      query = query.is("embedding", null);
+    }
 
-    const { data: documents, error } = await query;
+    const { data: documents, error, count } = await query;
     if (error) throw new Error(error.message);
 
     let vectorized = 0;
@@ -90,8 +101,16 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
         failed++;
       }
     }
+
+    const batchSize = documents?.length ?? 0;
+    // `count` = rows matching before this batch ran.
+    const remaining = all
+      ? Math.max((count ?? 0) - batchSize, 0)
+      : Math.max((count ?? 0) - vectorized, 0);
+    const next_after_id = all && batchSize === BATCH_SIZE ? documents!.at(-1)!.id : null;
+
     return new Response(
-      JSON.stringify({ success: true, total: documents?.length ?? 0, vectorized, failed }),
+      JSON.stringify({ success: true, vectorized, failed, remaining, next_after_id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

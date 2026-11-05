@@ -194,6 +194,31 @@ export function PinnedPanelRenderer({
     );
   }
 
+  if (panelId === "build_done") {
+    const issues = allIssues
+      .filter((i) => i.state?.name === "Done" && matchesSelectedProject(i))
+      .sort(
+        (a, b) =>
+          new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
+          new Date(a.completedAt ?? a.updatedAt ?? 0).getTime(),
+      );
+    return (
+      <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
+        <PriorityTasks
+          loading={issuesLoading}
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
+          title="Done"
+          slug={slug}
+          compact
+          lightCard
+        />
+      </PinnedPanelShell>
+    );
+  }
+
   if (panelId === "bugs_list") {
     const bugs = allIssues
       .filter(
