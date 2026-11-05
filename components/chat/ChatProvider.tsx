@@ -14,7 +14,7 @@ import { LoadingDataPanel } from "@/components/loader";
 type CustomerSystemsRow = {
   id: string;
   clientName: string | null;
-  systems: { chat?: string; vector?: string } | null;
+  systems: { chat?: string } | null;
 };
 
 type Assignment = { customer_id: string; clientName?: string | null; linear_slug?: string | null };

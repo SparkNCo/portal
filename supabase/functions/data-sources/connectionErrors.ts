@@ -70,3 +70,60 @@ export function describeSqlServerError(err: any, config: ConnectionConfig, fallb
   }
   return `${fallbackPrefix}${message}`;
 }
+
+// MySQL waits a little longer than Postgres: some hosted MySQL (TiDB Cloud
+// Serverless, Aiven's free plan) take a few seconds on the first connection.
+export const MYSQL_CONNECT_TIMEOUT_SECONDS = 10;
+export const MYSQL_STATEMENT_TIMEOUT_SECONDS = 15;
+
+// The same for MySQL (the mysql2 driver: `code` like "ER_ACCESS_DENIED_ERROR",
+// `errno` the server's error number).
+export function describeMysqlError(err: any, config: ConnectionConfig, fallbackPrefix = "Couldn't connect: "): string {
+  const code = String(err?.code ?? "");
+  const errno = Number(err?.errno ?? 0);
+  const message = String(err?.sqlMessage ?? err?.message ?? err ?? "");
+  const where = `${config.host}:${config.port}`;
+
+  if (errno === 1044) return `This user isn't allowed to open the database "${config.database}".`;
+  if (errno === 1045 || /access denied/i.test(message)) return "Wrong username or password.";
+  if (errno === 1049) return `The database "${config.database}" doesn't exist on this server.`;
+  if (errno === 1130 || /is not allowed to connect/i.test(message)) {
+    return "The server refused connections from the portal's address. Allow outside connections for this user (host '%') or the portal's range.";
+  }
+  if (errno === 3159 || /insecure transport/i.test(message)) return "The server only accepts encrypted connections. Turn SSL on.";
+  if (code === "HANDSHAKE_NO_SSL_SUPPORT") return "The server doesn't support encrypted connections. Turn SSL off.";
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN" || /getaddrinfo|failed to lookup|name or service not known/i.test(message)) {
+    return `Couldn't find the host "${config.host}". Check the address.`;
+  }
+  if (code === "ECONNREFUSED" || /connection refused/i.test(message)) {
+    return `${where} refused the connection. Check the host and port, and that the database accepts outside connections.`;
+  }
+  if (code === "ETIMEDOUT" || /timeout|timed out/i.test(message)) {
+    return `${where} didn't answer within ${MYSQL_CONNECT_TIMEOUT_SECONDS} seconds. Check the host and port, and that its firewall lets outside connections in.`;
+  }
+  if (/ssl|tls|certificate/i.test(message)) {
+    return `The SSL connection failed (${message}). Try with SSL ${config.ssl ? "off" : "on"}.`;
+  }
+  return `${fallbackPrefix}${message}`;
+}
+
+// What went wrong running a generated query on MySQL.
+export function describeMysqlQueryError(err: any, config: ConnectionConfig): string {
+  const code = String(err?.code ?? "");
+  const errno = Number(err?.errno ?? 0);
+  // 3024: MySQL's max_execution_time; 1969: MariaDB's max_statement_time;
+  // PROTOCOL_SEQUENCE_TIMEOUT: the driver's own timeout.
+  if (errno === 3024 || errno === 1969 || code === "PROTOCOL_SEQUENCE_TIMEOUT") {
+    return `The query took longer than ${MYSQL_STATEMENT_TIMEOUT_SECONDS} seconds and was stopped. Try a narrower question.`;
+  }
+  if (errno === 1792) return "The query tried to change data, and Query only reads. It wasn't run.";
+  if (errno === 1142 || errno === 1143) return "The database user isn't allowed to read one of the tables this needs.";
+  if (errno === 1146) return `The query used a table that doesn't exist: ${err?.sqlMessage ?? err?.message ?? ""}. Try Refresh structure.`;
+  // ER_NOT_SUPPORTED_YET: SQL that other databases take but this MySQL
+  // version doesn't (e.g. LIMIT inside an IN subquery). 1055: a GROUP BY
+  // query that uses an ungrouped column (sql_mode ONLY_FULL_GROUP_BY).
+  if (errno === 1235 || errno === 1055) {
+    return `This MySQL server can't run the query as written (${err?.sqlMessage ?? err?.message ?? ""}). Ask again, maybe worded differently.`;
+  }
+  return describeMysqlError(err, config, "The query failed: ");
+}

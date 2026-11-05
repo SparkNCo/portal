@@ -6,6 +6,7 @@ export type PinnablePanelId =
   | "build_product_decisions"
   | "build_acceptance_testing"
   | "build_backlog"
+  | "build_done"
   | "bugs_list";
 
 export const PINNABLE_PANELS: Record<
@@ -25,6 +26,7 @@ export const PINNABLE_PANELS: Record<
     sourceDashboard: "build",
   },
   build_backlog: { label: "Backlog", sourceDashboard: "build" },
+  build_done: { label: "Done", sourceDashboard: "build" },
   bugs_list: { label: "Bugs", sourceDashboard: "bugs" },
 };
 

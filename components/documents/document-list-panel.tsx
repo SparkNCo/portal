@@ -18,11 +18,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { InlineSelect } from "@/components/shared/inline-select";
 import { cn } from "@/lib/utils";
 import { useDeleteDocument, useUpdateDocument } from "./update-document-entry";
 import { useUser } from "context/UserContext";
@@ -109,9 +105,8 @@ export function DocumentRow({
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
+    // Returned so the row's spinner lasts until the list shows the new owner.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
   });
 
   // Clicking a document's name previews it in-app for formats we know how to
@@ -183,6 +178,11 @@ export function DocumentRow({
       {filteredDocs.map((doc) => {
         const FormatIcon =
           formatIcons[doc.format as keyof typeof formatIcons] || File;
+        const savingCategory =
+          updateMutation.isPending && updateMutation.variables?.document_id === doc.id;
+        const transferringOwner =
+          transferOwnerMutation.isPending &&
+          transferOwnerMutation.variables?.documentId === doc.id;
 
         return (
           <div
@@ -243,42 +243,37 @@ export function DocumentRow({
                 {/* Category settings */}
 
                 {["write", "owner"].includes(doc.permission) && (
-                  <Popover>
-                    <PopoverTrigger asChild>
+                  <InlineSelect
+                    align="start"
+                    contentClassName="w-40 p-1"
+                    optionClassName="font-normal text-foreground hover:bg-muted"
+                    options={CATEGORIES.map((category) => ({ value: category, label: category }))}
+                    value={doc.category}
+                    saving={savingCategory}
+                    onSelect={(category) =>
+                      updateMutation.mutate({
+                        user_id: userId!,
+                        category,
+                        document_id: doc.id,
+                      })
+                    }
+                    trigger={
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
+                        disabled={savingCategory}
+                        aria-busy={savingCategory}
                         aria-label={`Change category for ${doc.name}`}
                       >
-                        <Settings className="h-4 w-4" />
+                        {savingCategory ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Settings className="h-4 w-4" />
+                        )}
                       </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-40 p-1">
-                      {CATEGORIES.map((category) => (
-                        <Button
-                          key={category}
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            "w-full justify-start smalltext",
-                            doc.category === category &&
-                              "bg-secondary font-medium",
-                          )}
-                          onClick={() =>
-                            updateMutation.mutate({
-                              user_id: userId!,
-                              category,
-                              document_id: doc.id,
-                            })
-                          }
-                        >
-                          {category}
-                        </Button>
-                      ))}
-                    </PopoverContent>
-                  </Popover>
+                    }
+                  />
                 )}
 
                 <Button
@@ -355,53 +350,41 @@ export function DocumentRow({
                     left the company and someone else needs delete/share
                     rights over what they left behind. */}
                 {isAdmin && (
-                  <Popover>
-                    <PopoverTrigger asChild>
+                  <InlineSelect
+                    align="start"
+                    contentClassName="p-1"
+                    optionClassName="font-normal text-foreground hover:bg-muted"
+                    loading={assignedUsersQuery.isLoading}
+                    emptyText="No assigned users found."
+                    options={(assignedUsersQuery.data ?? [])
+                      .filter((a: any) => a.role !== "stakeholder")
+                      .map((assignment: any) => ({
+                        value: assignment.user_id,
+                        label: assignment.firstName
+                          ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
+                          : assignment.userName || assignment.email,
+                      }))}
+                    saving={transferringOwner}
+                    onSelect={(newOwnerId) =>
+                      transferOwnerMutation.mutate({ documentId: doc.id, newOwnerId })
+                    }
+                    trigger={
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
+                        disabled={transferringOwner}
+                        aria-busy={transferringOwner}
                         aria-label={`Change owner for ${doc.name}`}
                       >
-                        <UserCog className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-56 p-1">
-                      {assignedUsersQuery.isLoading && (
-                        <p className="smalltext text-muted-foreground px-2 py-1.5">
-                          Loading…
-                        </p>
-                      )}
-                      {!assignedUsersQuery.isLoading &&
-                        (assignedUsersQuery.data?.length ?? 0) === 0 && (
-                          <p className="smalltext text-muted-foreground px-2 py-1.5">
-                            No assigned users found.
-                          </p>
+                        {transferringOwner ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <UserCog className="h-4 w-4" />
                         )}
-                      {assignedUsersQuery.data
-                        ?.filter((a: any) => a.role !== "stakeholder")
-                        .map((assignment: any) => (
-                          <Button
-                            key={assignment.user_id}
-                            variant="ghost"
-                            size="sm"
-                            disabled={transferOwnerMutation.isPending}
-                            className="w-full justify-start smalltext truncate"
-                            onClick={() =>
-                              transferOwnerMutation.mutate({
-                                documentId: doc.id,
-                                newOwnerId: assignment.user_id,
-                              })
-                            }
-                          >
-                            {assignment.firstName
-                              ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
-                              : assignment.userName || assignment.email}
-                          </Button>
-                        ))}
-                    </PopoverContent>
-                  </Popover>
+                      </Button>
+                    }
+                  />
                 )}
               </div>
             </div>

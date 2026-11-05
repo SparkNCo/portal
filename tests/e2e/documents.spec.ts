@@ -240,7 +240,7 @@ test.describe('sharing a document', () => {
 
     await page.getByRole('button', { name: `Share ${name}` }).click();
     const dialog = page.getByRole('dialog', { name: 'Share Document' });
-    await expect(dialog.getByText('Loading people…')).toHaveCount(0, { timeout: 20_000 });
+    await expect(dialog.getByText('Loading users…')).toHaveCount(0, { timeout: 20_000 });
 
     const row = (email: string) => dialog.getByRole('listitem').filter({ hasText: email });
     // Uploads are shared with the customer automatically ("Can edit").
@@ -260,7 +260,7 @@ test.describe('sharing a document', () => {
 
     // Reopened, the developer is now listed as having access.
     await page.getByRole('button', { name: `Share ${name}` }).click();
-    await expect(dialog.getByText('Loading people…')).toHaveCount(0, { timeout: 20_000 });
+    await expect(dialog.getByText('Loading users…')).toHaveCount(0, { timeout: 20_000 });
     await expect(row(USERS.developer.email)).toContainText('Can view', { timeout: 15_000 });
     await expect(row(USERS.developer.email).getByRole('checkbox')).toBeDisabled();
     await dialog.getByRole('button', { name: 'Cancel' }).click();

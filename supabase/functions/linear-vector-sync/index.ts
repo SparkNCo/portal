@@ -3,8 +3,9 @@
 // directly in Linear (edits made in-app already upsert on save): upserts each
 // customer's issues updated since their checkpoint, and removes trashed ones.
 //
-// Manual: ?slug={clientName} scopes to one customer; add &full=true to ignore the
-// checkpoint and backfill every issue.
+// Manual: ?slug={clientName} scopes to one customer; add &full=true to backfill
+// every issue that has no up-to-date vector (MAX_ISSUES_PER_RUN per call — call
+// again until the response's `remaining` is 0).
 import { corsHeaders } from "../utils/headers.ts";
 import { supabase } from "../client.ts";
 import { getAllCustomers } from "../issueMetrics/db.ts";
@@ -104,6 +105,36 @@ async function fetchTrashedIssues(projectIds: string[], since: Date): Promise<Tr
   return trashed;
 }
 
+// id → updated_at of every stored issue vector for this customer, so a full
+// backfill can skip issues already embedded since their last Linear edit.
+async function fetchStoredVectorTimes(linearSlug: string): Promise<Map<string, number>> {
+  const PAGE = 1000;
+  const times = new Map<string, number>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.schema(SCHEMA)
+      .from("issue_vectors")
+      .select("id, updated_at")
+      .ilike("project_slug", escapeIlike(linearSlug))
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) times.set(row.id, new Date(row.updated_at).getTime());
+    if (!data || data.length < PAGE) break;
+  }
+  return times;
+}
+
+// Full backfill: keeps only issues with no vector, or one older than their
+// last edit — so repeated calls keep moving forward instead of redoing the
+// oldest batch every time.
+async function withoutFreshVectors(linearSlug: string, issues: any[]) {
+  const stored = await fetchStoredVectorTimes(linearSlug);
+  return issues.filter((issue) => {
+    const storedAt = stored.get(issue.id);
+    return storedAt === undefined || storedAt < new Date(issue.updatedAt).getTime();
+  });
+}
+
 async function syncCustomer(
   customer: { linear_slug: string; linear_projects: string[] },
   syncStartedAt: Date,
@@ -114,7 +145,8 @@ async function syncCustomer(
   if (!linear_slug || !linear_projects?.length) return;
 
   const since = full ? new Date(0) : await getSinceForCustomer(linear_slug);
-  const allIssues = await fetchIssuesUpdatedSince(linear_projects, since);
+  const fetched = await fetchIssuesUpdatedSince(linear_projects, since);
+  const allIssues = full ? await withoutFreshVectors(linear_slug, fetched) : fetched;
 
   // Embedding is CPU-heavy (pgvector runs gte-small in-process); a large batch
   // exceeds the function's CPU budget (WORKER_RESOURCE_LIMIT). Process the
@@ -134,6 +166,7 @@ async function syncCustomer(
   // Any failed write blocks the checkpoint from advancing, so the window is
   // retried instead of the issue aging out of `since` forever.
   let allWritesSucceeded = true;
+  let upserted = 0;
   for (const issue of issues) {
     const ok = await upsertIssueVector(linear_slug, {
       id: issue.id,
@@ -141,7 +174,11 @@ async function syncCustomer(
       description: issue.description,
       kind: deriveIssueKind(issue.labels?.nodes),
     });
-    if (!ok) allWritesSucceeded = false;
+    if (ok) {
+      upserted++;
+    } else {
+      allWritesSucceeded = false;
+    }
   }
 
   // Own try/catch: runWithConcurrency uses Promise.all, so a throw here
@@ -168,14 +205,15 @@ async function syncCustomer(
   const lastProcessed = issues.at(-1);
   const nextCheckpoint = truncated && lastProcessed ? new Date(lastProcessed.updatedAt) : syncStartedAt;
 
-  if (allWritesSucceeded) {
+  // A full backfill ignores the checkpoint, so it leaves it alone too.
+  if (!full && allWritesSucceeded) {
     await supabase.schema(SCHEMA)
       .from("vector_sync_state")
       .upsert(
         { linear_slug, last_synced_at: nextCheckpoint.toISOString() },
         { onConflict: "linear_slug" },
       );
-  } else {
+  } else if (!full) {
     console.warn(
       `[linear-vector-sync] ${linear_slug}: checkpoint NOT advanced (at least one write failed) — this window will be retried next run`,
     );
@@ -186,6 +224,9 @@ async function syncCustomer(
       `removed ${trashedCount} trashed vector(s) since ${since.toISOString()}` +
       (truncated ? ` (truncated — ${sortedIssues.length - issues.length} left for next run)` : ""),
   );
+
+  // `remaining` counts failed writes too — they're retried on the next call.
+  return { slug: linear_slug, synced: upserted, remaining: sortedIssues.length - upserted };
 }
 
 Deno.serve(async (req) => {
@@ -220,11 +261,16 @@ Deno.serve(async (req) => {
       customers = await getAllCustomers(SCHEMA);
     }
 
-    // Kept at 2: every customer shares one Upstash store, so more workers
-    // just get us throttled.
-    await runWithConcurrency(customers, 2, (customer) => syncCustomer(customer, syncStartedAt, full));
+    // Kept at 2: embedding runs in-process, so every worker shares this
+    // invocation's CPU budget.
+    const results: { slug: string; synced: number; remaining: number }[] = [];
+    await runWithConcurrency(customers, 2, async (customer) => {
+      const result = await syncCustomer(customer, syncStartedAt, full);
+      if (result) results.push(result);
+    });
+    const remaining = results.reduce((sum, r) => sum + r.remaining, 0);
 
-    return new Response(JSON.stringify({ success: true, customersProcessed: customers.length, full }), {
+    return new Response(JSON.stringify({ success: true, customersProcessed: customers.length, full, remaining, results }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

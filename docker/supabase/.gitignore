@@ -1,0 +1,8 @@
+# Secrets
+.env
+functions.env
+
+# Data written by the running containers
+volumes/db/data
+volumes/storage
+volumes/snippets

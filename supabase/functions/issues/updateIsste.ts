@@ -7,7 +7,6 @@ import { markIssueUpdated, markIssueViewed } from "../utils/issueUpdates.ts";
 import { notifyProject, resolveIssueDashboardLink } from "../utils/notify.ts";
 import { resolveLinearSlug } from "../utils/slug.ts";
 import { upsertIssueVector, queryTopIssueMatches, deriveIssueKind } from "../lib/vector.ts";
-import { resolveVectorProvider } from "../lib/vectorProvider.ts";
 import { TicketError, ticketErrorResponse } from "../lib/tickets/errors.ts";
 import { customerBySlug, ticketsForCustomer, ticketsForId } from "../lib/tickets/provider.ts";
 import { linearTickets } from "../lib/tickets/linear/issues.ts";
@@ -114,12 +113,11 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   return Response.json(result);
 }
 
-// "Similar issue" hint on the Feature Request / Bug Report panels. Thresholds
-// are per provider: Upstash (mxbai-embed-large-v1) was calibrated at 0.7;
-// pgvector's gte-small scores unrelated short text ~0.8, so it needs a higher
-// cutoff. The pgvector value isn't calibrated on real duplicates yet — revisit.
+// "Similar issue" hint on the Feature Request / Bug Report panels. gte-small
+// scores unrelated short text around 0.8, so the cutoff sits there. Not
+// calibrated on real duplicates yet — revisit.
 // (similar-issues-hint.tsx keeps a 0.7 client-side safety net.)
-const SIMILARITY_THRESHOLD_BY_PROVIDER = { upstash: 0.7, pgvector: 0.8 } as const;
+const SIMILARITY_THRESHOLD = 0.8;
 
 export async function handleGetSimilarIssues(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -133,12 +131,8 @@ export async function handleGetSimilarIssues(req: Request): Promise<Response> {
   const linearSlug = await resolveLinearSlug("portal", slug);
   if (!linearSlug) return Response.json([]);
 
-  const [matches, provider] = await Promise.all([
-    queryTopIssueMatches(linearSlug, q.trim(), 3, kind),
-    resolveVectorProvider(linearSlug),
-  ]);
-  const threshold = SIMILARITY_THRESHOLD_BY_PROVIDER[provider];
-  return Response.json(matches.filter((m) => m.score >= threshold));
+  const matches = await queryTopIssueMatches(linearSlug, q.trim(), 3, kind);
+  return Response.json(matches.filter((m) => m.score >= SIMILARITY_THRESHOLD));
 }
 
 export async function handleMarkIssueSeen(req: Request): Promise<Response> {
