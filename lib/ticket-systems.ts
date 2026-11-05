@@ -38,7 +38,6 @@ export function ticketSystemInfo(system: TicketSystem): TicketSystemInfo {
 
 export type CustomerSystems = {
   chat?: string;
-  vector?: string;
   tickets?: string;
   jira?: { base_url?: string; email?: string };
 } | null;

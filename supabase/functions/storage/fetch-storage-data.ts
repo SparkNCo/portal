@@ -112,7 +112,7 @@ export async function getStorageData(req: Request, schema: string) {
       // Without a cutoff every document comes back, just reordered.
       // Calibrated on pgvector/gte-small, which packs scores into a narrow
       // high band (unrelated short docs scored ~0.8); rough — revisit with
-      // more varied data. Upstash's model may score differently.
+      // more varied data.
       const MIN_DOCUMENT_SIMILARITY = 0.8;
       const allMatches = await queryTopDocumentMatches(project_slug, search, documents.length || 20);
       const matches = allMatches.filter((m) => m.score >= MIN_DOCUMENT_SIMILARITY);

@@ -70,7 +70,7 @@ export function FulfillDocumentRequestModal({
   onFulfilled,
 }: {
   readonly request: DocumentRequest;
-  /** Called when the modal is dismissed without finishing (Cancel/X) — the caller should release the claim. */
+  /** Called when the modal is dismissed without finishing (Cancel/X). The claim is kept. */
   readonly onClose: () => void;
   /** Called after the document was uploaded, shared, and the request marked done. */
   readonly onFulfilled: () => void;

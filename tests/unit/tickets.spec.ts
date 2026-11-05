@@ -14,7 +14,7 @@ import { jiraId, parseTicketId } from '../../supabase/functions/lib/tickets/ids'
 test.describe('ticket system of a customer', () => {
   test('missing or unknown means Linear, so older customers are unaffected', () => {
     expect(ticketSystemOf(null)).toBe('linear');
-    expect(ticketSystemOf({ chat: 'cometchat', vector: 'upstash' })).toBe('linear');
+    expect(ticketSystemOf({ chat: 'cometchat' })).toBe('linear');
     expect(ticketSystemOf({ tickets: 'ado' })).toBe('linear');
     expect(ticketSystemOf({ tickets: 'jira' })).toBe('jira');
   });

@@ -252,7 +252,7 @@ export function ShareDocumentModal({
           </p>
 
           {isLoading ? (
-            <p className="smalltext text-muted-foreground py-4">Loading people…</p>
+            <p className="smalltext text-muted-foreground py-4">Loading users…</p>
           ) : options.length === 0 ? (
             <p className="smalltext text-muted-foreground py-4">There's nobody else on this initiative to share with.</p>
           ) : (

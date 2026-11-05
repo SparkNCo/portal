@@ -1,28 +1,19 @@
 // @ts-nocheck
-// Every export routes to the customer's vector provider (customers.systems.vector:
-// 'upstash' | 'pgvector', see vectorProvider.ts). Callers never see the split.
-import { resolveVectorProvider } from "./vectorProvider.ts";
-import {
-  upsertDocumentVectorPg,
-  deleteDocumentVectorsPg,
-  queryTopDocumentMatchesPg,
-  upsertIssueVectorPg,
-  deleteIssueVectorsPg,
-  queryTopIssueMatchesPg,
-  upsertTestVectorPg,
-  queryTopTestMatchesPg,
-} from "./pgvectorClient.ts";
-
-// Upstash: one index shared by issues, tests and documents, kept apart by
-// `metadata.type` — every query must filter on it. The index uses Upstash's hosted
-// embedding model (created manually in the console); we only send raw text to the
-// "-data" endpoints.
+// Vector search for issues, test cases and documents, backed by pgvector
+// (20260923100000_add_pgvector_support.sql).
 //
-// Namespace = customer's linear_slug. Vector id = source row id, so re-upserts
-// overwrite in place.
+// Embeddings use the built-in `Supabase.ai` runtime (gte-small, 384 dims), no
+// external API. The `Supabase` global is missing under plain `deno run` or some
+// older CLIs, so embedText throws a clear error in that case.
 //
-// Best-effort: failures are logged, never thrown — a vector hiccup must not fail
-// the write it's attached to.
+// `namespace` = the customer's linear_slug (documents/tests store it as
+// project_slug). The match_* RPCs compare it with ilike, since stored casing
+// is inconsistent.
+//
+// Best-effort: write failures are logged and reported as `false`, never
+// thrown — a vector hiccup must not fail the write it's attached to. Queries
+// return [] on failure.
+import { supabase } from "../client.ts";
 
 export type VectorMatch = {
   id: string;
@@ -30,40 +21,15 @@ export type VectorMatch = {
   metadata?: Record<string, unknown>;
 };
 
-async function upstashRequest(
-  baseUrl: string,
-  token: string,
-  path: string,
-  body: unknown,
-  method: string = "POST",
-): Promise<any> {
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!res.ok || json.error) {
-    throw new Error(`Upstash Vector error (${path}): ${json.error ?? res.statusText}`);
+let embeddingSession: any = null;
+
+async function embedText(text: string): Promise<number[]> {
+  if (typeof Supabase === "undefined" || !Supabase.ai) {
+    throw new Error("Supabase.ai embedding runtime isn't available in this environment");
   }
-  return json.result;
-}
-
-function vectorIndex() {
-  return {
-    url: Deno.env.get("UPSTASH_VECTOR_REST_URL")!,
-    token: Deno.env.get("UPSTASH_VECTOR_REST_TOKEN")!,
-  };
-}
-
-// Slugs are stored with inconsistent casing across the app, and Upstash
-// namespaces are case-sensitive — normalize so upserts and queries always
-// land in the same namespace.
-function normalizeNamespace(namespace: string): string {
-  return namespace.trim().toLowerCase();
+  embeddingSession ??= new Supabase.ai.Session("gte-small");
+  const embedding = await embeddingSession.run(text, { mean_pool: true, normalize: true });
+  return Array.from(embedding);
 }
 
 // Exact label-name match (not substring), same as LABEL_ICONS in
@@ -77,36 +43,9 @@ export function deriveIssueKind(
   return null;
 }
 
-// Used by linear-vector-sync to drop tickets trashed in Linear. Returns
-// success so the sync can avoid advancing its checkpoint on failure —
-// otherwise the trashed issue ages out of the next `since` window and its
-// stale vector is never retried.
-async function deleteIssueVectorsUpstash(namespace: string, ids: string[]): Promise<boolean> {
-  if (ids.length === 0) return true;
-  try {
-    const { url, token } = vectorIndex();
-    // Each issue has two vectors (combined + "::title"); remove both.
-    const allIds = ids.flatMap((id) => [id, `${id}::title`]);
-    await upstashRequest(
-      url,
-      token,
-      `/delete/${normalizeNamespace(namespace)}`,
-      { ids: allIds },
-      "DELETE",
-    );
-    return true;
-  } catch (err) {
-    console.error("[deleteIssueVectors] failed (non-fatal):", err);
-    return false;
-  }
-}
-
-export async function deleteIssueVectors(namespace: string, ids: string[]): Promise<boolean> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? deleteIssueVectorsPg(ids)
-    : deleteIssueVectorsUpstash(namespace, ids);
-}
+// ─── Issues ──────────────────────────────────────────────────────────────
+// Issues live in Linear, so they get their own index table (portal.issue_vectors),
+// with two embeddings per issue: title-only and title+description.
 
 type IssueVectorInput = {
   id: string;
@@ -116,34 +55,30 @@ type IssueVectorInput = {
   kind?: "bug" | "feature" | null;
 };
 
-async function upsertIssueVectorUpstash(
-  namespace: string,
-  issue: IssueVectorInput,
-): Promise<boolean> {
-  try {
-    const { url, token } = vectorIndex();
-    const ns = normalizeNamespace(namespace);
-    const combinedData = [issue.title, issue.description].filter(Boolean).join("\n\n");
-    const baseMetadata = {
-      ticket_id: issue.id,
-      title: issue.title,
-      ...(issue.kind ? { kind: issue.kind } : {}),
-    };
+// Short queries (e.g. "roadmap") embed closer to short titles than to long
+// title+description vectors and missed real hits, so below this length we
+// match against the title-only embedding instead.
+const TITLE_ONLY_QUERY_MAX_LENGTH = 15;
 
-    // Two vectors per issue: title+description, and title-only ("::title",
-    // see TITLE_ONLY_QUERY_MAX_LENGTH). Sequential on purpose — parallel
-    // upserts during linear-vector-sync's bulk runs got Upstash throttling us
-    // ("vector store backend is currently unavailable").
-    await upstashRequest(url, token, `/upsert-data/${ns}`, {
-      id: issue.id,
-      data: combinedData,
-      metadata: { type: "issue", ...baseMetadata },
-    });
-    await upstashRequest(url, token, `/upsert-data/${ns}`, {
-      id: `${issue.id}::title`,
-      data: issue.title,
-      metadata: { type: "issue-title", ...baseMetadata },
-    });
+export async function upsertIssueVector(namespace: string, issue: IssueVectorInput): Promise<boolean> {
+  try {
+    const combinedText = [issue.title, issue.description].filter(Boolean).join("\n\n");
+    const [titleEmbedding, combinedEmbedding] = await Promise.all([
+      embedText(issue.title),
+      embedText(combinedText),
+    ]);
+    const { error } = await supabase.schema("portal")
+      .from("issue_vectors")
+      .upsert({
+        id: issue.id,
+        project_slug: namespace,
+        title: issue.title,
+        kind: issue.kind ?? null,
+        title_embedding: JSON.stringify(titleEmbedding),
+        combined_embedding: JSON.stringify(combinedEmbedding),
+        updated_at: new Date().toISOString(),
+      });
+    if (error) throw new Error(error.message);
     return true;
   } catch (err) {
     console.error("[upsertIssueVector] failed (non-fatal):", err);
@@ -151,70 +86,17 @@ async function upsertIssueVectorUpstash(
   }
 }
 
-export async function upsertIssueVector(namespace: string, issue: IssueVectorInput): Promise<boolean> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? upsertIssueVectorPg(namespace, issue)
-    : upsertIssueVectorUpstash(namespace, issue);
-}
-
-async function upsertTestVectorUpstash(
-  namespace: string,
-  test: { id: string; title: string; steps: { order: number; description: string }[] },
-): Promise<void> {
+// Used by linear-vector-sync to drop tickets trashed in Linear. Returns
+// success so the sync can avoid advancing its checkpoint on failure.
+export async function deleteIssueVectors(_namespace: string, ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true;
   try {
-    const { url, token } = vectorIndex();
-    const stepsText = (test.steps ?? []).map((s) => s.description).join("\n");
-    const data = [test.title, stepsText].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
-      id: test.id,
-      data,
-      metadata: { type: "test-case", test_id: test.id, name: test.title },
-    });
+    const { error } = await supabase.schema("portal").from("issue_vectors").delete().in("id", ids);
+    if (error) throw new Error(error.message);
+    return true;
   } catch (err) {
-    console.error("[upsertTestVector] failed (non-fatal):", err);
-  }
-}
-
-type TestVectorInput = { id: string; title: string; steps: { order: number; description: string }[] };
-
-export async function upsertTestVector(namespace: string, test: TestVectorInput): Promise<void> {
-  const provider = await resolveVectorProvider(namespace);
-  if (provider === "pgvector") {
-    await upsertTestVectorPg(namespace, test);
-  } else {
-    await upsertTestVectorUpstash(namespace, test);
-  }
-}
-
-// Short queries (e.g. "roadmap") embed closer to short titles than to long
-// title+description vectors and missed real hits, so below this length we
-// match against the title-only vectors instead.
-const TITLE_ONLY_QUERY_MAX_LENGTH = 15;
-
-async function queryTopIssueMatchesUpstash(
-  namespace: string,
-  queryText: string,
-  topK = 3,
-  kind?: "bug" | "feature",
-): Promise<VectorMatch[]> {
-  try {
-    const { url, token } = vectorIndex();
-    const type = queryText.trim().length < TITLE_ONLY_QUERY_MAX_LENGTH ? "issue-title" : "issue";
-    const filter = kind ? `type = '${type}' AND kind = '${kind}'` : `type = '${type}'`;
-    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
-      data: queryText,
-      topK,
-      includeMetadata: true,
-      filter,
-    });
-    // Map "::title" ids back to the real issue id.
-    return Array.isArray(result)
-      ? result.map((m: VectorMatch) => ({ ...m, id: (m.metadata?.ticket_id as string) ?? m.id }))
-      : [];
-  } catch (err) {
-    console.error("[queryTopIssueMatches] failed:", err);
-    return [];
+    console.error("[deleteIssueVectors] failed (non-fatal):", err);
+    return false;
   }
 }
 
@@ -225,121 +107,47 @@ export async function queryTopIssueMatches(
   topK = 3,
   kind?: "bug" | "feature",
 ): Promise<VectorMatch[]> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? queryTopIssueMatchesPg(namespace, queryText, topK, kind)
-    : queryTopIssueMatchesUpstash(namespace, queryText, topK, kind);
-}
-
-// Documents: vector id = String(documents.id). `content` is only set for
-// plain-text formats (md/txt/csv/mmd) and Word (.docx) — see extractDocumentText
-// in utils/documentText.ts; pdf/images are embedded from file_name + category only.
-type DocumentVectorInput = {
-  id: number | string;
-  file_name: string;
-  category?: string | null;
-  content?: string | null;
-};
-
-async function upsertDocumentVectorUpstash(
-  namespace: string,
-  doc: DocumentVectorInput,
-): Promise<boolean> {
   try {
-    const { url, token } = vectorIndex();
-    const data = [doc.file_name, doc.category, doc.content].filter(Boolean).join("\n\n");
-    await upstashRequest(url, token, `/upsert-data/${normalizeNamespace(namespace)}`, {
-      id: String(doc.id),
-      data,
-      metadata: { type: "document", document_id: String(doc.id), file_name: doc.file_name },
+    const useTitleOnly = queryText.trim().length < TITLE_ONLY_QUERY_MAX_LENGTH;
+    const embedding = await embedText(queryText);
+    const { data, error } = await supabase.schema("portal").rpc("match_issues", {
+      query_embedding: JSON.stringify(embedding),
+      match_project_slug: namespace,
+      match_kind: kind ?? null,
+      use_title_only: useTitleOnly,
+      match_count: topK,
     });
-    return true;
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      score: row.similarity,
+      metadata: { ticket_id: row.id, title: row.title, ...(row.kind ? { kind: row.kind } : {}) },
+    }));
   } catch (err) {
-    console.error("[upsertDocumentVector] failed (non-fatal):", err);
-    return false;
-  }
-}
-
-export async function upsertDocumentVector(namespace: string, doc: DocumentVectorInput): Promise<boolean> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? upsertDocumentVectorPg(namespace, doc)
-    : upsertDocumentVectorUpstash(namespace, doc);
-}
-
-async function deleteDocumentVectorsUpstash(namespace: string, ids: (number | string)[]): Promise<boolean> {
-  if (ids.length === 0) return true;
-  try {
-    const { url, token } = vectorIndex();
-    await upstashRequest(
-      url,
-      token,
-      `/delete/${normalizeNamespace(namespace)}`,
-      { ids: ids.map(String) },
-      "DELETE",
-    );
-    return true;
-  } catch (err) {
-    console.error("[deleteDocumentVectors] failed (non-fatal):", err);
-    return false;
-  }
-}
-
-export async function deleteDocumentVectors(namespace: string, ids: (number | string)[]): Promise<boolean> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? deleteDocumentVectorsPg(ids)
-    : deleteDocumentVectorsUpstash(namespace, ids);
-}
-
-async function queryTopDocumentMatchesUpstash(
-  namespace: string,
-  queryText: string,
-  topK = 20,
-): Promise<VectorMatch[]> {
-  try {
-    const { url, token } = vectorIndex();
-    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
-      data: queryText,
-      topK,
-      includeMetadata: true,
-      filter: "type = 'document'",
-    });
-    return Array.isArray(result) ? result : [];
-  } catch (err) {
-    console.error("[queryTopDocumentMatches] failed:", err);
+    console.error("[queryTopIssueMatches] failed:", err);
     return [];
   }
 }
 
-export async function queryTopDocumentMatches(
-  namespace: string,
-  queryText: string,
-  topK = 20,
-): Promise<VectorMatch[]> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? queryTopDocumentMatchesPg(namespace, queryText, topK)
-    : queryTopDocumentMatchesUpstash(namespace, queryText, topK);
-}
+// ─── Test cases ──────────────────────────────────────────────────────────
+// Stored on portal.tests.embedding.
 
-async function queryTopTestMatchesUpstash(
-  namespace: string,
-  queryText: string,
-  topK = 3,
-): Promise<VectorMatch[]> {
+type TestVectorInput = { id: string; title: string; steps: { order: number; description: string }[] };
+
+export async function upsertTestVector(_namespace: string, test: TestVectorInput): Promise<boolean> {
   try {
-    const { url, token } = vectorIndex();
-    const result = await upstashRequest(url, token, `/query-data/${normalizeNamespace(namespace)}`, {
-      data: queryText,
-      topK,
-      includeMetadata: true,
-      filter: "type = 'test-case'",
-    });
-    return Array.isArray(result) ? result : [];
+    const stepsText = (test.steps ?? []).map((s) => s.description).join("\n");
+    const text = [test.title, stepsText].filter(Boolean).join("\n\n");
+    const embedding = await embedText(text);
+    const { error } = await supabase.schema("portal")
+      .from("tests")
+      .update({ embedding: JSON.stringify(embedding) })
+      .eq("id", test.id);
+    if (error) throw new Error(error.message);
+    return true;
   } catch (err) {
-    console.error("[queryTopTestMatches] failed:", err);
-    return [];
+    console.error("[upsertTestVector] failed (non-fatal):", err);
+    return false;
   }
 }
 
@@ -348,8 +156,84 @@ export async function queryTopTestMatches(
   queryText: string,
   topK = 3,
 ): Promise<VectorMatch[]> {
-  const provider = await resolveVectorProvider(namespace);
-  return provider === "pgvector"
-    ? queryTopTestMatchesPg(namespace, queryText, topK)
-    : queryTopTestMatchesUpstash(namespace, queryText, topK);
+  try {
+    const embedding = await embedText(queryText);
+    const { data, error } = await supabase.schema("portal").rpc("match_tests", {
+      query_embedding: JSON.stringify(embedding),
+      match_project_slug: namespace,
+      match_count: topK,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      score: row.similarity,
+      metadata: { test_id: row.id, name: row.title },
+    }));
+  } catch (err) {
+    console.error("[queryTopTestMatches] failed:", err);
+    return [];
+  }
+}
+
+// ─── Documents ───────────────────────────────────────────────────────────
+// Stored on portal.documents.embedding. `content` is only set for plain-text
+// formats (md/txt/csv/mmd) and Word (.docx) — see extractDocumentText in
+// utils/documentText.ts; pdf/images are embedded from file_name + category only.
+
+type DocumentVectorInput = {
+  id: number | string;
+  file_name: string;
+  category?: string | null;
+  content?: string | null;
+};
+
+export async function upsertDocumentVector(_namespace: string, doc: DocumentVectorInput): Promise<boolean> {
+  try {
+    const text = [doc.file_name, doc.category, doc.content].filter(Boolean).join("\n\n");
+    const embedding = await embedText(text);
+    const { error } = await supabase.schema("portal")
+      .from("documents")
+      .update({ embedding: JSON.stringify(embedding) })
+      .eq("id", doc.id);
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (err) {
+    console.error("[upsertDocumentVector] failed (non-fatal):", err);
+    return false;
+  }
+}
+
+export async function deleteDocumentVectors(_namespace: string, ids: (number | string)[]): Promise<boolean> {
+  if (ids.length === 0) return true;
+  try {
+    const { error } = await supabase.schema("portal")
+      .from("documents")
+      .update({ embedding: null })
+      .in("id", ids);
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (err) {
+    console.error("[deleteDocumentVectors] failed (non-fatal):", err);
+    return false;
+  }
+}
+
+export async function queryTopDocumentMatches(
+  namespace: string,
+  queryText: string,
+  topK = 20,
+): Promise<VectorMatch[]> {
+  try {
+    const embedding = await embedText(queryText);
+    const { data, error } = await supabase.schema("portal").rpc("match_documents", {
+      query_embedding: JSON.stringify(embedding),
+      match_project_slug: namespace,
+      match_count: topK,
+    });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row: any) => ({ id: String(row.id), score: row.similarity }));
+  } catch (err) {
+    console.error("[queryTopDocumentMatches] failed:", err);
+    return [];
+  }
 }

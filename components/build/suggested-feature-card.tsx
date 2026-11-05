@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Lightbulb, Loader2, Maximize2, X } from "lucide-react";
+import { Check, Lightbulb, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { priorityColors } from "@/components/client/issues.types";
 import { fetchMilestones, fetchProjects } from "@/lib/issues-api";
+import { InlineSelect } from "@/components/shared/inline-select";
 import {
   acceptSuggestedFeature,
   declineSuggestedFeature,
@@ -28,82 +29,14 @@ const PRIORITY_OPTIONS: { value: "urgent" | "high" | "medium" | "low"; label: ke
   { value: "low", label: "Low" },
 ];
 
-// Shared shell for the project/milestone badge pickers below — same trigger
-// (a clickable Badge, no dropdown chevron, hover just tints the text orange
-// instead of filling a background) and the same popover list (with a
-// spinner while its options load lazily). Kept local to this file since
-// nothing else needs it.
-function BadgePicker({
-  label,
-  loading,
-  options,
-  open,
-  onOpenChange,
-  onSelect,
-  disabled,
-  clearLabel,
-  onClear,
-}: {
-  readonly label: string;
-  readonly loading: boolean;
-  readonly options: { id: string; name: string }[];
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly onSelect: (id: string) => void;
-  readonly disabled: boolean;
-  readonly clearLabel?: string;
-  readonly onClear?: () => void;
-}) {
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button type="button" disabled={disabled} className="w-full min-w-0">
-          <Badge
-            variant="outline"
-            className="w-full justify-start text-sm px-2.5 py-1.5 cursor-pointer transition-colors hover:text-primary"
-          >
-            {/* Badge itself is inline-flex — text-overflow: ellipsis doesn't
-                reliably apply directly on a flex container's own overflowing
-                content, it needs a block-formatted child to truncate
-                against. Without this nested span, a long name just got hard
-                cut on both edges with no "…", instead of ellipsizing at the
-                end. */}
-            <span className="block truncate">{label}</span>
-          </Badge>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-2" align="start">
-        {loading ? (
-          <div className="flex items-center justify-center py-3">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="custom-scrollbar flex flex-col gap-0.5 max-h-56 overflow-y-auto pr-1">
-            {onClear && (
-              <button
-                type="button"
-                className="rounded-md px-2 py-1.5 text-left smalltext text-muted-foreground transition-colors hover:text-primary"
-                onClick={onClear}
-              >
-                {clearLabel}
-              </button>
-            )}
-            {options.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className="rounded-md px-2 py-1.5 text-left smalltext transition-colors hover:text-primary"
-                onClick={() => onSelect(opt.id)}
-              >
-                <span className="block truncate">{opt.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
+// Project/milestone pickers: full-width badges, no dropdown chevron, hover
+// just tints the text orange instead of filling a background.
+const PICKER_STYLE = {
+  triggerClassName: "w-full",
+  badgeClassName:
+    "w-full justify-start text-sm px-2.5 py-1.5 hover:opacity-100 hover:text-primary",
+  optionClassName: "font-normal text-foreground hover:text-primary",
+} as const;
 
 export function SuggestedFeatureCard({
   feature,
@@ -161,20 +94,18 @@ export function SuggestedFeatureCard({
   const milestoneMutation = useMutation({
     mutationFn: (milestoneId: string | null) =>
       updateSuggestionMilestone(feature.id, milestoneId, actorEmail),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] });
-    },
+    // Returned so isPending (and the badge spinner) lasts until the card has
+    // refetched the new value, instead of flashing the old label first.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] }),
     onError: (err: Error) => toast.error(err.message),
   });
 
   const projectMutation = useMutation({
     mutationFn: (projectId: string) => updateSuggestionProject(feature.id, projectId, actorEmail),
-    onSuccess: () => {
-      // The backend clears the milestone when the project changes (it
-      // belonged to the old one) — refreshing this suggestion is enough to
-      // pick that up, same query the milestone mutation already invalidates.
-      queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] });
-    },
+    // The backend clears the milestone when the project changes (it belonged
+    // to the old one) — refreshing this suggestion is enough to pick that up.
+    // Returned so the spinner lasts until the refetch lands.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["suggested-features", slug] }),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -225,17 +156,16 @@ export function SuggestedFeatureCard({
               change (updateSuggestionProject.ts), never trusted blind.
               Switching projects clears the milestone server-side, since it
               belonged to whichever project was selected before. */}
-          <BadgePicker
+          <InlineSelect
+            {...PICKER_STYLE}
             label={feature.linear_project_name}
             loading={loadingProjects}
-            options={projects}
-            open={projectOpen}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            value={feature.linear_project_id}
             onOpenChange={setProjectOpen}
-            onSelect={(id) => {
-              setProjectOpen(false);
-              projectMutation.mutate(id);
-            }}
+            onSelect={(id) => projectMutation.mutate(id)}
             disabled={pickersDisabled}
+            saving={projectMutation.isPending}
           />
 
           {/* AI-picked (or previously overridden) milestone — always one of
@@ -244,22 +174,19 @@ export function SuggestedFeatureCard({
               updateSuggestionMilestone.ts's own re-validation). Developers
               never see this card at all (gated in suggested-features-row.tsx),
               so no separate read-only path needed here. */}
-          <BadgePicker
+          <InlineSelect
+            {...PICKER_STYLE}
             label={feature.linear_milestone_name ?? "No milestone"}
             loading={loadingMilestones}
-            options={milestones}
-            open={milestoneOpen}
+            options={milestones.map((m) => ({ value: m.id, label: m.name }))}
+            value={feature.linear_milestone_id}
             onOpenChange={setMilestoneOpen}
-            onSelect={(id) => {
-              setMilestoneOpen(false);
-              milestoneMutation.mutate(id);
-            }}
+            onSelect={(id) => milestoneMutation.mutate(id)}
             disabled={pickersDisabled}
+            // A project change also clears the milestone server-side.
+            saving={milestoneMutation.isPending || projectMutation.isPending}
             clearLabel="No milestone"
-            onClear={() => {
-              setMilestoneOpen(false);
-              milestoneMutation.mutate(null);
-            }}
+            onClear={() => milestoneMutation.mutate(null)}
           />
         </div>
       </div>

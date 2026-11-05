@@ -11,7 +11,7 @@ import { SimilarIssuesHint } from "@/components/shared/similar-issues-hint";
 // Title is always visible; the Continue button sits next to it (same row on
 // desktop, stacked on mobile) until details are revealed, then disappears.
 // When `slug` is provided, a "similar issue" hint is shown below the title as the
-// user types, backed by the Upstash issues vector search — shared by both the
+// user types, backed by the issues vector search (pgvector) — shared by both the
 // Feature Request and Bug Report panels since they both render this component.
 export function TitleContinueRow({
   title,

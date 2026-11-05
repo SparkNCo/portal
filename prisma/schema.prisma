@@ -45,9 +45,9 @@ model customers {
   invoice_amount_cents   Int?
   invoice_interval       String?
   invoice_interval_count Int    @default(1)
-  // SPA-513: per-project 3rd-party system selection, e.g. {"chat":"cometchat","vector":"upstash"}.
-  // Defaults to the systems already in production use — see 20260921120000_add_systems_config_and_chat_tables.sql.
-  systems                Json   @default("{\"chat\": \"cometchat\", \"vector\": \"upstash\"}")
+  // SPA-513: per-project 3rd-party system selection, e.g. {"chat":"cometchat","tickets":"jira"}.
+  // See 20260921120000_add_systems_config_and_chat_tables.sql and 20261105120000_pgvector_only.sql.
+  systems                Json   @default("{\"chat\": \"cometchat\"}")
 }
 
 model cycle_metrics {

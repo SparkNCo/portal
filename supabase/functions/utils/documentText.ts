@@ -21,10 +21,9 @@ export function isTextDocumentFormat(fileName: string): boolean {
   return TEXT_DOCUMENT_EXTENSIONS.has(ext);
 }
 
-// Upstash's hosted-embedding endpoint embeds whatever text it's given — a
-// generous but finite cap keeps a huge report from blowing out the request
-// payload or dominating the embedding with content far past what's useful
-// for a similarity match anyway.
+// A generous but finite cap so a huge report doesn't blow up memory/CPU
+// before embedding (gte-small only reads roughly the first 2,000 characters
+// anyway).
 const MAX_DOCUMENT_CONTENT_CHARS = 20000;
 
 export function truncateDocumentContent(text: string): string {

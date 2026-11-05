@@ -56,7 +56,10 @@
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
+    /* Was 197 37% 24% (shadcn's light-theme default) — unreadable as text on
+       this dark background (~1.75:1). This lighter blue clears WCAG AA
+       (~5.6:1) as text on its own /20 tint over --background. */
+    --chart-3: 197 60% 60%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
   }
