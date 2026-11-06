@@ -209,14 +209,21 @@ test.describe('Query — page (mocked functions)', () => {
       asked = route.request().postDataJSON();
       return json(route, {
         question: asked.question,
-        explanation: 'Los 2 productos más caros.',
-        sql: 'SELECT name, unit_price FROM public.products ORDER BY unit_price DESC LIMIT 2',
-        columns: ['name', 'unit_price'],
-        rows: [
-          ['4K monitor', '449.00'],
-          ['27" monitor', '279.00'],
+        answers: [
+          {
+            dataSourceId: SHOP.id,
+            dataSourceName: SHOP.name,
+            explanation: 'Los 2 productos más caros.',
+            sql: 'SELECT name, unit_price FROM public.products ORDER BY unit_price DESC LIMIT 2',
+            columns: ['name', 'unit_price'],
+            rows: [
+              ['4K monitor', '449.00'],
+              ['27" monitor', '279.00'],
+            ],
+            truncated: false,
+          },
         ],
-        truncated: false,
+        combined: null,
       });
     });
     await openQueryPage(page);
@@ -230,7 +237,7 @@ test.describe('Query — page (mocked functions)', () => {
     await expect(page.getByText('2 rows')).toBeVisible();
     await page.getByText('SQL used').click();
     await expect(page.getByText('ORDER BY unit_price DESC LIMIT 2')).toBeVisible();
-    expect(asked).toEqual({ dataSourceId: SHOP.id, question: '¿Cuáles son los 2 productos más caros?' });
+    expect(asked).toEqual({ dataSourceIds: [SHOP.id], question: '¿Cuáles son los 2 productos más caros?' });
   });
 
   test('a question that can’t be run shows why, and the SQL it would have used', async ({ page }) => {
@@ -240,9 +247,16 @@ test.describe('Query — page (mocked functions)', () => {
         ? route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' } })
         : json(route, {
             question: 'Borrá los pedidos cancelados',
-            explanation: '',
-            sql: "DELETE FROM public.orders WHERE status = 'cancelled'",
-            error: "The generated SQL isn't a SELECT query, so it wasn't run.",
+            answers: [
+              {
+                dataSourceId: SHOP.id,
+                dataSourceName: SHOP.name,
+                explanation: '',
+                sql: "DELETE FROM public.orders WHERE status = 'cancelled'",
+                error: "The generated SQL isn't a SELECT query, so it wasn't run.",
+              },
+            ],
+            combined: null,
           }),
     );
     await openQueryPage(page);
@@ -254,6 +268,63 @@ test.describe('Query — page (mocked functions)', () => {
     await expect(page.getByRole('table')).toHaveCount(0);
     await page.getByText('SQL used').click();
     await expect(page.getByText("DELETE FROM public.orders WHERE status = 'cancelled'")).toBeVisible();
+  });
+  test('a question is asked of every good connection and comes back as one response', async ({ page }) => {
+    const WAREHOUSE = { ...SHOP, id: '33333333-3333-4333-8333-333333333333', name: 'Warehouse' };
+    const ARCHIVE = { ...SHOP, id: '44444444-4444-4444-8444-444444444444', name: 'Archive' };
+    // Its last structure read failed, so it isn't asked.
+    const BROKEN = { ...SHOP, id: '55555555-5555-4555-8555-555555555555', name: 'Broken', schema_error: 'Connection refused' };
+    await mockDataSources(page, [SHOP, WAREHOUSE, ARCHIVE, BROKEN]);
+    let asked: any = null;
+    await page.route('**/functions/v1/query', async (route) => {
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' } });
+      asked = route.request().postDataJSON();
+      const answer = (ds: typeof SHOP, rows: unknown[][]) => ({
+        dataSourceId: ds.id,
+        dataSourceName: ds.name,
+        explanation: 'Products by stock.',
+        sql: 'SELECT name, stock FROM public.products',
+        columns: ['name', 'stock'],
+        rows,
+        truncated: false,
+      });
+      return json(route, {
+        question: asked.question,
+        answers: [
+          answer(SHOP, [['Mouse', 10]]),
+          answer(WAREHOUSE, [['Keyboard', 4]]),
+          {
+            dataSourceId: ARCHIVE.id,
+            dataSourceName: ARCHIVE.name,
+            explanation: 'This database has no products table.',
+            sql: '',
+            unanswerable: true,
+            error: 'This database has no products table.',
+          },
+        ],
+        combined: {
+          columns: ['Connection', 'name', 'stock'],
+          rows: [
+            ['Shop', 'Mouse', 10],
+            ['Warehouse', 'Keyboard', 4],
+          ],
+          truncated: false,
+        },
+      });
+    });
+    await openQueryPage(page);
+
+    // No connection picker any more.
+    await expect(page.getByLabel('Connection', { exact: true })).toHaveCount(0);
+    await page.getByLabel(/Question/).fill('Stock per product');
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+
+    await expect(page.getByText('Answered from 2 connections: Shop, Warehouse.')).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(1);
+    await expect(page.getByRole('columnheader', { name: 'Connection' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'Keyboard' })).toBeVisible();
+    await expect(page.getByText('This database has no products table.')).toBeVisible();
+    expect(asked).toEqual({ dataSourceIds: [SHOP.id, WAREHOUSE.id, ARCHIVE.id], question: 'Stock per product' });
   });
 });
 
