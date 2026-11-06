@@ -1388,7 +1388,7 @@ See `docs/QUERY_FLOWS.md` for the full write-up — this section is a summary.
 
 **Structure:** read from `pg_catalog` after every save or edit, or with Refresh structure. It covers tables, views, columns and types, keys and enum values, only what the connecting user can read. It's stored as JSON in the private bucket `data_source_schemas` (`{customer_id}/{data_source_id}.json`), and the cards show it under "View structure".
 
-**Questions:** `POST /query` → the AI (§12) returns one `SELECT`. Anything else is refused before it's sent. It runs in a `READ ONLY` transaction with a 15 s timeout and at most 500 rows. The page shows the explanation, the SQL used and the rows, or why there are none.
+**Questions:** `POST /query` asks every good connection (structure read, no `schema_error`) at once. For each, the AI (§12) returns one `SELECT`; anything else is refused before it's sent. It runs in a `READ ONLY` transaction with a 15 s timeout and at most 500 rows. The page shows one response: a single table with every connection's rows, a `Connection` column saying which database each row came from, plus which ones couldn't answer and why.
 
 | File | Purpose |
 |---|---|

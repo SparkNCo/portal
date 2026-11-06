@@ -11,6 +11,7 @@ import { buildMysqlStructure, enumValues } from '../../supabase/functions/data-s
 import { readStructure } from '../../supabase/functions/data-sources/introspect';
 import { checkSql } from '../../supabase/functions/query/checkSql';
 import { buildPrompt, describeStructure, MAX_ROWS } from '../../supabase/functions/query/describeStructure';
+import { combineAnswers } from '../../supabase/functions/query/combineAnswers';
 
 // Pure logic behind Query (SPA-487..492) — no database, no AI, no browser.
 
@@ -380,5 +381,83 @@ test.describe('MySQL — structure', () => {
     expect(prompt).toContain('add a LIMIT');
     expect(prompt).toContain('`backticks`');
     expect(prompt).not.toContain('ILIKE');
+  });
+});
+
+test.describe('combineAnswers', () => {
+  const answer = (name: string, columns: string[], rows: unknown[][], extra = {}) => ({
+    dataSourceId: name,
+    dataSourceName: name,
+    explanation: '',
+    sql: 'SELECT 1',
+    columns,
+    rows,
+    truncated: false,
+    ...extra,
+  });
+
+  test('merges answers with the same columns, tagging each row with its connection', () => {
+    const combined = combineAnswers([
+      answer('Shop', ['name', 'stock'], [['Mouse', 10]]),
+      answer('Warehouse', ['name', 'stock'], [['Keyboard', 4]], { truncated: true }),
+    ]);
+    expect(combined).toEqual({
+      columns: ['Connection', 'name', 'stock'],
+      rows: [
+        ['Shop', 'Mouse', 10],
+        ['Warehouse', 'Keyboard', 4],
+      ],
+      truncated: true,
+    });
+  });
+
+  test('leaves failed and unanswerable connections out of the merge', () => {
+    const combined = combineAnswers([
+      answer('Shop', ['name'], [['Mouse']]),
+      answer('Warehouse', ['name'], [['Keyboard']]),
+      { dataSourceId: 'A', dataSourceName: 'Archive', explanation: 'No products', sql: '', unanswerable: true, error: 'No products' },
+      { dataSourceId: 'B', dataSourceName: 'Broken', explanation: '', sql: 'SELECT 1', error: 'Timed out' },
+    ]);
+    expect(combined?.rows).toEqual([
+      ['Shop', 'Mouse'],
+      ['Warehouse', 'Keyboard'],
+    ]);
+  });
+
+  test('merges different columns into one table, leaving the missing cells empty', () => {
+    const combined = combineAnswers([
+      answer('Shop', ['name', 'stock'], [['Mouse', 10]]),
+      answer('Warehouse', ['Stock', 'Name', 'location'], [[4, 'Keyboard', 'B-12']]),
+    ]);
+    expect(combined).toEqual({
+      columns: ['Connection', 'name', 'stock', 'location'],
+      rows: [
+        ['Shop', 'Mouse', 10, null],
+        ['Warehouse', 'Keyboard', 4, 'B-12'],
+      ],
+      truncated: false,
+    });
+  });
+
+  test('keeps a repeated column name apart within one result', () => {
+    const combined = combineAnswers([
+      answer('Shop', ['count', 'count'], [[1, 2]]),
+      answer('Warehouse', ['count'], [[3]]),
+    ]);
+    expect(combined?.columns).toEqual(['Connection', 'count', 'count']);
+    expect(combined?.rows).toEqual([
+      ['Shop', 1, 2],
+      ['Warehouse', 3, null],
+    ]);
+  });
+
+  test('does not merge when only one connection answered', () => {
+    expect(combineAnswers([answer('Shop', ['name'], [['Mouse']])])).toBeNull();
+    expect(
+      combineAnswers([
+        answer('Shop', ['name'], [['Mouse']]),
+        { dataSourceId: 'B', dataSourceName: 'Broken', explanation: '', sql: '', error: 'Timed out' },
+      ]),
+    ).toBeNull();
   });
 });

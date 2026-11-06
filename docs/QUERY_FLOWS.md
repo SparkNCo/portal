@@ -170,16 +170,16 @@ Each card shows the name, `user@host:port/database`, SSL, and the structure's st
 
 ## Asking a question — `QueryRunner`, `query` function
 
-`components/query/query-runner.tsx` → `POST /functions/v1/query { dataSourceId, question }`.
+`components/query/query-runner.tsx` → `POST /functions/v1/query { dataSourceIds, question }`.
 
-- Only connections with a read structure can be asked. With more than one, a picker appears.
+- The question is asked of **every good connection at once**: one whose structure was read (`schema_path`) and whose last read didn't fail (no `schema_error`). There's no connection picker; the Question label lists the connections it goes to.
 - Enter asks; Shift+Enter adds a line. The question is up to 2000 characters.
-- The panel states the limits: "Read-only · at most 500 rows · stops after 15 seconds".
+- The panel states the limits: "Read-only · at most 500 rows per connection · stops after 15 seconds".
 
 **The function** (`supabase/functions/query/index.ts`):
 
-1. Checks the caller is an admin (`401` / `403`), and that AI is configured (`503` "AI isn't configured…" when `AI_API_KEY` is unset).
-2. Loads the connection and its structure JSON. If the structure was never read, it answers `400` "Use Refresh structure first".
+1. Checks the caller is an admin (`401` / `403`), and that AI is configured (`503` "AI isn't configured…" when `AI_API_KEY` is unset). `dataSourceIds` must have 1–10 ids (`400`).
+2. Steps 3–5 run **once per connection**, 3 at a time (`answerFrom`). Each connection's failure becomes that connection's `error`, so one bad database doesn't sink the others. It loads the connection and its structure JSON; if the structure was never read, that connection's error is "Use Refresh structure first".
 3. **Writes the SQL** (`prompt.ts` → `generateQuery`): `describeStructure` turns the JSON into compact text, one line per column (`- customer_id integer not null → public.customers.id`), plus the enum values. `buildPrompt` adds the rules, and `requestJson` (`lib/aiClient.ts`) asks for `{ answerable, sql, explanation }`. The rules:
    - one read-only `SELECT` (CTEs allowed), never writes or several statements;
    - only the listed tables, schema-qualified;
@@ -195,9 +195,15 @@ Each card shows the name, `user@host:port/database`, SSL, and the structure's st
    - **`statement_timeout` of 15 s**;
    - **at most 500 rows**: the query is wrapped as `select * from (<sql>) as query_result limit 501`, and the extra row sets `truncated`;
    - the password is read from Vault (`get_data_source_password`).
-6. Answers `{ question, explanation, sql, columns, rows, truncated }`, or `{ question, explanation, sql, error }`.
+6. Answers **one response**: `{ question, answers, combined }`.
+   - `answers`: one per connection, in the order asked — `{ dataSourceId, dataSourceName, explanation, sql, columns, rows, truncated }`, or with `error` instead of rows. `unanswerable: true` marks a connection whose tables can't answer the question (not a failure).
+   - `combined` (`combineAnswers.ts`): when 2+ connections answered, all their rows in **one table**: a leading `Connection` column naming the database each row came from, then every column any of them returned (matched by name, ignoring case and order; first-seen order). A cell a database didn't return is empty (`null`, shown as "—"). With fewer than 2, `null`.
+   - The merge is plain code, not the AI: the AI only ever sees structures, never client data, so it isn't asked to summarize the rows.
+   - If the AI provider was busy for every connection, it answers a single `503` with that message instead.
 
-**What the page shows:** the explanation, a collapsible **SQL used**, and the result table, with a sticky header, scrolling, and the row count ("Showing the first 500 rows; more matched." when truncated). On an error it shows the reason, plus the SQL when one was generated.
+**What the page shows:**
+- **One connection:** the explanation, a collapsible **SQL used**, and the result table, with a sticky header, scrolling, and the row count ("Showing the first 500 rows; more matched." when truncated). On an error it shows the reason, plus the SQL when one was generated.
+- **Several connections:** with `combined`, "Answered from N connections: …", the merged table, and a collapsible **How each connection answered** (each one's explanation and SQL). When only one connection answered, its result is shown under its name. After that, the connections that failed (with the reason and SQL), then a "Couldn't be answered from:" list with each AI explanation. When none of them hold what was asked, it says so.
 
 | Case | Message |
 |---|---|
@@ -223,7 +229,7 @@ All endpoints are admins only, with the session token as bearer.
 | `DELETE /data-sources/:id` | Removes the connection, its structure file and (trigger) its password |
 | `POST /data-sources/:id/refresh-structure` | Reads the structure again. Answers with the updated row even when it fails (`schema_error`) |
 | `GET /data-sources/:id/structure` | The stored structure JSON |
-| `POST /query` | `{ dataSourceId, question }` → SQL plus rows, or the reason there are none |
+| `POST /query` | `{ dataSourceIds, question }` → one answer per connection (SQL plus rows, or the reason there are none), plus `combined` (all rows in one table) when 2+ answered |
 
 ---
 
