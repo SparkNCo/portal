@@ -4,7 +4,8 @@
 // The question is asked of every listed connection at once. For each, the AI
 // writes SQL from that connection's stored structure (never its data), and
 // it runs read-only against the client's database. Responds with one answer
-// per connection, plus `combined`: all their rows in one table.
+// per connection, plus `combined`: all their rows in one table. With several
+// connections the result columns are planned first, so they line up.
 // Admins only, checked from the session token.
 import { serveWithCors } from "../utils/serve.ts";
 import { supabase } from "../client.ts";
@@ -14,7 +15,8 @@ import { runWithConcurrency } from "../utils/concurrency.ts";
 import { SCHEMAS_BUCKET } from "../data-sources/columns.ts";
 import { findDataSource, storedPassword } from "../data-sources/manageDataSources.ts";
 import { configFor, engineFor } from "../data-sources/engines.ts";
-import { generateQuery } from "./prompt.ts";
+import { generateQuery, planResult } from "./prompt.ts";
+import type { ResultPlan } from "./describeStructure.ts";
 import { checkSql } from "./checkSql.ts";
 import { combineAnswers } from "./combineAnswers.ts";
 
@@ -35,10 +37,10 @@ async function loadStructure(schemaPath: string) {
 
 // The AI writes the SQL. Timed (also when it fails) so the logs show where a
 // slow answer's time goes.
-async function writeSql(structure: any, question: string, dataSource: any) {
+async function writeSql(structure: any, question: string, dataSource: any, columns: string[]) {
   const start = Date.now();
   try {
-    const generated = await generateQuery(structure, question, dataSource.type);
+    const generated = await generateQuery(structure, question, dataSource.type, columns);
     console.log("[query] AI wrote the SQL", { id: dataSource.id, ms: Date.now() - start, tables: structure.tables?.length });
     return generated;
   } catch (err) {
@@ -49,7 +51,7 @@ async function writeSql(structure: any, question: string, dataSource: any) {
 
 // One connection's answer. Never throws: anything that goes wrong becomes
 // that connection's `error`, so one bad database doesn't sink the others.
-async function answerFrom(dataSourceId: string, question: string) {
+async function answerFrom(dataSourceId: string, question: string, columns: string[]) {
   let dataSource = null;
   try {
     dataSource = await findDataSource(dataSourceId);
@@ -67,7 +69,7 @@ async function answerFrom(dataSourceId: string, question: string) {
 
   let generated;
   try {
-    generated = await writeSql(await loadStructure(dataSource.schema_path), question, dataSource);
+    generated = await writeSql(await loadStructure(dataSource.schema_path), question, dataSource, columns);
   } catch (err) {
     if (err instanceof AiBusyError) {
       return { ...base, error: err.message, aiBusy: true };
@@ -100,6 +102,24 @@ async function answerFrom(dataSourceId: string, question: string) {
     }
   } catch (err) {
     return { ...answer, sql: checked.sql, error: err?.message ?? "Couldn't connect to the database." };
+  }
+}
+
+// Several connections: the result columns are decided once, so every query
+// names them the same way, along with how the combined rows are sorted and
+// cut (planResult). Best-effort — if that call fails, each connection names
+// its columns freely and the merge still works, just with more columns.
+const NO_PLAN: ResultPlan = { columns: [], orderBy: null, descending: false, limit: null };
+
+async function sharedPlan(question: string): Promise<ResultPlan> {
+  const start = Date.now();
+  try {
+    const plan = await planResult(question);
+    console.log("[query] planned the result", { ms: Date.now() - start, plan });
+    return plan;
+  } catch (err) {
+    console.error("[query] planning the result failed (non-fatal)", { ms: Date.now() - start, error: err?.message });
+    return NO_PLAN;
   }
 }
 
@@ -145,13 +165,15 @@ serveWithCors("query API Error", async (req) => {
     return Response.json({ error: `Ask at most ${MAX_CONNECTIONS} connections at once` }, { status: 400 });
   }
 
+  const plan = ids.length > 1 ? await sharedPlan(question) : NO_PLAN;
+
   // Kept in the order asked, whatever order they finish in.
   const answers = new Array(ids.length);
   await runWithConcurrency(
     ids.map((id, index) => ({ id, index })),
     CONCURRENCY,
     async ({ id, index }) => {
-      answers[index] = await answerFrom(id, question);
+      answers[index] = await answerFrom(id, question, plan.columns);
     },
   );
 
@@ -160,5 +182,5 @@ serveWithCors("query API Error", async (req) => {
     return Response.json({ error: answers[0].error }, { status: 503 });
   }
 
-  return Response.json({ question, answers, combined: combineAnswers(answers) });
+  return Response.json({ question, answers, combined: combineAnswers(answers, plan) });
 });

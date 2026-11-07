@@ -20,7 +20,7 @@ import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, 
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
-import { TaskFilterPanel, ActiveFilterChips } from "./task-filter-panel";
+import { TaskFilterPanel, ActiveFilterChips, hasFilterOptions } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
   return !isClosedIssue(issue);
@@ -386,31 +386,33 @@ export function PriorityTasks({
               </SelectContent>
             </Select>
           )}
-          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 smalltext gap-1.5 relative"
+          {(hasFilterOptions(filterState) || activeFilters > 0) && (
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 smalltext gap-1.5 relative"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  Filter
+                  {activeFilters > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
+                      {activeFilters}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-96 p-4 bg-background border-border text-foreground"
                 onClick={(e) => e.stopPropagation()}
               >
-                <SlidersHorizontal className="h-3 w-3" />
-                Filter
-                {activeFilters > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">
-                    {activeFilters}
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              className="w-96 p-4 bg-background border-border text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
-            </PopoverContent>
-          </Popover>
+                <TaskFilterPanel filterState={filterState} activeFilters={activeFilters} />
+              </PopoverContent>
+            </Popover>
+          )}
           {onViewModeChange && <ViewSwitcher value={viewMode} onChange={onViewModeChange} />}
           <Button
             variant="ghost"
