@@ -269,7 +269,7 @@ function BuildPageContent() {
                 filterState={noopFilterState}
                 onOpenChat={() => {}}
                 onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Done"
+                title="Completed"
                 slug={slug}
                 lightCard
                 openIssueId={openIssueId}
