@@ -4,6 +4,30 @@ import { X } from "lucide-react";
 import { priorityColors, statusColors, type FilterState } from "./issues.types";
 import { Input } from "@/components/ui/input";
 
+// Whether TaskFilterPanel would show any section. Panels that pass an empty
+// filterState (the Build dashboard's) hide their Filter button instead of
+// opening an empty popover.
+export function hasFilterOptions(filterState: FilterState): boolean {
+  const {
+    hasCycles,
+    availableStatuses,
+    availableCycles = [],
+    onToggleCycle,
+    availablePriorities = [],
+    onTogglePriority,
+    onDateFromChange,
+    onDateToChange,
+  } = filterState;
+  return (
+    hasCycles ||
+    availableStatuses.length > 0 ||
+    (availableCycles.length > 0 && !!onToggleCycle) ||
+    (availablePriorities.length > 0 && !!onTogglePriority) ||
+    !!onDateFromChange ||
+    !!onDateToChange
+  );
+}
+
 export function TaskFilterPanel({
   filterState,
   activeFilters,

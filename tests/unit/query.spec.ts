@@ -10,7 +10,7 @@ import { buildSqlServerStructure, checkValues, sqlServerType } from '../../supab
 import { buildMysqlStructure, enumValues } from '../../supabase/functions/data-sources/mysqlStructure';
 import { readStructure } from '../../supabase/functions/data-sources/introspect';
 import { checkSql } from '../../supabase/functions/query/checkSql';
-import { buildPrompt, describeStructure, MAX_ROWS } from '../../supabase/functions/query/describeStructure';
+import { buildColumnsPrompt, buildPrompt, cleanColumns, cleanPlan, describeStructure, MAX_ROWS } from '../../supabase/functions/query/describeStructure';
 import { combineAnswers } from '../../supabase/functions/query/combineAnswers';
 
 // Pure logic behind Query (SPA-487..492) — no database, no AI, no browser.
@@ -167,7 +167,14 @@ test.describe('describeStructure / buildPrompt', () => {
     expect(prompt).toContain('a single SELECT');
     expect(prompt).toContain(`At most ${MAX_ROWS} rows`);
     expect(prompt).toContain('Today is 2026-10-16');
-    expect(prompt.trimEnd().endsWith('Question: ¿Cuántos pedidos se cancelaron?')).toBe(true);
+    expect(prompt).toContain('Question: ¿Cuántos pedidos se cancelaron?');
+    // The language rule is repeated last, right after the question: some
+    // models (Qwen) otherwise drift into Chinese for the explanation.
+    expect(prompt.trimEnd().endsWith('Write the explanation in the same language as the question above.')).toBe(true);
+    expect(prompt).toContain('Never switch to another language');
+    // Joins: a wrong or missing ON gives every group the same total.
+    expect(prompt).toContain('Join tables only through the foreign keys shown above');
+    expect(prompt).toContain('aggregate each one in its own subquery or CTE first');
   });
 });
 
@@ -451,6 +458,34 @@ test.describe('combineAnswers', () => {
     ]);
   });
 
+  test('"top N" sorts the rows of every connection together and keeps N in total', () => {
+    const combined = combineAnswers(
+      [
+        answer('Shop', ['product_name', 'total_quantity_sold'], [['Mouse', '90'], ['Pad', '40'], ['Cable', '5']]),
+        answer('Warehouse', ['product_name', 'total_quantity_sold'], [['Keyboard', '120'], ['Screen', null], ['Hub', '9']]),
+      ],
+      { orderBy: 'total_quantity_sold', descending: true, limit: 4 },
+    );
+    // Numeric text compares as numbers ('120' > '90'); empty cells go last.
+    expect(combined?.rows).toEqual([
+      ['Warehouse', 'Keyboard', '120'],
+      ['Shop', 'Mouse', '90'],
+      ['Shop', 'Pad', '40'],
+      ['Warehouse', 'Hub', '9'],
+    ]);
+  });
+
+  test('an order on an unknown column leaves the rows as they came, still cut to the limit', () => {
+    const combined = combineAnswers(
+      [answer('Shop', ['name'], [['B'], ['A']]), answer('Warehouse', ['name'], [['C']])],
+      { orderBy: 'missing', descending: false, limit: 2 },
+    );
+    expect(combined?.rows).toEqual([
+      ['Shop', 'B'],
+      ['Shop', 'A'],
+    ]);
+  });
+
   test('does not merge when only one connection answered', () => {
     expect(combineAnswers([answer('Shop', ['name'], [['Mouse']])])).toBeNull();
     expect(
@@ -459,5 +494,55 @@ test.describe('combineAnswers', () => {
         { dataSourceId: 'B', dataSourceName: 'Broken', explanation: '', sql: '', error: 'Timed out' },
       ]),
     ).toBeNull();
+  });
+});
+
+test.describe('shared result columns (several connections)', () => {
+  test('without planned columns the prompt lets the AI name them', () => {
+    const prompt = buildPrompt(shop, 'Units sold per product', '2026-10-16');
+    expect(prompt).toContain('Give result columns clear names with AS');
+    expect(prompt).not.toContain('Return exactly these result columns');
+  });
+
+  test('with planned columns every query is asked for exactly those names', () => {
+    const prompt = buildPrompt(shop, 'Units sold per product', '2026-10-16', 'mysql', ['product_name', 'total_quantity_sold']);
+    expect(prompt).toContain('Return exactly these result columns, in this order, each named with AS exactly as written: product_name, total_quantity_sold.');
+    expect(prompt).toContain('return NULL AS that name');
+    expect(prompt).not.toContain('Give result columns clear names with AS');
+  });
+
+  test('the planning prompt sees only the question', () => {
+    const prompt = buildColumnsPrompt('Units sold per product');
+    expect(prompt).toContain('Question: Units sold per product');
+    expect(prompt).not.toContain('public.orders');
+  });
+
+  test('planned names are cleaned before going into the SQL prompt', () => {
+    expect(cleanColumns(['Product_Name', ' total_quantity_sold ', 'product_name'])).toEqual(['product_name', 'total_quantity_sold']);
+    // Not snake_case identifiers: dropped, so nothing odd lands in an alias.
+    expect(cleanColumns(['total; DROP TABLE x', '1st', 'with space', 'ok_name'])).toEqual(['ok_name']);
+    expect(cleanColumns('nope')).toEqual([]);
+    expect(cleanColumns(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])).toHaveLength(8);
+  });
+
+  test('the planning prompt asks for the order and the total row count, and no rank column', () => {
+    const prompt = buildColumnsPrompt('Top 10 best selling products');
+    expect(prompt).toContain('No rank, position or row-number columns');
+    expect(prompt).toContain('"top 10" → 10');
+  });
+
+  test('the plan keeps only an order on a planned column and a sane limit', () => {
+    expect(
+      cleanPlan({ columns: ['product_name', 'total_quantity_sold'], orderBy: 'Total_Quantity_Sold', descending: true, limit: 10 }),
+    ).toEqual({ columns: ['product_name', 'total_quantity_sold'], orderBy: 'total_quantity_sold', descending: true, limit: 10 });
+    expect(cleanPlan({ columns: ['name'], orderBy: 'sales_rank', descending: 'yes', limit: 0 })).toEqual({
+      columns: ['name'],
+      orderBy: null,
+      descending: false,
+      limit: null,
+    });
+    expect(cleanPlan({ columns: ['name'], orderBy: null, descending: false, limit: 2.5 }).limit).toBeNull();
+    expect(cleanPlan({ columns: ['name'], orderBy: null, descending: false, limit: MAX_ROWS + 1 }).limit).toBeNull();
+    expect(cleanPlan(null)).toEqual({ columns: [], orderBy: null, descending: false, limit: null });
   });
 });

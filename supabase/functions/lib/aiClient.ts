@@ -95,6 +95,26 @@ async function postWithFallback(prompt: string, spec: JsonSchemaSpec): Promise<R
   return postWithRetry(AI_FALLBACK_MODEL, requestBody(AI_FALLBACK_MODEL, prompt, spec), RETRY_DELAYS_MS.length);
 }
 
+// Some providers (several Hugging Face ones) wrap the JSON in ```json fences
+// or put a <think>…</think> block before it, even with a strict schema.
+export function parseJsonContent(raw: string): unknown {
+  const text = raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+    if (fenced) {
+      return JSON.parse(fenced[1].trim());
+    }
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(text.slice(start, end + 1));
+    }
+    throw new Error(`${AI_PROVIDER} returned something that isn't JSON`);
+  }
+}
+
 // `prompt` becomes the sole user message; `spec` describes the strict JSON
 // shape the caller needs back (each caller has its own — boolean flags for
 // the debounce analyzers, title/description/milestoneId for suggestions).
@@ -116,5 +136,5 @@ export async function requestJson<T>(prompt: string, spec: JsonSchemaSpec): Prom
   const data = await res.json();
   const raw = data.choices?.[0]?.message?.content;
   if (!raw) throw new Error(`${AI_PROVIDER} returned no content`);
-  return JSON.parse(raw) as T;
+  return parseJsonContent(raw) as T;
 }
