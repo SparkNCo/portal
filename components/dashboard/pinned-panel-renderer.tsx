@@ -210,7 +210,7 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Done"
+          title="Completed"
           slug={slug}
           compact
           lightCard

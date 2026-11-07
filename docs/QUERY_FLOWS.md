@@ -179,23 +179,24 @@ Each card shows the name, `user@host:port/database`, SSL, and the structure's st
 **The function** (`supabase/functions/query/index.ts`):
 
 1. Checks the caller is an admin (`401` / `403`), and that AI is configured (`503` "AI isn't configured…" when `AI_API_KEY` is unset). `dataSourceIds` must have 1–10 ids (`400`).
-2. Steps 3–5 run **once per connection**, 3 at a time (`answerFrom`). Each connection's failure becomes that connection's `error`, so one bad database doesn't sink the others. It loads the connection and its structure JSON; if the structure was never read, that connection's error is "Use Refresh structure first".
-3. **Writes the SQL** (`prompt.ts` → `generateQuery`): `describeStructure` turns the JSON into compact text, one line per column (`- customer_id integer not null → public.customers.id`), plus the enum values. `buildPrompt` adds the rules, and `requestJson` (`lib/aiClient.ts`) asks for `{ answerable, sql, explanation }`. The rules:
+2. **Several connections: the result is planned first** (`planResult` in `prompt.ts`, prompt in `buildColumnsPrompt`). One short AI call that sees **only the question** — no structure, no data — returns the answer's column names (snake_case, at most 8, e.g. `product_name, total_quantity_sold`). `cleanColumns` keeps only safe identifiers. Every connection's prompt then says "return exactly these columns, in this order, named exactly so; `NULL AS` the name for one this database can't compute", so the rows line up in one table instead of `total_quantity` next to `total_quantity_sold`. No rank/position columns unless the question asks for one (the row order already shows it). The same call also returns how the combined table is ordered and cut — `orderBy` (one of the planned columns), `descending`, `limit` (e.g. "top 10" → 10), checked by `cleanPlan` — because each database returns its own top 10: `combineAnswers` re-sorts every connection's rows together (numbers, including numeric text, as numbers; empty cells last) and keeps `limit` rows in total. If this call fails, it's skipped: each connection names its columns freely and the rows are just stacked. With one connection it isn't made.
+3. Steps 4–6 run **once per connection**, 3 at a time (`answerFrom`). Each connection's failure becomes that connection's `error`, so one bad database doesn't sink the others. It loads the connection and its structure JSON; if the structure was never read, that connection's error is "Use Refresh structure first".
+4. **Writes the SQL** (`prompt.ts` → `generateQuery`): `describeStructure` turns the JSON into compact text, one line per column (`- customer_id integer not null → public.customers.id`), plus the enum values. `buildPrompt` adds the rules, and `requestJson` (`lib/aiClient.ts`) asks for `{ answerable, sql, explanation }`. The rules:
    - one read-only `SELECT` (CTEs allowed), never writes or several statements;
    - only the listed tables, schema-qualified;
-   - clear column names, and order that answers the question;
+   - clear column names (or exactly the planned ones, step 2), and order that answers the question;
    - a `LIMIT` of at most 500;
    - `ILIKE` for text;
    - today's date, to resolve "this year" or "last month";
    - `answerable: false` when the tables can't answer it;
    - the explanation in the question's language.
-4. **Checks the SQL** (`checkSql.ts`): trailing semicolons are dropped. Anything that isn't a single statement starting with `SELECT` or `WITH` is refused and never sent.
-5. **Runs it** (`runQuery.ts`), with the minimum safety agreed for now:
+5. **Checks the SQL** (`checkSql.ts`): trailing semicolons are dropped. Anything that isn't a single statement starting with `SELECT` or `WITH` is refused and never sent.
+6. **Runs it** (`runQuery.ts`), with the minimum safety agreed for now:
    - a **`READ ONLY` transaction**, so the database itself refuses any write;
    - **`statement_timeout` of 15 s**;
    - **at most 500 rows**: the query is wrapped as `select * from (<sql>) as query_result limit 501`, and the extra row sets `truncated`;
    - the password is read from Vault (`get_data_source_password`).
-6. Answers **one response**: `{ question, answers, combined }`.
+7. Answers **one response**: `{ question, answers, combined }`.
    - `answers`: one per connection, in the order asked — `{ dataSourceId, dataSourceName, explanation, sql, columns, rows, truncated }`, or with `error` instead of rows. `unanswerable: true` marks a connection whose tables can't answer the question (not a failure).
    - `combined` (`combineAnswers.ts`): when 2+ connections answered, all their rows in **one table**: a leading `Connection` column naming the database each row came from, then every column any of them returned (matched by name, ignoring case and order; first-seen order). A cell a database didn't return is empty (`null`, shown as "—"). With fewer than 2, `null`.
    - The merge is plain code, not the AI: the AI only ever sees structures, never client data, so it isn't asked to summarize the rows.

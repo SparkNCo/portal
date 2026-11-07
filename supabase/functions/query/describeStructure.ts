@@ -85,7 +85,23 @@ const DIALECTS: Record<string, { name: string; example: string; rules: string[] 
   },
 };
 
-export function buildPrompt(structure: Structure, question: string, today: string, engine = "postgres"): string {
+// When the same question goes to several connections, every query is asked
+// for the same result columns (planned once, see planResult in prompt.ts),
+// so their rows line up in one table.
+function columnsRule(columns: string[] | undefined): string {
+  if (!columns?.length) {
+    return "- Give result columns clear names with AS (e.g. total_revenue), and order the rows in the way that best answers the question.";
+  }
+  return `- Return exactly these result columns, in this order, each named with AS exactly as written: ${columns.join(", ")}. Add no other columns. If one of them can't be computed from these tables, return NULL AS that name. Order the rows in the way that best answers the question.`;
+}
+
+export function buildPrompt(
+  structure: Structure,
+  question: string,
+  today: string,
+  engine = "postgres",
+  columns?: string[],
+): string {
   const dialect = DIALECTS[engine] ?? DIALECTS.postgres;
   return `You write ${dialect.name} queries for a business user who asks questions in plain language (in any language).
 
@@ -96,12 +112,73 @@ ${describeStructure(structure)}
 Rules:
 - Write ONE read-only query: a single SELECT (CTEs with WITH are fine). Never INSERT, UPDATE, DELETE, DDL, or more than one statement.
 - Schema-qualify every table (e.g. ${dialect.example}).
-- Give result columns clear names with AS (e.g. total_revenue), and order the rows in the way that best answers the question.
+${columnsRule(columns)}
+- Join tables only through the foreign keys shown above (→), with an explicit ON matching those columns; never join without ON, through a cross join, or on columns that merely share a name. Check each join: a wrong one makes every group show the same total.
+- Don't join two one-to-many tables of the same parent before aggregating (it multiplies the rows and inflates SUM / COUNT): aggregate each one in its own subquery or CTE first, then join the results.
 - With GROUP BY, every column in SELECT, ORDER BY or HAVING must be grouped or inside an aggregate. To order groups by something else, aggregate it (e.g. "latest customers" → ORDER BY MAX(o.ordered_at) DESC).
 ${dialect.rules.map((rule) => `- ${rule}`).join("\n")}
 - Today is ${today}; resolve relative dates ("this year", "last month") from it.
 - If the question can't be answered from these tables, set answerable to false, sql to an empty string, and say why in explanation.
-- explanation: one or two short sentences, in the same language as the question, saying what the query returns.
+- explanation: one or two short sentences saying what the query returns, written in the language the question is written in (an English question gets an English explanation, a Spanish one a Spanish explanation). Never switch to another language, such as Chinese, that the question doesn't use.
+
+Question: ${question}
+
+Write the explanation in the same language as the question above.`;
+}
+
+// ─── Shared result columns (one question, several connections) ───────────
+
+const MAX_PLANNED_COLUMNS = 8;
+const COLUMN_NAME = /^[a-z][a-z0-9_]{0,62}$/;
+
+// Sees only the question — no structure, no data.
+export function buildColumnsPrompt(question: string): string {
+  return `A business user's question is answered by running SQL on several databases, and their results are shown together in one table. Decide the columns that table should have, so every database's query uses the same names, and how the combined rows should be ordered.
+
+Rules:
+- Only the columns needed to answer the question, in the order they should be shown.
+- snake_case names in English, short and specific (e.g. product_name, total_quantity_sold, order_month).
+- No rank, position or row-number columns unless the question asks for one: the order of the rows already shows the ranking.
+- At most ${MAX_PLANNED_COLUMNS} columns.
+- orderBy: the column the combined rows should be sorted by (one of your columns), or null when the order doesn't matter. descending: true for "top", "best", "most", "latest"…
+- limit: how many rows the question asks for in total (e.g. "top 10" → 10), or null when it doesn't say.
 
 Question: ${question}`;
+}
+
+// How the combined table is ordered and cut, across every connection: each
+// database returns its own "top 10", so the merge re-sorts them and keeps 10.
+export type ResultOrder = {
+  orderBy: string | null;
+  descending: boolean;
+  limit: number | null;
+};
+
+export type ResultPlan = ResultOrder & { columns: string[] };
+
+export function cleanPlan(plan: unknown): ResultPlan {
+  const raw = (plan && typeof plan === "object" ? plan : {}) as Record<string, unknown>;
+  const columns = cleanColumns(raw.columns);
+  const orderBy = typeof raw.orderBy === "string" ? raw.orderBy.trim().toLowerCase() : "";
+  const limit = typeof raw.limit === "number" && Number.isInteger(raw.limit) ? raw.limit : 0;
+  return {
+    columns,
+    // Only one of the planned columns: anything else couldn't be found.
+    orderBy: columns.includes(orderBy) ? orderBy : null,
+    descending: raw.descending === true,
+    limit: limit >= 1 && limit <= MAX_ROWS ? limit : null,
+  };
+}
+
+// Only safe, distinct snake_case names: they go straight into the SQL prompt
+// as aliases.
+export function cleanColumns(columns: unknown): string[] {
+  if (!Array.isArray(columns)) {
+    return [];
+  }
+  const names = columns
+    .filter((c): c is string => typeof c === "string")
+    .map((c) => c.trim().toLowerCase())
+    .filter((c) => COLUMN_NAME.test(c));
+  return [...new Set(names)].slice(0, MAX_PLANNED_COLUMNS);
 }

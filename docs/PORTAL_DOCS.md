@@ -1309,7 +1309,18 @@ Set these as Supabase Edge Function secrets (`supabase secrets set ...`), or in 
 | `AI_REASONING_EFFORT` | No | — (not sent) | Sent as `reasoning_effort` when set. Gemini flash models "think" by default, which can make one call take 30–90 s (Query felt stuck). `low` cuts that to a few seconds, and `none` turns thinking off where the model allows it. Leave unset for models that reject the parameter (e.g. `gpt-4.1-mini`, Qwen) |
 | `AI_FALLBACK_MODEL` | No | — | Another model on the same provider, tried once when `AI_MODEL` still answers "busy" (429/5xx, e.g. Gemini's 503 "high demand") after the retries. Busy answers are retried after 1 s and 3 s first; if they stay busy, callers get "The AI model is busy right now…" (Query shows it as is) |
 
-Current configuration (since November 2026, before that `gemini-2.5-flash`): Google Gemini through its OpenAI-compatible endpoint, on the free tier (rate-limited; the limits per project are in Google AI Studio). Key from https://aistudio.google.com → Get API key. `AI_REASONING_EFFORT=low` keeps Query answers to a few seconds; `none` may not be accepted by Gemini 3 models.
+Current configuration (since November 2026): Hugging Face Inference Providers router, with the team lead's account (needs prepaid credits or PRO: Hugging Face stopped giving Free accounts monthly credits in October 2026, and without them every call fails with "You have no remaining credits"). `AI_MODEL` can be any chat model the router serves; append `:provider` (e.g. `:fastest`) to pin one. Leave `AI_REASONING_EFFORT` and `AI_FALLBACK_MODEL` **unset** unless the model supports them: Qwen rejects `reasoning_effort`, and a fallback model from another provider would 404.
+
+```
+AI_PROVIDER=huggingface
+AI_BASE_URL=https://router.huggingface.co/v1
+AI_MODEL=Qwen/Qwen2.5-Coder-3B-Instruct
+AI_API_KEY=hf_...
+```
+
+Small models (3B) follow instructions loosely: in Query they may write the explanation in Chinese or get complex SQL wrong. A larger one (`Qwen/Qwen2.5-Coder-32B-Instruct`, `meta-llama/Llama-3.3-70B-Instruct`) is more reliable, if the router's providers support strict `json_schema` for it.
+
+Previous configuration, Google Gemini through its OpenAI-compatible endpoint, on the free tier (rate-limited; the limits per project are in Google AI Studio). Key from https://aistudio.google.com → Get API key. `AI_REASONING_EFFORT=low` keeps Query answers to a few seconds; `none` may not be accepted by Gemini 3 models.
 
 ```
 AI_PROVIDER=gemini
@@ -1318,15 +1329,6 @@ AI_MODEL=gemini-3.8-flash
 AI_REASONING_EFFORT=low
 AI_FALLBACK_MODEL=gemini-2.5-flash
 AI_API_KEY=AIza...
-```
-
-Previous configuration, Hugging Face Inference Providers router. Hugging Face stopped giving Free accounts monthly credits in October 2026, so this needs prepaid credits or PRO now; without them every call fails with "You have no remaining credits":
-
-```
-AI_PROVIDER=huggingface
-AI_BASE_URL=https://router.huggingface.co/v1
-AI_MODEL=Qwen/Qwen2.5-Coder-3B-Instruct
-AI_API_KEY=hf_...
 ```
 
 On Gemini's free tier, Google may use what's sent (prompts) to improve its products. For Query that means questions and database structure, never rows. Consider a paid tier before using it with client databases.
@@ -1340,7 +1342,7 @@ On Gemini's free tier, Google may use what's sent (prompts) to improve its produ
 1. Throws immediately if `AI_API_KEY` or `AI_MODEL` is missing. No network call is made.
 2. `POST {AI_BASE_URL}/chat/completions` with `model`, a single `user` message containing the prompt, and `response_format: { type: "json_schema", json_schema: { name, strict: true, schema } }`.
 3. On a non-2xx response it throws `"{AI_PROVIDER} error: {body}"`, and on an empty completion it throws `"{AI_PROVIDER} returned no content"`.
-4. Returns `JSON.parse(choices[0].message.content)` typed as `T`.
+4. Parses `choices[0].message.content` (`parseJsonContent`) and returns it typed as `T`. Some Hugging Face providers wrap the JSON in ```` ```json ```` fences or add a `<think>…</think>` block before it; both are stripped.
 
 `aiEnabled()` returns whether `AI_API_KEY` is set, for callers that want to check up front.
 

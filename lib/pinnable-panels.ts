@@ -26,7 +26,7 @@ export const PINNABLE_PANELS: Record<
     sourceDashboard: "build",
   },
   build_backlog: { label: "Backlog", sourceDashboard: "build" },
-  build_done: { label: "Done", sourceDashboard: "build" },
+  build_done: { label: "Completed", sourceDashboard: "build" },
   bugs_list: { label: "Bugs", sourceDashboard: "bugs" },
 };
 
