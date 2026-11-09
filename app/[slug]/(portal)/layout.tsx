@@ -84,11 +84,13 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
 
 type ClientSummary = { clientName: string | null; linear_slug: string | null };
 
-// Resolves the URL's client before anything else renders — before the
-// sign-in check too, so a mistyped or outdated /{slug} shows a 404 for
-// everyone instead of a page full of empty or failing panels. Matches the
-// client's clientName (the route slug) or linear_slug (older links),
-// ignoring case since stored slugs have mixed casing.
+// Resolves the URL's client before the page renders, so a mistyped or
+// outdated /{slug} shows a 404 instead of a page full of empty or failing
+// panels. It runs after the sign-in check (AuthGate): a signed-out visitor is
+// sent to log in whatever the slug, so they can't tell real clients from
+// made-up ones. Matches the client's clientName (the route slug) or
+// linear_slug (older links), ignoring case since stored slugs have mixed
+// casing.
 function ClientExistenceGate({ children }: { readonly children: React.ReactNode }) {
   const { slug: rawUrlSlug } = useParams<{ slug: string }>();
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug).trim().toLowerCase() : "";
@@ -122,12 +124,12 @@ export default function PortalLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClientExistenceGate>
-      <AuthGate>
+    <AuthGate>
+      <ClientExistenceGate>
         <SidebarProvider>
           <LayoutContent>{children}</LayoutContent>
         </SidebarProvider>
-      </AuthGate>
-    </ClientExistenceGate>
+      </ClientExistenceGate>
+    </AuthGate>
   );
 }

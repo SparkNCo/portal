@@ -11,15 +11,6 @@ const CREATE_COMMENT_MUTATION = `
   }
 `;
 
-async function getUserLinearToken(profileId: string): Promise<string> {
-  const { data } = await supabase.schema("portal")
-    .from("users")
-    .select("linear_access_token")
-    .eq("id", profileId)
-    .maybeSingle();
-  return data?.linear_access_token ?? Deno.env.get("LINEAR_API_KEY")!;
-}
-
 async function postLinearComment(issueId: string, body: string, token: string): Promise<void> {
   const res = await fetch(LINEAR_GRAPHQL, {
     method: "POST",
@@ -102,8 +93,7 @@ export const createQuestion = async (req: Request) => {
 
     if (insertError) throw new Error(insertError.message);
 
-    const token = await getUserLinearToken(profile_id);
-    await postLinearComment(issue_id, questionBody, token);
+    await postLinearComment(issue_id, questionBody, Deno.env.get("LINEAR_API_KEY")!);
 
     return new Response(JSON.stringify({ data: inserted }), {
       status: 200,

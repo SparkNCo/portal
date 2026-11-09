@@ -9,6 +9,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { getStakeholderClientSlug, PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { developerPanelPath } from "@/lib/developer-routes";
+import { takeLoginRedirect } from "@/lib/login-redirect";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -36,10 +37,15 @@ export default function LoginForm({
 
   useEffect(() => {
     if (customer) {
+      // Sent here from a page that needs a login (AuthGate): go back there
+      // instead of the home page. That page's own access check still
+      // applies: no access to it means their home page, with a message.
+      const redirectTo = takeLoginRedirect();
+
       if (customer?.role === "stakeholder") {
         const clientSlug = getStakeholderClientSlug(customer);
         if (clientSlug) {
-          router.push(`/${clientSlug}/dashboard`);
+          router.push(redirectTo ?? `/${clientSlug}/dashboard`);
           onLoginSuccess(customer.email);
         } else {
           setErrorMessage("No client assigned to this account. Contact your administrator.");
@@ -56,7 +62,9 @@ export default function LoginForm({
         supabase.auth.signOut();
         return;
       }
-      if (customer?.role === "admin") {
+      if (redirectTo) {
+        router.push(redirectTo);
+      } else if (customer?.role === "admin") {
         router.push("/admin/users");
       } else if (customer?.role === "developer") {
         // Their last-picked initiative (or first assignment) — see lib/developer-routes.ts.

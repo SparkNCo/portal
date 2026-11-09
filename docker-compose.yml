@@ -18,7 +18,9 @@ services:
         NEXT_PUBLIC_COMET_AI_UID: ${NEXT_PUBLIC_COMET_AI_UID:-}
         # The portal's public address, e.g. https://portal.example.com
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-    image: sparkco-portal
+    # Another name keeps a second deploy (e.g. against the self-hosted
+    # Supabase) from replacing this image. See docs/LOCAL_SUPABASE.md.
+    image: ${IMAGE_NAME:-sparkco-portal}
     ports:
       - "${PORT:-3000}:3000"
     restart: unless-stopped

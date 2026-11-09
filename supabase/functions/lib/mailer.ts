@@ -52,7 +52,7 @@ function getSmtpTransporter() {
 async function sendViaSmtp(args: SendEmailArgs): Promise<SendEmailResult> {
   try {
     const transporter = getSmtpTransporter();
-    const fromAddress = Deno.env.get("SMTP_FROM") || Deno.env.get("SMTP_USER")!;
+    const fromAddress = Deno.env.get("SMTP_USER")!;
     const from = `${SMTP_FROM_NAME} <${fromAddress}>`;
     const info = await transporter.sendMail({
       from,

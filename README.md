@@ -110,6 +110,22 @@ Files: `Dockerfile` (how the image is built), `docker-compose.yml` (how it runs)
 
 ⸻
 
+## Local Supabase (Docker)
+
+A complete Supabase (database, Auth, edge functions, Storage, Realtime, Studio) runs locally from `docker/supabase/`, with the cloud's structure and test users. Full guide: [docs/LOCAL_SUPABASE.md](docs/LOCAL_SUPABASE.md).
+
+```bash
+cd docker/supabase && docker compose up -d && cd ../..
+node docker/supabase/portal/seed-users.mjs
+node docker/supabase/portal/seed-test-data.mjs
+```
+
+Studio at http://localhost:8000, Auth emails at http://localhost:8025. Point the portal at it with a `.env.local` (see the guide).
+
+**Cron jobs are off locally on purpose** (they would call production). A self-hosted production instance must turn them on, or metrics, vector search and suggested features stop updating: see [Cron jobs](docs/LOCAL_SUPABASE.md#cron-jobs) and the [production checklist](docs/LOCAL_SUPABASE.md#production-checklist).
+
+⸻
+
 ## Deploying the UI (Vercel)
 	1.	Push the repo to GitHub
 	2.	In Vercel:
