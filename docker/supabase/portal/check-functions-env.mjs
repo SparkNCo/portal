@@ -16,9 +16,11 @@ const envPath = join(dirname(fileURLToPath(import.meta.url)), "..", "functions.e
 
 const local = new Map();
 for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-  const match = /^([A-Z0-9_]+)=(.*)$/.exec(line);
+  // Like Docker Compose and the Supabase CLI: spaces around "=" and one pair
+  // of surrounding quotes aren't part of the value.
+  const match = /^([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
   if (match) {
-    local.set(match[1], match[2].replace(/^["']|["']$/g, ""));
+    local.set(match[1], match[2].replace(/^(["'])(.*)\1$/, "$2"));
   }
 }
 

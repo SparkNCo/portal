@@ -1294,7 +1294,7 @@ When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-desi
 
 ## 12. AI Features & Config-Driven AI Client
 
-Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers and Query (§13).
+Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers (called by the marketing site, see 12.5) and Query (§13).
 
 ### 12.1 Environment variables
 
@@ -1352,8 +1352,8 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 
 | Caller | On error or no key |
 |---|---|
-| `debounce` → `analyze-idea` | Catches the error and returns all-false flags (`audience/problem/idea/stage: false`), with status 200 |
-| `debounce` → `analyze-current-state` | Same pattern, all-false flags (`user/capability/reason/limitations: false`) |
+| `debounce` → `analyze-idea` | Catches the error and returns all-false flags (`audience/problem/idea/stage: false`), with status **500**. A marketing-site form that only reads the flags sees "nothing filled in" (see 12.5) |
+| `debounce` → `analyze-current-state` | Same pattern: all-false flags (`user/capability/reason/limitations: false`), status 500 |
 | `suggested-features` → `generate` | Returns a `500` with the error message |
 | `suggested-features` → `generate-all` (cron) | Each project's failure is logged and counted in `failed`. The run continues and creates no suggestions |
 | `query` | No key: `503` "AI isn't configured for the portal". A provider error: `500` with the provider's message, shown on the Query page |
@@ -1371,6 +1371,25 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `supabase/functions/query/prompt.ts` | Turns a plain-text question into SQL from a client database's structure (schema `sql_query`: `answerable`, `sql`, `explanation`). See §13 |
 | `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: the Linear context fed into the suggestion prompt |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Schedules the weekly AI generation run (Mon 06:00 UTC) |
+
+### 12.5 Debounce analyzers (used by the marketing site)
+
+The `debounce` edge function is **not called by the portal**: its callers are the forms on the **marketing site**, a separate project. Before a prospective client can send their message, the form posts the text here and the AI checks it covers what the form asks for. Nothing in this repo references it, so it's easy to mistake for dead code: don't remove it or change its responses without checking the marketing site.
+
+| Marketing site caller | Request | Checks whether the message describes | Response |
+|---|---|---|---|
+| `DiscoveryForm.tsx` (line 138), `product-idea-form.tsx` (line 67) | `POST /functions/v1/debounce?type=idea` | **audience** (who it's for), **problem** (what it solves), **idea** (what the product does), **stage** (how far along the business is) | `{ audience, problem, idea, stage }` |
+| `DiscoveryForm.tsx` (line 187) | `POST /functions/v1/debounce?type=current-state` | **user** (who will use the system), **capability** (systems and tools they already have), **reason** (why now), **limitations** (technical, budget, legal or operational constraints) | `{ user, capability, reason, limitations }` |
+
+Request body for both: `{ "message": "<the text the user typed>" }`. Each flag is `true` when the message clearly covers it; the form decides from them whether to let the user send. A missing or non-string `message` gets a `400 { error: "Invalid message" }`; any other `type`, or a method other than `POST`, gets `404`.
+
+**Which AI it uses:** whatever the project's `AI_*` secrets point at (12.1), through `requestJson` in `lib/aiClient.ts`, the same as suggested features and Query. There's no separate model or key for it, so changing `AI_MODEL` or the provider changes how these forms judge messages too. After switching models, try both forms with a message that should pass and one that shouldn't: a small model (e.g. a 3B one) can answer `false` for messages that do cover a point, which blocks real prospective clients.
+
+**When the AI fails** (provider down, out of credits, no `AI_API_KEY`, invalid JSON), the function answers **500 with every flag `false`**, the same shape as "nothing covered". A form that only reads the flags then tells the user their message is incomplete when the problem is on our side. The status code is the only way to tell the two apart.
+
+**Auth:** it runs with JWT verification on (only `cometchat` is exempt), so the marketing site sends a Supabase key in `Authorization`. If the marketing site ever points at another Supabase (for example a self-hosted one), it needs that instance's URL and anon key.
+
+Files: `supabase/functions/debounce/index.ts` (router), `analyze-idea.ts`, `analyze-current-state.ts`.
 
 The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
 

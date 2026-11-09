@@ -12,12 +12,22 @@ import { getDeveloperProfile } from "./getDeveloperProfile.ts";
 import { updateDeveloperProfile } from "./updateDeveloperProfile.ts";
 import { resolveCaller } from "./resolveCaller.ts";
 import { testTicketConnection } from "./ticketSystemSettings.ts";
-import { resolveTestMode, testModeBody, TestModeRejected, type TestRun } from "../lib/testMode.ts";
+import {
+  resolveTestMode,
+  testModeBody,
+  TestModeRejected,
+  type TestRun,
+} from "../lib/testMode.ts";
 
 // The requests that can run in test mode (lib/testMode.ts): POST with one of
 // these `type`s. Any other request carrying the test-mode header is refused
 // rather than run for real.
-const TEST_MODE_POST_TYPES = new Set(["", "developer", "stakeholder", "customer"]);
+const TEST_MODE_POST_TYPES = new Set([
+  "",
+  "developer",
+  "stakeholder",
+  "customer",
+]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -30,8 +40,14 @@ Deno.serve(async (req) => {
 
     const testRun = resolveTestMode(req);
     if (testRun) {
-      const supported = req.method === "POST" && TEST_MODE_POST_TYPES.has(url.searchParams.get("type") ?? "");
-      if (!supported) return jsonResponse({ error: "Test mode isn't supported for this request" }, 400);
+      const supported =
+        req.method === "POST" &&
+        TEST_MODE_POST_TYPES.has(url.searchParams.get("type") ?? "");
+      if (!supported)
+        return jsonResponse(
+          { error: "Test mode isn't supported for this request" },
+          400,
+        );
       return await handlePost(req, url, schema, testRun);
     }
 
@@ -50,7 +66,8 @@ Deno.serve(async (req) => {
 
     return new Response("Method not allowed", { status: 405 });
   } catch (error) {
-    if (error instanceof TestModeRejected) return jsonResponse({ error: error.message }, 403);
+    if (error instanceof TestModeRejected)
+      return jsonResponse({ error: error.message }, 403);
     console.error("[Supabase Error]", error);
     return jsonResponse({ error: error.message }, 500);
   }
@@ -61,7 +78,8 @@ const handleGet = async (url: URL, schema: string) => {
   const email = url.searchParams.get("email");
 
   if (type === "customers") {
-    const { data: customerUsers, error: usersError } = await supabase.schema(schema)
+    const { data: customerUsers, error: usersError } = await supabase
+      .schema(schema)
       .from("users")
       .select("id, email, customer_id")
       .eq("role", "customer");
@@ -70,9 +88,12 @@ const handleGet = async (url: URL, schema: string) => {
     const clientIds = (customerUsers ?? [])
       .map((u) => u.customer_id)
       .filter((id): id is string => Boolean(id) && UUID_RE.test(id));
-    const { data: clients, error: clientsError } = await supabase.schema(schema)
+    const { data: clients, error: clientsError } = await supabase
+      .schema(schema)
       .from("customers")
-      .select("customer_id, clientName, linear_slug, stripe_customer_id, preview_links, systems")
+      .select(
+        "customer_id, clientName, linear_slug, stripe_customer_id, preview_links, systems",
+      )
       .in("customer_id", clientIds);
     if (clientsError) throw new Error(clientsError.message);
 
@@ -84,7 +105,8 @@ const handleGet = async (url: URL, schema: string) => {
       customer_id: u.customer_id,
       clientName: clientMap.get(u.customer_id)?.clientName ?? null,
       linear_slug: clientMap.get(u.customer_id)?.linear_slug ?? null,
-      stripe_customer_id: clientMap.get(u.customer_id)?.stripe_customer_id ?? null,
+      stripe_customer_id:
+        clientMap.get(u.customer_id)?.stripe_customer_id ?? null,
       preview_links: clientMap.get(u.customer_id)?.preview_links ?? [],
       // SPA-513: per-project 3rd-party system selection, e.g. which chat
       // provider (CometChat vs Supabase Realtime) this customer's panel uses.
@@ -101,7 +123,8 @@ const handleGet = async (url: URL, schema: string) => {
     if (!slug) return jsonResponse({ error: "slug is required" }, 400);
 
     // customer_id lets PreviewLinksBanner's inline editor save without another lookup.
-    const { data, error } = await supabase.schema(schema)
+    const { data, error } = await supabase
+      .schema(schema)
       .from("customers")
       .select("customer_id, preview_links")
       .ilike("clientName", escapeIlike(slug))
@@ -150,7 +173,12 @@ const handlePatch = async (req: Request, url: URL, schema: string) => {
   return jsonResponse(updatedUser);
 };
 
-const handlePost = async (req: Request, url: URL, schema: string, testRun: TestRun | null = null) => {
+const handlePost = async (
+  req: Request,
+  url: URL,
+  schema: string,
+  testRun: TestRun | null = null,
+) => {
   const body = await req.json();
   const type = url.searchParams.get("type");
 
@@ -191,13 +219,18 @@ const handlePost = async (req: Request, url: URL, schema: string, testRun: TestR
 
 // `users.customer_id` may still hold legacy Stripe customer IDs (e.g. "cus_...")
 // for rows that predate the customers table migration; only UUIDs match `customers.customer_id`.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // A 401/403 response unless the bearer token belongs to an admin.
-const refuseNonAdmin = async (req: Request, schema: string): Promise<Response | null> => {
+const refuseNonAdmin = async (
+  req: Request,
+  schema: string,
+): Promise<Response | null> => {
   const caller = await resolveCaller(req, schema);
   if (!caller) return jsonResponse({ error: "Unauthorized" }, 401);
-  if (caller.role !== "admin") return jsonResponse({ error: "Unauthorized" }, 403);
+  if (caller.role !== "admin")
+    return jsonResponse({ error: "Unauthorized" }, 403);
   return null;
 };
 
@@ -211,13 +244,13 @@ const jsonResponse = (data: any, status = 200) => {
   });
 };
 
-
 // =========================
 // 🔍 GET ONE USER
 // =========================
 
 const fetchUser = async (email: string, schema: string) => {
-  const { data, error } = await supabase.schema(schema)
+  const { data, error } = await supabase
+    .schema(schema)
     .from("users")
     .select("*")
     // Case-insensitive: Auth and portal.users can store the same address
@@ -230,9 +263,14 @@ const fetchUser = async (email: string, schema: string) => {
 
   // `linear_slug`/`clientName` moved off `users` onto `customers`; merge them
   // back into the profile when this user is linked to a client record.
-  let client: { clientName?: string | null; linear_slug?: string | null; stripe_customer_id?: string | null } | null = null;
+  let client: {
+    clientName?: string | null;
+    linear_slug?: string | null;
+    stripe_customer_id?: string | null;
+  } | null = null;
   if (data.customer_id && UUID_RE.test(data.customer_id)) {
-    const { data: clientRow } = await supabase.schema(schema)
+    const { data: clientRow } = await supabase
+      .schema(schema)
       .from("customers")
       .select("clientName, linear_slug, stripe_customer_id")
       .eq("customer_id", data.customer_id)
@@ -244,7 +282,8 @@ const fetchUser = async (email: string, schema: string) => {
   data.stripe_customer_id = client?.stripe_customer_id ?? null;
 
   if (data.role === "developer") {
-    const { data: developerRow } = await supabase.schema(schema)
+    const { data: developerRow } = await supabase
+      .schema(schema)
       .from("developers")
       .select("developer_type")
       .eq("user_id", data.id)
@@ -253,7 +292,8 @@ const fetchUser = async (email: string, schema: string) => {
   }
 
   if (data.assignment_id?.length > 0) {
-    const { data: assignments, error: assignmentError } = await supabase.schema(schema)
+    const { data: assignments, error: assignmentError } = await supabase
+      .schema(schema)
       .from("assignments")
       .select("*")
       .in("id", data.assignment_id)
@@ -263,15 +303,23 @@ const fetchUser = async (email: string, schema: string) => {
 
     const enrichedAssignments = await Promise.all(
       (assignments ?? []).map(async (assignment: any) => {
-        const { data: customerUser } = await supabase.schema(schema)
+        const { data: customerUser } = await supabase
+          .schema(schema)
           .from("users")
           .select("customer_id")
           .eq("id", assignment.customer_id)
           .maybeSingle();
 
-        let client: { clientName?: string | null; linear_slug?: string | null } | null = null;
-        if (customerUser?.customer_id && UUID_RE.test(customerUser.customer_id)) {
-          const { data: clientRow } = await supabase.schema(schema)
+        let client: {
+          clientName?: string | null;
+          linear_slug?: string | null;
+        } | null = null;
+        if (
+          customerUser?.customer_id &&
+          UUID_RE.test(customerUser.customer_id)
+        ) {
+          const { data: clientRow } = await supabase
+            .schema(schema)
             .from("customers")
             .select("clientName, linear_slug")
             .eq("customer_id", customerUser.customer_id)
@@ -284,7 +332,7 @@ const fetchUser = async (email: string, schema: string) => {
           clientName: client?.clientName ?? null,
           linear_slug: client?.linear_slug ?? null,
         };
-      })
+      }),
     );
 
     return { ...data, assignment_id: enrichedAssignments };
