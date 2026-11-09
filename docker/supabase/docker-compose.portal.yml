@@ -3,11 +3,17 @@
 # Base: supabase/supabase tag self-hosted/v0.8.3, docker/ folder
 # https://github.com/supabase/supabase/tree/self-hosted/v0.8.3/docker
 # Only the files this stack uses were copied: docker-compose.yml, .env.example,
-# volumes/api/envoy and volumes/db. They stay untouched; every portal change
-# lives here or in portal/.
+# volumes/api/envoy and volumes/db. Every portal change lives here or in
+# portal/; the upstream files are untouched except for removing the
+# template's sample secrets (flagged by secret scanners):
+#   - .env.example: every secret left empty (upstream ships public demo
+#     values, e.g. ANON_KEY/SERVICE_ROLE_KEY signed by "supabase-demo").
+#   - docker-compose.yml: the commented GOTRUE_HOOK_*_SECRETS examples use
+#     "v1,whsec_<your-base64-secret>" instead of a sample value.
 #
 # To update: download the new tag's docker/ folder, diff those same files
-# against these and copy them over, then check this file still applies.
+# against these and copy them over, then check this file still applies and
+# redo the two secret removals above.
 #
 # Loaded through COMPOSE_FILE in .env:
 #   COMPOSE_PATH_SEPARATOR=:
