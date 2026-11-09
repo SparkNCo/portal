@@ -68,12 +68,46 @@ test.describe('Login page', () => {
     await testLoginRedirect(page, 'TEST_DEVELOPER_EMAIL', '/developer');
   });
 
-  // ── Client that doesn't exist ────────────────────────────────────────────
+  // ── Signed out on a portal page ──────────────────────────────────────────
+  // Sent to log in first, whatever the page: a real client and a made-up one
+  // look the same, so a signed-out visitor can't tell which clients exist.
 
-  test('a client URL that does not exist shows a 404 with a link to login when signed out', async ({ page }) => {
+  test('signed out, a portal page sends you to a clean login page', async ({ page }) => {
+    await page.goto('/spark-portal/build?issueId=abc-123');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    const url = new URL(page.url());
+    expect(url.pathname).toBe('/');
+    // The page is remembered in sessionStorage, not in the URL.
+    expect(url.search).toBe('');
+  });
+
+  test('signed out, a client that does not exist also sends you to log in (no 404)', async ({ page }) => {
     await page.goto('/no-such-initiative-e2e/dashboard');
-    await expect(page.getByRole('heading', { name: "This client doesn't exist" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole('link', { name: 'Go to login' })).toHaveAttribute('href', '/');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: "This client doesn't exist" })).toHaveCount(0);
+    expect(new URL(page.url()).pathname).toBe('/');
+  });
+
+  test('after logging in, you land on the page you were opening', async ({ page }) => {
+    const email = process.env.TEST_CUSTOMER_EMAIL;
+    const password = process.env.TEST_PASSWORD;
+    if (!email || !password) test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
+    await page.goto('/spark-portal/build');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    await fillLoginForm(page, email!, password!);
+    await page.waitForURL('**/spark-portal/build', { timeout: 30_000 });
+  });
+
+  test('a redirect to another site planted in storage is ignored', async ({ page }) => {
+    const email = process.env.TEST_CUSTOMER_EMAIL;
+    const password = process.env.TEST_PASSWORD;
+    if (!email || !password) test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
+    await page.evaluate(() =>
+      sessionStorage.setItem('portal.loginRedirect', JSON.stringify({ path: '//evil.example.com', at: Date.now() })),
+    );
+    await fillLoginForm(page, email!, password!);
+    await page.waitForURL('**/dashboard', { timeout: 30_000 });
+    expect(new URL(page.url()).host).not.toContain('evil.example.com');
   });
 
   // ── Profile can't be loaded after a successful sign-in ───────────────────
@@ -96,11 +130,11 @@ test.describe('Login page', () => {
     await expect(page.locator('#email')).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/');
 
-    // The session was cleared: a portal page asks them to log in again. (A
-    // real client — a made-up one shows the 404 before the sign-in check.)
+    // The session was cleared: a portal page sends them to log in again.
     await page.unroute('**/functions/v1/users?email=*');
     await page.goto('/spark-portal/dashboard');
-    await expect(page.getByRole('link', { name: 'Login / Sign up' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
+    expect(new URL(page.url()).pathname).toBe('/');
   });
 
   test('profile request fails: shows a retry message, and logging in again works', async ({ page }) => {

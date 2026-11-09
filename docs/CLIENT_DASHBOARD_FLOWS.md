@@ -17,7 +17,7 @@ The URL follows the pattern `/{clientName}/dashboard`, where `clientName` is the
 
 Every page inside the portal (client, developer, admin, roadmap, etc.) shares the same shell defined in `app/[slug]/(portal)/layout.tsx`. That layout wraps all content with two things:
 
-- **AuthGate** — checks that a valid Supabase session exists. If not, redirects to `/`.
+- **AuthGate** — checks that a valid Supabase session exists. If not, redirects to the login page (`/`), remembering this page so login brings the user back here after they log in. See `LOGIN_FLOWS.md` → "Signed out on a portal page".
 - **Sidebar** — the left navigation panel (60px wide on desktop, slide-in drawer on mobile).
 
 ### Sidebar nav items per role

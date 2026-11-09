@@ -77,7 +77,7 @@ Clicking the edit action on an issue card opens `EditIssueModal` (`components/bu
 
 ### Suggested Features (AI-generated)
 
-A single horizontally scrollable row of **Suggested Feature** cards at the very top of the Build page (above the Feature Request panel), rendered by `SuggestedFeaturesRow` (`components/build/suggested-features-row.tsx`). Each card is one AI-proposed "next feature" for one Linear project in the customer's initiative, which a customer/stakeholder/admin can accept (turning it into a real Linear ticket in Backlog) or decline.
+A single horizontally scrollable row of **Suggested Feature** cards on the Build page, right below the Feature Request panel, rendered by `SuggestedFeaturesRow` (`components/build/suggested-features-row.tsx`). Each card is one AI-proposed "next feature" for one Linear project in the customer's initiative, which a customer/stakeholder/admin can accept (turning it into a real Linear ticket in Backlog) or decline.
 
 **Who sees it:** `admin`, `customer`, `stakeholder` only. Developers never fetch or see the row — accepting/declining is a product/roadmap call, not an engineering one. The same restriction is enforced server-side by `requireNonDeveloper` (`supabase/functions/suggested-features/authorize.ts`), which checks the `actorEmail` sent with every mutating request against `portal.users.role` and returns `403` otherwise.
 

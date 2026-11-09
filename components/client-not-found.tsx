@@ -6,8 +6,10 @@ import { useSelectedProject } from "@/lib/selected-project-context";
 import { homePathFor } from "@/lib/route-access";
 
 // Shown instead of any /{slug} page whose slug matches no client (a
-// mistyped or outdated URL). No sidebar, no page panels. Links back to the
-// user's own home page, or to login if they aren't signed in.
+// mistyped or outdated URL). No sidebar, no page panels. Only signed-in users
+// get here (signed-out ones are sent to log in first, see AuthGate). Links
+// back to the user's own home page, or to login when there's none (no
+// usable role).
 export function ClientNotFound({ slug }: { readonly slug: string }) {
   const { user, profile } = useUser();
   const { selectedProject } = useSelectedProject();

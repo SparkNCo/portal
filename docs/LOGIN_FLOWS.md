@@ -43,6 +43,8 @@ Once the profile loads, the app redirects the user to their corresponding dashbo
 | `developer` | `/{slug}/developer` — last initiative picked in "Working on", else their first assignment (`/dev/developer` if they have none) | Always |
 | `stakeholder` | `/{assignment[0].clientName}/dashboard` | Requires at least one customer assignment |
 
+**Coming back to the page they were opening:** if `AuthGate` remembered a page for this tab (see "Signed out on a portal page" below), the user goes there instead of the table's destination. It's kept in `sessionStorage` (`portal.loginRedirect`), not in the URL, so the login page stays a clean `/`; it's read once, and ignored after 30 minutes so an old visit doesn't take over a later login. Only paths inside the site are accepted (`/…`, never `//other-host` or a full URL; `lib/login-redirect.ts`), checked both when stored and when read. The page's own access check still runs, so a page they can't open sends them to their home page with the usual toast. The checks for a missing client or role (below) run first: an account that isn't set up never follows it. Being per tab, it's lost if they log in from another tab, which then lands on their home page as usual.
+
 > **Important for stakeholders:** If a stakeholder has no customer assignment yet, they cannot log in — they see the error: _"No client assigned to this account. Contact your administrator."_ The admin must assign them to a customer first (see `app/docs/ADMIN_FLOWS.md`).
 
 **Admin pages carry no customer slug** — they're fixed paths (`/admin/*`), since admins aren't tied to a single customer; they open a customer's pages by picking it in the sidebar's Initiative dropdown. Customers, stakeholders and developers land on slug-based `/{slug}/*` routes: customers use their own `clientName`, stakeholders their first assignment (`assignment_id[0].clientName`/`assignment_id[0].linear_slug`), and developers the initiative chosen as described below.
@@ -59,6 +61,12 @@ After a successful sign-in, `UserContext` loads the portal profile (`GET /users?
 - **Set-password** does the same after saving: if the profile can't be loaded, it shows _"Password set, but …"_ with the same message and signs out instead of redirecting.
 - **Portal pages** (`/{slug}/…`) show "We couldn't load your account" with a **Try again** button when the load failed, and "Your account isn't set up yet" otherwise (`components/account-not-set-up.tsx`).
 - **The email lookup is case-insensitive** (`ilike` in `fetchUser`, `supabase/functions/users/index.ts`), so `Jane@Company.com` in Auth matches `jane@company.com` in `portal.users`.
+
+#### Signed out on a portal page
+
+Every page that needs a login (`/{slug}/…`, `/admin/…`, `/dev/…`) is wrapped in `AuthGate` (`components/auth-gate.tsx`). With no session it shows nothing, remembers the page they wanted (`/spark-portal/build?issueId=abc`) and sends them straight to the login page, `/`. After logging in they land back on that page (see "Coming back to the page they were opening" above).
+
+This happens **before** anything about the page is checked, including whether the client in the URL exists. A real client and a made-up one look the same to a signed-out visitor, so trying names doesn't reveal which clients exist. The "This client doesn't exist" 404 (`components/client-not-found.tsx`) is only shown to signed-in users.
 
 #### Who can open which `/{slug}` page
 
