@@ -12,14 +12,15 @@ A complete Supabase running on your machine with Docker: the same database struc
 2. [Start and stop](#start-and-stop)
 3. [Links and sign-ins](#links-and-sign-ins)
 4. [Files](#files)
-5. [Function secrets](#function-secrets)
-6. [Database](#database)
-7. [Test users and data](#test-users-and-data)
-8. [Pointing the portal at it](#pointing-the-portal-at-it)
-9. [Cron jobs](#cron-jobs)
-10. [Production checklist](#production-checklist)
-11. [Resetting](#resetting)
-12. [Known differences from the cloud](#known-differences-from-the-cloud)
+5. [Generating the stack's secrets](#generating-the-stacks-secrets)
+6. [Function secrets](#function-secrets)
+7. [Database](#database)
+8. [Test users and data](#test-users-and-data)
+9. [Pointing the portal at it](#pointing-the-portal-at-it)
+10. [Cron jobs](#cron-jobs)
+11. [Production checklist](#production-checklist)
+12. [Resetting](#resetting)
+13. [Known differences from the cloud](#known-differences-from-the-cloud)
 
 ---
 
@@ -75,15 +76,38 @@ Function code changes are picked up on the next call. If not, restart `functions
 | `docker/supabase/docker-compose.yml` | Yes | Upstream, untouched |
 | `docker/supabase/docker-compose.portal.yml` | Yes | Every portal change, plus how to update the upstream version |
 | `docker/supabase/.env` | **No** | The stack's own secrets: Postgres password, JWT secret, anon/service keys, dashboard sign-in |
-| `docker/supabase/.env.example` | Yes | Template for it |
+| `docker/supabase/.env.example` | Yes | Template for it, with every secret empty (see [Generating the stack's secrets](#generating-the-stacks-secrets)) |
 | `docker/supabase/functions.env` | **No** | The edge functions' secrets |
 | `docker/supabase/functions.env.example` | Yes | Their names, no values |
 | `docker/supabase/portal/functions-main/` | Yes | Function router: checks the JWT per function, like the cloud |
+| `docker/supabase/portal/generate-secrets.mjs` | Yes | Prints fresh values for the stack's secrets |
 | `docker/supabase/portal/check-functions-env.mjs` | Yes | Compares `functions.env` with the cloud's secrets |
 | `docker/supabase/portal/seed-users.mjs` | Yes | Test users |
 | `docker/supabase/portal/seed-test-data.mjs` | Yes | Test client and its links |
 | `supabase/seed/baseline-roles.sql`, `baseline.sql` | Yes | The cloud's database structure (no data, no secrets) |
 | `supabase/seed/storage.sql` | Yes | The cloud's buckets and their policies |
+
+## Generating the stack's secrets
+
+`docker/supabase/.env.example` has **every secret empty** on purpose. Supabase's template ships public demo values there (a `JWT_SECRET`, and `ANON_KEY` / `SERVICE_ROLE_KEY` signed with it, issuer `supabase-demo`): anyone who knows them could sign in as admin to a stack that kept them. Generate your own:
+
+```bash
+cp docker/supabase/.env.example docker/supabase/.env   # first time only
+node docker/supabase/portal/generate-secrets.mjs        # prints fresh values
+```
+
+Paste its output over the matching empty lines in `docker/supabase/.env`. It prints `POSTGRES_PASSWORD`, `JWT_SECRET`, `ANON_KEY` and `SERVICE_ROLE_KEY` (HS256 JWTs signed with that `JWT_SECRET`), `DASHBOARD_PASSWORD`, `SECRET_KEY_BASE`, `VAULT_ENC_KEY` (32 characters), `PG_META_CRYPTO_KEY` and the two `S3_PROTOCOL_*` values. Nothing is written to disk; every run gives new values.
+
+The newer asymmetric keys (`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `JWT_KEYS`, `JWT_JWKS`, `*_ASYMMETRIC`) are optional: the compose file has defaults for them and the portal uses the legacy anon key. Upstream generates them with `utils/add-new-auth-keys.sh` (same tag), which isn't copied here.
+
+**Rotating them on a running stack:**
+
+- `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY` change together. Everyone gets signed out, and the portal's `NEXT_PUBLIC_SUPABASE_KEY` (`.env.local`, or the portal image's build arg) must be updated to the new `ANON_KEY`. The seed scripts read the service key from `.env`, so they keep working.
+- `POSTGRES_PASSWORD` is only applied when the database is first created. On an existing one, change the roles' password in Postgres as well (`alter role postgres with password '…'`, and the same for `authenticator`, `supabase_auth_admin`, `supabase_storage_admin`, etc.), or [reset](#resetting).
+- `VAULT_ENC_KEY`: whatever was stored in Vault with the old key can't be read with the new one.
+- After editing, `docker compose up -d` from `docker/supabase/` recreates the services that changed.
+
+Never reuse these values in another environment, and never commit `docker/supabase/.env`: it's git-ignored by `docker/supabase/.gitignore`.
 
 ## Function secrets
 
@@ -305,7 +329,7 @@ If this stack ever becomes production, these have to be done. Otherwise it goes 
 - [ ] **Cron jobs scheduled** against the self-hosted gateway ([Turning them on](#turning-them-on-self-hosted)), compared with the cloud's `cron.job`, and the first run checked in `net._http_response`.
 - [ ] **Data migrated.** The baseline is structure only: production needs a data dump (`pg_dump --data-only`, or `npx supabase db dump --linked --data-only`), Storage files, and Auth users.
 - [ ] **Vault secrets re-created**, since they can't be copied: `service_role_key` and every Query connection.
-- [ ] **New secrets** for the stack: `JWT_SECRET`, anon/service keys, `POSTGRES_PASSWORD`, `DASHBOARD_PASSWORD`, `VAULT_ENC_KEY`. Never reuse the local ones.
+- [ ] **New secrets** for the stack (`node docker/supabase/portal/generate-secrets.mjs`): `JWT_SECRET`, anon/service keys, `POSTGRES_PASSWORD`, `DASHBOARD_PASSWORD`, `VAULT_ENC_KEY`. Never reuse the local ones, and never the template's demo values.
 - [ ] **Real SMTP** for Auth instead of Mailpit, and `SITE_URL` / `ADDITIONAL_REDIRECT_URLS` / `API_EXTERNAL_URL` with the public address.
 - [ ] **HTTPS** in front of the gateway (reverse proxy), and Postgres not published to the internet.
 - [ ] **Backups**: self-hosted has no automatic backups or point-in-time recovery.
