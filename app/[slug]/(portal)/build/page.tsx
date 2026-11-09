@@ -174,10 +174,12 @@ function BuildPageContent() {
       <Header title="Build" subtitle="Guide new features" subtitleClassName="smalltext" />
 
       <div className="p-4 md:p-6 space-y-6">
-        <SuggestedFeaturesRow slug={slug} />
-
         <div className="-mx-4 sm:mx-0">
           <FeatureRequestPanel slug={slug} />
+        </div>
+
+        <div className="-mx-4 sm:mx-0">
+          <SuggestedFeaturesRow slug={slug} />
         </div>
         {projects.length > 0 && (
           <Select

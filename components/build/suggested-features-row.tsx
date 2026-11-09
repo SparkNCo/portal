@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Lightbulb } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "context/UserContext";
 import { fetchSuggestedFeatures } from "@/lib/suggested-features-api";
 import { SuggestedFeatureCard } from "./suggested-feature-card";
@@ -34,27 +35,36 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
   if (!canManage || (!isLoading && features.length === 0)) return null;
 
   return (
-    <section aria-labelledby="suggested-features-heading" className="space-y-3">
-      {/* One heading for the row, instead of a label on every card. */}
-      <h2 id="suggested-features-heading" className="body font-semibold flex items-center gap-2">
-        <Lightbulb className="h-4 w-4 text-primary" aria-hidden="true" />
-        Suggested Features
-        {!isLoading && <span className="smalltext font-semibold text-primary tabular-nums">{features.length}</span>}
-      </h2>
+    // Same panel as Request a Feature above it on the Build page.
+    <Card
+      role="region"
+      aria-labelledby="suggested-features-heading"
+      className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl"
+    >
+      <CardHeader>
+        {/* One heading for the row, instead of a label on every card. */}
+        <CardTitle id="suggested-features-heading" level={2} className="body font-semibold flex items-center gap-2">
+          <Lightbulb className="h-4 w-4 text-primary" aria-hidden="true" />
+          Suggested Features
+          {!isLoading && <span className="smalltext font-semibold text-primary tabular-nums">{features.length}</span>}
+        </CardTitle>
+      </CardHeader>
 
-      <div className="-mx-4 sm:mx-0 flex gap-4 overflow-x-auto pb-2 px-4 sm:px-0">
-        {isLoading
-          ? [0, 1, 2].map((i) => <SuggestedFeatureSkeleton key={i} />)
-          : features.map((feature) => (
-              <SuggestedFeatureCard
-                key={feature.id}
-                feature={feature}
-                slug={slug}
-                actorEmail={profile?.email ?? ""}
-              />
-            ))}
-      </div>
-    </section>
+      <CardContent>
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {isLoading
+            ? [0, 1, 2].map((i) => <SuggestedFeatureSkeleton key={i} />)
+            : features.map((feature) => (
+                <SuggestedFeatureCard
+                  key={feature.id}
+                  feature={feature}
+                  slug={slug}
+                  actorEmail={profile?.email ?? ""}
+                />
+              ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
