@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, FileText, FlaskConical, Sparkles, Ticket } from "lucide-react";
+import { AlertCircle, FileText, FlaskConical, Loader2, Sparkles, Ticket } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,15 +17,11 @@ import { type AskAnswer, type AskSource, MAX_QUESTION_LENGTH, askProject } from 
 const SOURCE_ICON = { document: FileText, test: FlaskConical, issue: Ticket } as const;
 const SOURCE_LABEL = { document: "Document", test: "Test case", issue: "Issue" } as const;
 
-// Where a cited source opens: issues in their ticket modal (bugs on the Bugs
-// page, the rest on Build; both open any ticket of theirs by id), documents
-// on the Documents page. Test cases have no page.
+// Where a cited source opens: issues in their ticket modal (Build opens any
+// ticket by id), documents on the Documents page. Test cases have no page.
 function sourceHref(slug: string, source: AskSource): string | null {
   const base = `/${routeSlugFor(slug)}`;
-  if (source.type === "issue") {
-    const panel = source.kind === "bug" ? "bugs" : "build";
-    return `${base}/${panel}?issueId=${encodeURIComponent(source.id)}`;
-  }
+  if (source.type === "issue") return `${base}/build?issueId=${encodeURIComponent(source.id)}`;
   if (source.type === "document") return `${base}/documents`;
   return null;
 }
@@ -37,21 +33,10 @@ function SourceItem({ slug, source }: Readonly<{ slug: string; source: AskSource
     <>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="smalltext text-muted-foreground shrink-0">
-        {SOURCE_LABEL[source.type]}
-        {source.type === "issue" && (
-          <>
-            {" "}
-            <span className="font-medium text-primary">{source.ref}</span>
-          </>
-        )}
+        {SOURCE_LABEL[source.type]} {source.type === "issue" ? source.ref : ""}
       </span>
       <span className="smalltext font-medium truncate">{source.title}</span>
-      {source.status && (
-        <span className="smalltext shrink-0">
-          <span className="text-muted-foreground">· </span>
-          <span className="text-primary">{source.status}</span>
-        </span>
-      )}
+      {source.status && <span className="smalltext text-muted-foreground shrink-0">· {source.status}</span>}
     </>
   );
   return (
@@ -138,21 +123,17 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
             rows={1}
             className="min-h-[40px] resize-none bg-card text-card-foreground"
           />
-          <Button type="submit" disabled={!canAsk} className="shrink-0">
-            Ask
+          <Button type="submit" disabled={!canAsk} className="shrink-0 gap-1.5">
+            {ask.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            {ask.isPending ? "Thinking…" : "Ask"}
           </Button>
         </form>
 
-        {/* Loading: a thin bar sliding left to right, no text on screen
-            (screen readers still get one). */}
         {ask.isPending && (
-          <div
-            role="progressbar"
-            aria-label="Looking through the project's documents, test cases and issues"
-            className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
-          >
-            <div className="h-full w-2/5 rounded-full bg-primary animate-progress-slide motion-reduce:animate-pulse" />
-          </div>
+          <p className="smalltext text-muted-foreground flex items-center gap-1.5" role="status">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            Looking through the project's documents, test cases and issues…
+          </p>
         )}
 
         {ask.isError && (

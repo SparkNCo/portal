@@ -81,6 +81,13 @@ export default defineConfig({
       testMatch: '**/ticket-flows.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    // The Dashboard's global query (SPA-582) against a mocked `ask`
+    // function: no AI credits, no writes. npx playwright test --project=ask
+    {
+      name: 'ask',
+      testMatch: '**/e2e/ask.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
     // Edge functions in test mode (no emails, no writes) — calls them
     // directly, no browser: npx playwright test --project=test-mode
     {
