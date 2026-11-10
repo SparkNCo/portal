@@ -44,7 +44,7 @@ const USERS = [
   { role: "admin", email: tests.get("TEST_ADMIN_EMAIL"), password: tests.get("TEST_PASSWORD"), firstName: "Test", lastName: "Admin" },
   { role: "developer", email: tests.get("TEST_DEVELOPER_EMAIL"), password: tests.get("TEST_PASSWORD"), firstName: "Test", lastName: "Developer" },
   { role: "customer", email: tests.get("TEST_CUSTOMER_EMAIL"), password: tests.get("TEST_PASSWORD"), firstName: "Test", lastName: "Customer" },
-  { role: "stakeholder", email: tests.get("TEST_HOLDER_EMAIL"), password: tests.get("TEST_HOLDER_PASSWORD") ?? tests.get("TEST_PASSWORD"), firstName: "Test", lastName: "Stakeholder" },
+  { role: "stakeholder", email: tests.get("TEST_HOLDER_EMAIL"), password: tests.get("TEST_PASSWORD"), firstName: "Test", lastName: "Stakeholder" },
 ];
 
 const missing = USERS.filter((u) => !u.email || !u.password).map((u) => u.role);

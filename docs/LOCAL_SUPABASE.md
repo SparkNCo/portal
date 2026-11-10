@@ -8,25 +8,92 @@ A complete Supabase running on your machine with Docker: the same database struc
 
 ## Contents
 
-1. [What runs](#what-runs)
-2. [Start and stop](#start-and-stop)
-3. [Links and sign-ins](#links-and-sign-ins)
-4. [Files](#files)
-5. [Generating the stack's secrets](#generating-the-stacks-secrets)
-6. [Function secrets](#function-secrets)
-7. [Database](#database)
-8. [Test users and data](#test-users-and-data)
-9. [Pointing the portal at it](#pointing-the-portal-at-it)
-10. [Cron jobs](#cron-jobs)
-11. [Production checklist](#production-checklist)
-12. [Resetting](#resetting)
-13. [Known differences from the cloud](#known-differences-from-the-cloud)
+1. [First-time setup (fresh clone)](#first-time-setup-fresh-clone)
+2. [What runs](#what-runs)
+3. [Start and stop](#start-and-stop)
+4. [Links and sign-ins](#links-and-sign-ins)
+5. [Files](#files)
+6. [Generating the stack's secrets](#generating-the-stacks-secrets)
+7. [Function secrets](#function-secrets)
+8. [Database](#database)
+9. [Test users and data](#test-users-and-data)
+10. [Pointing the portal at it](#pointing-the-portal-at-it)
+11. [Cron jobs](#cron-jobs)
+12. [Production checklist](#production-checklist)
+13. [Resetting](#resetting)
+14. [Known differences from the cloud](#known-differences-from-the-cloud)
 
 ---
 
+## First-time setup (fresh clone)
+
+Everything needed to go from `git clone` to the portal running in Docker against this local Supabase, on port 3001. Run from the repo root in Git Bash (or any POSIX shell).
+
+**Requirements:** Docker Desktop (running), Node.js, Git Bash on Windows.
+
+**Env files** (none of them are in git; get the first three from the team):
+
+| File | What it holds | Where it comes from |
+|---|---|---|
+| `.env` (root) | The portal's `NEXT_PUBLIC_*` values (Stripe, CometChat) | From the team |
+| `.env.test` | The test users' emails and passwords | From the team |
+| `docker/supabase/functions.env` | The edge functions' keys (Linear, Stripe, AI…) | From the team; check it with `node docker/supabase/portal/check-functions-env.mjs` |
+| `docker/supabase/.env` | This stack's own secrets | **Generate your own** (step 0 below); never reuse someone else's |
+
+```bash
+# 0. The stack's own secrets: copy the template, then paste the printed
+#    values over the matching empty lines in docker/supabase/.env.
+cp docker/supabase/.env.example docker/supabase/.env
+node docker/supabase/portal/generate-secrets.mjs
+
+# 1. Start the local Supabase. The database starts empty; `rest` reports
+#    unhealthy until step 2 creates the portal/marketing schemas.
+cd docker/supabase && docker compose up -d && cd ../..
+
+# 2. Load the cloud's database structure (no data) and its Storage buckets.
+docker exec -i supabase-db psql -U postgres -d postgres < supabase/seed/baseline-roles.sql
+docker exec -i supabase-db psql -U postgres -d postgres -1 < supabase/seed/baseline.sql
+docker exec -i supabase-db psql -U postgres -d postgres < supabase/seed/storage.sql
+
+# 3. Apply the migrations newer than that structure. Today that's only
+#    20261105120000_pgvector_only.sql; when the baseline is older than other
+#    migrations, apply each of them too (see "Database" for how to list them).
+docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 < supabase/migrations/20261105120000_pgvector_only.sql
+
+# 4. Test users (one per role, from .env.test) and the test client
+#    Spark-Portal. Both are safe to run again.
+node docker/supabase/portal/seed-users.mjs
+node docker/supabase/portal/seed-test-data.mjs
+
+# 5. Build and start the portal against this stack, on port 3001.
+ANON=$(grep '^ANON_KEY=' docker/supabase/.env | cut -d= -f2- | tr -d '"')
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000 \
+NEXT_PUBLIC_SUPABASE_KEY="$ANON" \
+NEXT_PUBLIC_SITE_URL=http://localhost:3001 \
+PORT=3001 IMAGE_NAME=sparkco-portal-selfhosted \
+docker compose -p portal-selfhosted up --build -d
+```
+
+Open http://localhost:3001 and sign in with a test user from `.env.test` (e.g. the admin). Studio is at http://localhost:8000 (sign in with `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` from `docker/supabase/.env`).
+
+Steps 0 to 4 are done once. After that:
+
+| When | Run |
+|---|---|
+| Starting work (Supabase stopped) | `cd docker/supabase && docker compose up -d` |
+| The portal's code changed (your edits, or a `git pull`) | Step 5 again: an image is a snapshot of the code when it was built, so the running portal doesn't change until it's rebuilt |
+| A `git pull` brought new migrations | Apply each one (see [Database](#database)) |
+| An edge function's code changed | Nothing: the functions read `supabase/functions` directly. If one doesn't pick it up: `docker compose restart functions` from `docker/supabase` |
+| `docker/supabase/functions.env` changed | `docker compose restart functions` from `docker/supabase` |
+| Done for the day | `docker compose -p portal-selfhosted down`, then `docker compose down` from `docker/supabase` (data is kept) |
+
+The local Supabase itself is never "built": it runs images Supabase publishes. Data, tables, users and files live in `docker/supabase/volumes/` on your disk, so changes made in Studio or with SQL apply at once and survive restarts, but they stay on that machine. A structure change meant for production goes in a new file in `supabase/migrations/` instead.
+
+The portal against the **cloud** in Docker is a different command, from the repo root with the root `.env`: `docker compose up --build -d` (port 3000, the same as `npm run dev`).
+
 ## What runs
 
-Base: Supabase's official self-hosted stack, tag `self-hosted/v0.8.3`, in `docker/supabase/`. Every portal change lives in `docker/supabase/docker-compose.portal.yml` and `docker/supabase/portal/`, so the upstream files stay untouched.
+Base: Supabase's official self-hosted stack, tag `self-hosted/v0.8.3`, in `docker/supabase/`. Every portal change lives in `docker/supabase/docker-compose.portal.yml` and `docker/supabase/portal/`. The upstream files are untouched except for removing the template's sample secrets (see the header of `docker-compose.portal.yml`).
 
 | Service | Container | What it is |
 |---|---|---|
@@ -188,7 +255,7 @@ node docker/supabase/portal/seed-test-data.mjs   # 2. client and links
 | admin | `TEST_ADMIN_EMAIL`, `TEST_PASSWORD` |
 | developer | `TEST_DEVELOPER_EMAIL`, `TEST_PASSWORD` |
 | customer | `TEST_CUSTOMER_EMAIL`, `TEST_PASSWORD` |
-| stakeholder | `TEST_HOLDER_EMAIL`, `TEST_HOLDER_PASSWORD` |
+| stakeholder | `TEST_HOLDER_EMAIL`, `TEST_PASSWORD` |
 
 **`seed-test-data.mjs`** creates the client **Spark-Portal** (`linear_slug` `f12c1e4fa44b`, its 8 `linear_projects` and `project_url` `https://github.com/SparkNCo/portal`, copied from the cloud; `billing_mode` `manual`, so nothing is created in Stripe) and links the users the way the portal does:
 

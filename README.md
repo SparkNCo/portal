@@ -112,15 +112,24 @@ Files: `Dockerfile` (how the image is built), `docker-compose.yml` (how it runs)
 
 ## Local Supabase (Docker)
 
-A complete Supabase (database, Auth, edge functions, Storage, Realtime, Studio) runs locally from `docker/supabase/`, with the cloud's structure and test users. Full guide: [docs/LOCAL_SUPABASE.md](docs/LOCAL_SUPABASE.md).
+A complete Supabase (database, Auth, edge functions, Storage, Realtime, Studio) runs locally from `docker/supabase/`, with the cloud's structure and test users, and the portal can run in Docker against it on port 3001.
+
+**From a fresh clone:** follow [First-time setup](docs/LOCAL_SUPABASE.md#first-time-setup-fresh-clone): env files, secrets, starting the stack, loading the database, test users and building the portal, in order. Full guide: [docs/LOCAL_SUPABASE.md](docs/LOCAL_SUPABASE.md).
+
+**Once set up:**
 
 ```bash
+# Start the local Supabase (from the repo root)
 cd docker/supabase && docker compose up -d && cd ../..
-node docker/supabase/portal/seed-users.mjs
-node docker/supabase/portal/seed-test-data.mjs
+
+# Rebuild the portal against it after code changes (port 3001)
+ANON=$(grep '^ANON_KEY=' docker/supabase/.env | cut -d= -f2- | tr -d '"')
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000 NEXT_PUBLIC_SUPABASE_KEY="$ANON" \
+NEXT_PUBLIC_SITE_URL=http://localhost:3001 PORT=3001 IMAGE_NAME=sparkco-portal-selfhosted \
+docker compose -p portal-selfhosted up --build -d
 ```
 
-Studio at http://localhost:8000, Auth emails at http://localhost:8025. Point the portal at it with a `.env.local` (see the guide).
+Studio at http://localhost:8000, Auth emails at http://localhost:8025. To point `npm run dev` at it instead, use a `.env.local` (see the guide).
 
 **Cron jobs are off locally on purpose** (they would call production). A self-hosted production instance must turn them on, or metrics, vector search and suggested features stop updating: see [Cron jobs](docs/LOCAL_SUPABASE.md#cron-jobs) and the [production checklist](docs/LOCAL_SUPABASE.md#production-checklist).
 
