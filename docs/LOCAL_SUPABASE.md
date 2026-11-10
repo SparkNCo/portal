@@ -84,7 +84,7 @@ Steps 0 to 4 are done once. After that:
 | The portal's code changed (your edits, or a `git pull`) | Step 5 again: an image is a snapshot of the code when it was built, so the running portal doesn't change until it's rebuilt |
 | A `git pull` brought new migrations | Apply each one (see [Database](#database)) |
 | An edge function's code changed | Nothing: the functions read `supabase/functions` directly. If one doesn't pick it up: `docker compose restart functions` from `docker/supabase` |
-| `docker/supabase/functions.env` changed | `docker compose restart functions` from `docker/supabase` |
+| `docker/supabase/functions.env` changed | `docker compose up -d --force-recreate functions` from `docker/supabase`. A plain `restart` keeps the old values: the file is only read when the container is created |
 | Done for the day | `docker compose -p portal-selfhosted down`, then `docker compose down` from `docker/supabase` (data is kept) |
 
 The local Supabase itself is never "built": it runs images Supabase publishes. Data, tables, users and files live in `docker/supabase/volumes/` on your disk, so changes made in Studio or with SQL apply at once and survive restarts, but they stay on that machine. A structure change meant for production goes in a new file in `supabase/migrations/` instead.
@@ -119,7 +119,8 @@ Requires Docker Desktop running. From `docker/supabase/`:
 docker compose up -d                # start (first time: downloads the images)
 docker compose ps                   # every service should say "healthy"
 docker compose logs -f functions    # function logs (Ctrl+C to leave; nothing stops)
-docker compose restart functions    # after changing functions.env
+docker compose restart functions    # after changing a function's code, if it isn't picked up
+docker compose up -d --force-recreate functions   # after changing functions.env (restart keeps the old values)
 docker compose down                 # stop; the data stays
 ```
 

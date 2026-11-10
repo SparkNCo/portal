@@ -155,6 +155,26 @@ async function matchChunks(namespace: string, queryText: string, options: MatchO
   return data ?? [];
 }
 
+// ─── Every source at once (the global query) ─────────────────────────────
+
+export type ProjectMatch = {
+  source_type: "document" | "test" | "issue";
+  document_id: number | null;
+  test_id: string | null;
+  issue_id: string | null;
+  chunk_index: number;
+  // The best-matching chunk's text.
+  content: string;
+  similarity: number;
+};
+
+// The `count` objects (documents, tests, issues) whose best chunk is closest
+// to `queryText`, best first. Scoped to one client by `namespace` (its
+// linear_slug) in SQL. Throws on failure: the caller decides what to answer.
+export async function searchProject(namespace: string, queryText: string, count = 10): Promise<ProjectMatch[]> {
+  return await matchChunks(namespace, queryText, { sourceTypes: ["document", "test", "issue"], count });
+}
+
 // ─── Issues ──────────────────────────────────────────────────────────────
 // Issues live in Linear: portal.issue_vectors mirrors them (title, kind and
 // what the global query cites), and their chunks point at that row. Chunk 0
