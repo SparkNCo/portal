@@ -3,7 +3,7 @@
 // Linear ticket live in the separate `test-executions` function/table — see
 // supabase/functions/test-executions/index.ts.
 import { corsHeaders } from "../utils/headers.ts";
-import { upsertTestVector, queryTopTestMatches } from "../lib/vector.ts";
+import { EMBED_WORDS_PER_CALL, embedTest, upsertTestVector, queryTopTestMatches } from "../lib/vector.ts";
 import { resolveLinearSlug } from "../utils/slug.ts";
 
 // Raised from the original 0.7 (see test-picker.tsx) to 0.8.
@@ -194,9 +194,11 @@ async function handleUpdateTest(req: Request): Promise<Response> {
 // handles this many tests; call again until `remaining` is 0.
 const BACKFILL_BATCH_SIZE = 25;
 
-// POST /tests/backfill-vectors { user_id, project_slug? } — admin-only. Embeds
-// tests that don't have an embedding yet (e.g. created while their customer
-// was on Upstash), oldest first, BACKFILL_BATCH_SIZE per call.
+// POST /tests/backfill-vectors { user_id, project_slug? } — admin-only.
+// Finishes tests whose chunks aren't all embedded (tests.embeddings_complete
+// = false: created before chunks existed, or cut short), oldest first. One
+// call embeds up to EMBED_WORDS_PER_CALL words across as many tests as that
+// covers; call again until `remaining` is 0.
 async function handleBackfillTestVectors(req: Request): Promise<Response> {
   const schema = "portal";
   const { user_id, project_slug: rawProjectSlug } = await req.json();
@@ -209,7 +211,7 @@ async function handleBackfillTestVectors(req: Request): Promise<Response> {
   if (caller?.role !== "admin") return Response.json({ error: "Admin only" }, { status: 403 });
 
   const params = new URLSearchParams({
-    embedding: "is.null",
+    embeddings_complete: "eq.false",
     select: "id,title,steps,project_slug",
     order: "created_at.asc",
     limit: String(BACKFILL_BATCH_SIZE),
@@ -232,10 +234,17 @@ async function handleBackfillTestVectors(req: Request): Promise<Response> {
 
   let vectorized = 0;
   let failed = 0;
+  let budget = EMBED_WORDS_PER_CALL;
   for (const test of tests) {
-    const ok = await upsertTestVector(test.project_slug, test);
-    if (ok) vectorized++;
-    else failed++;
+    if (budget <= 0) break;
+    try {
+      const { complete, wordsUsed } = await embedTest(test.project_slug, test, budget);
+      budget -= wordsUsed;
+      if (complete) vectorized++;
+    } catch (err) {
+      console.error(`[backfillTestVectors] test ${test.id} failed:`, err);
+      failed++;
+    }
   }
 
   return Response.json({ success: true, vectorized, failed, remaining: Math.max(total - vectorized, 0) });
