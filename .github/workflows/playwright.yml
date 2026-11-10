@@ -24,7 +24,6 @@ jobs:
       TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
       TEST_HOLDER_EMAIL: ${{ secrets.TEST_HOLDER_EMAIL }}
       TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
-      TEST_HOLDER_PASSWORD: ${{ secrets.TEST_HOLDER_PASSWORD }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
