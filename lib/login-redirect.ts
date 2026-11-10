@@ -66,6 +66,15 @@ export function rememberLoginRedirect(path: string): void {
   }
 }
 
+// Forgets any stored page (e.g. on logout), so the next login goes home.
+export function clearLoginRedirect(): void {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage unavailable: nothing stored either.
+  }
+}
+
 // Read once: the stored page is removed as it's taken.
 export function takeLoginRedirect(): string | null {
   try {
