@@ -8,7 +8,7 @@ import {
 } from '../../supabase/functions/lib/tickets/ticketSystem';
 import { ticketSettingsBody, ticketSettingsComplete, ticketSettingsFrom } from '../../lib/ticket-systems';
 import { jiraId, parseTicketId } from '../../supabase/functions/lib/tickets/ids';
-import { isProjectRequired, pickRememberedProject } from '../../lib/issues-api';
+import { isProjectRequired } from '../../lib/issues-api';
 
 // Per-customer ticket system (Linear / Jira) — no network, no browser.
 
