@@ -8,6 +8,7 @@ import {
 } from '../../supabase/functions/lib/tickets/ticketSystem';
 import { ticketSettingsBody, ticketSettingsComplete, ticketSettingsFrom } from '../../lib/ticket-systems';
 import { jiraId, parseTicketId } from '../../supabase/functions/lib/tickets/ids';
+import { isProjectRequired } from '../../lib/issues-api';
 
 // Per-customer ticket system (Linear / Jira) — no network, no browser.
 
@@ -37,6 +38,19 @@ test.describe('ticket ids', () => {
 
   test('a malformed jira: id is not treated as Jira', () => {
     expect(parseTicketId('jira:not-a-uuid:SPA-1').system).toBe('linear');
+  });
+});
+
+test.describe('project on a new bug', () => {
+  const customerId = '6f1c2b3a-1111-4222-8333-944455556666';
+
+  test('required on Linear, where a ticket without a project never shows up in the portal', () => {
+    expect(isProjectRequired([{ id: '2b7c0a1e-3f4d-4e5f-8a9b-0c1d2e3f4a5b' }])).toBe(true);
+    expect(isProjectRequired([])).toBe(true);
+  });
+
+  test('optional on Jira, where projects are epics and every ticket is listed', () => {
+    expect(isProjectRequired([{ id: jiraId(customerId, 'SPA-3') }])).toBe(false);
   });
 });
 

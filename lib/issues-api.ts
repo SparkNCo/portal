@@ -31,6 +31,13 @@ export interface CreateIssuePayload {
   requestedBy?: string;
 }
 
+// Linear tickets only show up in the portal when they belong to one of the
+// customer's projects, so a Linear bug must pick one. Jira lists every ticket
+// in the project (its "projects" here are epics), so there it stays optional.
+export function isProjectRequired(projects: { id: string }[]): boolean {
+  return !projects.some((p) => p.id.startsWith("jira:"));
+}
+
 export async function postCreateIssue(payload: CreateIssuePayload) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/create`, {
     method: "POST",
