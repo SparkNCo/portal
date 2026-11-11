@@ -5,10 +5,16 @@ import {
   SCOPE,
   buildPlan,
   contextFromAnswers,
+  findingsFor,
+  ideaInvite,
+  ideaPlayback,
   isShown,
   planQuestionIds,
   questionText,
+  ruleBasedIdeaGaps,
+  sanitizeAnswers,
   scoreRun,
+  technicalInvite,
   type Answers,
   type Plan,
 } from '../../supabase/functions/technical-review/engine';
@@ -255,5 +261,153 @@ test.describe('idea branch', () => {
     expect(questionText(q('i3_plan'), { i3_who: 'external' })).toContain('go-to-market');
     expect(questionText(q('i3_plan'), { i3_who: 'both' })).toContain('go-to-market');
     expect(questionText(q('i3_plan'), { i3_who: 'internal' })).toContain('rollout');
+  });
+});
+
+test.describe('answers from the browser', () => {
+  test('only catalog questions and listed options are kept', () => {
+    const clean = sanitizeAnswers({
+      stage: 'mvp',
+      scope_users: ['public', 'hacker', 42, 'public'],
+      access_control: 'maybe',
+      secrets_audit: 'yes',
+      soc2: 'have_one',
+      about_product: 'x'.repeat(5000),
+      __proto__: 'nope',
+      unknown_field: 'drop me',
+      intro_email: 'not here',
+    });
+    expect(clean).toEqual({
+      stage: 'mvp',
+      scope_users: ['public'],
+      secrets_audit: 'yes',
+      soc2: 'have_one',
+      about_product: 'x'.repeat(2000),
+    });
+  });
+
+  test('anything that is not an object gives no answers', () => {
+    expect(sanitizeAnswers(null)).toEqual({});
+    expect(sanitizeAnswers(['stage'])).toEqual({});
+    expect(sanitizeAnswers('stage=mvp')).toEqual({});
+  });
+});
+
+test.describe('findings and invite', () => {
+  test('risk-library entries come first, then the plain gaps', () => {
+    const answers = base({ t2_ai_tools: ['lovable'], t2_stack: ['supabase'] });
+    const plan = planFor(answers);
+    const all = answerAll(answers, plan, 'yes', { access_control: 'unsure', staging: 'no', backups: 'unsure' });
+    const findings = findingsFor(contextFromAnswers(all), plan, all);
+    expect(findings.map((f) => f.id)).toEqual(['ai_builder_supabase_rls', 'gap_staging', 'gap_access_control', 'gap_backups']);
+    expect(findings.every((f) => f.fixPrompt.length > 20)).toBe(true);
+    expect(findings.find((f) => f.id === 'gap_backups')?.diy).toBe(false);
+  });
+
+  test('at most 5 findings', () => {
+    const answers = base({ stage: 'scaling' });
+    const plan = planFor(answers);
+    const all = answerAll(answers, plan, 'no');
+    expect(findingsFor(contextFromAnswers(all), plan, all)).toHaveLength(5);
+  });
+
+  test('the invite names the blind spots, or the critical issues', () => {
+    const answers = base({ stage: 'mvp' });
+    const plan = planFor(answers);
+    const ctx = contextFromAnswers(answers);
+    const blind = scoreRun(ctx, plan, answerAll(answers, plan, 'yes', {
+      uptime: 'unsure', rollback: 'unsure', code_review: 'unsure', e2e_tests: 'unsure',
+    }));
+    expect(technicalInvite(blind)).toBe(
+      "You weren't sure about reliability & recovery and releasing & quality — that's exactly what a 30-minute repo review covers.",
+    );
+    const flagged = scoreRun(ctx, plan, answerAll(answers, plan, 'yes', { mfa_infra: 'no' }));
+    expect(technicalInvite(flagged)).toContain('1 critical issue to look at');
+  });
+});
+
+test.describe('idea results without AI', () => {
+  const idea: Answers = {
+    stage: 'idea',
+    about_audience: 'independent physiotherapists',
+    scope_industry: 'healthcare',
+    i1_talked: 'not_yet',
+    i2_looked: 'partly_fit',
+    i2_missing: 'no SMS reminders',
+    i3_who: 'external',
+    i3_plan: 'yes',
+    i5_blockers: ['time', 'how_to_build'],
+    i6_must: 'booking\nreminders\npayments',
+    i7_build: ['ai_tools'],
+  };
+
+  test('always 3 gaps, referring to their own answers', () => {
+    const gaps = ruleBasedIdeaGaps(idea);
+    expect(gaps).toHaveLength(3);
+    expect(gaps[0]?.explanation).toContain('independent physiotherapists');
+    expect(gaps[1]?.explanation).toContain('no SMS reminders');
+    expect(ruleBasedIdeaGaps({ stage: 'idea' })).toHaveLength(3);
+  });
+
+  test('a must-have list longer than 7 is flagged', () => {
+    const many = { ...idea, i1_talked: 'yes_10', i2_looked: 'none_fit', i6_must: 'a, b, c, d, e, f, g, h, i' };
+    expect(ruleBasedIdeaGaps(many).map((g) => g.title)).toContain('Must-have list too long for a first version');
+  });
+
+  test('playback uses option labels and skips hidden follow-ups', () => {
+    const playback = ideaPlayback({ ...idea, i1_needs: 'should not show' });
+    expect(playback).toContainEqual({ label: 'Have you talked to your target users about this problem?', value: 'Not yet' });
+    expect(playback.map((p) => p.label)).not.toContain('What did they say they needed most?');
+  });
+
+  test('the invite names their blockers', () => {
+    expect(ideaInvite(idea)).toBe(
+      'You said time and not sure how to build it have held you back so far. A free 30-minute consult is a quick way to get past that.',
+    );
+  });
+});
+
+test.describe('questionnaire for the site', () => {
+  test('fixed pages carry every shared question, with Idea-only required text', async () => {
+    const { questionnaire } = await import('../../supabase/functions/technical-review/engine');
+    const q = questionnaire();
+    const ids = (qs: { id: string }[]) => qs.map((x) => x.id);
+    expect(ids(q.intro.questions)).toEqual(['intro_email', 'intro_name', 'intro_company', 'intro_role']);
+    expect(ids(q.intake.flatMap((p) => p.questions))).toEqual([
+      't1_team', 't2_ai_tools', 't2_hosting', 't2_stack', 't2_features', 't3_code_control', 't3_accounts_owned', 't3_takeover',
+    ]);
+    expect(q.about.questions.idea.every((x) => x.required)).toBe(true);
+    expect(q.about.questions.technical.some((x) => x.required)).toBe(false);
+    expect(q.idea).toHaveLength(7);
+  });
+});
+
+test.describe('idea product card', () => {
+  test('scope as tags, answers as rows marked good / worth a look', async () => {
+    const { ideaProfile } = await import('../../supabase/functions/technical-review/engine');
+    const profile = ideaProfile({
+      about_product: 'Physio booking with SMS reminders',
+      about_audience: 'independent physiotherapists',
+      scope_industry: 'healthcare',
+      scope_users: ['public'],
+      scope_scale: '100_10k',
+      scope_region: ['us'],
+      i1_talked: 'not_yet',
+      i1_needs: 'hidden because not_yet',
+      i2_looked: 'none_fit',
+      i3_who: 'internal',
+      i3_plan: 'yes',
+      i4_depends: 'yes',
+      i4_names: 'Google Calendar',
+      i5_blockers: ['how_to_build'],
+      i6_must: 'a\nb\nc',
+      i7_build: ['ai_tools'],
+    });
+    expect(profile.tags).toEqual(['Healthcare / wellness', 'The public (consumers)', '100–10,000 users', 'US']);
+    const tone = Object.fromEntries(profile.rows.map((r) => [r.id, r.tone]));
+    expect(tone).toMatchObject({ i1_talked: 'warn', i2_looked: 'good', i3_plan: 'good', i6_must: 'good', i7_build: 'warn' });
+    expect(profile.rows.map((r) => r.id)).not.toContain('i1_needs');
+    expect(profile.rows.find((r) => r.id === 'i3_plan')?.label).toBe('Rollout plan');
+    expect(profile.rows.find((r) => r.id === 'i4_depends')?.value).toBe('Yes — Google Calendar');
   });
 });

@@ -163,6 +163,11 @@ export function buildPlan(ctx: Context): Plan {
   };
 }
 
+// T3 (ownership): asked in the intake, scored as the Ownership area.
+export function ownershipQuestions(): PlannedQuestion[] {
+  return ["t3_code_control", "t3_accounts_owned", "t3_takeover"].map((id) => toQuestion(id, "building", "ownership"));
+}
+
 export function planQuestionIds(plan: Plan): string[] {
   return plan.sections.flatMap((s) => s.questions.map((q) => q.id));
 }
