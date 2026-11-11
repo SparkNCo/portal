@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { toast } from "sonner";
@@ -34,7 +34,7 @@ import {
 import { ProjectSelect } from "@/components/shared/project-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
 import { DialogFooterActions } from "@/components/shared/dialog-footer-actions";
-import { fetchProjects, postCreateIssue } from "@/lib/issues-api";
+import { fetchProjects, isProjectRequired, postCreateIssue } from "@/lib/issues-api";
 
 type IssueType = "bug" | "feature" | "uat" | "project" | "milestone";
 
@@ -314,11 +314,25 @@ export function CreateIssue({
 
   const linearSlug = linearSlugProp ?? profile?.linear_slug ?? "";
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ["projects", slug],
     queryFn: () => fetchProjects(slug),
     enabled: open && !!slug && needsProjectSelector,
   });
+
+  // Bugs and features need a project on Linear (see isProjectRequired). A
+  // `projectId` prop already supplies one.
+  const isBugOrFeature = issueType === "bug" || issueType === "feature";
+  const projectRequired = isBugOrFeature && !projectId && isProjectRequired(projects);
+  const missingProject =
+    projectRequired && (projectsLoading || (projects.length > 0 && !selectedProjectId));
+
+  useEffect(() => {
+    const onlyProject = projects.length === 1 ? projects[0] : undefined;
+    if (isBugOrFeature && !projectId && onlyProject && !selectedProjectId) {
+      setSelectedProjectId(onlyProject.id);
+    }
+  }, [isBugOrFeature, projectId, projects, selectedProjectId]);
 
   const { data: labels = [] } = useQuery({
     queryKey: ["labels", slug],
@@ -349,7 +363,10 @@ export function CreateIssue({
       toast.success(`Issue created: ${data.issue?.identifier ?? ""}`);
       handleClose();
     },
-    onError: () => toast.error("Failed to create issue. Please try again."),
+    onError: (err) =>
+      toast.error("Failed to create issue. Please try again.", {
+        description: err instanceof Error ? err.message : undefined,
+      }),
   });
 
   const projectMutation = useMutation({
@@ -389,7 +406,7 @@ export function CreateIssue({
   }
 
   function handleSubmit() {
-    if (!issueType || !title.trim()) return;
+    if (!issueType || !title.trim() || missingProject) return;
 
     if (issueType === "project") {
       projectMutation.mutate({
@@ -711,10 +728,15 @@ export function CreateIssue({
               {issueType === "bug" && (
                 <div className="space-y-1.5">
                   <Label>
-                    Project{" "}
-                    <span className="text-muted-foreground font-normal">
-                      (optional)
-                    </span>
+                    Project
+                    {!projectRequired && (
+                      <>
+                        {" "}
+                        <span className="text-muted-foreground font-normal">
+                          (optional)
+                        </span>
+                      </>
+                    )}
                   </Label>
                   <ProjectSelect
                     projects={projects}
@@ -743,7 +765,9 @@ export function CreateIssue({
                   issueType === "feature" ? setStep("feature-review") : handleSubmit()
                 }
                 submitDisabled={
-                  !title.trim() || (issueType === "milestone" && !selectedProjectId)
+                  !title.trim() ||
+                  (issueType === "milestone" && !selectedProjectId) ||
+                  (issueType === "bug" && missingProject)
                 }
                 pending={isPending}
                 submitLabel={
@@ -806,10 +830,15 @@ export function CreateIssue({
 
               <div className="space-y-1.5">
                 <Label>
-                  Project{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
+                  Project
+                  {!projectRequired && (
+                    <>
+                      {" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </>
+                  )}
                 </Label>
                 <ProjectSelect
                   projects={projects}
@@ -827,7 +856,7 @@ export function CreateIssue({
                 cancelLabel="Back"
                 onCancel={() => setStep("form")}
                 onSubmit={handleSubmit}
-                submitDisabled={!title.trim()}
+                submitDisabled={!title.trim() || missingProject}
                 pending={isPending}
                 submitLabel="Submit Issue"
               />

@@ -72,16 +72,23 @@ export function ProjectField({
   projects,
   value,
   onValueChange,
+  required = false,
 }: {
   projects: { id: string; name: string }[];
   value: string;
   onValueChange: (value: string) => void;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor="issue-project" className="smalltext">
-        Project{" "}
-        <span className="text-muted-foreground font-normal">(optional)</span>
+        Project
+        {!required && (
+          <>
+            {" "}
+            <span className="text-muted-foreground font-normal">(optional)</span>
+          </>
+        )}
       </Label>
       <ProjectSelect
         id="issue-project"

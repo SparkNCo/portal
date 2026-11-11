@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Lightbulb, Paperclip } from "lucide-react";
@@ -19,7 +19,7 @@ import {
 } from "@/components/shared/issue-form-fields";
 import { AttachedFilesList } from "@/components/shared/attached-files-list";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
+import { postCreateIssue, fetchProjects, fetchMilestones, isProjectRequired } from "@/lib/issues-api";
 
 // Sends the file to our backend, which uploads it to Linear's storage server-side
 // (Linear's presigned GCS URLs aren't CORS-enabled for direct browser upload).
@@ -82,11 +82,21 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ["projects", slug],
     queryFn: () => fetchProjects(slug),
     enabled: !!slug,
   });
+
+  // With no projects to pick from, the backend decides (and says why).
+  const projectRequired = isProjectRequired(projects);
+  const missingProject = projectRequired && projects.length > 0 && !selectedProjectId;
+
+  // Only one project: nothing to choose, so pick it (again after a reset).
+  useEffect(() => {
+    const onlyProject = projects.length === 1 ? projects[0] : undefined;
+    if (onlyProject && !selectedProjectId) setSelectedProjectId(onlyProject.id);
+  }, [projects, selectedProjectId]);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones", selectedProjectId],
@@ -102,8 +112,17 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   const mutation = useMutation({
+    // A file that fails to upload or attach doesn't undo the request: it's
+    // reported as submitted, with the files that didn't make it. Failing the
+    // whole thing would make people resubmit and duplicate it.
     mutationFn: async () => {
-      const uploaded = await Promise.all(attachments.map(uploadFileToLinear));
+      const failedFiles: string[] = [];
+      const uploaded: { name: string; url: string }[] = [];
+      const uploads = await Promise.allSettled(attachments.map(uploadFileToLinear));
+      uploads.forEach((r, i) => {
+        if (r.status === "fulfilled") uploaded.push(r.value);
+        else failedFiles.push(attachments[i]?.name ?? "a file");
+      });
 
       const result = await postCreateIssue({
         title: title.trim(),
@@ -117,22 +136,31 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
       });
 
       const issueId = result.issue?.id;
-      if (issueId && uploaded.length) {
-        await Promise.all(
-          uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),
-        );
-      }
+      if (!issueId) throw new Error("The feature request wasn't created");
 
-      return result;
-    },
-    onSuccess: (data) => {
-      toast.success(
-        `Feature request submitted: ${data.issue?.identifier ?? ""}`,
+      const attached = await Promise.allSettled(
+        uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),
       );
+      attached.forEach((r, i) => {
+        if (r.status === "rejected") failedFiles.push(uploaded[i]?.name ?? "a file");
+      });
+
+      return { identifier: result.issue?.identifier ?? "", failedFiles };
+    },
+    onSuccess: ({ identifier, failedFiles }) => {
+      if (failedFiles.length) {
+        toast.warning(
+          `Feature request submitted: ${identifier}, but couldn't attach ${failedFiles.join(", ")}`,
+        );
+      } else {
+        toast.success(`Feature request submitted: ${identifier}`);
+      }
       reset();
     },
-    onError: () =>
-      toast.error("Failed to submit feature request. Please try again."),
+    onError: (err) =>
+      toast.error("Failed to submit feature request. Please try again.", {
+        description: err instanceof Error ? err.message : undefined,
+      }),
   });
 
   function reset() {
@@ -155,7 +183,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   function handleSubmit() {
-    if (!title.trim()) return;
+    if (!title.trim() || missingProject) return;
     mutation.mutate();
   }
 
@@ -215,6 +243,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
                 projects={projects}
                 value={selectedProjectId}
                 onValueChange={handleProjectChange}
+                required={projectRequired}
               />
 
               {selectedProjectId && (
@@ -261,7 +290,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
             <SubmitButton
               onClick={handleSubmit}
-              disabled={!title.trim() || mutation.isPending}
+              disabled={!title.trim() || projectsLoading || missingProject || mutation.isPending}
               pending={mutation.isPending}
               label="Submit Feature Request"
             />
