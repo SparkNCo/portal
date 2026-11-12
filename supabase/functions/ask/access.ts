@@ -3,9 +3,10 @@
 // the server, from the caller's session — not left to the page: the question
 // reads that client's documents, tests and issues.
 //
-// The same people who see the client's Dashboard (lib/route-access.ts):
-// admins (any client), the client's own customer user, and stakeholders
-// assigned to it. Developers can't open the Dashboard, so not for now.
+// The people who can open the client's pages (lib/route-access.ts): admins
+// (any client), the client's own customer user, and stakeholders and
+// developers assigned to it. Customers and stakeholders ask from the
+// Dashboard; developers from the bottom of their Developer page.
 import { supabase } from "../client.ts";
 import { escapeIlike } from "../utils/slug.ts";
 
@@ -33,9 +34,10 @@ export async function findClient(slug: string): Promise<AskClient | null> {
 export async function canAsk(caller: AskCaller, client: AskClient): Promise<boolean> {
   if (caller.role === "admin") return true;
   if (caller.role === "customer") return caller.customerId === client.customerId;
-  if (caller.role !== "stakeholder") return false;
+  if (caller.role !== "stakeholder" && caller.role !== "developer") return false;
 
-  // Stakeholders are assigned to the client's customer *user* (assignments.customer_id).
+  // Stakeholders and developers are assigned to the client's customer *user*
+  // (assignments.customer_id), with their role on the assignment.
   const { data: customerUsers, error: usersError } = await supabase.schema(SCHEMA)
     .from("users")
     .select("id")
@@ -49,7 +51,7 @@ export async function canAsk(caller: AskCaller, client: AskClient): Promise<bool
     .from("assignments")
     .select("id")
     .eq("user_id", caller.id)
-    .eq("role", "stakeholder")
+    .eq("role", caller.role)
     .in("customer_id", customerUserIds)
     .limit(1)
     .maybeSingle();

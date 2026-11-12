@@ -26,8 +26,9 @@ import {
 
 const SCHEMA = "portal";
 
-// What the page shows for each cited source, and how it opens it.
-type SourceOut = Source & { id: string };
+// What the page shows for each cited source, and how it opens it. `kind`
+// (issues only) sends bugs to the Bugs page and the rest to Build.
+type SourceOut = Source & { id: string; kind?: "bug" | "feature" | null };
 
 // Turns the matched chunks into sources with their details (title, dates,
 // status). A match whose object is gone by now is dropped.
@@ -43,7 +44,7 @@ async function withDetails(matches: ProjectMatch[]): Promise<SourceOut[]> {
       ? supabase.schema(SCHEMA).from("tests").select("id, title, created_at").in("id", ids("test", "test_id"))
       : { data: [] },
     ids("issue", "issue_id").length
-      ? supabase.schema(SCHEMA).from("issue_vectors").select("id, identifier, title, state, due_date, linear_created_at").in("id", ids("issue", "issue_id"))
+      ? supabase.schema(SCHEMA).from("issue_vectors").select("id, identifier, title, state, due_date, linear_created_at, kind").in("id", ids("issue", "issue_id"))
       : { data: [] },
   ]);
   for (const result of [documents, tests, issues]) {
@@ -71,6 +72,7 @@ async function withDetails(matches: ProjectMatch[]): Promise<SourceOut[]> {
         createdAt: i.linear_created_at,
         dueDate: i.due_date,
         status: i.state,
+        kind: i.kind ?? null,
         content: m.content,
         similarity: m.similarity,
       });
@@ -81,7 +83,7 @@ async function withDetails(matches: ProjectMatch[]): Promise<SourceOut[]> {
 
 // The page doesn't need the chunk text or the scores.
 const forPage = (sources: SourceOut[]) =>
-  sources.map(({ type, id, ref, title, status }) => ({ type, id, ref, title, status: status ?? null }));
+  sources.map(({ type, id, ref, title, status, kind }) => ({ type, id, ref, title, status: status ?? null, kind: kind ?? null }));
 
 serveWithCors("ask API Error", async (req) => {
   if (req.method !== "POST") {
