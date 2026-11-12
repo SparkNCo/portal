@@ -90,22 +90,23 @@ A single horizontally scrollable row of **Suggested Feature** cards on the Build
 3. For each customer, `syncCustomerLinearProjects` fetches the initiative's **live** project list from Linear (and refreshes the `customers.linear_projects` snapshot as a side effect).
 4. Projects that **already have a pending suggestion are skipped**, so an ignored project doesn't pile up one new card per week.
 5. For every remaining project, `generateSuggestionForProject` (`generateSuggestion.ts`):
-   - Fetches the project's name/description, up to 20 milestones and up to 100 issues from Linear (`PROJECT_CONTEXT_QUERY` in `suggested-features/query.ts`).
-   - Builds a prompt (at most 80 issue titles with state/priority) asking for exactly **one** new feature that doesn't duplicate an existing ticket.
+   - Fetches from Linear (`PROJECT_CONTEXT_QUERY` in `suggested-features/query.ts`) the **customer's initiative** (title and description: what the whole product is), the **project** (title, short description and its longer content, plus its status), up to 20 milestones and up to 100 issues with their state type.
+   - **Only open projects get suggestions.** A project that's done (status completed or canceled, or with a completion / cancel date) is skipped (`isProjectClosed`, `ClosedProjectError`).
+   - Builds a prompt with the product (initiative), the project's details, its milestones, and its tickets split into **open**, **completed** and **canceled** (up to 50 each, long texts clipped), asking for exactly **one** new feature consistent with the product that doesn't duplicate or closely overlap any of those tickets.
    - Calls the LLM through the shared AI client (`requestJson`, see [PORTAL_DOCS §12](PORTAL_DOCS.md#12-ai-features--config-driven-ai-client)) with a strict JSON schema: `{ title, description, milestoneId | null }`.
    - Only keeps `milestoneId` if it matches one of that project's real milestones. Otherwise it stores no milestone.
    - Inserts a `pending` row into `portal.suggested_features`.
-6. The response summarizes each customer: `{ slug, projectsFound, created, skippedPending, failed }`. A failure on one project is logged and counted but doesn't stop the run.
+6. The response summarizes each customer: `{ slug, projectsFound, created, skippedPending, skippedDone, failed }` (`skippedDone`: projects already finished). A failure on one project is logged and counted but doesn't stop the run.
 
-`POST /suggested-features/generate` with `{ slug, projectId }` is a manual trigger for a single project (e.g. from Insomnia). `slug` is the clientName route slug and is resolved server-side to `customers.linear_slug`.
+`POST /suggested-features/generate` with `{ slug, projectId }` is a manual trigger for a single project (e.g. from Insomnia). `slug` is the clientName route slug and is resolved server-side to `customers.linear_slug`. For a project that's already done it answers **409** and creates nothing.
 
 #### The card — `SuggestedFeatureCard`
 
-`components/build/suggested-feature-card.tsx` — dark card with an orange stripe, "Suggested Feature" lightbulb header, title, and a description clamped to 4 lines.
+`components/build/suggested-feature-card.tsx` — a compact dark card with an orange stripe: the title (up to 2 lines), the project and milestone pickers side by side on one row, and the Decline / Accept row. The description isn't previewed on the card (it made every card tall); the row's own heading says "Suggested Features".
 
 | Element | Behavior |
 |---|---|
-| **Enlarge button** (top-right, shows on hover/focus) | Opens a dialog with the full, untruncated description plus the project/milestone badges. |
+| **Title** | Opens a dialog with the full description plus the project/milestone badges. |
 | **Project badge** | Popover picker listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
 | **Milestone badge** | Popover picker listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
 | **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
@@ -251,8 +252,8 @@ A small **orange message-icon badge** appears on an issue card (top-right corner
 | `lib/suggested-features-api.ts` | `SuggestedFeature` type + fetch/accept/decline/update-project/update-milestone wrappers |
 | `supabase/functions/suggested-features/index.ts` | Route table for the suggested-features edge function |
 | `supabase/functions/suggested-features/generateSuggestion.ts` | **AI.** Prompt + `generateSuggestionForProject` (shared by cron and manual trigger), `POST /generate` |
-| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron target `POST /generate-all`: loops over customers/projects, skips projects that already have a pending suggestion |
-| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: project + milestones + issues sent to the AI |
+| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron target `POST /generate-all`: loops over customers/projects, skips projects that already have a pending suggestion and projects that are done |
+| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: initiative + project (with status) + milestones + issues (with state type) sent to the AI |
 | `supabase/functions/suggested-features/listSuggestions.ts` | `GET`: pending suggestions for a customer |
 | `supabase/functions/suggested-features/acceptSuggestion.ts` | Creates the Linear issue in Backlog with the chosen priority, marks the row accepted |
 | `supabase/functions/suggested-features/declineSuggestion.ts` | Marks the row declined |

@@ -146,7 +146,8 @@ async function buildIssueGroup(
 
   const groupName = await resolveGroupName(issueTitle);
   const group = new CometChat.Group(deterministicGuid, groupName, CometChat.GROUP_TYPE.PUBLIC, "");
-  if (resolvedCustomerId) group.setMetadata({ customerId: resolvedCustomerId });
+  // issueId: lets the Chat page link the group to its ticket (ChatTicketLink).
+  group.setMetadata({ ...(resolvedCustomerId && { customerId: resolvedCustomerId }), issueId });
   const members = Array.from(memberUids).map(
     (uid) => new CometChat.GroupMember(uid, CometChat.GROUP_MEMBER_SCOPE.PARTICIPANT),
   );

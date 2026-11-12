@@ -8,6 +8,7 @@ import { RealtimeMessageBubble } from "./RealtimeMessageBubble";
 import { DateDivider, markDayStarts } from "../DateDivider";
 import { useRealtimeMessages } from "./useRealtimeMessages";
 import type { Chat } from "./useRealtimeChat";
+import { ChatTicketLink } from "../ChatTicketLink";
 
 export default function RealtimeGroupChat({
   chat,
@@ -35,8 +36,10 @@ export default function RealtimeGroupChat({
         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
           <Users className="w-4 h-4 text-primary" />
         </div>
-        <div>
-          <div className="smalltext font-semibold">{chat.title ?? "Chat"}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="smalltext font-semibold truncate">{chat.title ?? "Chat"}</div>
+          {/* A ticket's chat links to the ticket. */}
+          {chat.type === "issue" && <ChatTicketLink issueId={chat.issue_id} fallbackSlug={chat.project_slug} />}
         </div>
       </div>
 

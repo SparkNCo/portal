@@ -3,12 +3,13 @@ import { supabase } from "../client.ts";
 import { syncCustomerLinearProjects } from "../issues/syncLinearProjects.ts";
 import { runWithConcurrency } from "../utils/concurrency.ts";
 import { escapeIlike } from "../utils/slug.ts";
-import { generateSuggestionForProject } from "./generateSuggestion.ts";
+import { ClosedProjectError, generateSuggestionForProject } from "./generateSuggestion.ts";
 
 // POST /suggested-features/generate-all — weekly cron target
 // (..._schedule_suggested_features_cron.sql). One suggestion per project per
-// customer. Project ids come live from Linear (syncCustomerLinearProjects),
-// not the possibly stale customers.linear_projects snapshot.
+// customer, open projects only (a done project is skipped). Project ids come
+// live from Linear (syncCustomerLinearProjects), not the possibly stale
+// customers.linear_projects snapshot.
 export async function handleGenerateAllSuggestions(req: Request): Promise<Response> {
   const schema = "portal";
 
@@ -41,6 +42,7 @@ export async function handleGenerateAllSuggestions(req: Request): Promise<Respon
     projectsFound: number;
     created: number;
     skippedPending: number;
+    skippedDone: number;
     failed: number;
   }[] = [];
 
@@ -52,7 +54,7 @@ export async function handleGenerateAllSuggestions(req: Request): Promise<Respon
     const projectIds = await syncCustomerLinearProjects(customer.customer_id, customer.linear_slug, schema);
     if (!projectIds) {
       console.error(`[generate-all] ${slug}: failed to sync projects from Linear, skipping this run`);
-      results.push({ slug, projectsFound: 0, created: 0, skippedPending: 0, failed: 1 });
+      results.push({ slug, projectsFound: 0, created: 0, skippedPending: 0, skippedDone: 0, failed: 1 });
       return;
     }
 
@@ -68,6 +70,7 @@ export async function handleGenerateAllSuggestions(req: Request): Promise<Respon
 
     let created = 0;
     let skippedPending = 0;
+    let skippedDone = 0;
     let failed = 0;
     for (const projectId of projectIds) {
       if (projectsWithPending.has(projectId)) {
@@ -78,12 +81,16 @@ export async function handleGenerateAllSuggestions(req: Request): Promise<Respon
         await generateSuggestionForProject(schema, customer.linear_slug, projectId);
         created++;
       } catch (err) {
+        if (err instanceof ClosedProjectError) {
+          skippedDone++;
+          continue;
+        }
         failed++;
         console.error(`[generate-all] ${slug} / ${projectId}: failed to generate suggestion`, err);
       }
     }
 
-    results.push({ slug, projectsFound: projectIds.length, created, skippedPending, failed });
+    results.push({ slug, projectsFound: projectIds.length, created, skippedPending, skippedDone, failed });
   });
 
   return Response.json({ success: true, customers: results });
