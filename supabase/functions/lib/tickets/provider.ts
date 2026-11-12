@@ -11,7 +11,7 @@ import { escapeIlike } from "../../utils/slug.ts";
 import { TicketError, type TicketCustomer } from "./errors.ts";
 import { parseTicketId } from "./ids.ts";
 import { ticketSystemOf } from "./ticketSystem.ts";
-import { linearTickets, type TicketsAdapter } from "./linear/issues.ts";
+import { isCustomerProject, linearTickets, type TicketsAdapter } from "./linear/issues.ts";
 import { jiraTickets } from "./jira/issues.ts";
 import { linearRoadmap, type RoadmapAdapter } from "./linear/roadmap.ts";
 import { jiraRoadmap } from "./jira/roadmap.ts";
@@ -58,6 +58,17 @@ export async function ticketsForId(id: string): Promise<TicketsAdapter> {
   const parsed = parseTicketId(id);
   if (parsed.system === "linear") return linearTickets(null);
   return jiraTickets(await jiraCustomerOf(parsed.customerId));
+}
+
+// Whether a ticket is one of this customer's: a Jira id names its customer;
+// a Linear ticket has to sit in one of the customer's initiative projects
+// (the same rule the portal's lists use).
+export async function issueBelongsToCustomer(customer: TicketCustomer, issue: { id: string; project?: { id?: string } | null }): Promise<boolean> {
+  const parsed = parseTicketId(issue.id);
+  if (parsed.system === "jira") return parsed.customerId === customer.customer_id;
+  if (ticketSystemOf(customer.systems) !== "linear") return false;
+  const projectId = issue.project?.id;
+  return !!projectId && (await isCustomerProject(customer, projectId));
 }
 
 // ── Roadmap ───────────────────────────────────────────────────────────────
