@@ -1999,6 +1999,15 @@ function TestsTab({
   );
 }
 
+// "10 Nov 2026" in the viewer's locale, with the month capitalized — some
+// locales (e.g. Spanish) write short month names in lowercase ("10 nov 2026").
+function formatRequestedDate(date: string) {
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+    .formatToParts(new Date(date))
+    .map((p) => (p.type === "month" ? p.value.charAt(0).toUpperCase() + p.value.slice(1) : p.value))
+    .join("");
+}
+
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 export function IssueDetailModal({
@@ -2305,11 +2314,7 @@ export function IssueDetailModal({
               <p className="smalltext italic text-muted-foreground">
                 {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
                 {origin.createdAt &&
-                  ` on ${new Date(origin.createdAt).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}`}
+                  ` on ${formatRequestedDate(origin.createdAt)}`}
               </p>
             )}
 
