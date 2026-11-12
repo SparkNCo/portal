@@ -17,7 +17,14 @@ import {
 } from "@/components/shared/issue-form-fields";
 import { AttachedFilesList } from "@/components/shared/attached-files-list";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { postCreateIssue, fetchProjects, fetchMilestones, isProjectRequired } from "@/lib/issues-api";
+import {
+  postCreateIssue,
+  fetchProjects,
+  fetchMilestones,
+  isProjectRequired,
+  recallLastProject,
+  rememberLastProject,
+} from "@/lib/issues-api";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useUser } from "context/UserContext";
 
@@ -95,11 +102,13 @@ export function BugReportPanel({ slug }: { slug: string }) {
   const projectRequired = isProjectRequired(projects);
   const missingProject = projectRequired && projects.length > 0 && !selectedProjectId;
 
-  // Only one project: nothing to choose, so pick it (again after a reset).
+  // Preselect (again after a reset): the only project, or the one the last
+  // ticket went to in the past few hours.
   useEffect(() => {
-    const onlyProject = projects.length === 1 ? projects[0] : undefined;
-    if (onlyProject && !selectedProjectId) setSelectedProjectId(onlyProject.id);
-  }, [projects, selectedProjectId]);
+    if (selectedProjectId || projects.length === 0) return;
+    const pick = projects.length === 1 ? projects[0]?.id : recallLastProject(slug, profile?.id, projects);
+    if (pick) setSelectedProjectId(pick);
+  }, [projects, selectedProjectId, slug, profile?.id]);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones", selectedProjectId],
@@ -140,6 +149,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
 
       const issueId = result.issue?.id;
       if (!issueId) throw new Error("The bug wasn't created");
+      if (selectedProjectId) rememberLastProject(slug, profile?.id, selectedProjectId);
 
       const attached = await Promise.allSettled(
         uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),

@@ -38,6 +38,45 @@ export function isProjectRequired(projects: { id: string }[]): boolean {
   return !projects.some((p) => p.id.startsWith("jira:"));
 }
 
+// The last project a ticket was filed under, remembered in this browser for a
+// few hours so filing several tickets in a row doesn't mean picking it every
+// time. Keyed by customer and user. It's only a preselection: it's used only
+// when the project is still in the list the server returns.
+const LAST_PROJECT_TTL_MS = 8 * 60 * 60 * 1000;
+const lastProjectKey = (slug: string, userId?: string | null) => `portal:last-project:${slug}:${userId ?? "anon"}`;
+
+export function pickRememberedProject(
+  raw: string | null,
+  projects: { id: string }[],
+  now = Date.now(),
+): string | null {
+  if (!raw) return null;
+  try {
+    const { projectId, savedAt } = JSON.parse(raw) as { projectId?: unknown; savedAt?: unknown };
+    if (typeof projectId !== "string" || typeof savedAt !== "number") return null;
+    if (now - savedAt > LAST_PROJECT_TTL_MS || savedAt > now) return null;
+    return projects.some((p) => p.id === projectId) ? projectId : null;
+  } catch {
+    return null;
+  }
+}
+
+export function recallLastProject(slug: string, userId: string | null | undefined, projects: { id: string }[]): string | null {
+  try {
+    return pickRememberedProject(localStorage.getItem(lastProjectKey(slug, userId)), projects);
+  } catch {
+    return null; // storage blocked (private mode, disabled site data)
+  }
+}
+
+export function rememberLastProject(slug: string, userId: string | null | undefined, projectId: string) {
+  try {
+    localStorage.setItem(lastProjectKey(slug, userId), JSON.stringify({ projectId, savedAt: Date.now() }));
+  } catch {
+    // Only a convenience: nothing to do if storage is blocked.
+  }
+}
+
 export async function postCreateIssue(payload: CreateIssuePayload) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/create`, {
     method: "POST",

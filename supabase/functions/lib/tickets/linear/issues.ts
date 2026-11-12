@@ -467,6 +467,12 @@ export function linearTickets(customer: TicketCustomer | null) {
         const kind = body.type === "bug" ? "bug" : "feature request";
         throw new TicketError(`Pick a project for this ${kind}, or it won't show up in the portal.`, 400);
       }
+      // A customer can only file tickets into their own projects; without
+      // this, a hand-made request could drop a ticket into another
+      // customer's project.
+      if (customer && body.projectId && !(await isCustomerProject(customer, body.projectId))) {
+        throw new TicketError("That project doesn't belong to this customer.", 403);
+      }
       if (body.projectId) {
         const closed = await closedProjectError(body.projectId);
         if (closed) throw new TicketError(closed, 400);
