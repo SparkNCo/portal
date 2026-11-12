@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Lightbulb, Maximize2, X } from "lucide-react";
+import { Check, Lightbulb, X } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,12 +29,12 @@ const PRIORITY_OPTIONS: { value: "urgent" | "high" | "medium" | "low"; label: ke
   { value: "low", label: "Low" },
 ];
 
-// Project/milestone pickers: full-width badges, no dropdown chevron, hover
-// just tints the text orange instead of filling a background.
+// Project/milestone pickers: side by side, each half the card, no dropdown
+// chevron; hover just tints the text orange instead of filling a background.
 const PICKER_STYLE = {
-  triggerClassName: "w-full",
+  triggerClassName: "w-full min-w-0",
   badgeClassName:
-    "w-full justify-start text-sm px-2.5 py-1.5 hover:opacity-100 hover:text-primary",
+    "w-full min-w-0 justify-start truncate smalltext px-2 py-1 hover:opacity-100 hover:text-primary",
   optionClassName: "font-normal text-foreground hover:text-primary",
 } as const;
 
@@ -118,7 +118,9 @@ export function SuggestedFeatureCard({
     // div, not the shadcn <Card> (which is a genuinely light/cream surface,
     // see app/globals.css's "Light card" block — that's what made the
     // project/milestone badges unreadable before this).
-    <div className="group relative w-80 shrink-0 flex flex-col rounded-lg border border-border bg-background">
+    // Compact: title, then project + milestone on one row, then the actions.
+    // The description is in the detail modal (click the title).
+    <div className="relative w-72 shrink-0 flex flex-col gap-2 rounded-lg border border-border bg-background p-3 pl-4">
       {/* No priority yet — a suggestion only gets one once accepted — so the
           stripe is just the app's fixed orange accent, matching priorityLabel
           "Medium"'s bg-primary and the "Suggested Feature" branding color,
@@ -128,29 +130,21 @@ export function SuggestedFeatureCard({
         aria-hidden="true"
       />
 
-      {/* Descriptions get clamped to 4 lines below and some run past that —
-          this opens a modal with the untruncated text instead of leaving
-          "…" as a dead end. Hidden until hover/focus, same reveal pattern as
-          IssueCard's own edit button. */}
+      {/* No "Suggested Feature" label per card — the row has the heading
+          (SuggestedFeaturesRow). The title opens the detail modal with the
+          full description, which isn't previewed on the card any more (it
+          made every card tall). */}
       <button
         type="button"
-        className="absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-muted-foreground hover:bg-secondary hover:text-primary"
         onClick={() => setDetailOpen(true)}
-        aria-label="View full description"
+        title="View description"
+        className="text-left smalltext font-semibold leading-snug text-foreground line-clamp-2 hover:text-primary transition-colors"
       >
-        <Maximize2 className="h-3.5 w-3.5" />
+        {feature.title}
       </button>
 
-      {/* No "Suggested Feature" label per card — the row has the heading
-          (SuggestedFeaturesRow). pr-8 keeps the title clear of the expand
-          button in the corner. */}
-      <div className="p-4 pl-5 pr-8 pb-2">
-        <p className="text-base font-semibold leading-snug text-foreground">{feature.title}</p>
-      </div>
-
-      <div className="flex-1 space-y-3 px-4 pl-5 pb-3">
-        <p className="smalltext text-muted-foreground line-clamp-4">{feature.description}</p>
-        <div className="flex flex-col gap-2">
+      <div className="flex-1">
+        <div className="grid grid-cols-2 gap-2">
           {/* AI-picked (or previously overridden) project — re-validated
               against this customer's own customers.linear_projects on every
               change (updateSuggestionProject.ts), never trusted blind.
@@ -191,11 +185,11 @@ export function SuggestedFeatureCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 p-4 pl-5 pt-0">
+      <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="ghost"
-          className="flex-1"
+          className="h-8 flex-1"
           disabled={busy}
           onClick={() => declineMutation.mutate()}
         >
@@ -205,7 +199,7 @@ export function SuggestedFeatureCard({
 
         <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
           <PopoverTrigger asChild>
-            <Button size="sm" variant="default" className="flex-1" disabled={busy}>
+            <Button size="sm" variant="default" className="h-8 flex-1" disabled={busy}>
               <Check className="h-3.5 w-3.5 mr-1.5" />
               {acceptMutation.isPending ? "Accepting…" : "Accept"}
             </Button>

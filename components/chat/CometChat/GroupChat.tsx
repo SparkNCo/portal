@@ -12,6 +12,8 @@ import { useGroupMembers } from "./useGroupMembers";
 import { mentionablePeople } from "../mentions";
 import { useMessageReplies } from "./useMessageReplies";
 import { MESSAGES_PAGE_SIZE, useOlderMessages } from "./useOlderMessages";
+import { ChatTicketLink } from "../ChatTicketLink";
+import { issueIdFromGroupGuid } from "@/lib/chat-ticket";
 
 // Who sent a CometChat message (SDK object or raw payload).
 const senderUidOf = (m: any): string | undefined => m?.getSender?.()?.getUid?.() ?? m?.sender?.uid;
@@ -127,8 +129,13 @@ export default function GroupChat({ user, group, onActivity }: Props) {
         <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
           <Users className="w-4 h-4 text-primary" />
         </div>
-        <div>
-          <div className="smalltext font-semibold">{group.getName()}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="smalltext font-semibold truncate">{group.getName()}</div>
+          {/* A ticket's chat links to the ticket: its id is in the group's
+              metadata, or (older groups) in the group id itself. */}
+          <ChatTicketLink
+            issueId={((group.getMetadata() as { issueId?: string } | undefined)?.issueId) ?? issueIdFromGroupGuid(guid)}
+          />
         </div>
       </div>
 

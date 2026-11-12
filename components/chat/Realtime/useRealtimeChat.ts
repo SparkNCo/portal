@@ -9,6 +9,8 @@ export type Chat = {
   project_slug: string | null;
   title: string | null;
   type: "direct" | "group" | "issue";
+  // The ticket a "issue" chat belongs to.
+  issue_id?: string | null;
   metadata: Record<string, any>;
   created_by: string | null;
   created_at: string;
