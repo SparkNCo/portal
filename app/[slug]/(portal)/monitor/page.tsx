@@ -11,6 +11,7 @@ import { ProgressPieChart } from "@/components/client/progress-pie-chart";
 import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { fetchIssues } from "../dashboard/page";
 import { PinButton } from "@/components/dashboard/pin-button";
+import { PagePanel } from "@/components/dashboard/page-panel";
 import { useRoadmapData } from "@/hooks/use-roadmap-data";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -53,18 +54,12 @@ export default function RoadmapPage() {
       <Header title={pageTitle} subtitle="Project timeline and progress" subtitleClassName="smalltext" />
       <div className="p-4 md:p-6 space-y-6">
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative">
-            <PinButton panelId="progress_pie_chart" />
-            <div className="pt-12">
-              <ProgressPieChart issuesData={allIssues} />
-            </div>
-          </div>
-          <div className="relative">
-            <PinButton panelId="software_kpis" />
-            <div className="pt-12">
-              <SoftwareKPIs linearName={slug} />
-            </div>
-          </div>
+          <PagePanel page="monitor" panelId="progress_pie_chart">
+            <ProgressPieChart issuesData={allIssues} />
+          </PagePanel>
+          <PagePanel page="monitor" panelId="software_kpis">
+            <SoftwareKPIs linearName={slug} />
+          </PagePanel>
         </div>
         <div className="relative -mx-4 sm:mx-0">
           <PinButton panelId="roadmap_timeline" />

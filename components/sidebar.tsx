@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +21,25 @@ import {
   X,
   FolderKanban,
   Database,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { moveNavKey, orderNavItems } from "@/lib/user-layout";
+import { useSaveNavOrder, useUserLayout } from "@/hooks/use-user-layout";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -155,8 +173,9 @@ function NavLink({
     <Link
       href={href}
       onClick={onClick}
+      draggable={false}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
+        "flex items-center gap-3 rounded-md py-2 pl-3 pr-8 smalltext font-medium transition-colors",
         isActive
           ? "bg-sidebar-accent text-primary font-semibold"
           : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -165,6 +184,84 @@ function NavLink({
       <Icon className="h-4 w-4" />
       {label}
     </Link>
+  );
+}
+
+// SPA-581: menu items can be reordered by dragging their handle (the grip on
+// the right, shown on hover; always shown in the mobile drawer). The keyboard
+// works too: focus the handle, Space to pick up, arrows to move, Space to drop.
+// Each user's order is saved in portal.user_layout.nav_order
+// (hooks/use-user-layout.ts).
+function SortableNavItem({
+  id,
+  label,
+  children,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly children: ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      // Vertical only: the menu is a single column.
+      style={{ transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined, transition }}
+      className={cn("group relative", isDragging && "z-10 rounded-md bg-sidebar-accent shadow-md")}
+    >
+      {children}
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder ${label}`}
+        title="Drag to reorder"
+        className={cn(
+          "absolute right-1 top-1/2 -translate-y-1/2 touch-none rounded p-1 text-muted-foreground/60 transition-opacity",
+          "cursor-grab hover:text-sidebar-foreground active:cursor-grabbing focus-visible:opacity-100",
+          "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
+          isDragging && "lg:opacity-100",
+        )}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function SortableNavList<T extends { href: string; label: string }>({
+  items,
+  onReorder,
+  renderItem,
+}: {
+  readonly items: T[];
+  readonly onReorder: (keys: string[]) => void;
+  readonly renderItem: (item: T) => ReactNode;
+}) {
+  const sensors = useSensors(
+    // A few pixels of movement before it counts as a drag, so a tap on the
+    // handle doesn't move anything.
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const keys = items.map((item) => item.href);
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    onReorder(moveNavKey(keys, String(active.id), String(over.id)));
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={keys} strategy={verticalListSortingStrategy}>
+        {items.map((item) => (
+          <SortableNavItem key={item.href} id={item.href} label={item.label}>
+            {renderItem(item)}
+          </SortableNavItem>
+        ))}
+      </SortableContext>
+    </DndContext>
   );
 }
 
@@ -211,7 +308,13 @@ export function Sidebar() {
   // An unrecognised or missing role gets no navigation at all (it used to
   // fall back to the developer menu).
   const portalType = profile?.role ?? "";
-  const navItems = roleNavMap[portalType] ?? [];
+  // In the order this user dragged them into (SPA-581); the default order
+  // until they do, or while it loads.
+  const { data: userLayout } = useUserLayout();
+  const savedNavOrder = userLayout?.nav_order;
+  const saveNavOrder = useSaveNavOrder();
+  const navItems = orderNavItems(roleNavMap[portalType] ?? [], savedNavOrder);
+  const orderedAdminCustomerNavItems = orderNavItems(adminCustomerNavItems, savedNavOrder);
 
   // Developers can be assigned to several customers at once — "Working on"
   // picks which one. On /{slug} pages the URL decides it; elsewhere (the old
@@ -356,21 +459,25 @@ export function Sidebar() {
         {isAdmin ? (
           <>
             {/* Always listed so the menu keeps the same items; disabled
-                until an initiative is selected. */}
-            {adminCustomerNavItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={adminNavSlug ? `/${encodeURIComponent(adminNavSlug)}/${item.href}` : "#"}
-                label={item.label}
-                icon={item.icon}
-                isActive={
-                  isAdminViewingCustomerSlug &&
-                  (pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`))
-                }
-                disabled={!adminNavSlug}
-                onClick={close}
-              />
-            ))}
+                until an initiative is selected. The Admin section below
+                keeps its place. */}
+            <SortableNavList
+              items={orderedAdminCustomerNavItems}
+              onReorder={(keys) => saveNavOrder.mutate(keys)}
+              renderItem={(item) => (
+                <NavLink
+                  href={adminNavSlug ? `/${encodeURIComponent(adminNavSlug)}/${item.href}` : "#"}
+                  label={item.label}
+                  icon={item.icon}
+                  isActive={
+                    isAdminViewingCustomerSlug &&
+                    (pathname.endsWith(`/${item.href}`) || pathname.includes(`/${item.href}/`))
+                  }
+                  disabled={!adminNavSlug}
+                  onClick={close}
+                />
+              )}
+            />
             <p className="px-3 pt-4 pb-1 smalltext font-medium text-sidebar-foreground/50">
               Admin
             </p>
@@ -386,36 +493,42 @@ export function Sidebar() {
             ))}
           </>
         ) : (
-          navItems.map((item) => {
-            // Developers' relative items point at their selected initiative
-            // (or /dev/{item}, which explains there's none yet).
-            let href = item.href;
-            if (portalType === "developer" && !href.startsWith("/")) {
-              href = selectedDeveloperProject
-                ? `/${routeSlugFor(selectedDeveloperProject)}/${href}`
-                : `/dev/${href}`;
-            }
-            const isActive = href.startsWith("/")
-              ? pathname === href || pathname.startsWith(`${href}/`)
-              : pathname.endsWith(`/${href}`) || pathname.includes(`/${href}/`);
-            const hrefWithParams = params ? `${href}?${params}` : href;
-            return (
-              <Link
-                key={item.href}
-                href={hrefWithParams}
-                onClick={close}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-primary font-semibold"
-                    : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })
+          <SortableNavList
+            items={navItems}
+            onReorder={(keys) => saveNavOrder.mutate(keys)}
+            renderItem={(item) => {
+              // Developers' relative items point at their selected initiative
+              // (or /dev/{item}, which explains there's none yet).
+              let href = item.href;
+              if (portalType === "developer" && !href.startsWith("/")) {
+                href = selectedDeveloperProject
+                  ? `/${routeSlugFor(selectedDeveloperProject)}/${href}`
+                  : `/dev/${href}`;
+              }
+              const isActive = href.startsWith("/")
+                ? pathname === href || pathname.startsWith(`${href}/`)
+                : pathname.endsWith(`/${href}`) || pathname.includes(`/${href}/`);
+              const hrefWithParams = params ? `${href}?${params}` : href;
+              return (
+                <Link
+                  href={hrefWithParams}
+                  onClick={close}
+                  // Dragging is done with the handle; this keeps the browser's
+                  // own link-dragging out of the way.
+                  draggable={false}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md py-2 pl-3 pr-8 smalltext font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-primary font-semibold"
+                      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            }}
+          />
         )}
       </nav>
 

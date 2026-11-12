@@ -28,7 +28,7 @@
 
 ## 1. Roles & Permissions
 
-The portal has four roles. Each role gets a different dashboard, a different sidebar, and different permissions inside every panel.
+The portal has four roles. Each role gets a different dashboard, a different sidebar, and different permissions inside every panel. Every user can reorder their sidebar's items by dragging them; the order is saved per user (SPA-581, see `CLIENT_DASHBOARD_FLOWS.md` → "Reordering the menu").
 
 ---
 
@@ -58,7 +58,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Upload and view documents.
 - Must agree to company policies on first login (Policy Approval Modal).
 
-**Sidebar:** Developer, Chat, Documents
+**Sidebar:** Developer, Build, Bugs, Demos, Chat, Documents
 
 ---
 
@@ -75,7 +75,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - View project stats, SDLC metrics, roadmap, and documents.
 - Manage billing and staffing in Settings.
 
-**Sidebar:** Dashboard, Roadmap, Documents, Chat, Settings
+**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings
 
 ---
 
@@ -90,7 +90,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Cannot access Settings (no billing or staffing panels).
 - Typically a secondary contact on the client side who reviews and approves but is not the primary account owner.
 
-**Sidebar:** Dashboard, Roadmap, Documents, Chat
+**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings
 
 ---
 

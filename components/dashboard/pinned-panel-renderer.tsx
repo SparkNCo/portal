@@ -196,7 +196,8 @@ export function PinnedPanelRenderer({
 
   if (panelId === "build_done") {
     const issues = allIssues
-      .filter((i) => i.state?.name === "Done" && matchesSelectedProject(i))
+      // Approved in UAT or Done: the "Approved" panel shows both.
+      .filter((i) => isClosedIssue(i) && matchesSelectedProject(i))
       .sort(
         (a, b) =>
           new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
@@ -210,7 +211,7 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Completed"
+          title="Approved"
           slug={slug}
           compact
           lightCard

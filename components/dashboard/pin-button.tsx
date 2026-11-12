@@ -12,14 +12,15 @@ import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { PINNABLE_PANELS } from "@/lib/pinnable-panels";
 
 // Pins go to the Dashboard, which developers don't have — so no button for
-// them (and no pinned-panels lookup either).
-export function PinButton({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
+// them (and no pinned-panels lookup either). `inline`: inside a toolbar that
+// already places it (PagePanel), instead of pinned to the panel's corner.
+export function PinButton({ panelId, inline = false }: Readonly<{ panelId: PinnablePanelId; inline?: boolean }>) {
   const { profile } = useUser();
   if (profile?.role === "developer") return null;
-  return <PinToggle panelId={panelId} />;
+  return <PinToggle panelId={panelId} inline={inline} />;
 }
 
-function PinToggle({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
+function PinToggle({ panelId, inline }: Readonly<{ panelId: PinnablePanelId; inline: boolean }>) {
   const userId = usePinnedPanelsOwnerId();
 
   const { data: pinnedPanels } = usePinnedPanels(userId);
@@ -44,7 +45,7 @@ function PinToggle({ panelId }: Readonly<{ panelId: PinnablePanelId }>) {
       onClick={handleClick}
       disabled={!userId || pinPanel.isPending || unpinPanel.isPending}
       title={isPinned ? "Unpin from Dashboard" : "Pin to Dashboard"}
-      className="absolute top-3 right-3 z-10 rounded-md border border-border/40 bg-background/80 p-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-50"
+      className={`${inline ? "" : "absolute top-3 right-3 z-10 "}rounded-md border border-border/40 bg-background/80 p-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors disabled:opacity-50`}
     >
       <Pin className={isPinned ? "h-3.5 w-3.5 fill-current" : "h-3.5 w-3.5"} />
     </button>
