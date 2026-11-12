@@ -13,8 +13,9 @@ import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import { PinButton } from "@/components/dashboard/pin-button";
+import { PagePanel } from "@/components/dashboard/page-panel";
 import type { Issue } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import {
   Select,
@@ -73,18 +74,19 @@ function BuildPageContent() {
     enabled: !!slug,
   });
 
-  // Done gets its own query: it's the status that piles up the most, so
-  // sharing the 100-issue cap above would crowd out the active panels.
+  // Finished tickets (Approved in UAT, then Done) get their own query: they
+  // pile up the most, so sharing the 100-issue cap above would crowd out the
+  // active panels. Shown together in the "Approved" panel.
   const { data: doneData, isLoading: doneLoading } = useQuery({
-    queryKey: ["linear-issues", slug, "Done"],
-    queryFn: () => fetchIssues(slug, ["Done"]),
+    queryKey: ["linear-issues", slug, "Approved,Done"],
+    queryFn: () => fetchIssues(slug, ["Approved", "Done"]),
     enabled: !!slug,
   });
 
   const allIssues: any[] = issuesData ?? [];
 
   const doneIssues = (doneData ?? [])
-    .filter((i: any) => i.state?.name === "Done")
+    .filter((i: any) => isClosedIssue(i))
     .sort(
       (a: any, b: any) =>
         new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
@@ -198,81 +200,69 @@ function BuildPageContent() {
         )}
 
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_product_decisions" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleBusinessReviewIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Business Reviews"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_acceptance_testing" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleUatIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Acceptance Testing"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
+          <PagePanel page="build" panelId="build_product_decisions" className="flex flex-col" contentClassName="flex-1">
+            <PriorityTasks
+              loading={issuesLoading}
+              issuesData={visibleBusinessReviewIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
+              title="Business Reviews"
+              slug={slug}
+              lightCard
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
+            />
+          </PagePanel>
+          <PagePanel page="build" panelId="build_acceptance_testing" className="flex flex-col" contentClassName="flex-1">
+            <PriorityTasks
+              loading={issuesLoading}
+              issuesData={visibleUatIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
+              title="Acceptance Testing"
+              slug={slug}
+              lightCard
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
+            />
+          </PagePanel>
         </div>
 
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_backlog" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleBacklogIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Backlog"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_done" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={doneLoading}
-                issuesData={visibleDoneIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Completed"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
+          <PagePanel page="build" panelId="build_backlog" className="flex flex-col" contentClassName="flex-1">
+            <PriorityTasks
+              loading={issuesLoading}
+              issuesData={visibleBacklogIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
+              title="Backlog"
+              slug={slug}
+              lightCard
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
+            />
+          </PagePanel>
+          <PagePanel page="build" panelId="build_done" className="flex flex-col" contentClassName="flex-1">
+            <PriorityTasks
+              loading={doneLoading}
+              issuesData={visibleDoneIssues}
+              filterState={noopFilterState}
+              onOpenChat={() => {}}
+              onEditIssue={(issue) => setEditingIssue(issue)}
+              title="Approved"
+              slug={slug}
+              lightCard
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
+            />
+          </PagePanel>
         </div>
       </div>
 
