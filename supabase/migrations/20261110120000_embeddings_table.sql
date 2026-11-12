@@ -48,8 +48,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS embeddings_issue_chunk    ON portal.embeddings
 CREATE INDEX IF NOT EXISTS embeddings_project_slug ON portal.embeddings (project_slug);
 CREATE INDEX IF NOT EXISTS embeddings_embedding ON portal.embeddings USING hnsw (embedding vector_cosine_ops);
 
--- RLS with no policies: service role only, like issue_vectors.
+-- RLS with no policies: service role only, like issue_vectors. Granted
+-- explicitly: new tables don't always get the schema's default grants (cloud).
 ALTER TABLE portal.embeddings ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON portal.embeddings TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- Whether all of an object's chunks are embedded. A function call has ~2 s of
@@ -122,3 +124,5 @@ AS $$
   ORDER BY b.similarity DESC
   LIMIT match_count;
 $$;
+
+GRANT EXECUTE ON FUNCTION portal.match_embeddings(vector, text, text[], boolean, text, int) TO service_role;

@@ -1,14 +1,31 @@
-// One-off: generates pgvector embeddings for everything that was only indexed
-// in Upstash (issues, test cases, documents). Safe to re-run — each endpoint
-// only picks up rows that are still missing an embedding.
+// Fills portal.embeddings (one vector per chunk) for issues, test cases and
+// documents that aren't fully embedded yet: everything that existed before
+// chunked embeddings (20261110120000_embeddings_table.sql), and long documents
+// or tests that one call couldn't finish. Safe to re-run — each endpoint only
+// picks up what's still missing.
 //
-// Usage:
+// Usage (bash):
 //   SUPABASE_URL=https://<project>.supabase.co \
 //   SERVICE_ROLE_KEY=<service role key> \
 //   ADMIN_USER_ID=<portal.users.id of an admin> \
 //   node scripts/backfill-pgvector.mjs [clientName]
 //
+// Usage (PowerShell):
+//   $env:SUPABASE_URL = "https://<project>.supabase.co"
+//   $env:SERVICE_ROLE_KEY = "<service role key>"
+//   $env:ADMIN_USER_ID = "<portal.users.id of an admin>"
+//   node scripts/backfill-pgvector.mjs [clientName]
+//
+// SERVICE_ROLE_KEY: the legacy service_role key (a JWT, "eyJ…", under Project
+// Settings → API Keys → Legacy API Keys). The functions verify JWTs, so the
+// newer "sb_secret_…" keys can be rejected. ADMIN_USER_ID: portal.users.id
+// (not auth.users) of a user with role "admin".
+//
 // Without a clientName it runs for every customer.
+//
+// Each call embeds ~800 words (the functions' ~2 s CPU limit), so this loops.
+// A call that runs out of CPU anyway (WORKER_RESOURCE_LIMIT, most often on a
+// cold start while the model loads) or hits a network / 5xx error is retried.
 
 const { SUPABASE_URL, SERVICE_ROLE_KEY, ADMIN_USER_ID } = process.env;
 const onlyClient = process.argv[2];
@@ -24,13 +41,41 @@ const headers = {
   Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
 };
 
+class CallError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function call(path, init = {}) {
   const res = await fetch(`${SUPABASE_URL}${path}`, { ...init, headers: { ...headers, ...init.headers } });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(`${path} → ${res.status}: ${JSON.stringify(body)}`);
+    throw new CallError(`${path} → ${res.status}: ${JSON.stringify(body)}`, res.status);
   }
   return body;
+}
+
+const MAX_ATTEMPTS = 5;
+const RETRY_WAIT_MS = 3000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Out of CPU (WORKER_RESOURCE_LIMIT comes back as a 5xx), a 5xx or a network
+// error: worth another try. A 4xx (bad key, not an admin, unknown client)
+// won't fix itself, so it stops the script.
+const isRetryable = (err) => !(err instanceof CallError) || err.status >= 500;
+
+async function withRetries(label, step) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await step();
+    } catch (err) {
+      if (!isRetryable(err) || attempt >= MAX_ATTEMPTS) throw err;
+      console.warn(`  ${label}: failed (${attempt}/${MAX_ATTEMPTS}), retrying — ${err.message}`);
+      await sleep(RETRY_WAIT_MS);
+    }
+  }
 }
 
 // Calls `step` until nothing is left, or a batch makes no progress (rows that
@@ -38,7 +83,7 @@ async function call(path, init = {}) {
 async function drain(label, step) {
   let total = 0;
   for (;;) {
-    const { progress, remaining } = await step();
+    const { progress, remaining } = await withRetries(label, step);
     total += progress;
     console.log(`  ${label}: +${progress} (${remaining} left)`);
     if (remaining === 0) {

@@ -99,7 +99,7 @@ The available statuses are derived dynamically from the actual issues — only s
 
 ## Dashboard Sections
 
-The page is divided into two rows:
+The page is divided into three rows:
 
 ### Row 1 — Quick Links & Tool Shortcuts (2-column grid)
 
@@ -142,6 +142,12 @@ The card title changes dynamically:
 - The customer's `clientName` when a specific project is selected
 
 Clicking any issue card opens the **Issue Detail Modal** with up to six tabs: Description, Chat, Tests, Clarifications, Design, and Demo (Design is hidden for Bug issues; Demo shows for both). See `app/docs/FEATURES_FLOWS.md` for the full interaction flows inside the modal.
+
+### Row 3 — Ask about this project (full width)
+
+**Source:** `components/dashboard/ask-project.tsx`
+
+The same panel customers have at the top of their Dashboard, for the initiative selected on the page (`selectedProject`): a plain-text question about its documents, test cases and issues, answered with the sources it came from. It's keyed by the initiative, so switching initiatives clears the previous answer, and it's hidden when the developer has no assignments. The backend only answers about initiatives the developer is assigned to. Full write-up: `ASK_FLOWS.md`.
 
 > **Note:** The `CreateIssue` button is currently commented out at the bottom of the page. It would allow developers to create new issues directly from their dashboard.
 
@@ -213,6 +219,7 @@ allIssues (merged, Done removed, sorted by question count)
 | `app/[slug]/(portal)/dashboard/page.tsx` | Exports `fetchIssues` reused by the developer dashboard |
 | `components/developer/quick-links.tsx` | Quick Links card with Airtable form links |
 | `components/developer/tool-shortcuts.tsx` | Tool Shortcuts card (JumpCloud, PostHog, GitHub) |
+| `components/dashboard/ask-project.tsx` | "Ask about this project" panel at the bottom (global query, `ASK_FLOWS.md`) |
 | `components/client/priority-tasks.tsx` | Issue list with filter, sort, and search |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal — Description / Chat / Tests / Clarifications / Design / Demo |
 | `components/client/issue-cards.tsx` | Individual issue card and list row rendering |

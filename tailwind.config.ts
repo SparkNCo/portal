@@ -113,10 +113,16 @@ const config = {
             height: "0",
           },
         },
+        // A bar sliding across its track, for waits with no known length.
+        "progress-slide": {
+          from: { transform: "translateX(-100%)" },
+          to: { transform: "translateX(250%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "progress-slide": "progress-slide 1.2s ease-in-out infinite",
       },
     },
   },
