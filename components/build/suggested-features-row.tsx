@@ -51,7 +51,7 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
       </CardHeader>
 
       <CardContent>
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {isLoading
             ? [0, 1, 2].map((i) => <SuggestedFeatureSkeleton key={i} />)
             : features.map((feature) => (
@@ -68,22 +68,23 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
   );
 }
 
-// Same footprint as a SuggestedFeatureCard: title, the two pickers side by
-// side and the Accept/Decline row.
+// Same footprint as a SuggestedFeatureCard: title, preview, project line and
+// the View / Decline row.
 function SuggestedFeatureSkeleton() {
   const bar = "rounded bg-muted-foreground/20";
   return (
     <div
       role="status"
-      className="relative w-72 shrink-0 animate-pulse rounded-lg border border-border bg-background p-3 pl-4 space-y-2"
+      className="relative w-80 shrink-0 animate-pulse rounded-lg border border-border bg-background p-4 pl-5 space-y-3"
     >
       <span className="sr-only">Loading suggested features…</span>
       <span className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary/40" aria-hidden="true" />
       <div className={`${bar} h-4 w-3/4`} />
-      <div className="grid grid-cols-2 gap-2">
-        <div className={`${bar} h-7`} />
-        <div className={`${bar} h-7`} />
+      <div className="space-y-2">
+        <div className={`${bar} h-3 w-full`} />
+        <div className={`${bar} h-3 w-2/3`} />
       </div>
+      <div className={`${bar} h-3 w-1/2`} />
       <div className="flex gap-2">
         <div className={`${bar} h-8 flex-1`} />
         <div className={`${bar} h-8 flex-1`} />

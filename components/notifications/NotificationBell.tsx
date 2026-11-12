@@ -233,23 +233,39 @@ const NO_CUSTOMER = "__none__";
 // First path segments of event links that aren't a customer slug.
 const NON_CUSTOMER_SEGMENTS = new Set(["admin", "dev", "chat"]);
 
-// Which customer a notification belongs to, as a lowercased slug — the
-// first segment of its link ("/{slug}/build" etc., see
-// supabase/functions/utils/notify.ts), or for chats the chat's own
-// project_slug. Null for direct chats with no project. Lowercased because
-// slugs come in mixed casing (see the linear_slug case-insensitive fixes).
-function customerKeyOf(n: Notification, chatSlugs: Record<string, string | null>): string | null {
-  const { event } = n;
-  if (isChatType(event.object_type)) return chatSlugs[event.object_id]?.toLowerCase() ?? null;
-  const segment = event.link.split("?")[0]?.split("/").find(Boolean);
-  if (!segment || NON_CUSTOMER_SEGMENTS.has(segment)) return null;
-  return safeDecodeURIComponent(segment).toLowerCase();
+// The customer a slug names, when it's one of `customers`: event links carry
+// the route slug (clientName lowercased), chats sometimes the linear_slug.
+function findCustomer(slug: string, customers: CustomerSummary[]): CustomerSummary | undefined {
+  return customers.find((c) => c.clientName?.toLowerCase() === slug || c.linear_slug?.toLowerCase() === slug);
 }
 
-// Event slugs are sometimes the route slug (clientName lowercased) and
-// sometimes linear_slug — match either, show the customer's name.
+// Which customer a notification belongs to, as one key per customer: the
+// first segment of its link ("/{slug}/build" etc., see
+// supabase/functions/utils/notify.ts), or for chats the chat's own
+// project_slug, mapped to that customer's clientName (lowercased) so the
+// same customer never shows up twice in the filter (once by route slug, once
+// by linear_slug). Null for direct chats with no project — an empty
+// project_slug counts as none, since an empty key breaks the dropdown.
+function customerKeyOf(
+  n: Notification,
+  chatSlugs: Record<string, string | null>,
+  customers: CustomerSummary[],
+): string | null {
+  const { event } = n;
+  let slug: string | null;
+  if (isChatType(event.object_type)) {
+    slug = chatSlugs[event.object_id]?.trim().toLowerCase() || null;
+  } else {
+    const segment = (event.link ?? "").split("?")[0]?.split("/").find(Boolean);
+    slug = segment && !NON_CUSTOMER_SEGMENTS.has(segment) ? safeDecodeURIComponent(segment).trim().toLowerCase() || null : null;
+  }
+  if (!slug) return null;
+  return findCustomer(slug, customers)?.clientName?.toLowerCase() || slug;
+}
+
+// The customer's name for a key, or the key itself when it isn't a known one.
 function customerLabel(key: string, customers: CustomerSummary[]): string {
-  const match = customers.find((c) => c.clientName?.toLowerCase() === key || c.linear_slug?.toLowerCase() === key);
+  const match = findCustomer(key, customers);
   return match?.clientName || match?.linear_slug || key;
 }
 
@@ -323,7 +339,7 @@ function AllNotificationsModal({
   // One option per customer that actually has notifications here, by name.
   const customerOptions = useMemo(() => {
     if (!isAdmin) return [];
-    const keys = new Set(all.map((n) => customerKeyOf(n, chatSlugs) ?? NO_CUSTOMER));
+    const keys = new Set(all.map((n) => customerKeyOf(n, chatSlugs, customers) ?? NO_CUSTOMER));
     return [...keys]
       .map((key) => ({ key, label: key === NO_CUSTOMER ? "No customer" : customerLabel(key, customers) }))
       .sort((a, b) => {
@@ -336,12 +352,12 @@ function AllNotificationsModal({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return all.filter((n) => {
-      if (customerFilter !== ALL_CUSTOMERS && (customerKeyOf(n, chatSlugs) ?? NO_CUSTOMER) !== customerFilter) {
+      if (customerFilter !== ALL_CUSTOMERS && (customerKeyOf(n, chatSlugs, customers) ?? NO_CUSTOMER) !== customerFilter) {
         return false;
       }
       return !q || searchableText(n).includes(q);
     });
-  }, [all, chatSlugs, query, customerFilter]);
+  }, [all, chatSlugs, customers, query, customerFilter]);
 
   const isFiltering = query.trim() !== "" || customerFilter !== ALL_CUSTOMERS;
 

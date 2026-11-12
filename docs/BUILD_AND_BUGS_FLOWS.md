@@ -102,15 +102,16 @@ A single horizontally scrollable row of **Suggested Feature** cards on the Build
 
 #### The card — `SuggestedFeatureCard`
 
-`components/build/suggested-feature-card.tsx` — a compact dark card with an orange stripe: the title (up to 2 lines), the project and milestone pickers side by side on one row, and the Decline / Accept row. The description isn't previewed on the card (it made every card tall); the row's own heading says "Suggested Features".
+`components/build/suggested-feature-card.tsx` — a dark card with an orange stripe: the title, a two-line preview of the description, the project (and milestone) it would go in, and two buttons, **View** and **Decline**. The row's own heading says "Suggested Features". The full description, the pickers and Approve are in the modal that View opens.
 
-| Element | Behavior |
-|---|---|
-| **Title** | Opens a dialog with the full description plus the project/milestone badges. |
-| **Project badge** | Popover picker listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
-| **Milestone badge** | Popover picker listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
-| **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
-| **Accept** | Doesn't accept on click. It opens a **"Set priority to accept"** popover (Urgent / High / Medium / Low), and choosing a priority is what triggers `POST /suggested-features/accept`. |
+| Where | Element | Behavior |
+|---|---|---|
+| Card | **View** | Opens the modal. |
+| Card / modal | **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
+| Modal | Title and full description | As generated (or as left after overrides). |
+| Modal | **Project** picker | Popover listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
+| Modal | **Milestone** picker | Popover listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
+| Modal | **Approve** | Doesn't approve on click. It opens a **"Set priority to approve"** popover (Urgent / High / Medium / Low), and choosing a priority is what triggers `POST /suggested-features/accept`. |
 
 **Accept flow** (`acceptSuggestion.ts`):
 1. Resolves the project's Linear team and that team's **Backlog** state.
