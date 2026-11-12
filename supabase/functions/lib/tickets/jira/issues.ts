@@ -196,6 +196,13 @@ export function jiraTickets(customer: TicketCustomer, options: { token?: string 
     },
 
     async createIssue(body: Record<string, any>) {
+      // Jira ids carry their customer: an epic from someone else's Jira is refused.
+      if (body.projectId) {
+        const parsed = parseTicketId(body.projectId);
+        if (parsed.system === "jira" && parsed.customerId !== jira.customerId) {
+          throw new TicketError("That project doesn't belong to this customer.", 403);
+        }
+      }
       const kind = ticketKind(body.type);
       const issueType = await jira.issueTypeFor(kind);
       if (!issueType) throw new TicketError(`The Jira project ${jira.projectKey} has no issue type to create this ticket with.`, 400);

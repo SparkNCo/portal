@@ -2,20 +2,30 @@
 // Reading tickets, through the ticket-system wrapper (Linear or the
 // customer's Jira — see lib/tickets/provider.ts).
 import { ticketErrorResponse, TicketError } from "../lib/tickets/errors.ts";
-import { ticketsForId, ticketsForSlug } from "../lib/tickets/provider.ts";
+import { customerBySlug, issueBelongsToCustomer, ticketsForId, ticketsForSlug } from "../lib/tickets/provider.ts";
 import { attachRequesters } from "./issueRequests.ts";
 
 // Backs the "Edit this instead" action on the similar-issues hint — the vector match
 // only carries { id, title } metadata, so this fetches the rest of the Issue shape
 // EditIssueModal needs by id (no project/customer filtering: a direct lookup).
+// With `slug` (a shared/deep link opened on that initiative's page), the
+// ticket must be that customer's: anything else is the same 404 as a missing
+// one, so the link doesn't reveal tickets of other customers.
 export async function handleGetIssueById(req: Request): Promise<Response> {
-  const id = new URL(req.url).searchParams.get("id");
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
   if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+  const slug = searchParams.get("slug");
+  const notFound = () => Response.json({ error: "Issue not found" }, { status: 404 });
 
   try {
+    const customer = slug ? await customerBySlug(slug) : null;
+    if (slug && !customer) return notFound();
+
     const tickets = await ticketsForId(id);
     const issue = await tickets.getIssue(id);
-    if (!issue) return Response.json({ error: "Issue not found" }, { status: 404 });
+    if (!issue) return notFound();
+    if (customer && !(await issueBelongsToCustomer(customer, { ...issue, id }))) return notFound();
 
     const [withRequester] = await attachRequesters([issue]);
     return Response.json(withRequester);

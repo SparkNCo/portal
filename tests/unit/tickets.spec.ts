@@ -8,7 +8,7 @@ import {
 } from '../../supabase/functions/lib/tickets/ticketSystem';
 import { ticketSettingsBody, ticketSettingsComplete, ticketSettingsFrom } from '../../lib/ticket-systems';
 import { jiraId, parseTicketId } from '../../supabase/functions/lib/tickets/ids';
-import { isProjectRequired } from '../../lib/issues-api';
+import { isProjectRequired, pickRememberedProject } from '../../lib/issues-api';
 
 // Per-customer ticket system (Linear / Jira) — no network, no browser.
 
@@ -123,5 +123,24 @@ test.describe('Add/Edit Customer form', () => {
       jira: { base_url: 'https://acme.atlassian.net', email: 'bot@acme.com' },
     });
     expect(ticketSettingsBody({ ...jira, jiraApiToken: 'tok' }).jira).toMatchObject({ api_token: 'tok' });
+  });
+});
+
+test.describe('last project for the next ticket', () => {
+  const projects = [{ id: 'p-1' }, { id: 'p-2' }];
+  const now = 1_000_000_000_000;
+  const saved = (projectId: unknown, savedAt: unknown) => JSON.stringify({ projectId, savedAt });
+
+  test('remembered for a few hours, while it is still one of the customer’s projects', () => {
+    expect(pickRememberedProject(saved('p-2', now - 60_000), projects, now)).toBe('p-2');
+    expect(pickRememberedProject(saved('p-2', now - 9 * 60 * 60 * 1000), projects, now)).toBeNull();
+    expect(pickRememberedProject(saved('p-other', now), projects, now)).toBeNull();
+  });
+
+  test('anything odd in storage is ignored', () => {
+    expect(pickRememberedProject(null, projects, now)).toBeNull();
+    expect(pickRememberedProject('not json', projects, now)).toBeNull();
+    expect(pickRememberedProject(saved(42, now), projects, now)).toBeNull();
+    expect(pickRememberedProject(saved('p-1', now + 60_000), projects, now)).toBeNull();
   });
 });

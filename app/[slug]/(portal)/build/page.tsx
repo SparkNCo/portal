@@ -8,12 +8,11 @@ import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { useParams } from "next/navigation";
-import { useIssueDeepLink } from "@/hooks/use-issue-deep-link";
+import { useIssueDeepLink, useDeepLinkedIssueFallback } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import { API_HEADERS } from "@/lib/api-headers";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { Issue } from "@/components/client/issues.types";
 import { safeDecodeURIComponent } from "@/lib/utils";
@@ -156,17 +155,11 @@ function BuildPageContent() {
   const foundInPanels =
     allIssues.some((i: any) => i.id === openIssueId) ||
     doneIssues.some((i: any) => i.id === openIssueId);
-  const { data: fallbackIssue } = useQuery({
-    queryKey: ["issue-by-id", openIssueId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${openIssueId}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch issue");
-      return res.json() as Promise<Issue>;
-    },
-    enabled: !!openIssueId && !!issuesData && !!doneData && !foundInPanels,
+  const fallbackIssue = useDeepLinkedIssueFallback({
+    issueId: openIssueId,
+    slug,
+    enabled: !!issuesData && !!doneData && !foundInPanels,
+    onUnavailable: clearDeepLink,
   });
 
   return (
