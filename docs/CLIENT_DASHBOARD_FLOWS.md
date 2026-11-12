@@ -83,6 +83,12 @@ See `docs/FEATURES_FLOWS.md` (section "New Project Request") for the full flow, 
 
 ---
 
+## Ask about this project
+
+At the top of the page, above the cards: `AskProject` (`components/dashboard/ask-project.tsx`). A plain-text question about this client's documents, test cases and issues, answered in plain text with the sources it came from, or "not found". It calls `POST /ask` only when the user asks, not on page load. Full write-up: `ASK_FLOWS.md`.
+
+---
+
 ## Dashboard Cards
 
 The main content area is a **2-column grid** (stacks to 1 column on mobile) with four cards:
@@ -215,6 +221,7 @@ User lands on /{slug}/dashboard
 | `components/headerDashboard.tsx` | Sticky top header with title, subtitle, and mobile menu toggle |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | SDLC Metrics card |
+| `components/dashboard/ask-project.tsx` | "Ask about this project" panel at the top (global query, `ASK_FLOWS.md`) |
 | `supabase/functions/manual-metrics/` | `PATCH` endpoint for the 2 manually-entered SDLC metrics (Code Coverage, Sonar Quality Gate) |
 | `components/client/priority-tasks.tsx` | Reusable issue list — used for both Business Review and Acceptance Testing |
 | `components/client/issue-detail-modal.tsx` | Issue detail modal with Description / Chat / Tests / Clarifications / Design / Demo tabs |

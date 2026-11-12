@@ -3,10 +3,10 @@ import { performLogin } from './helpers';
 
 async function loginAsStakeholder(page: any) {
   const email    = process.env.TEST_HOLDER_EMAIL;
-  const password = process.env.TEST_HOLDER_PASSWORD;
+  const password = process.env.TEST_PASSWORD;
 
   if (!email || !password) {
-    test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
+    test.skip(true, 'TEST_HOLDER_EMAIL / TEST_PASSWORD not set in .env.test');
   }
 
   await performLogin(page, email!, password!, '/dashboard');
@@ -42,10 +42,10 @@ test.describe('Stakeholder — login', () => {
 
   test('stakeholder can log in and is redirected to the client dashboard', async ({ page }) => {
     const email    = process.env.TEST_HOLDER_EMAIL;
-    const password = process.env.TEST_HOLDER_PASSWORD;
+    const password = process.env.TEST_PASSWORD;
 
     if (!email || !password) {
-      test.skip(true, 'TEST_HOLDER_EMAIL / TEST_HOLDER_PASSWORD not set in .env.test');
+      test.skip(true, 'TEST_HOLDER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
     await performLogin(page, email!, password!, '/dashboard');

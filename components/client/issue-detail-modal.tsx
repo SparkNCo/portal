@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Eye,
   Download,
+  Link2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/components/ui/button";
@@ -70,6 +71,7 @@ import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
 import { FilePreviewModal, docxToHtml, previewFormatOf } from "@/components/documents/document-preview-modal";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { issueShareUrl } from "@/hooks/use-issue-deep-link";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -1999,6 +2001,15 @@ function TestsTab({
   );
 }
 
+// "10 Nov 2026" in the viewer's locale, with the month capitalized — some
+// locales (e.g. Spanish) write short month names in lowercase ("10 nov 2026").
+function formatRequestedDate(date: string) {
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+    .formatToParts(new Date(date))
+    .map((p) => (p.type === "month" ? p.value.charAt(0).toUpperCase() + p.value.slice(1) : p.value))
+    .join("");
+}
+
 // ── Modal ───────────────────────────────────────────────────────────────────
 
 export function IssueDetailModal({
@@ -2192,6 +2203,24 @@ export function IssueDetailModal({
     }
   }
 
+  // The initiative the ticket is shown under; without one there's no page
+  // to link to, so the button is hidden.
+  const shareSlug: string | undefined = slug ?? (issue as any)._project;
+
+  async function handleCopyLink() {
+    if (!shareSlug) return;
+    const url = issueShareUrl(window.location.origin, shareSlug, issue.id, isBugIssue, activeTab);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied", {
+        description: "Whoever opens it needs access to this initiative.",
+      });
+    } catch {
+      // Clipboard blocked (insecure context, permissions): show it to copy by hand.
+      toast.info("Copy this link", { description: url, duration: 15000 });
+    }
+  }
+
   async function handleChangePriority(value: string, label: Issue["priorityLabel"]) {
     if (label === currentPriorityLabel || changingPriority) return;
     setChangingPriority(true);
@@ -2250,11 +2279,25 @@ export function IssueDetailModal({
             <Pencil className="h-4 w-4" />
           </button>
         )}
+        {shareSlug && (
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className={cn(
+              "absolute top-4 text-muted-foreground hover:text-primary transition-colors",
+              onEdit ? "right-16 lg:right-[5.5rem]" : "right-10 lg:right-16",
+            )}
+            aria-label="Copy link to this ticket"
+            title="Copy link"
+          >
+            <Link2 className="h-4 w-4" />
+          </button>
+        )}
 
         {/* Left-aligned at every width — only the tab bar below is meant to
             center on mobile; DialogHeader's own base classes default to
             text-center below sm, which this overrides. */}
-        <DialogHeader className="pt-4 pr-20 flex-shrink-0 text-left">
+        <DialogHeader className="pt-4 pr-20 lg:pr-28 flex-shrink-0 text-left">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               {issue.labels?.nodes?.map((l) => (
@@ -2305,11 +2348,7 @@ export function IssueDetailModal({
               <p className="smalltext italic text-muted-foreground">
                 {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
                 {origin.createdAt &&
-                  ` on ${new Date(origin.createdAt).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}`}
+                  ` on ${formatRequestedDate(origin.createdAt)}`}
               </p>
             )}
 

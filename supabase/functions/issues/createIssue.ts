@@ -108,13 +108,19 @@ export async function handleCreateIssue(req: Request): Promise<Response> {
   // Who asked for it in the portal (shown in the ticket header).
   await recordIssueRequest(createdIssue?.id, requestedBy);
 
-  // Best-effort: makes the new ticket searchable right away.
+  // Best-effort: makes the new ticket searchable right away, with what the
+  // global query cites about it (code, status, dates), so asking about
+  // "SPA-600" finds it before the next linear-vector-sync run.
   if (linearSlug && createdIssue) {
     await upsertIssueVector(linearSlug, {
       id: createdIssue.id,
       title: title.trim(),
       description: body.description ?? "",
       kind: type === "bug" || type === "feature" ? type : null,
+      identifier: createdIssue.identifier ?? null,
+      ...(createdIssue.state?.name && { state: createdIssue.state.name }),
+      dueDate: createdIssue.dueDate ?? body.dueDate ?? null,
+      createdAt: createdIssue.createdAt ?? new Date().toISOString(),
     });
   }
 

@@ -13,6 +13,7 @@ import { linearRequest } from "../issues/linearClient.ts";
 import { runWithConcurrency } from "../utils/concurrency.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { upsertIssueVector, deleteIssueVectors, deriveIssueKind } from "../lib/vector.ts";
+import { chunkObject } from "../lib/chunking.ts";
 
 // Max look-back when last_synced_at is missing or older than this (first run,
 // outage). A cron that's keeping up only re-scans since its checkpoint.
@@ -22,7 +23,7 @@ const SCHEMA = "portal";
 const ISSUES_UPDATED_SINCE_QUERY = `
   query IssuesUpdatedSince($filter: IssueFilter, $after: String) {
     issues(first: 250, filter: $filter, after: $after) {
-      nodes { id title description updatedAt labels { nodes { name } } }
+      nodes { id identifier title description createdAt updatedAt dueDate state { name } labels { nodes { name } } }
       pageInfo { hasNextPage endCursor }
     }
   }
@@ -124,15 +125,56 @@ async function fetchStoredVectorTimes(linearSlug: string): Promise<Map<string, n
   return times;
 }
 
-// Full backfill: keeps only issues with no vector, or one older than their
-// last edit — so repeated calls keep moving forward instead of redoing the
-// oldest batch every time.
+// Ids of this customer's issues that already have chunks in portal.embeddings
+// (chunk 0 is always written). An issue_vectors row from before chunks
+// existed doesn't count as embedded.
+async function fetchChunkedIssueIds(linearSlug: string): Promise<Set<string>> {
+  const PAGE = 1000;
+  const ids = new Set<string>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.schema(SCHEMA)
+      .from("embeddings")
+      .select("issue_id")
+      .not("issue_id", "is", null)
+      .eq("chunk_index", 0)
+      .ilike("project_slug", escapeIlike(linearSlug))
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) ids.add(row.issue_id);
+    if (!data || data.length < PAGE) break;
+  }
+  return ids;
+}
+
+// Full backfill: keeps only issues with no chunks, or whose row is older than
+// their last edit — so repeated calls keep moving forward instead of redoing
+// the oldest batch every time.
 async function withoutFreshVectors(linearSlug: string, issues: any[]) {
-  const stored = await fetchStoredVectorTimes(linearSlug);
+  const [stored, chunked] = await Promise.all([fetchStoredVectorTimes(linearSlug), fetchChunkedIssueIds(linearSlug)]);
   return issues.filter((issue) => {
     const storedAt = stored.get(issue.id);
-    return storedAt === undefined || storedAt < new Date(issue.updatedAt).getTime();
+    return !chunked.has(issue.id) || storedAt === undefined || storedAt < new Date(issue.updatedAt).getTime();
   });
+}
+
+// issue id → (chunk_index → stored text) for these issues, so the budget
+// below only counts chunks that will actually be embedded again.
+async function fetchStoredChunkTexts(issueIds: string[]): Promise<Map<string, Map<number, string>>> {
+  const byIssue = new Map<string, Map<number, string>>();
+  // Ids go in the URL: a few hundred at a time keeps it short.
+  for (let i = 0; i < issueIds.length; i += 200) {
+    const { data, error } = await supabase.schema(SCHEMA)
+      .from("embeddings")
+      .select("issue_id, chunk_index, content")
+      .in("issue_id", issueIds.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      if (!byIssue.has(row.issue_id)) byIssue.set(row.issue_id, new Map());
+      byIssue.get(row.issue_id)!.set(row.chunk_index, row.content);
+    }
+  }
+  return byIssue;
 }
 
 async function syncCustomer(
@@ -149,13 +191,33 @@ async function syncCustomer(
   const allIssues = full ? await withoutFreshVectors(linear_slug, fetched) : fetched;
 
   // Embedding is CPU-heavy (pgvector runs gte-small in-process); a large batch
-  // exceeds the function's CPU budget (WORKER_RESOURCE_LIMIT). Process the
-  // oldest N per run; the checkpoint below resumes from there next run.
-  const MAX_ISSUES_PER_RUN = 30;
+  // exceeds the function's CPU time limit (WORKER_RESOURCE_LIMIT). The model's
+  // cost grows with the text it reads, so the limit is a budget of words
+  // embedded per run (every chunk of an issue, title chunk included), not a
+  // number of issues: the oldest issues that fit (always at least one); the
+  // checkpoint below resumes from there next run. Measured on the local stack
+  // (same ~2 s CPU limit as the cloud): ~1,100 words per call before the
+  // limit, fewer on a cold start while the model loads; 800 leaves margin.
+  const MAX_WORDS_PER_RUN = 800;
   const sortedIssues = [...allIssues].sort(
     (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
   );
-  const issues = sortedIssues.slice(0, MAX_ISSUES_PER_RUN);
+  // Only new or changed chunks cost anything (unchanged ones keep their
+  // vector), so an issue whose text didn't change is nearly free.
+  const storedTexts = await fetchStoredChunkTexts(sortedIssues.map((issue) => issue.id));
+  const issues = [];
+  let budget = MAX_WORDS_PER_RUN;
+  for (const issue of sortedIssues) {
+    const stored = storedTexts.get(issue.id);
+    const cost = chunkObject({ title: issue.title, body: issue.description, titleChunk: true })
+      .filter((chunk) => stored?.get(chunk.index) !== chunk.text)
+      .reduce((words, chunk) => words + chunk.text.split(/\s+/).length, 0);
+    if (issues.length > 0 && cost > budget) {
+      break;
+    }
+    issues.push(issue);
+    budget -= cost;
+  }
   const truncated = sortedIssues.length > issues.length;
   if (truncated) {
     console.warn(
@@ -173,6 +235,11 @@ async function syncCustomer(
       title: issue.title,
       description: issue.description,
       kind: deriveIssueKind(issue.labels?.nodes),
+      // What the global query cites (ticket identifier, status, dates).
+      identifier: issue.identifier ?? null,
+      state: issue.state?.name ?? null,
+      dueDate: issue.dueDate ?? null,
+      createdAt: issue.createdAt ?? null,
     });
     if (ok) {
       upserted++;

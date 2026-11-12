@@ -73,6 +73,21 @@ export default defineConfig({
       testMatch: '**/e2e/query.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    // The client's ticket flows (create feature/bug, Business Review answer,
+    // UAT result) against mocked writes: never reaches Linear or the
+    // database. npx playwright test --project=tickets
+    {
+      name: 'tickets',
+      testMatch: '**/ticket-flows.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // The Dashboard's global query (SPA-582) against a mocked `ask`
+    // function: no AI credits, no writes. npx playwright test --project=ask
+    {
+      name: 'ask',
+      testMatch: '**/e2e/ask.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
     // Edge functions in test mode (no emails, no writes) — calls them
     // directly, no browser: npx playwright test --project=test-mode
     {

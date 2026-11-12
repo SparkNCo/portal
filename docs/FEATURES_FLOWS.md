@@ -466,16 +466,23 @@ Shown as a non-blocking "Similar existing tickets" hint under the title field wh
 
 ### Vector search (pgvector)
 
-Every vector-backed feature — issue similarity, test similarity, and document search — goes through `supabase/functions/lib/vector.ts` (`upsertIssueVector`, `queryTopIssueMatches`, `deleteIssueVectors`, `upsertTestVector`, `queryTopTestMatches`, `upsertDocumentVector`, `queryTopDocumentMatches`, `deleteDocumentVectors`). It's backed by Supabase Postgres's own `vector` extension (added in `20260923100000_add_pgvector_support.sql`). Upstash Vector used to be a per-customer alternative (`customers.systems.vector`); it was removed in `20261105120000_pgvector_only.sql`.
+Every vector-backed feature — issue similarity, test similarity, document search and the global query (`docs/ASK_FLOWS.md`) — goes through `supabase/functions/lib/vector.ts` (`upsertIssueVector`, `queryTopIssueMatches`, `deleteIssueVectors`, `upsertTestVector`, `embedTest`, `queryTopTestMatches`, `upsertDocumentVector`, `embedDocument`, `queryTopDocumentMatches`, `deleteDocumentVectors`, `searchProject`). It's backed by Supabase Postgres's own `vector` extension (added in `20260923100000_add_pgvector_support.sql`). Upstash Vector used to be a per-customer alternative (`customers.systems.vector`); it was removed in `20261105120000_pgvector_only.sql`.
 
-Embeddings are computed *inside the edge function* via Supabase's built-in `Supabase.ai.Session('gte-small')` model (384 dimensions, no external API/key), then stored/queried as Postgres columns:
+Embeddings are computed *inside the edge function* via Supabase's built-in `Supabase.ai.Session('gte-small')` model (384 dimensions, no external API/key).
 
-- **Documents** — `portal.documents.embedding vector(384)`, matched via the `portal.match_documents` RPC.
-- **Issues** — issues have no table of their own in this database (they live in Linear); `portal.issue_vectors` holds one row per vectorized issue (`title_embedding`, `combined_embedding`), matched via `portal.match_issues`.
-- **Test cases** — `portal.tests.embedding vector(384)`, matched via `portal.match_tests`.
-- All three RPCs use pgvector's `<=>` cosine-distance operator, converted to a similarity score as `1 - distance`, and are declared `SET search_path = portal, public, pg_catalog` — the `vector` extension (and `<=>`) installs into `public`, so omitting it causes `operator does not exist: public.vector <=> public.vector` even though the column type itself resolves fine.
-- The namespace passed into `lib/vector.ts` is the customer's `linear_slug`; the RPCs match `project_slug` with `ilike`, since stored casing is inconsistent.
+**Chunks, one table** (`20261110120000_embeddings_table.sql`). gte-small reads only ~512 tokens, so one vector per object left everything past the start of long content unsearchable. Every object is now split into chunks (`supabase/functions/lib/chunking.ts`) and each chunk is embedded on its own into **`portal.embeddings`** (`project_slug`, one of `document_id` / `test_id` / `issue_id`, `chunk_index`, `content`, `embedding vector(384)`; deleting the object deletes its chunks):
+
+- **Splitting:** by markdown headings first (each heading stays with its text), short sections packed together up to ~300 words (`CHUNK_WORDS`), longer ones split by paragraph, and a paragraph longer than that cut into windows overlapping by 50 words. Every chunk starts with the object's title. At most 40 chunks per object.
+- **Documents:** file name (as title) + category + content. **Test cases:** title + steps. **Issues:** issues have no table of their own here (they live in Linear); `portal.issue_vectors` holds one row per issue (title, `kind`, and the identifier / status / due date / creation date the global query cites), and its chunks point at that row. An issue's chunk 0 is its title alone, the rest are title + description.
+- **Only changed chunks are re-embedded:** a chunk whose text is already stored keeps its vector, and chunks past the new end are removed.
+- **CPU budget:** a function call has ~2 s of CPU, about 1,000 words through gte-small, so one call embeds up to 800 words (`EMBED_WORDS_PER_CALL`). A long document or test is finished by later calls of the backfill; `documents.embeddings_complete` / `tests.embeddings_complete` say whether all its chunks are in.
+
+**Search:** one RPC, **`portal.match_embeddings`**, for every feature. It filters by source type (and optionally by issue `kind`, or issue titles only), scores each chunk with pgvector's `<=>` cosine distance (similarity = `1 - distance`), and returns **each object's best chunk**, best first, so one long document can't fill every result.
+
+- It's declared `SET search_path = portal, public, pg_catalog` — the `vector` extension (and `<=>`) installs into `public`, so omitting it causes `operator does not exist: public.vector <=> public.vector` even though the column type itself resolves fine.
+- The namespace passed into `lib/vector.ts` is the customer's `linear_slug`; the RPC matches `project_slug` with `ilike` (stored casing is inconsistent). The client is always chosen here, in SQL.
 - Writes are best-effort: a failed embedding is logged and returns `false`, it never fails the save it's attached to.
+- The older per-object columns and RPCs (`documents.embedding`, `tests.embedding`, the `issue_vectors` vectors, `match_documents` / `match_issues` / `match_tests`) are still in the database but no longer read; they're dropped once production has been re-embedded.
 
 ### Similarity thresholds
 
@@ -486,11 +493,11 @@ const SIMILARITY_THRESHOLD = 0.8;
 
 `gte-small` compresses cosine similarity into a narrow band for short/similar technical text — real logged scores for near-duplicate tickets clustered around 0.79-0.82. 0.8 is a first pass informed by that, not calibrated against a large set of real duplicates — revisit if it's too loose or starts hiding real duplicates. The frontend still has a 0.7 filter in `similar-issues-hint.tsx` and `test-picker.tsx` (left over from Upstash); it's a no-op since the backend never returns anything below 0.8. Document search uses the same 0.8 cutoff (`MIN_DOCUMENT_SIMILARITY` in `storage/fetch-storage-data.ts`).
 
-### Two embeddings per issue — short vs. long queries
+### Short vs. long queries on issues
 
-A single combined title+description embedding meant short, generic queries (e.g. "roadmap") almost never matched, even against tickets whose *description* discussed that topic at length — a short query's embedding sits far closer to another short title than to a long text's averaged-out embedding. So each `portal.issue_vectors` row has two: `title_embedding` and `combined_embedding`.
+Short, generic queries (e.g. "roadmap") almost never matched long title+description text, even when a ticket's *description* discussed that topic — a short query's embedding sits far closer to another short title than to a long text's averaged-out embedding. That's why an issue's chunk 0 is its title alone.
 
-`queryTopIssueMatches` picks which one to search based on the query's length: **under 15 characters** ("roadmap") searches `title_embedding`; **15 characters or more** searches `combined_embedding`, since a longer query is assumed to carry descriptive detail worth matching against.
+`queryTopIssueMatches` picks what to search based on the query's length: **under 15 characters** ("roadmap") matches issue titles only (chunk 0); **15 characters or more** matches every chunk, since a longer query is assumed to carry descriptive detail worth matching against.
 
 ### Keeping the index in sync
 
@@ -499,29 +506,43 @@ Embeddings are written from three places:
 - **On create** — `handleCreateIssue` (`supabase/functions/issues/createIssue.ts`) calls `upsertIssueVector` right after a successful `issueCreate`, so a brand-new ticket is searchable immediately.
 - **On edit** — `handleUpdateIssue` (`supabase/functions/issues/updateIsste.ts`) re-upserts on save, so a title/description change is reflected without waiting for the daily sync below.
 - **`linear-vector-sync` (daily cron, 3am UTC)** — catches edits made *directly in Linear* (bypassing this app entirely), which the two paths above can never see. Per customer, it tracks a `last_synced_at` checkpoint in `portal.vector_sync_state` and:
-  1. Fetches issues **updated** since that checkpoint, oldest-first, and upserts up to `MAX_ISSUES_PER_RUN` (30) of them — embedding runs `gte-small` twice per issue inside the edge function, so a run with a large backlog processes only the oldest 30 instead of risking a `WORKER_RESOURCE_LIMIT` failure that would silently process nothing.
+  1. Fetches issues **updated** since that checkpoint, oldest-first, and upserts as many as fit in a budget of **800 words embedded per run** (`MAX_WORDS_PER_RUN`; only new or changed chunks count, at least one issue per run). Embedding runs `gte-small` inside the edge function, so a run with a large backlog processes only the oldest issues that fit instead of risking a `WORKER_RESOURCE_LIMIT` failure that would silently process nothing. It also stores each issue's identifier, status, due date and creation date for the global query.
   2. Fetches issues **trashed** (deleted) since that checkpoint — Linear soft-deletes, so a deleted ticket is still queryable via `includeArchived: true`; `trashed` is requested as an output field and filtered in JS (it isn't a filterable `IssueFilter` input). Without this step, a deleted ticket could keep surfacing as a "similar" match forever.
-  3. Advances the checkpoint — to `syncStartedAt` when everything pending was processed, or, if the 30-issue cap left some behind, only up to the **last processed issue's own `updatedAt`**, so the next run picks up where this one stopped. It's only advanced if every write succeeded, so a failure is retried instead of aging out of the `since` window.
+  3. Advances the checkpoint — to `syncStartedAt` when everything pending was processed, or, if the word budget left some behind, only up to the **last processed issue's own `updatedAt`**, so the next run picks up where this one stopped. It's only advanced if every write succeeded, so a failure is retried instead of aging out of the `since` window.
 
   Worst-case staleness for a deletion is ~1 day (the cron interval) — accepted as a low-stakes tradeoff rather than adding a Linear webhook.
 
 ### Backfilling embeddings
 
-Anything created before vector search existed — or while its customer was on Upstash — has no embedding until it's backfilled. Each backfill endpoint handles one batch per call (embedding is CPU-heavy) and only picks up rows that are still missing an embedding, so it's safe to call repeatedly:
+Anything created before chunked embeddings existed (`20261110120000_embeddings_table.sql`) has no rows in `portal.embeddings` until it's backfilled — after that migration, every existing document and test starts with `embeddings_complete = false`. Long documents or tests are also finished here when one call couldn't embed all their chunks. Each backfill endpoint handles one batch per call (embedding is CPU-heavy, 800 words per call) and only picks up what's still missing, so it's safe to call repeatedly:
 
-| What | Endpoint | Batch | Done when |
+| What | Endpoint | Picks up | Done when |
 |---|---|---|---|
-| Issues | `POST /linear-vector-sync?slug={clientName}&full=true` | 30 issues with no vector, or a vector older than their last Linear edit | `remaining` is 0 |
-| Test cases | `POST /tests/backfill-vectors` `{ user_id, project_slug? }` (admin) | 25 tests with `embedding IS NULL` | `remaining` is 0 |
-| Documents | `POST /storage/backfill-vectors` `{ user_id, project_slug? }` (admin) | 25 documents with `embedding IS NULL` | `remaining` is 0 |
+| Issues | `POST /linear-vector-sync?slug={clientName}&full=true` | Issues with no chunks, or chunks older than their last Linear edit | `remaining` is 0 |
+| Test cases | `POST /tests/backfill-vectors` `{ user_id, project_slug? }` (admin) | Up to 25 tests with `embeddings_complete = false` | `remaining` is 0 |
+| Documents | `POST /storage/backfill-vectors` `{ user_id, project_slug? }` (admin) | Up to 25 documents with `embeddings_complete = false` | `remaining` is 0 |
 
 `full=true` doesn't touch the cron's checkpoint. Documents also accept `all: true` to re-embed every document (e.g. after changing what text gets extracted): pass the returned `next_after_id` back as `after_id` until it comes back `null`.
 
-`scripts/backfill-pgvector.mjs` calls all three in a loop until each is done, for every customer or just one:
+`scripts/backfill-pgvector.mjs` calls all three in a loop until each is done, for every customer or just one. A call that runs out of CPU (`WORKER_RESOURCE_LIMIT`, common on a cold start while gte-small loads) or fails with a 5xx / network error is retried up to 5 times; a 4xx (wrong key, not an admin, unknown client) stops it.
+
+- `SERVICE_ROLE_KEY`: the **legacy** `service_role` key (a JWT starting with `eyJ`, under *Project Settings → API Keys → Legacy API Keys*). The functions verify JWTs, so the newer `sb_secret_…` keys can be rejected. Never commit it.
+- `ADMIN_USER_ID`: `portal.users.id` (not `auth.users`) of a user with role `admin` (`select id, email from portal.users where role = 'admin';`).
+
+bash:
 
 ```bash
 SUPABASE_URL=https://<project>.supabase.co SERVICE_ROLE_KEY=<key> ADMIN_USER_ID=<admin users.id> \
   node scripts/backfill-pgvector.mjs [clientName]
+```
+
+PowerShell (Windows):
+
+```powershell
+$env:SUPABASE_URL = "https://<project>.supabase.co"
+$env:SERVICE_ROLE_KEY = "<legacy service_role key>"
+$env:ADMIN_USER_ID = "<admin portal.users.id>"
+node scripts/backfill-pgvector.mjs [clientName]
 ```
 
 It stops a loop early if a batch makes no progress (rows that keep failing to embed — check that function's logs).
@@ -569,10 +590,12 @@ It stops a loop early if a batch makes no progress (rows that keep failing to em
 | `app/[slug]/(portal)/demos/page.tsx` | Demos sidebar page (every role) — see `app/docs/DEMOS_FLOWS.md` |
 | `components/shared/similar-issues-hint.tsx` | `SimilarIssuesHint` — debounced semantic search under the Title field on Request a Feature / Report a Bug |
 | `components/build/feature-request-panel.tsx` / `components/bugs/bug-report-panel.tsx` | Render `TitleContinueRow`, which renders `SimilarIssuesHint` |
-| `supabase/functions/lib/vector.ts` | Vector search over pgvector: embeds via `Supabase.ai.Session('gte-small')` and queries the `match_documents`/`match_issues`/`match_tests` RPCs — `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`queryTopTestMatches` (tests), `upsertDocumentVector`/`deleteDocumentVectors`/`queryTopDocumentMatches` (documents) |
+| `supabase/functions/lib/vector.ts` | Vector search over pgvector: embeds chunks via `Supabase.ai.Session('gte-small')` into `portal.embeddings` and searches them with the `match_embeddings` RPC — `upsertIssueVector`/`deleteIssueVectors`/`queryTopIssueMatches` (issues), `upsertTestVector`/`embedTest`/`queryTopTestMatches` (tests), `upsertDocumentVector`/`embedDocument`/`deleteDocumentVectors`/`queryTopDocumentMatches` (documents), `searchProject` (all three, for the global query) |
+| `supabase/functions/lib/chunking.ts` | Splits an object's text into chunks (headings, ~300 words, 50-word overlap, title on every chunk); unit-tested in `tests/unit/chunking.spec.ts` |
+| `supabase/migrations/20261110120000_embeddings_table.sql` | `portal.embeddings` (one row per chunk), `match_embeddings` RPC, `embeddings_complete` on documents/tests, the issue columns the global query cites |
 | `supabase/migrations/20260921120000_add_systems_config_and_chat_tables.sql` | Adds `customers.systems` jsonb (chat provider switch, originally vector too) with its `CHECK` constraint |
 | `supabase/migrations/20260923100000_add_pgvector_support.sql` | `CREATE EXTENSION vector`; `portal.issue_vectors` table; `embedding` columns on `documents`/`tests`; `match_documents`/`match_issues`/`match_tests` RPCs |
 | `supabase/migrations/20261105120000_pgvector_only.sql` | Drops `systems.vector` (Upstash removed) from every customer, the column default and the `CHECK` constraint |
 | `supabase/functions/linear-vector-sync/index.ts` | Daily cron — upserts issues updated directly in Linear since each customer's checkpoint (oldest-first, capped at `MAX_ISSUES_PER_RUN`), and deletes vectors for issues trashed since that same checkpoint; `?slug=&full=true` for a resumable one-customer backfill |
-| `scripts/backfill-pgvector.mjs` | One-off: runs the issue/test/document embedding backfills in a loop until each is done |
+| `scripts/backfill-pgvector.mjs` | Runs the issue/test/document embedding backfills in a loop until each is done, retrying calls that run out of CPU |
 | `supabase/migrations/20260812130000_create_vector_sync_state.sql` | `portal.vector_sync_state` — one row per customer, tracks `last_synced_at` for the cron above |

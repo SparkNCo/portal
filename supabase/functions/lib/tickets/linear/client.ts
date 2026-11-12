@@ -89,6 +89,9 @@ export const CREATE_ISSUE_MUTATION = `
         identifier
         title
         url
+        state { name }
+        createdAt
+        dueDate
       }
     }
   }

@@ -91,6 +91,7 @@ const GET_ISSUE_BY_ID_QUERY = `
       state { name }
       labels { nodes { id name color } }
       attachments(first: 1) { nodes { id } }
+      project { id name }
       createdAt
     }
   }
@@ -273,6 +274,16 @@ export async function syncCustomerLinearProjects(customerId: string, linearSlug:
   }
 }
 
+// Whether a Linear project is one of the customer's (their initiative's).
+// Checks the stored list first; re-syncs only when it's not there, in case
+// the project was added to the initiative since.
+export async function isCustomerProject(customer: TicketCustomer, projectId: string): Promise<boolean> {
+  if ((customer.linear_projects ?? []).includes(projectId)) return true;
+  if (!customer.linear_slug) return false;
+  const synced = await syncCustomerLinearProjects(customer.customer_id, customer.linear_slug);
+  return !!synced?.includes(projectId);
+}
+
 async function customerTeamId(customer: TicketCustomer | null): Promise<string> {
   let teamId: string | null = null;
 
@@ -449,6 +460,19 @@ export function linearTickets(customer: TicketCustomer | null) {
     // projectId, projectMilestoneId, assigneeId, estimate, labelIds, and
     // teamId (only when there's no customer). Returns Linear's issueCreate.
     async createIssue(body: Record<string, any>) {
+      // The portal only lists a customer's tickets that sit in one of their
+      // projects, so a bug or feature without one would exist in Linear but
+      // never show up here. (Admin calls with only a teamId have no customer.)
+      if (customer && (body.type === "bug" || body.type === "feature") && !body.projectId) {
+        const kind = body.type === "bug" ? "bug" : "feature request";
+        throw new TicketError(`Pick a project for this ${kind}, or it won't show up in the portal.`, 400);
+      }
+      // A customer can only file tickets into their own projects; without
+      // this, a hand-made request could drop a ticket into another
+      // customer's project.
+      if (customer && body.projectId && !(await isCustomerProject(customer, body.projectId))) {
+        throw new TicketError("That project doesn't belong to this customer.", 403);
+      }
       if (body.projectId) {
         const closed = await closedProjectError(body.projectId);
         if (closed) throw new TicketError(closed, 400);

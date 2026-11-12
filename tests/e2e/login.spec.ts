@@ -98,6 +98,45 @@ test.describe('Login page', () => {
     await page.waitForURL('**/spark-portal/build', { timeout: 30_000 });
   });
 
+  test('signed out on an admin page, an admin lands back on it after logging in', async ({ page }) => {
+    const email = process.env.TEST_ADMIN_EMAIL;
+    const password = process.env.TEST_PASSWORD;
+    if (!email || !password) test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set');
+    // Not the admin's home page (/admin/users), so landing here proves the redirect.
+    await page.goto('/admin/chats');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    expect(new URL(page.url()).pathname).toBe('/');
+    await fillLoginForm(page, email!, password!);
+    await page.waitForURL('**/admin/chats', { timeout: 30_000 });
+  });
+
+  test('coming back to an initiative that is not yours: your home page, with a message', async ({ page }) => {
+    const email = process.env.TEST_CUSTOMER_EMAIL;
+    const password = process.env.TEST_PASSWORD;
+    if (!email || !password) test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
+    await page.goto('/lualink/build');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+    await fillLoginForm(page, email!, password!);
+    await expect(page.getByText("You don't have access to that initiative")).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/(?!lualink\/)[^/]+\/dashboard$/, { timeout: 20_000 });
+  });
+
+  test('after logging out, the next login goes to the home page, not the page you left', async ({ page }) => {
+    const email = process.env.TEST_CUSTOMER_EMAIL;
+    const password = process.env.TEST_PASSWORD;
+    if (!email || !password) test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
+    await fillLoginForm(page, email!, password!);
+    await page.waitForURL('**/dashboard', { timeout: 30_000 });
+    const slug = new URL(page.url()).pathname.split('/')[1];
+
+    await page.goto(`/${slug}/build`);
+    await page.getByRole('button', { name: 'Logout' }).click();
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+
+    await fillLoginForm(page, email!, password!);
+    await page.waitForURL(`**/${slug}/dashboard`, { timeout: 30_000 });
+  });
+
   test('a redirect to another site planted in storage is ignored', async ({ page }) => {
     const email = process.env.TEST_CUSTOMER_EMAIL;
     const password = process.env.TEST_PASSWORD;
@@ -134,6 +173,16 @@ test.describe('Login page', () => {
     await page.unroute('**/functions/v1/users?email=*');
     await page.goto('/spark-portal/dashboard');
     await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
+    expect(new URL(page.url()).pathname).toBe('/');
+  });
+
+  test('stakeholder with no client assigned: says so and stays on the login page', async ({ page }) => {
+    await signInWithProfileResponse(
+      page,
+      200,
+      JSON.stringify({ id: 'e2e-stakeholder', email: process.env.TEST_CUSTOMER_EMAIL, role: 'stakeholder', clientName: null, assignment_id: [] }),
+    );
+    await expect(page.getByText('No client assigned to this account. Contact your administrator.')).toBeVisible({ timeout: 15_000 });
     expect(new URL(page.url()).pathname).toBe('/');
   });
 

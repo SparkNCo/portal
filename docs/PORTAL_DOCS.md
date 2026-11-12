@@ -618,6 +618,10 @@ A row of filter buttons at the top — one "All" button plus one per unique proj
 
 The **New project Request** button (`components/client/request-project-dialog.tsx`), next to the project filters, opens a dialog with a Title field and an optional rich-text Description. It does **not** create anything in Linear — submitting calls `POST /project-requests`, which looks up every `portal.users` row with `role === "admin"` and emails each one the request via Resend (`supabase/functions/project-requests/`). A success toast confirms the email was sent.
 
+### 5.2c Ask about this project
+
+At the top of the Dashboard, `AskProject` (`components/dashboard/ask-project.tsx`) answers a plain-text question from this client's documents, test cases and issues, citing them, or says nothing relevant was found (`POST /ask`, SPA-582). Customers, stakeholders and admins ask from here; developers from the bottom of their Developer page. Who may ask is checked by the backend. See `docs/ASK_FLOWS.md`.
+
 ### 5.3 Dashboard Cards (2-column grid)
 
 **Project Stats — `ProgressPieChart`**  
@@ -782,6 +786,9 @@ allIssues
 
 **Row 2 — All Tasks**  
 Full-width `PriorityTasks` with all active issues. Title changes to the selected customer name when a project filter is active.
+
+**Row 3 — Ask about this project**
+The global query panel (§5.2c) for the initiative selected on the page. See `docs/ASK_FLOWS.md`.
 
 > The CreateIssue button is currently commented out.
 
@@ -1294,7 +1301,7 @@ When creating new tables (e.g. `services`/`diagrams`, see [section 4.6](#46-desi
 
 ## 12. AI Features & Config-Driven AI Client
 
-Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers (called by the marketing site, see 12.5) and Query (§13).
+Every edge function that calls an LLM goes through one shared client, **`supabase/functions/lib/aiClient.ts`** (SPA-514). Provider, model, base URL and key all come from env vars, so switching providers (Google Gemini, OpenAI, Hugging Face router, self-hosted vLLM, Ollama, or anything else OpenAI-compatible) is a config change, not a code change. It's used by suggested features, the debounce analyzers (called by the marketing site, see 12.5), Query (§13) and the global query "Ask about this project" (`docs/ASK_FLOWS.md`).
 
 ### 12.1 Environment variables
 
@@ -1369,6 +1376,7 @@ It calls the endpoint with a raw `fetch` in the OpenAI Chat Completions format r
 | `supabase/functions/suggested-features/generateSuggestion.ts` | Prompt + one suggested feature per Linear project (schema `suggested_feature`: `title`, `description`, `milestoneId`) |
 | `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron loop that calls `generateSuggestionForProject` for every customer's projects |
 | `supabase/functions/query/prompt.ts` | Turns a plain-text question into SQL from a client database's structure (schema `sql_query`: `answerable`, `sql`, `explanation`). See §13 |
+| `supabase/functions/ask/prompt.ts` | Answers a question about a project from its matched documents, tests and issues (schema `project_answer`: `found`, `answer`, `sources`). See `docs/ASK_FLOWS.md` |
 | `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: the Linear context fed into the suggestion prompt |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Schedules the weekly AI generation run (Mon 06:00 UTC) |
 
@@ -1393,7 +1401,7 @@ Files: `supabase/functions/debounce/index.ts` (router), `analyze-idea.ts`, `anal
 
 The rest of the Suggested Features flow (cards, accept/decline, project/milestone overrides) doesn't call the AI and is documented in `docs/BUILD_AND_BUGS_FLOWS.md` → *Suggested Features*.
 
-The vector/semantic search features (similar issues, similar tests, document search) use embeddings through pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars.
+The vector/semantic search features (similar issues, similar tests, document search) use embeddings through pgvector (`supabase/functions/lib/vector.ts`) and **do not** go through `aiClient.ts` or these env vars. The global query uses both: pgvector to find the sources, then `aiClient.ts` to write the answer.
 
 ---
 

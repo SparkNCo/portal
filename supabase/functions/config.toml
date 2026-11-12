@@ -27,3 +27,8 @@ verify_jwt = true
 [functions.users]
 enabled = true
 verify_jwt = true
+
+# Public: the marketing site's /technical-review page calls it with the anon key.
+[functions.technical-review]
+enabled = true
+verify_jwt = true

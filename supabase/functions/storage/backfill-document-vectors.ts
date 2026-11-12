@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
-import { upsertDocumentVector } from "../lib/vector.ts";
+import { EMBED_WORDS_PER_CALL, embedDocument } from "../lib/vector.ts";
 import { extractDocumentText, isSearchableDocumentFormat } from "../utils/documentText.ts";
 
 const BUCKET = "documents_bucket";
@@ -25,17 +25,20 @@ function extractStoragePath(url: string): string | null {
   }
 }
 
-// Embedding is CPU-heavy (gte-small runs in-process), so one call only
-// handles this many documents; call again until `remaining` is 0.
+// Embedding is CPU-heavy (gte-small runs in-process): one call embeds up to
+// EMBED_WORDS_PER_CALL words, across as many documents as that covers (only
+// their new or changed chunks), then stops. A long document is finished over
+// several calls. Call again until `remaining` is 0.
 const BATCH_SIZE = 25;
 
 // POST /storage/backfill-vectors { user_id, project_slug?, all?, after_id? } —
-// admin-only. By default embeds documents that don't have an embedding yet
-// (uploaded before vector search, or while their customer was on Upstash),
-// BATCH_SIZE per call. `all: true` re-embeds every document instead (e.g.
-// after a change to what gets extracted): pass the returned `next_after_id`
-// back as `after_id` until it comes back null. Best-effort per document — one
-// bad file (e.g. a dead storage link) is logged and counted, not thrown.
+// admin-only. By default finishes documents whose chunks aren't all embedded
+// (documents.embeddings_complete = false: uploaded before chunks existed, or
+// too long to finish on upload). `all: true` re-checks every document instead
+// (e.g. after a change to what gets extracted; unchanged chunks keep their
+// vectors): pass the returned `next_after_id` back as `after_id` until it
+// comes back null. Best-effort per document — one bad file (e.g. a dead
+// storage link) is logged and counted, not thrown.
 export async function backfillDocumentVectors(req: Request, schema: string) {
   try {
     const { user_id, project_slug, all = false, after_id } = await req.json();
@@ -69,7 +72,7 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
     if (all) {
       if (after_id != null) query = query.gt("id", after_id);
     } else {
-      query = query.is("embedding", null);
+      query = query.eq("embeddings_complete", false);
     }
 
     const { data: documents, error, count } = await query;
@@ -77,8 +80,19 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
 
     let vectorized = 0;
     let failed = 0;
+    let processed = 0;
+    let budget = EMBED_WORDS_PER_CALL;
+    // `all` mode: the last document this call finished (or gave up on), so the
+    // next call resumes right after it — an unfinished one is picked up again.
+    let resumeAfter = after_id ?? null;
+    let stoppedMidway = false;
 
     for (const doc of documents ?? []) {
+      if (budget <= 0) {
+        stoppedMidway = true;
+        break;
+      }
+      processed++;
       try {
         let content: string | null = null;
         if (isSearchableDocumentFormat(doc.file_name)) {
@@ -88,26 +102,34 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
             if (blob) content = await extractDocumentText(doc.file_name, blob);
           }
         }
-        const ok = await upsertDocumentVector(doc.project_slug, {
-          id: doc.id,
-          file_name: doc.file_name,
-          category: doc.category,
-          content,
-        });
-        if (ok) vectorized++;
-        else failed++;
+        const { complete, wordsUsed } = await embedDocument(
+          doc.project_slug,
+          { id: doc.id, file_name: doc.file_name, category: doc.category, content },
+          budget,
+        );
+        budget -= wordsUsed;
+        if (!complete) {
+          stoppedMidway = true;
+          break;
+        }
+        vectorized++;
+        resumeAfter = doc.id;
       } catch (err) {
         console.error(`[backfillDocumentVectors] document ${doc.id} failed:`, err);
         failed++;
+        resumeAfter = doc.id;
       }
     }
 
-    const batchSize = documents?.length ?? 0;
-    // `count` = rows matching before this batch ran.
+    // `count` = rows matching before this batch ran. Unfinished documents stay
+    // in the count until a later call completes them.
     const remaining = all
-      ? Math.max((count ?? 0) - batchSize, 0)
+      ? Math.max((count ?? 0) - vectorized - failed, 0)
       : Math.max((count ?? 0) - vectorized, 0);
-    const next_after_id = all && batchSize === BATCH_SIZE ? documents!.at(-1)!.id : null;
+    const moreToGo = stoppedMidway || (documents?.length ?? 0) === BATCH_SIZE;
+    // null means "done", so a call that couldn't finish even its first
+    // document resumes from the start (ids are positive: `id > 0` is every one).
+    const next_after_id = all && moreToGo ? (resumeAfter ?? 0) : null;
 
     return new Response(
       JSON.stringify({ success: true, vectorized, failed, remaining, next_after_id }),

@@ -14,12 +14,11 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useIssueDeepLink } from "@/hooks/use-issue-deep-link";
+import { useIssueDeepLink, useDeepLinkedIssueFallback } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import { API_HEADERS } from "@/lib/api-headers";
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
@@ -86,17 +85,11 @@ function BugsPageContent() {
   // already uses) and open it in its own modal instead of leaving the deep
   // link a no-op.
   const foundInPanel = bugIssues.some((i: any) => i.id === openIssueId);
-  const { data: fallbackIssue } = useQuery({
-    queryKey: ["issue-by-id", openIssueId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${openIssueId}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch issue");
-      return res.json() as Promise<Issue>;
-    },
-    enabled: !!openIssueId && !!issuesData && !foundInPanel,
+  const fallbackIssue = useDeepLinkedIssueFallback({
+    issueId: openIssueId,
+    slug,
+    enabled: !!issuesData && !foundInPanel,
+    onUnavailable: clearDeepLink,
   });
 
   const projects: { id: string; name: string }[] = Array.from(

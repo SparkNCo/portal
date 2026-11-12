@@ -37,6 +37,7 @@ import {
   arrayMove,
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
+import { AskProject } from "@/components/dashboard/ask-project";
 
 export async function fetchIssues(slug: string, ticketStatuses: string[] = []) {
   const statuses = [...new Set(ticketStatuses)];
@@ -156,6 +157,10 @@ export default function ClientDashboard() {
         subtitleClassName="smalltext"
       />
       <div className="p-4 md:p-6 space-y-6 ">
+        {/* Global query (SPA-582): ask about this project's documents, tests and issues. */}
+        <div className="-mx-4 sm:mx-0">
+          <AskProject slug={slug} />
+        </div>
         {issuesError && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
             <span className="flex items-center gap-2">

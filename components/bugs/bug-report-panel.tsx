@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Bug, Paperclip } from "lucide-react";
@@ -17,7 +17,14 @@ import {
 } from "@/components/shared/issue-form-fields";
 import { AttachedFilesList } from "@/components/shared/attached-files-list";
 import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
-import { postCreateIssue, fetchProjects, fetchMilestones } from "@/lib/issues-api";
+import {
+  postCreateIssue,
+  fetchProjects,
+  fetchMilestones,
+  isProjectRequired,
+  recallLastProject,
+  rememberLastProject,
+} from "@/lib/issues-api";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useUser } from "context/UserContext";
 
@@ -85,11 +92,23 @@ export function BugReportPanel({ slug }: { slug: string }) {
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ["projects", slug],
     queryFn: () => fetchProjects(slug),
     enabled: !!slug,
   });
+
+  // With no projects to pick from, the backend decides (and says why).
+  const projectRequired = isProjectRequired(projects);
+  const missingProject = projectRequired && projects.length > 0 && !selectedProjectId;
+
+  // Preselect (again after a reset): the only project, or the one the last
+  // ticket went to in the past few hours.
+  useEffect(() => {
+    if (selectedProjectId || projects.length === 0) return;
+    const pick = projects.length === 1 ? projects[0]?.id : recallLastProject(slug, profile?.id, projects);
+    if (pick) setSelectedProjectId(pick);
+  }, [projects, selectedProjectId, slug, profile?.id]);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["milestones", selectedProjectId],
@@ -105,8 +124,17 @@ export function BugReportPanel({ slug }: { slug: string }) {
   }
 
   const mutation = useMutation({
+    // A file that fails to upload or attach doesn't undo the bug: it's
+    // reported as created, with the files that didn't make it. Failing the
+    // whole thing would make people resubmit and duplicate the bug.
     mutationFn: async () => {
-      const uploaded = await Promise.all(attachments.map(uploadFileToLinear));
+      const failedFiles: string[] = [];
+      const uploaded: { name: string; url: string }[] = [];
+      const uploads = await Promise.allSettled(attachments.map(uploadFileToLinear));
+      uploads.forEach((r, i) => {
+        if (r.status === "fulfilled") uploaded.push(r.value);
+        else failedFiles.push(attachments[i]?.name ?? "a file");
+      });
 
       const result = await postCreateIssue({
         title: title.trim(),
@@ -120,19 +148,30 @@ export function BugReportPanel({ slug }: { slug: string }) {
       });
 
       const issueId = result.issue?.id;
-      if (issueId && uploaded.length) {
-        await Promise.all(
-          uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),
-        );
-      }
+      if (!issueId) throw new Error("The bug wasn't created");
+      if (selectedProjectId) rememberLastProject(slug, profile?.id, selectedProjectId);
 
-      return result;
+      const attached = await Promise.allSettled(
+        uploaded.map((a) => attachFileToIssue(issueId, a.url, a.name)),
+      );
+      attached.forEach((r, i) => {
+        if (r.status === "rejected") failedFiles.push(uploaded[i]?.name ?? "a file");
+      });
+
+      return { identifier: result.issue?.identifier ?? "", failedFiles };
     },
-    onSuccess: (data) => {
-      toast.success(`Bug reported: ${data.issue?.identifier ?? ""}`);
+    onSuccess: ({ identifier, failedFiles }) => {
+      if (failedFiles.length) {
+        toast.warning(`Bug reported: ${identifier}, but couldn't attach ${failedFiles.join(", ")}`);
+      } else {
+        toast.success(`Bug reported: ${identifier}`);
+      }
       reset();
     },
-    onError: () => toast.error("Failed to report bug. Please try again."),
+    onError: (err) =>
+      toast.error("Failed to report bug. Please try again.", {
+        description: err instanceof Error ? err.message : undefined,
+      }),
   });
 
   function reset() {
@@ -156,7 +195,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
   }
 
   function handleSubmit() {
-    if (!title.trim()) return;
+    if (!title.trim() || missingProject) return;
     mutation.mutate();
   }
 
@@ -222,6 +261,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
                 projects={projects}
                 value={selectedProjectId}
                 onValueChange={handleProjectChange}
+                required={projectRequired}
               />
 
               {selectedProjectId && (
@@ -268,7 +308,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
 
             <SubmitButton
               onClick={handleSubmit}
-              disabled={!title.trim() || mutation.isPending}
+              disabled={!title.trim() || projectsLoading || missingProject || mutation.isPending}
               pending={mutation.isPending}
               label="Submit Bug Report"
             />
