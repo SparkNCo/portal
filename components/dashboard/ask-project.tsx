@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, FileText, FlaskConical, Loader2, Sparkles, Ticket } from "lucide-react";
+import { AlertCircle, FileText, FlaskConical, Sparkles, Ticket } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,10 +37,21 @@ function SourceItem({ slug, source }: Readonly<{ slug: string; source: AskSource
     <>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <span className="smalltext text-muted-foreground shrink-0">
-        {SOURCE_LABEL[source.type]} {source.type === "issue" ? source.ref : ""}
+        {SOURCE_LABEL[source.type]}
+        {source.type === "issue" && (
+          <>
+            {" "}
+            <span className="font-medium text-primary">{source.ref}</span>
+          </>
+        )}
       </span>
       <span className="smalltext font-medium truncate">{source.title}</span>
-      {source.status && <span className="smalltext text-muted-foreground shrink-0">· {source.status}</span>}
+      {source.status && (
+        <span className="smalltext shrink-0">
+          <span className="text-muted-foreground">· </span>
+          <span className="text-primary">{source.status}</span>
+        </span>
+      )}
     </>
   );
   return (
@@ -127,17 +138,21 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
             rows={1}
             className="min-h-[40px] resize-none bg-card text-card-foreground"
           />
-          <Button type="submit" disabled={!canAsk} className="shrink-0 gap-1.5">
-            {ask.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
-            {ask.isPending ? "Thinking…" : "Ask"}
+          <Button type="submit" disabled={!canAsk} className="shrink-0">
+            Ask
           </Button>
         </form>
 
+        {/* Loading: a thin bar sliding left to right, no text on screen
+            (screen readers still get one). */}
         {ask.isPending && (
-          <p className="smalltext text-muted-foreground flex items-center gap-1.5" role="status">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            Looking through the project's documents, test cases and issues…
-          </p>
+          <div
+            role="progressbar"
+            aria-label="Looking through the project's documents, test cases and issues"
+            className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
+          >
+            <div className="h-full w-2/5 rounded-full bg-primary animate-progress-slide motion-reduce:animate-pulse" />
+          </div>
         )}
 
         {ask.isError && (

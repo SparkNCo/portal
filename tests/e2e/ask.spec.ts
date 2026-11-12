@@ -76,7 +76,7 @@ test.describe('Ask about this project', () => {
     await question()(page).fill('Is there an email fallback?');
     await page.getByRole('button', { name: 'Ask' }).click();
 
-    await expect(page.getByText("Looking through the project's documents, test cases and issues…")).toBeVisible();
+    await expect(page.getByRole('progressbar', { name: /Looking through the project/ })).toBeVisible();
     await expect(page.getByText('Yes. When Resend is not configured, emails go out through SMTP (Issue SPA-456).')).toBeVisible({ timeout: 15_000 });
 
     const issueLink = page.getByRole('link', { name: /Issue SPA-456.*Fallback to nodemailer/ });
