@@ -17,6 +17,7 @@ import { useSelectedProject } from "@/lib/selected-project-context";
 import { pickDeveloperProject } from "@/lib/developer-routes";
 import { useParams } from "next/navigation";
 import { safeDecodeURIComponent } from "@/lib/utils";
+import { AskProject } from "@/components/dashboard/ask-project";
 import { useState, useEffect } from "react";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue, IssueViewMode } from "@/components/client/issues.types";
@@ -307,6 +308,14 @@ export default function DeveloperDashboard() {
             />
           )}
         </div>
+
+        {/* Global query (SPA-582) about the selected initiative. Keyed by it
+            so switching initiatives clears the previous answer. */}
+        {selectedProject && (
+          <div className="-mx-4 sm:mx-0">
+            <AskProject key={selectedProject} slug={selectedProject} />
+          </div>
+        )}
 
         {/* <CreateIssue
           slug={projects[0]?.clientName ?? ""}

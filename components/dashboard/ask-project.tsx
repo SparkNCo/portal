@@ -17,11 +17,15 @@ import { type AskAnswer, type AskSource, MAX_QUESTION_LENGTH, askProject } from 
 const SOURCE_ICON = { document: FileText, test: FlaskConical, issue: Ticket } as const;
 const SOURCE_LABEL = { document: "Document", test: "Test case", issue: "Issue" } as const;
 
-// Where a cited source opens: issues in their ticket modal (Build opens any
-// ticket by id), documents on the Documents page. Test cases have no page.
+// Where a cited source opens: issues in their ticket modal (bugs on the Bugs
+// page, the rest on Build; both open any ticket of theirs by id), documents
+// on the Documents page. Test cases have no page.
 function sourceHref(slug: string, source: AskSource): string | null {
   const base = `/${routeSlugFor(slug)}`;
-  if (source.type === "issue") return `${base}/build?issueId=${encodeURIComponent(source.id)}`;
+  if (source.type === "issue") {
+    const panel = source.kind === "bug" ? "bugs" : "build";
+    return `${base}/${panel}?issueId=${encodeURIComponent(source.id)}`;
+  }
   if (source.type === "document") return `${base}/documents`;
   return null;
 }
