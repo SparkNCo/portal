@@ -2,6 +2,7 @@
 
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { hasDocumentAccess } from "./access.ts";
 import {
   UpdateStorageEntryResponseSchema,
   UpdateStorageEntrySchema,
@@ -32,31 +33,11 @@ export async function updateStorageEntry(req: Request, schema: string) {
     const { id, user_id, ...updates } = parsedBody.data;
 
     // 🔒 1. CHECK PERMISSIONS
-    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .select("permission")
-      .eq("user_id", user_id)
-      .eq("document_id", id)
-      .single();
-
-    if (permissionError || !permissionData) {
-      return new Response(
-        JSON.stringify({ error: "No permission for this document" }),
-        {
-          status: 403,
-          headers: corsHeaders,
-        },
-      );
-    }
-
-    if (!["write", "owner"].includes(permissionData.permission)) {
-      return new Response(
-        JSON.stringify({ error: "Write permission required" }),
-        {
-          status: 403,
-          headers: corsHeaders,
-        },
-      );
+    if (!(await hasDocumentAccess(schema, user_id, id))) {
+      return new Response(JSON.stringify({ error: "No access" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 2. UPDATE DOCUMENT

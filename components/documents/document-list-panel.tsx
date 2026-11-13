@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FileText,
   Download,
@@ -12,7 +11,6 @@ import {
   Calendar,
   Settings,
   Trash2,
-  UserCog,
   Loader2,
 } from "lucide-react";
 
@@ -24,7 +22,8 @@ import { useDeleteDocument, useUpdateDocument } from "./update-document-entry";
 import { useUser } from "context/UserContext";
 import { Share2 } from "lucide-react";
 import { ShareDocumentModal } from "./ShareDocumentModal";
-import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS } from "@/lib/api-headers";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DocumentPreviewModal, PREVIEWABLE_FORMATS, type PreviewableDoc } from "./document-preview-modal";
 
 const formatIcons: Record<string, any> = {
@@ -58,14 +57,11 @@ export function DocumentRow({
 }: {
   filteredDocs: any[];
   userId: string | undefined;
-  // The initiative whose assigned users can be picked as a new document
-  // owner (admin-only) — same id StaffingSection/StakeholdersSection use to
-  // scope their own `GET /assignments?customer_id=` calls.
+  // Kept for callers; documents no longer have an owner to reassign.
   customerId?: string;
 }) {
   const updateMutation = useUpdateDocument();
   const deleteMutation = useDeleteDocument();
-  const queryClient = useQueryClient();
   const { profile } = useUser();
   const isAdmin = profile?.role === "admin";
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -73,41 +69,8 @@ export function DocumentRow({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [previewDoc, setPreviewDoc] = useState<PreviewableDoc | null>(null);
-
-  // Only fetched when an admin actually opens the Owner popover on some row
-  // (enabled below, per-row) — no point loading this for every visitor.
-  const assignedUsersQuery = useQuery({
-    queryKey: ["assignments", customerId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${customerId}`,
-        { headers: API_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch initiative users");
-      return res.json() as Promise<any[]>;
-    },
-    enabled: isAdmin && !!customerId,
-  });
-
-  const transferOwnerMutation = useMutation({
-    mutationFn: async ({ documentId, newOwnerId }: { documentId: string; newOwnerId: string }) => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/transfer-owner`,
-        {
-          method: "POST",
-          headers: API_JSON_HEADERS,
-          body: JSON.stringify({ document_id: documentId, new_owner_id: newOwnerId, user_id: userId }),
-        },
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "Failed to change owner");
-      }
-      return res.json();
-    },
-    // Returned so the row's spinner lasts until the list shows the new owner.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
-  });
+  // The document waiting for "Delete?" to be confirmed.
+  const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
 
   // Clicking a document's name previews it in-app for formats we know how to
   // render (markdown/text/csv); anything else falls back to the existing
@@ -180,9 +143,9 @@ export function DocumentRow({
           formatIcons[doc.format as keyof typeof formatIcons] || File;
         const savingCategory =
           updateMutation.isPending && updateMutation.variables?.document_id === doc.id;
-        const transferringOwner =
-          transferOwnerMutation.isPending &&
-          transferOwnerMutation.variables?.documentId === doc.id;
+        // Access is yes or no: anyone with access (or an admin) can change
+        // the category, share and delete.
+        const canManage = !!doc.permission || isAdmin;
 
         return (
           <div
@@ -242,7 +205,7 @@ export function DocumentRow({
               <div className="grid grid-cols-5 gap-1 w-full sm:w-auto sm:flex sm:items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
                 {/* Category settings */}
 
-                {["write", "owner"].includes(doc.permission) && (
+                {canManage && (
                   <InlineSelect
                     align="start"
                     contentClassName="w-40 p-1"
@@ -293,7 +256,7 @@ export function DocumentRow({
                   />
                 </Button>
 
-                {(["write", "owner"].includes(doc.permission) || isAdmin) && (
+                {canManage && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -323,18 +286,13 @@ export function DocumentRow({
                   />{" "}
                 </Button>
 
-                {(doc.permission === "owner" || isAdmin) && (
+                {canManage && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-10 w-full sm:h-8 sm:w-8 text-destructive hover:text-destructive"
                     disabled={deleteMutation.isPending}
-                    onClick={() =>
-                      deleteMutation.mutate({
-                        document_id: doc.id,
-                        user_id: userId!,
-                      })
-                    }
+                    onClick={() => setConfirmDelete(doc)}
                     aria-label={`Delete ${doc.name}`}
                   >
                     {deleteMutation.isPending && deleteMutation.variables?.document_id === doc.id ? (
@@ -345,52 +303,41 @@ export function DocumentRow({
                   </Button>
                 )}
 
-                {/* Admin-only: reassign this document's owner to any user
-                    assigned to the initiative — e.g. the original uploader
-                    left the company and someone else needs delete/share
-                    rights over what they left behind. */}
-                {isAdmin && (
-                  <InlineSelect
-                    align="start"
-                    contentClassName="p-1"
-                    optionClassName="font-normal text-foreground hover:bg-muted"
-                    loading={assignedUsersQuery.isLoading}
-                    emptyText="No assigned users found."
-                    options={(assignedUsersQuery.data ?? [])
-                      .filter((a: any) => a.role !== "stakeholder")
-                      .map((assignment: any) => ({
-                        value: assignment.user_id,
-                        label: assignment.firstName
-                          ? `${assignment.firstName} ${assignment.lastName ?? ""}`.trim()
-                          : assignment.userName || assignment.email,
-                      }))}
-                    saving={transferringOwner}
-                    onSelect={(newOwnerId) =>
-                      transferOwnerMutation.mutate({ documentId: doc.id, newOwnerId })
-                    }
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-full sm:h-8 sm:w-8 hover:text-primary"
-                        disabled={transferringOwner}
-                        aria-busy={transferringOwner}
-                        aria-label={`Change owner for ${doc.name}`}
-                      >
-                        {transferringOwner ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <UserCog className="h-4 w-4" />
-                        )}
-                      </Button>
-                    }
-                  />
-                )}
               </div>
             </div>
           </div>
         );
       })}
+
+      {/* Soft delete: gone for everyone with access, but the file is kept. */}
+      <Dialog open={!!confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Delete document?</DialogTitle>
+          </DialogHeader>
+          <p className="smalltext text-muted-foreground">
+            <span className="font-medium text-foreground">{confirmDelete?.name}</span> will be removed for everyone
+            who has access to it.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setConfirmDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() =>
+                deleteMutation.mutate(
+                  { document_id: confirmDelete.id, user_id: userId! },
+                  { onSettled: () => setConfirmDelete(null) },
+                )
+              }
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { grantAccess } from "./access.ts";
 import { upsertDocumentVector } from "../lib/vector.ts";
 import { extractDocumentText } from "../utils/documentText.ts";
 import {
@@ -112,6 +113,9 @@ export async function uploadStorageData(req: Request, schema: string) {
         category,
         file_name: file.name,
         project_slug,
+        // Everyone on the initiative sees it, including people who join
+        // later (storage/access.ts).
+        initiative_wide: !!project_slug,
       })
       .select()
       .single();
@@ -125,27 +129,18 @@ export async function uploadStorageData(req: Request, schema: string) {
       });
     }
 
-    // 5. Insert owner permission
-    const { error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .insert({
-        user_id: owner_id,
-        document_id: document.id,
-        permission: "owner",
-      });
-
-    if (permissionError) {
+    // 5. Access for the uploader and, when fulfilling a Document Request, the
+    // requester (owner_email): both have it by default. There's no owner any
+    // more, just access (see storage/access.ts).
+    try {
+      await grantAccess(schema, document.id, [uploader_id, owner_id]);
+    } catch (permissionError) {
       console.error("[Permission Insert Error]", permissionError);
-
-      // Roll back the document so it isn't left without an owner.
+      // Roll back the document so it isn't left without anyone who can see it.
       await supabase.schema(schema).from("documents").delete().eq("id", document.id);
-
       return new Response(
-        JSON.stringify({ error: "Failed to assign permissions", details: permissionError.message }),
-        {
-          status: 500,
-          headers: corsHeaders,
-        },
+        JSON.stringify({ error: "Failed to assign permissions", details: String(permissionError?.message ?? permissionError) }),
+        { status: 500, headers: corsHeaders },
       );
     }
 
@@ -165,40 +160,21 @@ export async function uploadStorageData(req: Request, schema: string) {
       );
     }
 
-    // 5b. Grant "write" to the uploader (if not the owner) and shared_with_emails
-    // (the initiative's developers). Best-effort per user.
-    const writeEmails = new Set(
-      (shared_with_emails ?? "")
+    // 5b. The initiative itself needs no rows: the document is
+    // initiative_wide, so everyone on it has access while they're on it.
+    // shared_with_emails, if a caller sends anyone else, get their own access.
+    // Best-effort: the uploader (and requester) already have access.
+    try {
+      const sharedEmails = (shared_with_emails ?? "")
         .split(",")
         .map((e) => e.trim())
-        .filter(Boolean),
-    );
-    if (owner_id !== uploader_id) writeEmails.add(email);
-
-    if (writeEmails.size > 0) {
-      const { data: writeUsers } = await supabase.schema(schema)
-        .from("users")
-        .select("id, email")
-        .in("email", Array.from(writeEmails));
-
-      const writeUserIds = (writeUsers ?? [])
-        .map((u) => u.id)
-        .filter((id) => id !== owner_id);
-
-      if (writeUserIds.length > 0) {
-        const { error: writeError } = await supabase.schema(schema)
-          .from("document_permissions")
-          .insert(
-            writeUserIds.map((user_id) => ({
-              user_id,
-              document_id: document.id,
-              permission: "write",
-            })),
-          );
-        if (writeError) {
-          console.error("[Write Permission Insert Error] (non-fatal)", writeError);
-        }
+        .filter(Boolean);
+      if (sharedEmails.length) {
+        const { data: sharedUsers } = await supabase.schema(schema).from("users").select("id").in("email", sharedEmails);
+        await grantAccess(schema, document.id, (sharedUsers ?? []).map((u) => u.id));
       }
+    } catch (shareError) {
+      console.error("[Shared Access Insert Error] (non-fatal)", shareError);
     }
 
     // 6. Response

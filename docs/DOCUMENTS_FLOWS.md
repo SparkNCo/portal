@@ -87,9 +87,8 @@ Clicking a row opens a detail modal (title, status, project, related request if 
 3. Once claimed (by the current user), the button relabels itself to **"Upload & Share"**; clicking it opens `FulfillDocumentRequestModal`. Claiming and opening the upload modal are deliberately two separate clicks, not one action that silently claims as a side effect.
 4. In the modal: drag-and-drop or browse for **one file**, then **"Upload & Share"** does two calls in sequence:
    - `POST /storage` (multipart) — uploads the file under the customer's `linear_slug` (resolved from `request.customer_slug` via the customers list), with:
-     - `owner_email` = `request.requested_by` — the requester becomes the document's **owner** (see Permission model below);
-     - `shared_with_emails` = the customer's email plus every stakeholder on the initiative — they get **write**.
-     The uploader also gets **write** (when they aren't the owner). Other developers on the initiative get no permission row, so they don't see it in Project Documents.
+     - `owner_email` = `request.requested_by` — the requester gets **access** by default, like the uploader (see Access model below);
+     - everyone on the initiative (the customer, its stakeholders and its developers) has access too, because the document is `initiative_wide` (see Access model below).
    - `PATCH /document-requests` (no `action`, i.e. "complete") — marks the request `done`, `completed_by` = current user's email.
 5. On success, both the `document-requests` and `documents` queries are invalidated, so the requester sees the new document in their Project Documents list and the request move to "Requests Fulfilled". If the second call fails, the file is already uploaded but the request stays pending and claimed; retrying uploads a second copy.
 
@@ -135,7 +134,7 @@ Each document in the response has the same fields as before:
 | `category` | One of: Reports, Technical, Design |
 | `created_at` | Shown as a formatted date |
 | `size` | File size string shown in the row |
-| `permission` | `"owner"`, `"write"`, or `"read"` — controls which actions are available |
+| `permission` | `"access"` when the user has access to it (every action is available), or `null` in an admin's full view of documents they weren't given (admins can act on them anyway) |
 | `project_slug` | Groups the document under a project folder (null → "Other") |
 
 ### Search
@@ -169,9 +168,13 @@ Unchanged from before — each document row shows its file-type icon, name, cate
 |---|---|---|---|
 | **Open** | ExternalLink | Everyone | Calls `GET /storage/download?document_id=...&user_id=...&inline=true` to get a signed URL, then opens it in a new tab (inline view) |
 | **Download** | Download | Everyone | Calls `GET /storage/download?document_id=...&user_id=...` (no `inline` param) to get a signed download URL, then opens it |
-| **Share** | Share2 | `write` or `owner` | Opens the Share Document modal |
-| **Category** | Settings | `write` or `owner` | Opens a popover with the three category options — clicking one calls `PUT /storage` to update the document's category |
-| **Delete** | Trash2 | `owner` only | Calls `DELETE /storage` with `{ document_id, user_id }`. On success, the documents list refreshes automatically |
+| **Share** | Share2 | Anyone with access, admins | Opens the Share Document modal |
+| **Category** | Settings | Anyone with access, admins | Opens a popover with the three category options — clicking one calls `PUT /storage` to update the document's category |
+| **Delete** | Trash2 | Anyone with access, admins | Asks "Delete document?" first, then calls `DELETE /storage` with `{ document_id, user_id }`: a **soft delete** (see below). On success, the documents list refreshes automatically |
+
+### Soft delete
+
+`DELETE /storage` (`supabase/functions/storage/delete-document.ts`) only marks the document deleted (`documents.deleted_at`, `deleted_by`). **The file stays in `documents_bucket`**, and the row and its permissions stay, so it could be restored later (there's no restore in the UI yet). From then on it's gone everywhere: the documents list, search, downloads (`/storage/download` answers 404), the Share modal, the vector backfill and "Ask about this project" all skip deleted documents, and its search vectors are removed.
 
 Both Open and Download fetch a fresh **signed URL** from the backend each time they are clicked — the URL is not stored or cached in the UI.
 
@@ -181,26 +184,25 @@ Both Open and Download fetch a fresh **signed URL** from the backend each time t
 
 **Source:** `components/documents/ShareDocumentModal.tsx`
 
-Opened by clicking the Share icon on a document row. Only available for documents with `permission` equal to `"write"` or `"owner"` (admins: any document).
+Opened by clicking the Share icon on a document row: anyone with access to the document can share it (admins: any document).
 
-Instead of typing emails, the modal lists **everyone on the document's initiative** to pick from, with checkboxes (multiple selection, plus **Select all**):
-- The initiative is resolved from the document's own `project_slug` → the customer whose `linear_slug` matches (`GET /users?type=customers`) → `GET /assignments?customer_id=` for its developers and stakeholders. It works the same for every role, since it doesn't depend on who's viewing.
-- The list shows the customer, then stakeholders, then developers, each with name, email and role. The current user is left out.
-- **Share with N** stays disabled until at least one person is picked.
+**Emails as pills.** One input takes a list of emails: typing a comma, a space, Enter or Tab (or pasting a list) turns each one into a pill (`emailsIn` / `isEmail` in `lib/email-list.ts`). A pill has an ✕ to remove it; Backspace on an empty input removes the last one; an invalid email shows as a red pill and blocks Share. While typing, people on the document's initiative (the customer, its stakeholders and developers, resolved from the document's `project_slug`) are suggested; picking one adds their email. Below, **"Has access"** lists who already has it (`GET /storage/permissions`).
 
-Clicking it calls `POST /storage/share` with:
+Clicking **Share with N** calls `POST /storage/share` with:
 
 ```json
 {
   "document_id": 123,
-  "emails": ["alice@example.com", "bob@example.com"],
+  "emails": ["alice@example.com", "someone@external.com"],
   "user_id": "..."
 }
 ```
 
-On success the modal closes, the selection resets and a toast says how many people it was shared with. The backend grants `read` access to the recipients, **skipping anyone who already has a permission on that document** (the owner, people with write, or someone it was already shared with), so their access is never duplicated or downgraded. The response lists both: `{ success, shared_with: [...], already_had_access: [...] }`. A fulfilled document request doesn't go through Share — the upload itself makes the requester the owner (see "Claiming and fulfilling" above, step 4).
+What the backend (`supabase/functions/storage/shareDocument.ts`) does with each email:
+- **A portal user** (matched case-insensitively): gets **access** to the document, skipping anyone who already has it, and a notification (`document_shared`, "shared a document with you", opening `/{slug}/documents`).
+- **Anyone else**: gets the document **by email**, one message per address. Files up to **10 MB are attached**; bigger ones get a **download link valid for 7 days** instead (mail providers reject large attachments). External recipients aren't recorded as having access: they have no portal account.
 
-**Backend permission check** (`supabase/functions/storage/shareDocument.ts`): the request is rejected with `403 { error: "Unauthorized" }` unless the caller's `document_permissions` row for that document has `permission` equal to `"write"` or `"owner"`. This must match the frontend's gating condition above — if they ever diverge (e.g. backend only allowed `"write"` while the frontend showed Share for `"owner"` too), document owners would get an `"Unauthorized"` error when trying to share.
+The response says what happened to every email: `{ success, shared_with, emailed, already_had_access, failed }`, and the modal shows it in one toast. Up to 20 emails per share. The caller must have access to the document (or be an admin), else `403 { error: "No access" }`.
 
 ---
 
@@ -250,17 +252,19 @@ The `project_slug` is used to group the uploaded document under the correct proj
 
 ---
 
-## Permission model
+## Access model
 
-The `permission` field on each document determines what a user can do with it:
+There are no owners or permission levels: a user either **has access** to a document (a `document_permissions` row) or doesn't (`20261113120000_documents_access_and_soft_delete.sql` turned every older owner / write / read row into access, and one user has at most one row per document).
 
-| Permission | Open | Download | Share | Change Category | Delete |
+| | Open | Download | Share | Change Category | Delete |
 |---|---|---|---|---|---|
-| `read` | ✅ | ✅ | ✗ | ✗ | ✗ |
-| `write` | ✅ | ✅ | ✅ | ✅ | ✗ |
-| `owner` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Has access | ✅ | ✅ | ✅ | ✅ | ✅ (soft delete) |
+| Admin | ✅ | ✅ | ✅ | ✅ | ✅ (soft delete) |
 
-Documents uploaded by a user have `owner` permission for that user. Documents shared with a user via Share have `read` permission. A document delivered for a request is the exception: the **requester** is its `owner`, and the uploader, the customer and the initiative's stakeholders get `write`.
+**Who has access:**
+- **Everyone on the document's initiative, while they're on it**: the customer, its stakeholders and its developers. Documents uploaded since `20261113130000_documents_initiative_wide.sql` are `initiative_wide`, and membership is checked every time (`userInitiativeSlugs` in `supabase/functions/storage/access.ts`), so someone assigned to the initiative later sees them, and someone removed stops seeing them. Documents uploaded before keep exactly the access they had.
+- **The uploader** and, for a document delivered for a request, **the requester** (a `document_permissions` row each, so they keep it even if they leave the initiative).
+- **Anyone it's shared with** (Share modal above), and admins. The checks live in `supabase/functions/storage/access.ts` (`hasDocumentAccess`, `grantAccess`).
 
 ---
 
@@ -289,7 +293,7 @@ User lands on /{slug}/documents
           │
           ├── User shares a document → POST /storage/share { document_id, emails[], user_id }
           ├── User changes category → PUT /storage { document_id, category, user_id } → list refreshes
-          ├── User deletes a document → DELETE /storage { document_id, user_id } → list refreshes
+          ├── User deletes a document → DELETE /storage { document_id, user_id } → soft delete (file kept) → list refreshes
           │
           ├── if canUpload (developer/admin): user uploads a file
           │     → POST /storage (multipart) → status tracked per file
@@ -298,7 +302,7 @@ User lands on /{slug}/documents
                 ├── POST /document-requests → new pending request → notifies the initiative (customer, developers, stakeholders) + admins
                 ├── PATCH /document-requests { action: "claim" } → optimistic lock, 409 if already claimed
                 ├── PATCH /document-requests { action: "release" } → clears the claim (self, or admin on anyone's)
-                ├── Fulfill: POST /storage (upload; requester = owner) → PATCH /document-requests (mark done)
+                ├── Fulfill: POST /storage (upload; requester and uploader get access) → PATCH /document-requests (mark done)
                 ├── PATCH /document-requests { action: "edit" } → requester only, unclaimed + not done, no admin bypass
                 └── PATCH /document-requests { action: "delete" } → requester only, unclaimed + not done, no admin bypass
 ```
@@ -313,7 +317,13 @@ User lands on /{slug}/documents
 | `app/dev/documents/page.tsx` | Redirect from the old `/dev/documents` to `/{slug}/documents` |
 | `components/documents/documents-list.tsx` | Document list with search, category filter, project grouping |
 | `components/documents/document-list-panel.tsx` | Individual document rows with all actions (open, download, share, category, delete) |
-| `components/documents/ShareDocumentModal.tsx` | Share modal and `useShareDocument` mutation |
+| `components/documents/ShareDocumentModal.tsx` | Share modal (emails as pills, initiative suggestions, who has access) and `useShareDocument` mutation |
+| `lib/email-list.ts` | Splitting typed / pasted emails into pills and validating them (unit-tested in `tests/unit/email-list.spec.ts`) |
+| `supabase/functions/storage/access.ts` | Who may act on a document (`hasDocumentAccess`), giving access (`grantAccess`), documents that aren't deleted (`liveDocument`) |
+| `supabase/functions/storage/shareDocument.ts` | Sharing: access + notification for portal users, the file by email (attachment or 7-day link) for anyone else |
+| `supabase/functions/storage/delete-document.ts` | Soft delete (file kept in storage) |
+| `supabase/migrations/20261113120000_documents_access_and_soft_delete.sql` | One access level, `deleted_at` / `deleted_by` on documents |
+| `supabase/migrations/20261113130000_documents_initiative_wide.sql` | `documents.initiative_wide`: visible to everyone on the initiative while they're on it (new uploads) |
 | `components/documents/upload-document.tsx` | Upload panel with drag & drop and file picker (developer/admin only) |
 | `components/documents/update-document-entry.ts` | `useUpdateDocument` (category change) and `useDeleteDocument` mutations |
 | `components/documents/use-document-requests.ts` | Shared `useDocumentRequests` hook + `DocumentRequest` type |

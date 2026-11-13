@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { hasDocumentAccess } from "./access.ts";
 
 // A document's file path inside documents_bucket, from its stored public URL.
 export function extractPathFromUrl(url: string) {
@@ -35,22 +36,8 @@ export async function downloadDocument(req: Request, schema: string) {
       );
     }
 
-    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .select("permission")
-      .eq("user_id", user_id)
-      .eq("document_id", document_id)
-      .single();
-
-    if (permissionError || !permissionData) {
+    if (!(await hasDocumentAccess(schema, user_id, document_id))) {
       return new Response(JSON.stringify({ error: "No access" }), {
-        status: 403,
-        headers: corsHeaders,
-      });
-    }
-
-    if (!["read", "write", "owner"].includes(permissionData.permission)) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 403,
         headers: corsHeaders,
       });
@@ -64,6 +51,7 @@ export async function downloadDocument(req: Request, schema: string) {
       .from("documents")
       .select("link")
       .eq("id", Number(document_id))
+      .is("deleted_at", null)
       .single();
 
     if (docError || !document) {

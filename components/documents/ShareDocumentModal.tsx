@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Button } from "@/components/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Maximize2, Minimize2, Search } from "lucide-react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUser } from "context/UserContext";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { emailsIn, isEmail } from "@/lib/email-list";
+
+type ShareResult = {
+  shared_with: string[];
+  emailed: string[];
+  already_had_access: string[];
+  failed: string[];
+};
 
 export function useShareDocument() {
   return useMutation({
@@ -22,25 +28,15 @@ export function useShareDocument() {
       document_id: number;
       emails: string[];
       user_id: string | undefined;
-    }) => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/share`,
-        {
-          method: "POST",
-          headers: API_JSON_HEADERS,
-          body: JSON.stringify({
-            document_id,
-            emails,
-            user_id,
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        throw new Error("Failed to share document");
-      }
-
-      return res.json();
+    }): Promise<ShareResult> => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/storage/share`, {
+        method: "POST",
+        headers: API_JSON_HEADERS,
+        body: JSON.stringify({ document_id, emails, user_id }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Failed to share document");
+      return body;
     },
   });
 }
@@ -55,23 +51,18 @@ type CustomerSummary = {
   lastName?: string | null;
 };
 
-type InitiativeUser = {
-  email: string;
-  name: string;
-  role: string;
-};
+type Person = { email: string; name: string; role: string };
 
 function displayName(u: { firstName?: string | null; lastName?: string | null; userName?: string | null; email?: string | null }) {
   const full = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
   return full || u.userName || u.email || "";
 }
 
-// Everyone on the document's initiative — the customer plus the developers
-// and stakeholders assigned to it — resolved from the document's own
-// project_slug (its customer's linear_slug), so it works the same for every
-// role.
-function useInitiativeUsers(projectSlug: string | null | undefined, enabled: boolean) {
-  const { data: customers, isLoading: customersLoading } = useQuery({
+// Everyone on the document's initiative (the customer plus the developers and
+// stakeholders assigned to it), offered as suggestions while typing.
+// Resolved from the document's own project_slug (its customer's linear_slug).
+function useInitiativePeople(projectSlug: string | null | undefined, enabled: boolean) {
+  const { data: customers } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`, {
@@ -86,7 +77,7 @@ function useInitiativeUsers(projectSlug: string | null | undefined, enabled: boo
     ? customers?.find((c) => c.linear_slug?.toLowerCase() === projectSlug.toLowerCase())
     : undefined;
 
-  const { data: assignments, isLoading: assignmentsLoading } = useQuery({
+  const { data: assignments } = useQuery({
     queryKey: ["assignments", customer?.id],
     queryFn: async () => {
       const res = await fetch(
@@ -101,33 +92,20 @@ function useInitiativeUsers(projectSlug: string | null | undefined, enabled: boo
     enabled: enabled && !!customer?.id,
   });
 
-  const byEmail = new Map<string, InitiativeUser>();
+  const byEmail = new Map<string, Person>();
   if (customer?.email) {
-    byEmail.set(customer.email, { email: customer.email, name: customer.clientName ?? displayName(customer), role: "customer" });
+    byEmail.set(customer.email.toLowerCase(), { email: customer.email.toLowerCase(), name: customer.clientName ?? displayName(customer), role: "customer" });
   }
   (assignments ?? []).forEach((a) => {
-    if (a.email && !byEmail.has(a.email)) byEmail.set(a.email, { email: a.email, name: displayName(a), role: a.role });
+    const email = a.email?.toLowerCase();
+    if (email && !byEmail.has(email)) byEmail.set(email, { email, name: displayName(a), role: a.role });
   });
-
-  return {
-    users: Array.from(byEmail.values()),
-    isLoading: customersLoading || (!!customer?.id && assignmentsLoading),
-    initiativeName: customer?.clientName ?? null,
-  };
+  return Array.from(byEmail.values());
 }
 
-// Listed customer first, then stakeholders, then developers.
-const ROLE_ORDER: Record<string, number> = { customer: 0, stakeholder: 1, developer: 2 };
-
-const PERMISSION_LABELS: Record<string, string> = {
-  owner: "Owner",
-  write: "Can edit",
-  read: "Can view",
-};
-
-// Who already has access to the document, by lowercased email.
-function useDocumentAccess(documentId: number | undefined, callerId: string | undefined, enabled: boolean) {
-  const { data, isLoading } = useQuery({
+// Who has access to the document, by lowercased email.
+function usePeopleWithAccess(documentId: number | undefined, callerId: string | undefined, enabled: boolean) {
+  const { data } = useQuery({
     queryKey: ["document-permissions", documentId],
     queryFn: async () => {
       const res = await fetch(
@@ -135,92 +113,117 @@ function useDocumentAccess(documentId: number | undefined, callerId: string | un
         { headers: API_JSON_HEADERS },
       );
       if (!res.ok) throw new Error("Failed to load who has access");
-      return res.json() as Promise<{ email: string; permission: string }[]>;
+      return res.json() as Promise<{ email: string }[]>;
     },
     enabled: enabled && !!documentId && !!callerId,
   });
-  const byEmail = new Map((data ?? []).map((p) => [p.email.toLowerCase(), p.permission]));
-  return { accessByEmail: byEmail, isLoading };
+  return (data ?? []).map((p) => p.email.toLowerCase());
 }
 
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+// One toast that says what happened to every email.
+function shareSummary(res: ShareResult): { ok: boolean; text: string } {
+  const parts = [
+    res.shared_with.length && `access for ${plural(res.shared_with.length, "person", "people")} in the portal`,
+    res.emailed.length && `emailed to ${plural(res.emailed.length, "address", "addresses")}`,
+    res.already_had_access.length && `${plural(res.already_had_access.length, "person", "people")} already had access`,
+  ].filter(Boolean);
+  if (res.failed.length) {
+    return { ok: false, text: `Couldn't email ${res.failed.join(", ")}.${parts.length ? ` Done: ${parts.join(", ")}.` : ""}` };
+  }
+  return { ok: true, text: parts.length ? `Shared: ${parts.join(", ")}.` : "Shared." };
+}
+
+// Share by email: type or paste emails (comma, space, Enter or Tab ends one)
+// and each becomes a pill. Portal users get access; anyone else gets the file
+// by email (storage/shareDocument.ts). People on the initiative are suggested
+// as you type.
 export function ShareDocumentModal({
   isOpen,
   onClose,
   document,
   id,
-}: {
+}: Readonly<{
   isOpen: boolean;
   onClose: () => void;
   document: any;
   id: string | undefined;
-}) {
+}>) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
+  const [emails, setEmails] = useState<string[]>([]);
+  const [draft, setDraft] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const shareMutation = useShareDocument();
-  const { users, isLoading: usersLoading, initiativeName } = useInitiativeUsers(document?.project_slug, isOpen);
-  const { accessByEmail, isLoading: accessLoading } = useDocumentAccess(document?.id, id, isOpen);
-  const isLoading = usersLoading || accessLoading;
-  const accessOf = (email: string) => accessByEmail.get(email.toLowerCase());
+  const people = useInitiativePeople(document?.project_slug, isOpen);
+  const withAccess = usePeopleWithAccess(document?.id, id, isOpen);
+  const ownEmail = profile?.email?.toLowerCase();
 
-  // You can't share with yourself. People who already have access are listed
-  // (checked and locked) but can't be picked again.
-  const options = users
-    .filter((u) => u.email.toLowerCase() !== profile?.email?.toLowerCase())
-    .sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.name.localeCompare(b.name));
-  // The search only narrows what's listed — people picked before searching
-  // stay picked. "Select all" works on what's listed.
-  const term = search.trim().toLowerCase();
-  const visible = term
-    ? options.filter((u) => [u.name, u.email, u.role].some((v) => v.toLowerCase().includes(term)))
-    : options;
-  const selectable = visible.filter((u) => !accessOf(u.email));
-  const allSelected = selectable.length > 0 && selectable.every((u) => selected.has(u.email));
+  const invalid = emails.filter((e) => !isEmail(e));
+  const term = draft.trim().toLowerCase();
+  const suggestions = term
+    ? people
+        .filter((p) => p.email !== ownEmail && !emails.includes(p.email) && !withAccess.includes(p.email))
+        .filter((p) => p.email.includes(term) || p.name.toLowerCase().includes(term))
+        .slice(0, 5)
+    : [];
+
+  const addEmails = (text: string) => {
+    const found = emailsIn(text);
+    if (found.length === 0) return;
+    setEmails((prev) => [...new Set([...prev, ...found])]);
+    setDraft("");
+  };
+  const removeEmail = (email: string) => setEmails((prev) => prev.filter((e) => e !== email));
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (["Enter", ",", " ", "Tab"].includes(e.key) && draft.trim()) {
+      e.preventDefault();
+      addEmails(draft);
+    } else if (e.key === "Backspace" && !draft && emails.length) {
+      removeEmail(emails[emails.length - 1]!);
+    }
+  };
+  const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (/[,;\s]/.test(text)) {
+      e.preventDefault();
+      addEmails(text);
+    }
+  };
 
   const close = () => {
-    setSelected(new Set());
-    setSearch("");
+    setEmails([]);
+    setDraft("");
     setIsExpanded(false);
     onClose();
   };
 
-  const toggle = (email: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(email)) next.delete(email);
-      else next.add(email);
-      return next;
-    });
-
-  const toggleAll = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      selectable.forEach((u) => (allSelected ? next.delete(u.email) : next.add(u.email)));
-      return next;
-    });
+  // A half-typed email counts too, so "Share" doesn't silently drop it.
+  const toSend = [...new Set([...emails, ...emailsIn(draft)])];
+  const canShare = toSend.length > 0 && toSend.every(isEmail) && !shareMutation.isPending;
+  let shareLabel = "Share";
+  if (shareMutation.isPending) shareLabel = "Sharing...";
+  else if (toSend.length > 0) shareLabel = `Share with ${toSend.length}`;
 
   const handleShare = () => {
+    if (!canShare) return;
     shareMutation.mutate(
-      {
-        document_id: document.id,
-        emails: Array.from(selected),
-        user_id: id,
-      },
+      { document_id: document.id, emails: toSend, user_id: id },
       {
         onSuccess: (res) => {
-          const sharedCount = res?.shared_with?.length ?? selected.size;
-          toast.success(
-            sharedCount > 0
-              ? `Shared with ${sharedCount} ${sharedCount === 1 ? "person" : "people"}`
-              : "Everyone selected already has access",
-          );
-          queryClient.invalidateQueries({ queryKey: ["documents"] });
-          queryClient.invalidateQueries({ queryKey: ["document-permissions", document.id] });
+          const { ok, text } = shareSummary(res);
+          if (ok) {
+            toast.success(text);
+          } else {
+            toast.error(text);
+          }
+          void queryClient.invalidateQueries({ queryKey: ["documents"] });
+          void queryClient.invalidateQueries({ queryKey: ["document-permissions", document.id] });
           close();
         },
-        onError: () => toast.error("Failed to share document. Please try again."),
+        onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to share document."),
       },
     );
   };
@@ -247,74 +250,94 @@ export function ShareDocumentModal({
 
         <div className="space-y-3 pt-1">
           <p className="smalltext text-muted-foreground">
-            Pick who on {initiativeName ?? "this initiative"} should get access to{" "}
-            <span className="font-medium text-foreground">{document?.name}</span>. They can open and download it.
+            Share <span className="font-medium text-foreground">{document?.name}</span> by email. People in the portal
+            get access to it; anyone else gets it by email.
           </p>
 
-          {isLoading ? (
-            <p className="smalltext text-muted-foreground py-4">Loading users…</p>
-          ) : options.length === 0 ? (
-            <p className="smalltext text-muted-foreground py-4">There's nobody else on this initiative to share with.</p>
-          ) : (
-            <div className="rounded-md border border-border">
-              <div className="relative border-b border-border">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  type="search"
-                  aria-label="Search people"
-                  placeholder="Search by name, email or role…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="h-9 rounded-none border-0 bg-transparent pl-9 smalltext focus-visible:ring-0"
-                />
-              </div>
-              {visible.length === 0 && (
-                <p className="smalltext text-muted-foreground px-3 py-4">No one matches "{search.trim()}".</p>
-              )}
-              {visible.length > 0 && (
-              <label className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 smalltext font-medium">
-                <Checkbox
-                  id="share-select-all"
-                  checked={allSelected}
-                  onCheckedChange={toggleAll}
-                  disabled={selectable.length === 0}
-                />
-                Select all
-              </label>
-              )}
-              <ul className={cn("overflow-y-auto", isExpanded ? "max-h-[calc(90vh-17rem)]" : "max-h-64")}>
-                {visible.map((u) => {
-                  const access = accessOf(u.email);
-                  return (
-                  <li key={u.email}>
-                    <label
-                      className={`flex items-center gap-3 px-3 py-2 ${
-                        access ? "cursor-default opacity-70" : "cursor-pointer hover:bg-secondary/30"
-                      }`}
+          {/* The emails as pills, then the input. */}
+          <div className="relative">
+            <div
+              className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 focus-within:border-primary"
+              onClick={() => window.document.getElementById("share-emails-input")?.focus()}
+            >
+              {emails.map((email) => (
+                <span
+                  key={email}
+                  className={cn(
+                    "inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-0.5 smalltext",
+                    isEmail(email) ? "border-border bg-muted text-foreground" : "border-destructive/60 bg-destructive/10 text-destructive",
+                  )}
+                  title={isEmail(email) ? email : `${email} isn't a valid email`}
+                >
+                  <span className="truncate">{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeEmail(email)}
+                    aria-label={`Remove ${email}`}
+                    className="shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                id="share-emails-input"
+                type="text"
+                inputMode="email"
+                autoComplete="off"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
+                onBlur={() => draft.trim() && addEmails(draft)}
+                placeholder={emails.length ? "" : "name@example.com, another@example.com"}
+                aria-label="Emails to share with, separated by commas"
+                className="min-w-[10rem] flex-1 bg-transparent py-0.5 smalltext text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+
+            {suggestions.length > 0 && (
+              <ul className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+                {suggestions.map((p) => (
+                  <li key={p.email}>
+                    <button
+                      type="button"
+                      // Before the input's blur adds the half-typed text.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setEmails((prev) => [...new Set([...prev, p.email])]);
+                        setDraft("");
+                      }}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left smalltext hover:bg-muted"
                     >
-                      <Checkbox
-                        checked={!!access || selected.has(u.email)}
-                        disabled={!!access}
-                        onCheckedChange={() => toggle(u.email)}
-                        aria-label={access ? `${u.name} already has access` : `Share with ${u.name}`}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate smalltext font-medium text-foreground">{u.name}</span>
-                        {u.name !== u.email && (
-                          <span className="block truncate smalltext text-muted-foreground">{u.email}</span>
-                        )}
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-popover-foreground">{p.name}</span>
+                        <span className="block truncate text-muted-foreground">{p.email}</span>
                       </span>
-                      <span className="shrink-0 text-right smalltext text-muted-foreground">
-                        <span className="block capitalize">{u.role}</span>
-                        {access && (
-                          <span className="block text-success">{PERMISSION_LABELS[access] ?? "Has access"}</span>
-                        )}
-                      </span>
-                    </label>
+                      <span className="shrink-0 capitalize text-muted-foreground">{p.role}</span>
+                    </button>
                   </li>
-                  );
-                })}
+                ))}
               </ul>
+            )}
+          </div>
+
+          {invalid.length > 0 && (
+            <p className="smalltext text-destructive">
+              {invalid.length === 1 ? `"${invalid[0]}" isn't a valid email.` : `${invalid.length} emails aren't valid.`}
+            </p>
+          )}
+
+          {withAccess.length > 0 && (
+            <div className="space-y-1">
+              <p className="smalltext font-medium text-muted-foreground">Has access</p>
+              <div className="flex flex-wrap gap-1.5">
+                {withAccess.map((email) => (
+                  <span key={email} className="rounded-full border border-border px-2.5 py-0.5 smalltext text-muted-foreground">
+                    {email}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -322,12 +345,8 @@ export function ShareDocumentModal({
             <Button variant="ghost" onClick={close}>
               Cancel
             </Button>
-            <Button onClick={handleShare} disabled={selected.size === 0 || shareMutation.isPending}>
-              {shareMutation.isPending
-                ? "Sharing..."
-                : selected.size > 0
-                  ? `Share with ${selected.size}`
-                  : "Share"}
+            <Button onClick={handleShare} disabled={!canShare}>
+              {shareLabel}
             </Button>
           </div>
         </div>
