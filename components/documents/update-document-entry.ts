@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
+import { toast } from "sonner";
 
 export const CATEGORIES = ["Reports", "Technical", "Design"];
 
@@ -20,12 +21,16 @@ export function useDeleteDocument() {
         body: JSON.stringify({ document_id, user_id }),
       });
 
-      if (!res.ok) throw new Error("Failed to delete document");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? "Failed to delete document");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
     },
+    onError: (err: Error) => toast.error(`Couldn't delete the document: ${err.message}`),
   });
 }
 

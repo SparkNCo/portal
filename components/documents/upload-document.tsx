@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Upload, File, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "../AuthContext";
 import { useUser } from "context/UserContext";
-import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
+import { API_HEADERS } from "@/lib/api-headers";
 
 interface UploadedFile {
   name: string;
@@ -34,9 +34,8 @@ function useUploadFile() {
       userId: string;
       email: string;
       projectSlug: string;
-      // Everyone else assigned to this initiative — granted "write" access
-      // alongside the uploader's "owner", so a document filed under a
-      // project isn't only ever visible to whoever happened to upload it.
+      // Extra people to give access to. Not the initiative: new documents are
+      // initiative_wide, so everyone on it sees them (storage/access.ts).
       sharedWithEmails?: string[];
     }) => {
       const formData = new FormData();
@@ -97,47 +96,6 @@ export function UploadDocument({
   const targetProjectSlug = projectSlug ?? "";
   const canUploadNow = !!targetProjectSlug;
 
-  // Resolve the initiative's customer + stakeholders so an upload shares
-  // with the client side automatically, not just whoever happened to
-  // upload it — developers already have their own access via being
-  // assigned, so they're deliberately left out of this list.
-  const { data: customers } = useQuery({
-    queryKey: ["customers"],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/users?type=customers`,
-        { headers: API_JSON_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch customers");
-      return res.json() as Promise<{ id: string; email: string; linear_slug: string | null }[]>;
-    },
-    enabled: canUploadNow,
-  });
-  const matchedCustomer = customers?.find(
-    (c) => c.linear_slug?.toLowerCase() === targetProjectSlug.toLowerCase(),
-  );
-  const matchedCustomerId = matchedCustomer?.id;
-
-  const { data: assignments } = useQuery({
-    queryKey: ["assignments", matchedCustomerId],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${matchedCustomerId}`,
-        { headers: API_JSON_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch assignments");
-      return res.json() as Promise<{ email: string; role: string }[]>;
-    },
-    enabled: !!matchedCustomerId,
-  });
-  const initiativeEmails = Array.from(
-    new Set(
-      [
-        ...(assignments ?? []).filter((a) => a.role === "stakeholder").map((a) => a.email),
-        matchedCustomer?.email,
-      ].filter((e): e is string => !!e),
-    ),
-  );
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -187,7 +145,6 @@ export function UploadDocument({
           userId: user!.id,
           email: user!.email!,
           projectSlug: targetProjectSlug,
-          sharedWithEmails: initiativeEmails,
         })
         .then(() => setStatus("complete"))
         .catch(() => setStatus("error"));

@@ -78,7 +78,7 @@ export const UploadStorageInputSchema = z.object({
   // the requester's email here instead, since the customer who asked for
   // it should own it, not the developer who happened to upload it.
   owner_email: z.string().optional(),
-  // Extra emails to grant "write" access to alongside the owner — e.g.
+  // Extra emails to give access to alongside the uploader — e.g.
   // every developer assigned to the initiative, so fulfilling a request
   // doesn't lock the rest of the team out of a document filed under their
   // own project. Comma-separated since this comes in as form data.

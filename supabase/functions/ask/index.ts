@@ -51,7 +51,7 @@ async function withDetails(matches: ProjectMatch[]): Promise<SourceOut[]> {
 
   const [documents, tests, issues] = await Promise.all([
     ids("document", "document_id").length
-      ? supabase.schema(SCHEMA).from("documents").select("id, file_name, category, created_at").in("id", ids("document", "document_id"))
+      ? supabase.schema(SCHEMA).from("documents").select("id, file_name, category, created_at").in("id", ids("document", "document_id")).is("deleted_at", null)
       : { data: [] },
     ids("test", "test_id").length
       ? supabase.schema(SCHEMA).from("tests").select("id, title, created_at").in("id", ids("test", "test_id"))

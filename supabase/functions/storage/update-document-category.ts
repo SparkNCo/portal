@@ -2,6 +2,7 @@
 
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
+import { hasDocumentAccess } from "./access.ts";
 import {
   UpdateDocumentCategorySchema,
   UpdateDocumentCategoryResponseSchema,
@@ -44,28 +45,11 @@ export async function updateDocumentCategory(req: Request, schema: string) {
     });
 
     // 1. CHECK PERMISSION
-    const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-      .from("document_permissions")
-      .select("permission")
-      .eq("user_id", user_id)
-      .eq("document_id", document_id)
-      .single();
-
-    if (permissionError || !permissionData) {
+    if (!(await hasDocumentAccess(schema, user_id, document_id))) {
       return new Response(JSON.stringify({ error: "No access" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    if (!["write", "owner"].includes(permissionData.permission)) {
-      return new Response(
-        JSON.stringify({ error: "Write permission required" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
     }
 
     // 2. UPDATE DOCUMENT CATEGORY

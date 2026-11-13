@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { corsHeaders } from "../utils/headers.ts";
 import { queryTopDocumentMatches } from "../lib/vector.ts";
+import { userInitiativeSlugs } from "./access.ts";
 
 export async function getStorageData(req: Request, schema: string) {
   try {
@@ -53,12 +54,16 @@ export async function getStorageData(req: Request, schema: string) {
     }
 
     const permissionMap = new Map((permissions ?? []).map((p) => [p.document_id, p.permission]));
+    // Initiatives the user is on: their initiative_wide documents count as
+    // theirs too (storage/access.ts).
+    const initiativeSlugs = await userInitiativeSlugs(schema, user_id);
+    const memberOf = (slug: string | null | undefined) => !!slug && initiativeSlugs.includes(slug.toLowerCase());
 
     // Admins see every document in the initiative (by project_slug), not just
     // permitted ones. Requires project_slug so it's never platform-wide.
     const adminFullView = viewerIsAdmin && !!project_slug;
 
-    if (!adminFullView && !permissions?.length) {
+    if (!adminFullView && !permissions?.length && initiativeSlugs.length === 0) {
       return new Response(JSON.stringify({ success: true, count: 0, documents: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -67,11 +72,20 @@ export async function getStorageData(req: Request, schema: string) {
     // 2. Fetch the actual documents
     let docQuery = supabase.schema(schema)
       .from("documents")
-      .select("id, file_name, link, category, size, created_at, project_slug")
+      .select("id, file_name, link, category, size, created_at, project_slug, initiative_wide")
+      // Soft-deleted documents are gone for everyone.
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (!adminFullView) {
-      docQuery = docQuery.in("id", permissions.map((p) => p.document_id));
+      // Documents they were given, or initiative_wide ones of their
+      // initiatives (matched case-insensitively below).
+      const ids = (permissions ?? []).map((p) => p.document_id);
+      const filters = [
+        ...(ids.length ? [`id.in.(${ids.join(",")})`] : []),
+        ...(initiativeSlugs.length ? ["initiative_wide.eq.true"] : []),
+      ];
+      docQuery = docQuery.or(filters.join(","));
     }
 
     if (category) {
@@ -85,7 +99,6 @@ export async function getStorageData(req: Request, schema: string) {
     }
 
     const { data, error } = await docQuery;
-    console.log("RAW DATA:", JSON.stringify(data, null, 2));
     if (error) {
       console.error("[Get Documents Error]", error);
       return new Response(JSON.stringify({ error: error.message }), {
@@ -94,8 +107,11 @@ export async function getStorageData(req: Request, schema: string) {
       });
     }
 
-    // 3. Flatten result
-    let documents = (data || []).map((doc) => ({
+    // 3. Flatten result. initiative_wide documents of other initiatives came
+    // back with the broad filter above; keep only the user's own.
+    let documents = (data || [])
+      .filter((doc) => adminFullView || permissionMap.has(doc.id) || (doc.initiative_wide && memberOf(doc.project_slug)))
+      .map((doc) => ({
       id: doc.id,
       file_name: doc.file_name,
       link: doc.link,
@@ -103,7 +119,10 @@ export async function getStorageData(req: Request, schema: string) {
       size: doc.size,
       created_at: doc.created_at,
       project_slug: doc.project_slug,
-      permission: permissionMap.get(doc.id) ?? null,
+      // "access" when the user has access (there's no owner / write / read
+      // any more); null in an admin's full view of documents they weren't
+      // given (admins can act on them anyway).
+      permission: permissionMap.has(doc.id) || (doc.initiative_wide && memberOf(doc.project_slug)) ? "access" : null,
     }));
 
     // 3b. AI search — only re-orders/filters the permitted set above,

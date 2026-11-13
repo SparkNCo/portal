@@ -58,6 +58,7 @@ const ACTION_PHRASES: Record<string, string> = {
   document_request_claimed: "is working on the document request",
   document_request_released: "unassigned the document request",
   document_request_completed: "delivered the document request",
+  document_shared: "shared a document with you",
   status_changed: "changed the status",
 };
 
@@ -110,6 +111,7 @@ const ACTION_ICONS: Record<string, typeof MessageCircle> = {
   document_request_claimed: FileText,
   document_request_released: FileX,
   document_request_completed: FileCheck2,
+  document_shared: FileText,
   status_changed: ArrowRightLeft,
 };
 

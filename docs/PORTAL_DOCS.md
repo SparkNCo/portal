@@ -1000,13 +1000,15 @@ Actions appear on hover:
 |---|---|---|
 | **Open** | Everyone | `GET /storage/download?document_id=...&inline=true` → signed URL → new tab |
 | **Download** | Everyone | `GET /storage/download?document_id=...` → signed download URL → new tab |
-| **Share** | `write` or `owner` | Opens ShareDocumentModal |
-| **Category** | `write` or `owner` | Popover with category options → `PUT /storage` |
-| **Delete** | `owner` only | `DELETE /storage` → list refreshes |
+| **Share** | Anyone with access, admins | Opens ShareDocumentModal |
+| **Category** | Anyone with access, admins | Popover with category options → `PUT /storage` |
+| **Delete** | Anyone with access, admins | Confirmation, then `DELETE /storage`: a **soft delete** (the file stays in storage; the document disappears everywhere) → list refreshes |
+
+There are no owners: a user has access to a document or doesn't. Documents uploaded from now on are visible to everyone on the initiative while they're on it (customer, stakeholders, developers, including people who join later); the uploader and, for a requested document, the requester always have it. Older documents keep the access they had. See `docs/DOCUMENTS_FLOWS.md` → "Access model".
 
 ### 8.5 Share Document Modal
 
-Checkbox list of everyone on the document's initiative (customer, stakeholders, developers — resolved from the document's `project_slug`), multiple selection with Select all → `POST /storage/share` with `{ document_id, emails[], user_id }`. Grants `read`, skipping anyone who already has access. On success the modal closes. A fulfilled document request doesn't use Share: the upload makes the requester the owner (8.2 step 4).
+A list of emails typed or pasted (comma-separated), each shown as a pill; people on the initiative are suggested while typing → `POST /storage/share` with `{ document_id, emails[], user_id }`. Portal users get access (skipping anyone who already has it) and a notification; any other email gets the file by email, attached up to 10 MB, otherwise a 7-day download link. See `docs/DOCUMENTS_FLOWS.md` → "Share Document Modal".
 
 ### 8.6 Upload Document — `UploadDocument`
 
