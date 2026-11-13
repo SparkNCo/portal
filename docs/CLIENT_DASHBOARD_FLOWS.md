@@ -44,7 +44,7 @@ Every user can put the menu items in their own order by **dragging** them: each 
 
 ### Expanding panels on other pages
 
-The Dashboard's panels have an expand button (full width ↔ half), saved in `pinned_panels.full_width`. The two-column panels on **Build** (Business Reviews, Acceptance Testing, Backlog, Approved) and **Monitor** (Project Stats, SDLC Metrics) have the same button, next to their pin, through `PagePanel` (`components/dashboard/page-panel.tsx`). Panels that already take the full width (the Bugs list, the Roadmap, Metrics) don't need it.
+The Dashboard's panels have an expand button (full width ↔ half), saved in `pinned_panels.full_width`. The two-column panels on **Build** (Business Reviews, Acceptance Testing, Backlog, Approved) and **Monitor** (Project Stats, SDLC Metrics) have the same button, next to their pin, through `PagePanel` (`components/dashboard/page-panel.tsx`). So do the two charts inside **Metrics** (Cycle Scope vs Completed, Issues by Status), on Monitor and when Metrics is pinned to the Dashboard; they can't be pinned on their own, so they have no pin, and their grid only goes two-column from `lg`, so the button shows from there. Panels that already take the full width (the Bugs list, the Roadmap, Metrics itself) don't need it.
 
 - Saved per user and **per page** in `portal.user_layout.expanded_panels` as `page:panel` (e.g. `build:build_backlog`), so widening a panel on Build doesn't change it on the Dashboard, and developers (who can't pin) get it too.
 - Like on the Dashboard, the button only shows from the `md` breakpoint up, where the grid has two columns.

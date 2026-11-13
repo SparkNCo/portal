@@ -22,6 +22,7 @@ import {
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Input } from "@/components/ui/input";
 import { cn, safeDecodeURIComponent } from "@/lib/utils";
+import { PagePanel } from "@/components/dashboard/page-panel";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -35,12 +36,16 @@ const ALL_CYCLES_VALUE = "__all_cycles__";
 export function MetricsPanel({
   slug: slugProp,
   edgeToEdge = false,
+  layoutPage = "monitor",
 }: {
   slug?: string;
   // Set when its container already reaches the screen edges on mobile (the
   // Dashboard's pinned panels): the filters get side padding and the charts
   // don't bleed out any further. Monitor's container has its own padding.
   edgeToEdge?: boolean;
+  // Which page the charts' expand button saves its state for, so widening
+  // one on Monitor doesn't widen it on the Dashboard.
+  layoutPage?: string;
 } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
@@ -303,20 +308,26 @@ export function MetricsPanel({
 
       </div>
 
+      {/* Side by side from lg up; each chart can be widened to the full
+          width there (expand button, not pinnable on its own). */}
       <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-4", !edgeToEdge && "-mx-4 sm:mx-0")}>
-        <CycleBarChart
-          data={filteredCycleMetrics}
-          activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
-          onCycleClick={selectCycle}
-        />
-        <IssueMetricsView
-          data={issueMetrics}
-          cycleMetrics={filteredCycleMetrics}
-          activeCycleNumber={activeCycleNumber}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          spanAllCycles={spanAllCycles}
-        />
+        <PagePanel page={layoutPage} panelId="metrics_cycle_chart" pinnable={false} expandFrom="lg">
+          <CycleBarChart
+            data={filteredCycleMetrics}
+            activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
+            onCycleClick={selectCycle}
+          />
+        </PagePanel>
+        <PagePanel page={layoutPage} panelId="metrics_issues_chart" pinnable={false} expandFrom="lg">
+          <IssueMetricsView
+            data={issueMetrics}
+            cycleMetrics={filteredCycleMetrics}
+            activeCycleNumber={activeCycleNumber}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            spanAllCycles={spanAllCycles}
+          />
+        </PagePanel>
       </div>
 
     </div>
