@@ -245,23 +245,26 @@ function UploadDemoForm({
               {selectedIssueIds.size} selected
             </p>
             {selectedIssues.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              // Same rows as the ticket list above (code, then title), with
+              // a remove button instead of the checkbox.
+              <div className="rounded-lg border border-border divide-y divide-border">
                 {selectedIssues.map((i) => (
-                  <Badge
-                    key={i.id}
-                    variant="outline"
-                    className="gap-1 smalltext font-mono border-border/60 text-foreground"
-                  >
-                    {getIssueCode(i.branchName)}
+                  <div key={i.id} className="flex items-center gap-2 px-3 py-2 smalltext">
+                    <span className="font-mono text-muted-foreground shrink-0">
+                      {getIssueCode(i.branchName)}
+                    </span>
+                    <span className="flex-1 truncate" title={i.title}>
+                      {i.title}
+                    </span>
                     <button
                       type="button"
                       onClick={() => toggleIssue(i.id)}
                       aria-label={`Remove ${getIssueCode(i.branchName)}`}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
-                  </Badge>
+                  </div>
                 ))}
               </div>
             )}
