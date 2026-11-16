@@ -10,6 +10,9 @@
 //   /complete       results for the page
 //   /confirm-email  sends the report (once per address)
 //   /book           records the offer they chose to book
+//   /score          running score of the finished checklist sections (/assessment)
+//   /sign-in        emails a magic link; creates the "lead" portal user
+//   /resume         signed in: their newest assessment, to continue it
 import { serveWithCors } from "../utils/serve.ts";
 import {
   handleBook,
@@ -20,6 +23,9 @@ import {
   handlePrefill,
   handleProgress,
   handleQuestions,
+  handleResume,
+  handleScore,
+  handleSignIn,
   handleStart,
 } from "./handlers.ts";
 
@@ -33,6 +39,9 @@ const ROUTES: Record<string, (req: Request) => Promise<Response>> = {
   complete: handleComplete,
   "confirm-email": handleConfirmEmail,
   book: handleBook,
+  score: handleScore,
+  "sign-in": handleSignIn,
+  resume: handleResume,
 };
 
 serveWithCors("technical-review", async (req) => {

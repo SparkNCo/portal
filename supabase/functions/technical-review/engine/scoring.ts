@@ -100,6 +100,19 @@ export function chooseOffer(stage: TechStage, flags: CriticalFlag[], blindSpotAr
   }
 }
 
+// The running score on /assessment: only the ownership answers (initial
+// form) and the checklist sections finished so far count, so the number
+// moves when a section is completed, not on every click.
+export function scoreCompleted(ctx: Context, plan: Plan, answers: Answers, completedAreas: string[]): Result {
+  const done = new Set(completedAreas);
+  const counted = new Set([
+    ...OWNERSHIP_CHECKS,
+    ...plan.sections.filter((s) => done.has(s.area)).flatMap((s) => s.questions.map((q) => q.id)),
+  ]);
+  const partial: Answers = Object.fromEntries(Object.entries(answers).filter(([id]) => counted.has(id) || !CHECKS[id]));
+  return scoreRun(ctx, plan, partial);
+}
+
 export function scoreRun(ctx: Context, plan: Plan, answers: Answers): Result {
   const boosted = boostedTopics(ctx, plan);
   const scored: { id: string; area: AreaId }[] = [

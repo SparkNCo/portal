@@ -278,3 +278,35 @@ export function ideaReportEmail(args: {
   ].join("");
   return { subject: "Your product idea review", html: shell(args.name, "Product idea review", body) };
 }
+
+// ── Sign-in link (/assessment "Sign in to save progress") ───────────────────
+
+export function signInEmail(args: { name?: string | null; link: string }) {
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<title>Sign in to your assessment</title></head>
+<body style="margin:0;padding:0;background:${C.page}">
+${table(
+  `<tr><td align="center" style="padding:32px 12px">
+  ${table(
+    `
+    <tr><td style="background:${C.dark};padding:28px 40px">
+      <p style="margin:0;font-family:${FONT};font-size:26px;font-weight:700;letter-spacing:-.5px;color:${C.cream}">spark<span style="color:${C.orange}">/</span>co</p>
+      <p style="margin:6px 0 0;font-family:${FONT};font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#bdb6ad">Your assessment</p>
+    </td></tr>
+    <tr><td style="height:6px;background:${C.orange};font-size:0;line-height:0">&nbsp;</td></tr>
+    ${block(
+      `${p(`Hi ${esc(args.name) || "there"},`, "margin-top:4px")}${p("Use this button to sign in and pick up your assessment where you left off, on any device.")}
+      <p style="margin:18px 0 18px"><a href="${esc(args.link)}" style="display:inline-block;background:${C.orange};color:#111111;padding:12px 24px;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none">Continue my assessment &rarr;</a></p>
+      ${p("The link works once and expires after an hour. If you didn't ask for it, you can ignore this email.", `color:${C.muted};font-size:13px;line-height:20px`)}`,
+      "32px 40px 32px",
+    )}`,
+    `max-width:600px;background:${C.card}`,
+  )}
+  </td></tr>`,
+  `background:${C.page}`,
+)}
+</body></html>`;
+  return { subject: "Sign in to your Spark assessment", html };
+}

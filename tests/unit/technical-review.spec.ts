@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   CONFIG,
   IDEA_QUESTIONS,
+  agentsMd,
   SCOPE,
   buildPlan,
   contextFromAnswers,
@@ -13,6 +14,7 @@ import {
   questionText,
   ruleBasedIdeaGaps,
   sanitizeAnswers,
+  scoreCompleted,
   scoreRun,
   technicalInvite,
   type Answers,
@@ -409,5 +411,56 @@ test.describe('idea product card', () => {
     expect(profile.rows.map((r) => r.id)).not.toContain('i1_needs');
     expect(profile.rows.find((r) => r.id === 'i3_plan')?.label).toBe('Rollout plan');
     expect(profile.rows.find((r) => r.id === 'i4_depends')?.value).toBe('Yes — Google Calendar');
+  });
+});
+
+test.describe('assessment checklist (/assessment)', () => {
+  test('the running score only counts finished sections', () => {
+    const answers = base({ stage: 'mvp' });
+    const plan = planFor(answers);
+    const first = plan.sections[0]!;
+    const second = plan.sections[1]!;
+    // First section all Yes, second all No (not finished yet).
+    const all: Answers = { ...answers };
+    for (const q of first.questions) all[q.id] = 'yes';
+    for (const q of second.questions) all[q.id] = 'no';
+    const ctx = contextFromAnswers(all);
+
+    const afterFirst = scoreCompleted(ctx, plan, all, [first.area]);
+    expect(afterFirst.overall).toBe(100);
+    expect(afterFirst.areas.map((a) => a.area).sort()).toEqual(['ownership', first.area].sort());
+
+    const afterBoth = scoreCompleted(ctx, plan, all, [first.area, second.area]);
+    expect(afterBoth.overall).toBeLessThan(100);
+    expect(afterBoth.overall).toBe(scoreRun(ctx, plan, all).overall);
+  });
+
+  test('AGENTS.md carries the context, the rules for its features and the gaps', () => {
+    const answers = base({
+      stage: 'mvp',
+      about_product: 'Clinics manage bookings.',
+      t2_features: ['payments'],
+      t2_stack: ['react_next', 'supabase'],
+    });
+    const plan = planFor(answers);
+    const all = answerAll(answers, plan, 'yes', { secrets_audit: 'no', backup_restore: 'unsure' });
+    const ctx = contextFromAnswers(all);
+    const md = agentsMd({ answers: all, ctx, plan });
+
+    expect(md.startsWith('# AGENTS.md')).toBe(true);
+    expect(md).toContain('**Product:** Clinics manage bookings.');
+    expect(md).toContain('React / Next.js, Supabase');
+    expect(md).toMatch(/idempotent/);
+    expect(md).toContain('## Known gaps');
+    expect(md).toContain('## Not verified yet');
+    expect(md).toBe(agentsMd({ answers: structuredClone(all), ctx, plan }));
+  });
+
+  test('Idea AGENTS.md lists the open questions instead of gaps', () => {
+    const answers: Answers = { stage: 'idea', about_product: 'A booking app', scope_industry: 'healthcare' };
+    const md = agentsMd({ answers, ideaGaps: ruleBasedIdeaGaps(answers) });
+    expect(md).toContain('## Before you build');
+    expect(md).not.toContain('## Known gaps');
+    expect(md).toMatch(/BAA/);
   });
 });

@@ -5,11 +5,13 @@
 // marketing-site/docs/TECHNICAL_REVIEW_FLOW.md
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { supabase } from "../client.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import { sendEmail } from "../lib/mailer.ts";
 import {
   INTRO,
   NEXT_STAGE,
   OFFER_COPY,
+  agentsMd,
   buildPlan,
   questionnaire,
   contextFromAnswers,
@@ -18,12 +20,13 @@ import {
   ideaPlayback,
   ideaProfile,
   sanitizeAnswers,
+  scoreCompleted,
   scoreRun,
   technicalInvite,
   type Answers,
 } from "./engine/index.ts";
 import { detectModules, enrichIdea, ideaGaps, prefillScope } from "./ai.ts";
-import { ideaReportEmail, technicalReportEmail } from "./report.ts";
+import { ideaReportEmail, signInEmail, technicalReportEmail } from "./report.ts";
 
 const BOOKING_URL = Deno.env.get("TECHNICAL_REVIEW_BOOKING_URL") ?? "https://cal.com/kabir-malkani-glnivq/consult";
 // Report emails per run (the first send plus a couple of "Edit email" fixes).
@@ -190,6 +193,7 @@ async function buildResults(review, answers: Answers) {
       playback: ideaPlayback(answers), // plain list, for the email
       profile: ideaProfile(answers), // product card, for the page
       gaps,
+      agentsMd: agentsMd({ answers, ideaGaps: gaps }),
       offer: { primary: "free_consult", secondary: [] },
       offers: describeOffer({ primary: "free_consult", secondary: [] }),
       invite: ideaInvite(answers),
@@ -203,6 +207,7 @@ async function buildResults(review, answers: Answers) {
   return {
     stage: ctx.stage,
     result,
+    agentsMd: agentsMd({ answers, ctx, plan }),
     findings: findingsFor(ctx, plan, answers),
     nextStage: NEXT_STAGE[ctx.stage],
     overflow: plan.overflow,
@@ -317,4 +322,167 @@ export async function handleBook(req: Request) {
   if (error) throw error;
 
   return json({ ok: true });
+}
+
+// ── POST /score ─────────────────────────────────────────────────────────────
+// /assessment's running score, after each checklist section is finished:
+// ownership (initial form) plus the finished sections only.
+const ScoreSchema = z.object({
+  reviewId: z.string().uuid(),
+  answers: z.record(z.unknown()).optional(),
+  completed: z.array(z.string().max(40)).max(30),
+});
+
+export async function handleScore(req: Request) {
+  const parsed = ScoreSchema.safeParse(await readBody(req));
+  if (!parsed.success) return bad("Invalid score request");
+  const review = await loadReview(parsed.data.reviewId);
+  if (!review) return bad("Review not found", 404);
+  const answers = await saveAnswers(review, parsed.data.answers ?? {});
+  if (!TECH_STAGES.includes(answers.stage as string)) return bad("The score is only for Building, MVP and Scaling");
+
+  const ctx = contextFromAnswers(answers, storedAiModules(review));
+  const result = scoreCompleted(ctx, buildPlan(ctx), answers, parsed.data.completed);
+  return json({ overall: result.overall, areas: result.areas });
+}
+
+// ── POST /sign-in ───────────────────────────────────────────────────────────
+// "Sign in to save progress": emails a magic link. The account is a portal
+// user with role "lead" (the portal's login turns that role away, so it gives
+// no access to app.buildwithspark.co). Existing users keep their role.
+const SITE_ORIGINS = (Deno.env.get("ASSESSMENT_SITE_ORIGINS") ??
+  "https://buildwithspark.co,https://www.buildwithspark.co,http://localhost:4321")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+const DEFAULT_ORIGIN = SITE_ORIGINS[0];
+
+const SignInSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  origin: z.string().max(200).optional(),
+});
+
+
+// The newest assessment lead for this email, if any.
+async function findLeadByEmail(email: string) {
+  const { data, error } = await db()
+    .from("leads")
+    .select("lead_id, email, first_name")
+    .ilike("email", escapeIlike(email))
+    .eq("discovery_state", "technical_review")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+// Makes sure there's an Auth account and a portal.users row for this email.
+async function ensureAuthUser(email: string) {
+  const { error: createError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (createError && !/already (been )?registered|already exists/i.test(createError.message)) {
+    throw new Error(`Auth user failed: ${createError.message}`);
+  }
+}
+
+async function ensurePortalUser(authUserId: string, email: string, firstName: string | null) {
+  const portal = supabase.schema("portal");
+  const { data: byId, error } = await portal.from("users").select("id").eq("id", authUserId).maybeSingle();
+  if (error) throw error;
+  if (byId) return;
+  const { data: byEmail, error: emailError } = await portal.from("users").select("id").ilike("email", escapeIlike(email)).limit(1);
+  if (emailError) throw emailError;
+  if (byEmail?.length) return; // someone already uses this email in the portal: leave them alone
+  const { error: insertError } = await portal
+    .from("users")
+    .insert({ id: authUserId, email, role: "lead", firstName: firstName || null });
+  if (insertError) throw insertError;
+}
+
+export async function handleSignIn(req: Request) {
+  const parsed = SignInSchema.safeParse(await readBody(req));
+  if (!parsed.success) return bad("Enter a valid email");
+  const { email } = parsed.data;
+  const origin = SITE_ORIGINS.includes(parsed.data.origin ?? "") ? parsed.data.origin : DEFAULT_ORIGIN;
+
+  // Only for people who started an assessment, so this can't be used to
+  // create accounts or send links to any address.
+  const lead = await findLeadByEmail(email);
+  if (!lead) return bad("We couldn't find an assessment for this email. Start one first.", 404);
+
+  await ensureAuthUser(email);
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo: `${origin}/assessment` },
+  });
+  if (error) throw new Error(`Sign-in link failed: ${error.message}`);
+  await ensurePortalUser(data.user.id, email, lead.first_name);
+
+  const mail = signInEmail({ name: lead.first_name, link: data.properties.action_link });
+  const { error: sendError } = await sendEmail({ to: email, subject: mail.subject, html: mail.html });
+  if (sendError) {
+    console.error("[technical-review] sign-in email failed:", sendError);
+    return bad("We couldn't send the email. Please try again.", 502);
+  }
+  return json({ ok: true });
+}
+
+// ── POST /resume ────────────────────────────────────────────────────────────
+// Signed in (Authorization: Bearer <user access token>): their newest
+// assessment, so they can continue on another device.
+export async function handleResume(req: Request) {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: auth, error: authError } = await supabase.auth.getUser(token);
+  const email = auth?.user?.email?.toLowerCase();
+  if (authError || !email) return bad("Sign in first", 401);
+
+  const { data: leads, error: leadsError } = await db()
+    .from("leads")
+    .select("lead_id, email, first_name, company")
+    .ilike("email", escapeIlike(email))
+    .eq("discovery_state", "technical_review");
+  if (leadsError) throw leadsError;
+  if (!leads?.length) return json({ review: null });
+
+  const { data: reviews, error } = await db()
+    .from("technical_reviews")
+    .select("*")
+    .in(
+      "lead_id",
+      leads.map((l) => l.lead_id),
+    )
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) throw error;
+  const review = reviews?.[0];
+  if (!review) return json({ review: null });
+
+  const answers: Answers = review.answers ?? {};
+  let plan = null;
+  if (TECH_STAGES.includes(answers.stage as string) && review.modules) {
+    try {
+      plan = buildPlan(contextFromAnswers(answers, storedAiModules(review)));
+    } catch {
+      plan = null; // intake not finished: the page asks for the plan again
+    }
+  }
+  // The intro page's answers are stored on the lead (and the role on the
+  // run), not in `answers`.
+  const lead = leads.find((l) => l.lead_id === review.lead_id);
+  const intro = {
+    intro_email: lead?.email ?? email,
+    ...(lead?.first_name && { intro_name: lead.first_name }),
+    ...(lead?.company && { intro_company: lead.company }),
+    ...(review.role && { intro_role: review.role }),
+  };
+  return json({
+    review: {
+      reviewId: review.id,
+      answers,
+      plan,
+      updatedAt: review.updated_at ?? review.created_at,
+      completed: !!review.completed_at,
+    },
+    intro,
+  });
 }

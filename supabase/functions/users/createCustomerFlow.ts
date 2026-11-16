@@ -5,7 +5,7 @@ import { fetchProjectUrlsFromLinear } from "./fetchProjectUrls.ts";
 import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import type { TestRun } from "../lib/testMode.ts";
-import { createInvite, testInvite } from "./createUser.ts";
+import { accountForNewUser } from "./createUser.ts";
 import { resolveTicketSystem, saveTicketSystem } from "./ticketSystemSettings.ts";
 
 // Best-effort: look up the initiative's projects + GitHub repo URLs in Linear
@@ -68,8 +68,15 @@ async function triggerIssueMetrics() {
 }
 
 // Inserts the `customers` row — or, in test mode, records it with a made-up
-// id. Removes the just-created Auth account if the insert fails.
-async function insertClient(schema: string, fields: Record<string, unknown>, authUserId: string, testRun: TestRun | null) {
+// id. Removes the just-created Auth account if the insert fails (never a
+// promoted lead's: `isNewAccount` false).
+async function insertClient(
+  schema: string,
+  fields: Record<string, unknown>,
+  authUserId: string,
+  isNewAccount: boolean,
+  testRun: TestRun | null,
+) {
   if (testRun) {
     const record = { customer_id: crypto.randomUUID(), ...fields };
     testRun.writes.push({ target: `${schema}.customers`, op: "insert", data: record });
@@ -84,15 +91,15 @@ async function insertClient(schema: string, fields: Record<string, unknown>, aut
 
   if (error) {
     console.error("[createCustomerFlow] customers insert failed", error.message);
-    await supabase.auth.admin.deleteUser(authUserId);
+    if (isNewAccount) await supabase.auth.admin.deleteUser(authUserId);
     throw new Error(error.message);
   }
   return data;
 }
 
 // Upserts the customer's `users` row — or, in test mode, records it. Undoes
-// the Auth account and `customers` row if it fails.
-async function upsertCustomerUser(schema: string, row: Record<string, any>, testRun: TestRun | null) {
+// the Auth account (only if just created) and `customers` row if it fails.
+async function upsertCustomerUser(schema: string, row: Record<string, any>, isNewAccount: boolean, testRun: TestRun | null) {
   if (testRun) {
     testRun.writes.push({ target: `${schema}.users`, op: "upsert", data: row });
     return row;
@@ -106,7 +113,7 @@ async function upsertCustomerUser(schema: string, row: Record<string, any>, test
 
   if (error) {
     console.error("[createCustomerFlow] users upsert failed", error.message);
-    await supabase.auth.admin.deleteUser(row.id);
+    if (isNewAccount) await supabase.auth.admin.deleteUser(row.id);
     await supabase.schema(schema).from("customers").delete().eq("customer_id", row.customer_id);
     throw new Error(error.message);
   }
@@ -135,8 +142,9 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
   const tickets = await resolveTicketSystem(body, linear_slug);
 
   // Reject emails already in `users` or Auth — otherwise we'd hijack that
-  // person's account and overwrite their users row.
-  await assertEmailNotTaken(schema, email);
+  // person's account and overwrite their users row. A lead from the
+  // marketing site's /assessment is promoted to customer instead.
+  const { leadUserId } = await assertEmailNotTaken(schema, email);
 
   // Optional (can be set later in Billing); blank becomes null, never "".
   const normalizedStripeId =
@@ -164,16 +172,15 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
 
   // Never trust a client-supplied redirect origin (open redirect / token leak).
   const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
-  const { authUserId, inviteLink } = testRun
-    ? testInvite(testRun, email, redirectTo)
-    : await createInvite(email, redirectTo);
-  console.log("[createCustomerFlow] auth user resolved", { authUserId, hasInviteLink: !!inviteLink });
+  const { authUserId, inviteLink, isNew } = await accountForNewUser(email, redirectTo, leadUserId, testRun);
+  console.log("[createCustomerFlow] auth user resolved", { authUserId, hasInviteLink: !!inviteLink, promotedLead: !!leadUserId });
 
   // Create the client record (linear_slug, clientName, stripe id) in `customers`
   const clientRecord = await insertClient(
     schema,
     { stripe_customer_id: normalizedStripeId, linear_slug: tickets.projectId, clientName },
     authUserId,
+    isNew,
     testRun,
   );
   console.log("[createCustomerFlow] customer record created", { customer_id: clientRecord.customer_id });
@@ -183,7 +190,7 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
       clientRecord.systems = await saveTicketSystem(schema, clientRecord.customer_id, clientRecord.systems, tickets, testRun);
     } catch (err) {
       console.error("[createCustomerFlow] saving the Jira settings failed", String(err?.message ?? err));
-      await supabase.auth.admin.deleteUser(authUserId);
+      if (isNew) await supabase.auth.admin.deleteUser(authUserId);
       await supabase.schema(schema).from("customers").delete().eq("customer_id", clientRecord.customer_id);
       throw err;
     }
@@ -197,6 +204,7 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
   const customerUser = await upsertCustomerUser(
     schema,
     { id: authUserId, email, role: "customer", customer_id: clientRecord.customer_id, firstName, lastName, phoneNumber, userName: clientName },
+    isNew,
     testRun,
   );
   console.log("[createCustomerFlow] user upserted", { authUserId });
