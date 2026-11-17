@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { performLogin } from './helpers';
+import { loginAndExpectHome, performLogin } from './helpers';
 
 async function loginAsDeveloper(page: any) {
   const email = process.env.TEST_DEVELOPER_EMAIL;
@@ -28,7 +28,8 @@ test.describe('Developer — login', () => {
       test.skip(true, 'TEST_DEVELOPER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/developer');
+    await page.goto('/');
+    await loginAndExpectHome(page, 'TEST_DEVELOPER_EMAIL', 'developer');
     // Developers land on /{slug}/developer for their initiative, not /dev/.
     expect(new URL(page.url()).pathname).toMatch(/^\/(?!dev\/)[^/]+\/developer$/);
   });

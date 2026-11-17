@@ -2063,10 +2063,14 @@ export function IssueDetailModal({
   // are two distinct recording steps — see TestsTab.
   const canRecordQaEvidence = role === "developer";
   const canRecordUatResult = role === "customer" || role === "stakeholder" || role === "admin";
-  // Freely changing priority/status from the header plates is a
-  // developer/admin power-tool — customers and stakeholders only move
-  // tickets through the guided flow in the Description tab.
-  const canEditTicketMeta = role === "developer" || role === "admin";
+  // Priority is the client's call too: customers and stakeholders can change
+  // it from the header plate, like developers and admins.
+  const canEditPriority =
+    role === "customer" || role === "stakeholder" || role === "developer" || role === "admin";
+  // Freely changing status from the header plate is a developer/admin
+  // power-tool — customers and stakeholders only move tickets through the
+  // guided flow in the Description tab.
+  const canEditStatus = role === "developer" || role === "admin";
 
   const [isExpanded, setIsExpanded] = useState(false);
   // On phones, keeps the modal (and the chat input at its bottom) above the
@@ -2306,7 +2310,7 @@ export function IssueDetailModal({
               <span className="smalltext font-mono text-muted-foreground">
                 {issue.branchName.slice(0, 7).toUpperCase()}
               </span>
-              {canEditTicketMeta ? (
+              {canEditPriority ? (
                 <IssuePriorityPicker
                   currentLabel={currentPriorityLabel}
                   saving={changingPriority}
@@ -2324,7 +2328,7 @@ export function IssueDetailModal({
                   {currentPriorityLabel}
                 </Badge>
               )}
-              {canEditTicketMeta ? (
+              {canEditStatus ? (
                 <IssueStatusPicker
                   currentState={currentStateName}
                   saving={advancing}

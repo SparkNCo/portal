@@ -171,7 +171,7 @@ export const createCustomerFlow = async (body: any, schema: string, testRun: Tes
   if (existingClient) throw new Error(`A customer named "${clientName}" already exists`);
 
   // Never trust a client-supplied redirect origin (open redirect / token leak).
-  const redirectTo = `${Deno.env.get("APP_URL") ?? "http://localhost:3000"}/set-password`;
+  const redirectTo = `${Deno.env.get("APP_URL") ?? "https://app.buildwithspark.co"}/set-password`;
   const { authUserId, inviteLink, isNew } = await accountForNewUser(email, redirectTo, leadUserId, testRun);
   console.log("[createCustomerFlow] auth user resolved", { authUserId, hasInviteLink: !!inviteLink, promotedLead: !!leadUserId });
 

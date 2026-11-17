@@ -1,16 +1,30 @@
 import { test, expect, Page } from '@playwright/test';
-import { fillLoginForm } from './helpers';
+import {
+  currentPath,
+  developerClientNames,
+  expectedHomePath,
+  expectToLandOn,
+  fillLoginForm,
+  loginAndExpectHome,
+  loginCapturingProfile,
+} from './helpers';
 
-async function testLoginRedirect(page: Page, envEmail: string, urlPath: string) {
-  const email = process.env[envEmail];
-  const password = process.env.TEST_PASSWORD;
-  if (!email || !password) test.skip(true, `${envEmail} / TEST_PASSWORD not set`);
-  page.on('console', msg => {
-    if (msg.type() === 'error') console.log('Browser error:', msg.text());
-  });
-  await fillLoginForm(page, email!, password!);
-  await page.waitForURL(`**${urlPath}`, { timeout: 30_000 });
-  expect(page.url()).toContain(urlPath);
+// The sign-out finished: supabase-js only drops the stored session once the
+// logout request succeeds, so navigating away before that (or a failed
+// logout) would leave the account signed in.
+async function expectSessionCleared(page: Page) {
+  await expect
+    .poll(
+      () => page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))),
+      { timeout: 15_000, message: 'the Supabase session is still stored: sign-out did not complete' },
+    )
+    .toBe(false);
+}
+
+function skipUnlessAccount(envEmail: string) {
+  if (!process.env[envEmail] || !process.env.TEST_PASSWORD) {
+    test.skip(true, `${envEmail} / TEST_PASSWORD not set`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -56,16 +70,59 @@ test.describe('Login page', () => {
     await expect(page.getByText('Reset your password')).not.toBeVisible();
   });
 
-  // ── Successful login ─────────────────────────────────────────────────────
-  // These tests require real test-account credentials in .env.test
-  // Run with: npx dotenv -e .env.test -- npx playwright test
+  // ── Successful login: each role lands on its own home page ───────────────
+  // Real test accounts from .env.test. The expected page is worked out from
+  // the account's own profile (tests/e2e/helpers.ts, expectedHomePath) and
+  // compared exactly — the right client, not just "some /dashboard".
 
-  test('customer is redirected to the client dashboard', async ({ page }) => {
-    await testLoginRedirect(page, 'TEST_CUSTOMER_EMAIL', '/dashboard');
+  test('admin lands on /admin/users', async ({ page }) => {
+    skipUnlessAccount('TEST_ADMIN_EMAIL');
+    await loginAndExpectHome(page, 'TEST_ADMIN_EMAIL', 'admin');
   });
 
-  test('developer is redirected to the developer dashboard', async ({ page }) => {
-    await testLoginRedirect(page, 'TEST_DEVELOPER_EMAIL', '/developer');
+  test("customer lands on their own client's dashboard", async ({ page }) => {
+    skipUnlessAccount('TEST_CUSTOMER_EMAIL');
+    await loginAndExpectHome(page, 'TEST_CUSTOMER_EMAIL', 'customer');
+  });
+
+  test("stakeholder lands on their assigned client's dashboard", async ({ page }) => {
+    skipUnlessAccount('TEST_HOLDER_EMAIL');
+    await loginAndExpectHome(page, 'TEST_HOLDER_EMAIL', 'stakeholder');
+  });
+
+  test("developer lands on their first assignment's developer page", async ({ page }) => {
+    skipUnlessAccount('TEST_DEVELOPER_EMAIL');
+    const profile = await loginAndExpectHome(page, 'TEST_DEVELOPER_EMAIL', 'developer');
+    // /{slug}/developer, not the slug-less /dev/developer.
+    expect(developerClientNames(profile).length, 'test developer has no assignments').toBeGreaterThan(0);
+  });
+
+  test('developer with several initiatives lands on the one last picked in "Working on"', async ({ page }) => {
+    skipUnlessAccount('TEST_DEVELOPER_EMAIL');
+    const profile = await loginAndExpectHome(page, 'TEST_DEVELOPER_EMAIL', 'developer');
+    const projects = developerClientNames(profile);
+    test.skip(projects.length < 2, 'the test developer needs 2+ assigned initiatives for this test');
+
+    await page.getByRole('button', { name: 'Logout' }).click();
+    await expect(page.locator('#email')).toBeVisible({ timeout: 20_000 });
+
+    // Not the first assignment, so landing there proves the pick was used.
+    // Reload: the "Working on" value is read from storage when the app loads.
+    const picked = projects[1]!;
+    await page.evaluate((name) => localStorage.setItem('dev-selected-project', name), picked);
+    await page.reload();
+
+    await loginCapturingProfile(page, process.env.TEST_DEVELOPER_EMAIL!, process.env.TEST_PASSWORD!);
+    await expectToLandOn(page, expectedHomePath(profile, picked));
+    expect(currentPath(page)).toBe(`/${picked.toLowerCase()}/developer`);
+  });
+
+  test('developer whose "Working on" pick is not theirs lands on their first assignment', async ({ page }) => {
+    skipUnlessAccount('TEST_DEVELOPER_EMAIL');
+    await page.evaluate(() => localStorage.setItem('dev-selected-project', 'no-such-initiative-e2e'));
+    await page.reload();
+    const profile = await loginCapturingProfile(page, process.env.TEST_DEVELOPER_EMAIL!, process.env.TEST_PASSWORD!);
+    await expectToLandOn(page, expectedHomePath(profile));
   });
 
   // ── Signed out on a portal page ──────────────────────────────────────────
@@ -170,6 +227,7 @@ test.describe('Login page', () => {
     expect(new URL(page.url()).pathname).toBe('/');
 
     // The session was cleared: a portal page sends them to log in again.
+    await expectSessionCleared(page);
     await page.unroute('**/functions/v1/users?email=*');
     await page.goto('/spark-portal/dashboard');
     await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
@@ -184,6 +242,45 @@ test.describe('Login page', () => {
     );
     await expect(page.getByText('No client assigned to this account. Contact your administrator.')).toBeVisible({ timeout: 15_000 });
     expect(new URL(page.url()).pathname).toBe('/');
+  });
+
+  // Accounts with no page to land on: the message, still on the login page,
+  // and the session ended (a portal page asks them to log in again).
+  async function expectNotSetUpAndSignedOut(page: Page) {
+    await expect(page.getByText("Your account isn't set up yet. Contact your administrator.")).toBeVisible({ timeout: 15_000 });
+    expect(currentPath(page)).toBe('/');
+    await expectSessionCleared(page);
+    await page.unroute('**/functions/v1/users?email=*');
+    await page.goto('/spark-portal/dashboard');
+    await expect(page.locator('#email')).toBeVisible({ timeout: 15_000 });
+    expect(currentPath(page)).toBe('/');
+  }
+
+  test('assessment lead (marketing site account): "account not set up", signed out', async ({ page }) => {
+    await signInWithProfileResponse(
+      page,
+      200,
+      JSON.stringify({ id: 'e2e-lead', email: process.env.TEST_CUSTOMER_EMAIL, role: 'lead' }),
+    );
+    await expectNotSetUpAndSignedOut(page);
+  });
+
+  test('unknown role: "account not set up", signed out', async ({ page }) => {
+    await signInWithProfileResponse(
+      page,
+      200,
+      JSON.stringify({ id: 'e2e-unknown', email: process.env.TEST_CUSTOMER_EMAIL, role: 'superuser' }),
+    );
+    await expectNotSetUpAndSignedOut(page);
+  });
+
+  test('customer with no linked client: "account not set up", signed out (never /undefined/dashboard)', async ({ page }) => {
+    await signInWithProfileResponse(
+      page,
+      200,
+      JSON.stringify({ id: 'e2e-customer', email: process.env.TEST_CUSTOMER_EMAIL, role: 'customer', clientName: null }),
+    );
+    await expectNotSetUpAndSignedOut(page);
   });
 
   test('profile request fails: shows a retry message, and logging in again works', async ({ page }) => {

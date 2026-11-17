@@ -71,6 +71,16 @@ No priority tiering — this is a flat sort over the filtered list.
 
 Clicking the edit action on an issue card opens `EditIssueModal` (`components/build/edit-issue-modal.tsx`), which lets you change **title**, **description**, and **priority**, then `PATCH /issues/edit`. On success the `linear-issues` query is invalidated so the list refreshes. Editing also flags the issue as recently updated — see [Recently Updated badge](#recently-updated-badge) below.
 
+**Who can change what from the ticket header** (the priority/status plates in `IssueDetailModal` and `EditIssueModal`):
+
+| Plate | Customer | Stakeholder | Developer | Admin |
+|---|---|---|---|---|
+| Priority (picker, saves on pick via `PATCH /issues/edit`) | ✅ | ✅ | ✅ | ✅ |
+| Status (free picker) | — read-only badge; they move tickets through the guided Business Review / UAT buttons | — same | ✅ | ✅ |
+| Cycle (`EditIssueModal` only) | — | — | ✅ | ✅ |
+
+Front-end only, like the rest of the role rules: `issues/edit` doesn't check who calls it.
+
 ### Create entry point
 
 `CreateIssue` (compact mode) with `defaultType="feature"`, labeled **"Request Feature"**.

@@ -45,14 +45,20 @@ async function mockJson(page: Page, url: string, method: string, body: unknown, 
   });
 }
 
-async function signInAsCustomer(page: Page): Promise<string> {
-  const email = process.env.TEST_CUSTOMER_EMAIL;
+// Signs in as the client-side test account in `envEmail` (a customer, or a
+// stakeholder) and returns the slug of the client they landed on.
+async function signInAsClient(page: Page, envEmail: 'TEST_CUSTOMER_EMAIL' | 'TEST_HOLDER_EMAIL'): Promise<string> {
+  const email = process.env[envEmail];
   const password = process.env.TEST_PASSWORD;
-  if (!email || !password) test.skip(true, 'TEST_CUSTOMER_EMAIL / TEST_PASSWORD not set');
+  if (!email || !password) test.skip(true, `${envEmail} / TEST_PASSWORD not set`);
   await page.goto('/');
   await fillLoginForm(page, email!, password!);
   await page.waitForURL('**/dashboard', { timeout: 30_000 });
   return new URL(page.url()).pathname.split('/')[1]!;
+}
+
+async function signInAsCustomer(page: Page): Promise<string> {
+  return signInAsClient(page, 'TEST_CUSTOMER_EMAIL');
 }
 
 // A ticket as GET /issues returns it, with what the list and modal read.
@@ -234,6 +240,50 @@ test.describe('Business Review', () => {
       slug,
     });
   });
+});
+
+// ── Priority: the client can change it from the ticket modal ─────────────────
+
+test.describe('Ticket priority', () => {
+  for (const [who, envEmail] of [
+    ['customer', 'TEST_CUSTOMER_EMAIL'],
+    ['stakeholder', 'TEST_HOLDER_EMAIL'],
+  ] as const) {
+    test(`a ${who} changes a ticket's priority from the ticket modal; status stays read-only`, async ({ page }) => {
+      const issue = fixtureIssue(`e2e-priority-${who}`, 'Business Review', `E2E: priority ticket (${who})`);
+      const edits: Captured[] = [];
+      await mockTicket(page, issue);
+      await mockJson(page, '**/rest/v1/decisions?*', 'GET', []);
+      await mockJson(page, '**/functions/v1/test-executions?*', 'GET', []);
+      await mockJson(page, '**/functions/v1/issues/edit', 'PATCH', { success: true, issue: { ...issue, priorityLabel: 'High' } }, edits);
+
+      const slug = await signInAsClient(page, envEmail);
+      await page.goto(`/${slug}/build?issueId=${issue.id}`);
+
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByText(issue.title)).toBeVisible({ timeout: 20_000 });
+
+      // The priority plate is a picker for them now... (the plate is the
+      // InlineSelect trigger, the only button carrying aria-busy; the menu's
+      // options have the same names).
+      const plate = (label: string) => dialog.locator('button[aria-busy]').filter({ hasText: new RegExp(`^${label}$`) });
+      await plate('Medium').click();
+      await page.getByRole('button', { name: 'High', exact: true }).click();
+
+      await expect(plate('High')).toBeVisible({ timeout: 15_000 });
+      expect(edits).toHaveLength(1);
+      expect(edits[0]!.body).toMatchObject({
+        issueId: issue.id,
+        priority: 'high',
+        slug,
+        actorEmail: process.env[envEmail],
+      });
+
+      // ...while the status plate is still a plain badge (developers/admins only).
+      await expect(dialog.getByText('Business Review', { exact: true }).first()).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Business Review', exact: true })).toHaveCount(0);
+    });
+  }
 });
 
 // ── UAT: recording the client's result ───────────────────────────────────────

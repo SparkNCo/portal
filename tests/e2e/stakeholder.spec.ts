@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { performLogin } from './helpers';
+import { loginAndExpectHome, performLogin } from './helpers';
 
 async function loginAsStakeholder(page: any) {
   const email    = process.env.TEST_HOLDER_EMAIL;
@@ -48,8 +48,8 @@ test.describe('Stakeholder — login', () => {
       test.skip(true, 'TEST_HOLDER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/dashboard');
-    expect(page.url()).toContain('/dashboard');
+    await page.goto('/');
+    await loginAndExpectHome(page, 'TEST_HOLDER_EMAIL', 'stakeholder');
   });
 
 });
