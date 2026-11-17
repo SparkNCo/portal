@@ -426,13 +426,46 @@ test.describe('assessment checklist (/assessment)', () => {
     for (const q of second.questions) all[q.id] = 'no';
     const ctx = contextFromAnswers(all);
 
-    const afterFirst = scoreCompleted(ctx, plan, all, [first.area]);
-    expect(afterFirst.overall).toBe(100);
-    expect(afterFirst.areas.map((a) => a.area).sort()).toEqual(['ownership', first.area].sort());
+    const qids = (s: { questions: { id: string }[] }) => s.questions.map((q) => q.id);
+    const governance = ['t1_team', 't3_code_control', 't3_accounts_owned', 't3_takeover'];
 
-    const afterBoth = scoreCompleted(ctx, plan, all, [first.area, second.area]);
-    expect(afterBoth.overall).toBeLessThan(100);
-    expect(afterBoth.overall).toBe(scoreRun(ctx, plan, all).overall);
+    const afterFirst = scoreCompleted(ctx, plan, all, qids(first));
+    expect(afterFirst.overall).toBe(100);
+    expect(afterFirst.areas.map((a) => a.area)).toEqual([first.area]);
+
+    const afterGovernance = scoreCompleted(ctx, plan, all, [...qids(first), ...governance]);
+    expect(afterGovernance.areas.map((a) => a.area).sort()).toEqual(['ownership', first.area].sort());
+
+    const afterAll = scoreCompleted(ctx, plan, all, [...qids(first), ...qids(second), ...governance]);
+    expect(afterAll.overall).toBeLessThan(100);
+    expect(afterAll.overall).toBe(scoreRun(ctx, plan, all).overall);
+  });
+
+  test('"Who controls your code?" is asked but not scored', () => {
+    const answers = base({ stage: 'mvp' });
+    const plan = planFor(answers);
+    const ctx = contextFromAnswers(answers);
+    const good = answerAll(answers, plan, 'yes', { t3_code_control: 'in_house' });
+    const bad = answerAll(answers, plan, 'yes', { t3_code_control: 'ai_platform_only' });
+    expect(scoreRun(ctx, plan, bad).overall).toBe(scoreRun(ctx, plan, good).overall);
+    // Still a critical flag: it's a real ownership risk.
+    expect(scoreRun(ctx, plan, bad).flags.map((f) => f.id)).toContain('ownership');
+  });
+
+  test('checklist modules hold the old intake questions', async () => {
+    const { questionnaire } = await import('../../supabase/functions/technical-review/engine');
+    const { checklist } = questionnaire();
+    const ids = (qs: { id: string }[]) => qs.map((x) => x.id);
+    expect(ids(checklist.intro.questions)).toEqual(['intro_email', 'intro_name', 'intro_company', 'intro_role', 'stage']);
+    expect(ids(checklist.productScope.questions.technical)).toEqual([
+      'about_company', 'about_product', 'about_audience', 'scope_industry', 'scope_users', 'scope_scale',
+      't2_ai_tools', 't2_hosting', 't2_stack', 't2_features',
+    ]);
+    expect(ids(checklist.productScope.questions.idea)).toEqual([
+      'about_company', 'about_product', 'about_audience', 'scope_industry', 'scope_users', 'scope_scale',
+    ]);
+    expect(ids(checklist.governance.questions)).toEqual(['t1_team', 't3_code_control', 't3_accounts_owned', 't3_takeover']);
+    expect(ids(checklist.dataPrivacy.questions)).toEqual(['scope_region', 'scope_children']);
   });
 
   test('AGENTS.md carries the context, the rules for its features and the gaps', () => {

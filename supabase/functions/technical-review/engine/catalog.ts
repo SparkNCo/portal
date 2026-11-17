@@ -449,6 +449,11 @@ export const CHECKS: Record<string, CheckDef> = Object.fromEntries(
 
 export const OWNERSHIP_CHECKS = ["t3_code_control", "t3_accounts_owned", "t3_takeover"];
 
+// Asked in a checklist module but not scored: on /assessment only Yes / No /
+// Unsure answers count towards the score among the questions moved there
+// from the old intake. Still used for critical flags and the report.
+export const UNSCORED_CHECKS = new Set(["t3_code_control"]);
+
 // ── Areas and stage layouts ─────────────────────────────────────────────────
 
 export const AREA_LABELS: Record<AreaId, string> = {

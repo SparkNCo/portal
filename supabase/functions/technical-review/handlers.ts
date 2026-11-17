@@ -26,7 +26,7 @@ import {
   type Answers,
 } from "./engine/index.ts";
 import { detectModules, enrichIdea, ideaGaps, prefillScope } from "./ai.ts";
-import { ideaReportEmail, signInEmail, technicalReportEmail } from "./report.ts";
+import { ideaReportEmail, passcodeEmail, technicalReportEmail } from "./report.ts";
 
 const BOOKING_URL = Deno.env.get("TECHNICAL_REVIEW_BOOKING_URL") ?? "https://cal.com/kabir-malkani-glnivq/consult";
 // Report emails per run (the first send plus a couple of "Edit email" fixes).
@@ -122,6 +122,32 @@ export async function handleStart(req: Request) {
   }
 
   return json({ reviewId: data.id }, 201);
+}
+
+// ── POST /intro ─────────────────────────────────────────────────────────────
+// The first page again, for a run that already exists (they edited their
+// details): updates the lead, so the report and the sign-in passcode go to
+// the email on screen.
+const IntroSchema = StartSchema.extend({ reviewId: z.string().uuid() });
+
+export async function handleIntro(req: Request) {
+  const parsed = IntroSchema.safeParse(await readBody(req));
+  if (!parsed.success) return json({ error: "Invalid intro", details: parsed.error.flatten() }, 400);
+  const { reviewId, email, name, company, role } = parsed.data;
+  const review = await loadReview(reviewId);
+  if (!review) return bad("Review not found", 404);
+
+  const { error: leadError } = await db()
+    .from("leads")
+    .update({ email, first_name: name, company: company || null })
+    .eq("lead_id", review.lead_id);
+  if (leadError) throw leadError;
+  const { error } = await db()
+    .from("technical_reviews")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("id", review.id);
+  if (error) throw error;
+  return json({ ok: true });
 }
 
 // ── POST /progress ──────────────────────────────────────────────────────────
@@ -325,12 +351,12 @@ export async function handleBook(req: Request) {
 }
 
 // ── POST /score ─────────────────────────────────────────────────────────────
-// /assessment's running score, after each checklist section is finished:
-// ownership (initial form) plus the finished sections only.
+// /assessment's running score, after each checklist module is finished:
+// only the questions of the finished modules (`completed`, question IDs).
 const ScoreSchema = z.object({
   reviewId: z.string().uuid(),
   answers: z.record(z.unknown()).optional(),
-  completed: z.array(z.string().max(40)).max(30),
+  completed: z.array(z.string().max(60)).max(400),
 });
 
 export async function handleScore(req: Request) {
@@ -347,21 +373,15 @@ export async function handleScore(req: Request) {
 }
 
 // ── POST /sign-in ───────────────────────────────────────────────────────────
-// "Sign in to save progress": emails a magic link. The account is a portal
-// user with role "lead" (the portal's login turns that role away, so it gives
-// no access to app.buildwithspark.co). Existing users keep their role.
-const SITE_ORIGINS = (Deno.env.get("ASSESSMENT_SITE_ORIGINS") ??
-  "https://buildwithspark.co,https://www.buildwithspark.co,http://localhost:4321")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-const DEFAULT_ORIGIN = SITE_ORIGINS[0];
-
-const SignInSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(254),
-  origin: z.string().max(200).optional(),
-});
-
+// "Sign in to save progress": emails a temporary passcode. The page checks it
+// with Supabase Auth (verifyOtp) and then sets the password they chose
+// (updateUser), so it's a real Auth account with a password. It's a portal
+// user with role "lead" (the portal's login turns that role away). Any email
+// can ask for one, with or without an assessment started.
+// Emails that already belong to a portal user (customer, developer…) get no
+// passcode: it would let this page change their portal password. They sign
+// in with the password they have.
+const SignInSchema = z.object({ email: z.string().trim().toLowerCase().email().max(254) });
 
 // The newest assessment lead for this email, if any.
 async function findLeadByEmail(email: string) {
@@ -376,7 +396,18 @@ async function findLeadByEmail(email: string) {
   return data?.[0] ?? null;
 }
 
-// Makes sure there's an Auth account and a portal.users row for this email.
+async function portalUserByEmail(email: string) {
+  const { data, error } = await supabase
+    .schema("portal")
+    .from("users")
+    .select("id, role")
+    .ilike("email", escapeIlike(email))
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+// Makes sure there's an Auth account for this email.
 async function ensureAuthUser(email: string) {
   const { error: createError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (createError && !/already (been )?registered|already exists/i.test(createError.message)) {
@@ -384,44 +415,40 @@ async function ensureAuthUser(email: string) {
   }
 }
 
-async function ensurePortalUser(authUserId: string, email: string, firstName: string | null) {
-  const portal = supabase.schema("portal");
-  const { data: byId, error } = await portal.from("users").select("id").eq("id", authUserId).maybeSingle();
-  if (error) throw error;
-  if (byId) return;
-  const { data: byEmail, error: emailError } = await portal.from("users").select("id").ilike("email", escapeIlike(email)).limit(1);
-  if (emailError) throw emailError;
-  if (byEmail?.length) return; // someone already uses this email in the portal: leave them alone
-  const { error: insertError } = await portal
-    .from("users")
-    .insert({ id: authUserId, email, role: "lead", firstName: firstName || null });
-  if (insertError) throw insertError;
-}
-
 export async function handleSignIn(req: Request) {
   const parsed = SignInSchema.safeParse(await readBody(req));
   if (!parsed.success) return bad("Enter a valid email");
   const { email } = parsed.data;
-  const origin = SITE_ORIGINS.includes(parsed.data.origin ?? "") ? parsed.data.origin : DEFAULT_ORIGIN;
 
-  // Only for people who started an assessment, so this can't be used to
-  // create accounts or send links to any address.
+  const portalUser = await portalUserByEmail(email);
+  if (portalUser && portalUser.role !== "lead") {
+    return json({ error: "This email already has a Spark account. Sign in with its password.", code: "has_account" }, 409);
+  }
+
+  // Works before the first page too (it can be the first thing they do):
+  // the lead, if any, only gives the name for the greeting.
   const lead = await findLeadByEmail(email);
-  if (!lead) return bad("We couldn't find an assessment for this email. Start one first.", 404);
+  const firstName = lead?.first_name || null;
 
   await ensureAuthUser(email);
-  const { data, error } = await supabase.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: { redirectTo: `${origin}/assessment` },
-  });
-  if (error) throw new Error(`Sign-in link failed: ${error.message}`);
-  await ensurePortalUser(data.user.id, email, lead.first_name);
+  // A magic-link token, but only its 6-digit code is emailed (no link).
+  const { data, error } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
+  if (error) throw new Error(`Passcode failed: ${error.message}`);
+  const code = data.properties?.email_otp;
+  if (!code) throw new Error("Passcode failed: no code returned");
 
-  const mail = signInEmail({ name: lead.first_name, link: data.properties.action_link });
+  if (!portalUser) {
+    const { error: insertError } = await supabase
+      .schema("portal")
+      .from("users")
+      .insert({ id: data.user.id, email, role: "lead", firstName });
+    if (insertError) throw insertError;
+  }
+
+  const mail = passcodeEmail({ name: firstName, code });
   const { error: sendError } = await sendEmail({ to: email, subject: mail.subject, html: mail.html });
   if (sendError) {
-    console.error("[technical-review] sign-in email failed:", sendError);
+    console.error("[technical-review] passcode email failed:", sendError);
     return bad("We couldn't send the email. Please try again.", 502);
   }
   return json({ ok: true });

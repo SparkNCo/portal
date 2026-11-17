@@ -279,13 +279,13 @@ export function ideaReportEmail(args: {
   return { subject: "Your product idea review", html: shell(args.name, "Product idea review", body) };
 }
 
-// ── Sign-in link (/assessment "Sign in to save progress") ───────────────────
+// ── Temporary passcode (/assessment "Sign in to save progress") ──────────────
 
-export function signInEmail(args: { name?: string | null; link: string }) {
+export function passcodeEmail(args: { name?: string | null; code: string }) {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<title>Sign in to your assessment</title></head>
+<title>Your temporary passcode</title></head>
 <body style="margin:0;padding:0;background:${C.page}">
 ${table(
   `<tr><td align="center" style="padding:32px 12px">
@@ -297,9 +297,9 @@ ${table(
     </td></tr>
     <tr><td style="height:6px;background:${C.orange};font-size:0;line-height:0">&nbsp;</td></tr>
     ${block(
-      `${p(`Hi ${esc(args.name) || "there"},`, "margin-top:4px")}${p("Use this button to sign in and pick up your assessment where you left off, on any device.")}
-      <p style="margin:18px 0 18px"><a href="${esc(args.link)}" style="display:inline-block;background:${C.orange};color:#111111;padding:12px 24px;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none">Continue my assessment &rarr;</a></p>
-      ${p("The link works once and expires after an hour. If you didn't ask for it, you can ignore this email.", `color:${C.muted};font-size:13px;line-height:20px`)}`,
+      `${p(`Hi ${esc(args.name) || "there"},`, "margin-top:4px")}${p("Here's your temporary passcode. Enter it on the assessment page, then choose your password to save your progress.")}
+      <p style="margin:18px 0 18px;font-family:${FONT};font-size:34px;line-height:40px;font-weight:700;letter-spacing:8px;color:${C.text}">${esc(args.code)}</p>
+      ${p("It works once and expires after an hour. If you didn't ask for it, you can ignore this email.", `color:${C.muted};font-size:13px;line-height:20px`)}`,
       "32px 40px 32px",
     )}`,
     `max-width:600px;background:${C.card}`,
@@ -308,5 +308,5 @@ ${table(
   `background:${C.page}`,
 )}
 </body></html>`;
-  return { subject: "Sign in to your Spark assessment", html };
+  return { subject: "Your Spark assessment passcode", html };
 }

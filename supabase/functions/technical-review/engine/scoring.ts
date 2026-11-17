@@ -1,7 +1,7 @@
 // Scores a finished Building / MVP / Scaling run: per-area and overall
 // readiness, critical flags, blind spots and the offer to show.
 // Rules: TECHNICAL_REVIEW_FLOW.md section 10.
-import { AREA_LABELS, CHECKS, OWNERSHIP_CHECKS, childrenMayUse, isLargeUserBase } from "./catalog.ts";
+import { AREA_LABELS, CHECKS, OWNERSHIP_CHECKS, UNSCORED_CHECKS, childrenMayUse, isLargeUserBase } from "./catalog.ts";
 import { CONFIG } from "./config.ts";
 import { planQuestionIds } from "./plan.ts";
 import type {
@@ -100,15 +100,12 @@ export function chooseOffer(stage: TechStage, flags: CriticalFlag[], blindSpotAr
   }
 }
 
-// The running score on /assessment: only the ownership answers (initial
-// form) and the checklist sections finished so far count, so the number
-// moves when a section is completed, not on every click.
-export function scoreCompleted(ctx: Context, plan: Plan, answers: Answers, completedAreas: string[]): Result {
-  const done = new Set(completedAreas);
-  const counted = new Set([
-    ...OWNERSHIP_CHECKS,
-    ...plan.sections.filter((s) => done.has(s.area)).flatMap((s) => s.questions.map((q) => q.id)),
-  ]);
+// The running score on /assessment: only the questions of the checklist
+// modules finished so far count (`completedIds`), so the number moves when a
+// module is completed, not on every click. Context answers (stage, scope,
+// stack…) always stay, since the plan and weights depend on them.
+export function scoreCompleted(ctx: Context, plan: Plan, answers: Answers, completedIds: string[]): Result {
+  const counted = new Set(completedIds);
   const partial: Answers = Object.fromEntries(Object.entries(answers).filter(([id]) => counted.has(id) || !CHECKS[id]));
   return scoreRun(ctx, plan, partial);
 }
@@ -125,6 +122,7 @@ export function scoreRun(ctx: Context, plan: Plan, answers: Answers): Result {
   let max = 0;
 
   for (const { id, area } of scored) {
+    if (UNSCORED_CHECKS.has(id)) continue;
     const p = points(id, answers[id]);
     if (p === null) continue;
     const topic = CHECKS[id]?.topic ?? "general";

@@ -13,6 +13,7 @@ export {
   SCOPE,
   STAGE_LAYOUT,
   STAGE_QUESTION,
+  UNSCORED_CHECKS,
   aboutQuestions,
 } from "./catalog.ts";
 export { evalCond, isShown, questionText } from "./conditions.ts";
