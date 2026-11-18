@@ -170,6 +170,33 @@ export function PinnedPanelRenderer({
     );
   }
 
+  if (panelId === "build_recently_created") {
+    // Every ticket, newest first.
+    const issues = allIssues
+      .filter(matchesSelectedProject)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+      );
+    return (
+      <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
+        <PriorityTasks
+          loading={issuesLoading}
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
+          title="Recently Created"
+          slug={slug}
+          compact
+          lightCard
+        />
+      </PinnedPanelShell>
+    );
+  }
+
+  // "Refinement": Backlog tickets, last updated first (id kept from when it
+  // was called Backlog).
   if (panelId === "build_backlog") {
     const issues = allIssues
       .filter((i) => i.state?.name === "Backlog" && matchesSelectedProject(i))
@@ -185,7 +212,7 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Backlog"
+          title="Refinement"
           slug={slug}
           compact
           lightCard

@@ -5,6 +5,9 @@ export type PinnablePanelId =
   | "metrics_panel"
   | "build_product_decisions"
   | "build_acceptance_testing"
+  | "build_recently_created"
+  // Shown as "Refinement" (Backlog tickets); the id predates the rename and
+  // stays, so panels people already pinned keep working.
   | "build_backlog"
   | "build_done"
   | "bugs_list";
@@ -25,7 +28,8 @@ export const PINNABLE_PANELS: Record<
     label: "Acceptance Testing",
     sourceDashboard: "build",
   },
-  build_backlog: { label: "Backlog", sourceDashboard: "build" },
+  build_recently_created: { label: "Recently Created", sourceDashboard: "build" },
+  build_backlog: { label: "Refinement", sourceDashboard: "build" },
   build_done: { label: "Approved", sourceDashboard: "build" },
   bugs_list: { label: "Bugs", sourceDashboard: "bugs" },
 };

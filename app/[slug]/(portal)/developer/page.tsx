@@ -10,7 +10,7 @@ import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { LogHoursModal } from "@/components/developer/log-hours-modal";
 import { MyHoursModal } from "@/components/developer/my-hours-modal";
 import { Button } from "@/components/components/ui/button";
-import { Clock, History } from "lucide-react";
+import { Clock, History, RefreshCw } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -116,7 +116,12 @@ export default function DeveloperDashboard() {
   // chart compares all of them), then filtered to this one.
   const selectedProject = pickDeveloperProject(profile, urlSlug, selectedProjectFromSidebar);
 
-  const { data: issuesData, isLoading: issuesLoading } = useQuery({
+  const {
+    data: issuesData,
+    isLoading: issuesLoading,
+    isFetching: issuesFetching,
+    refetch: refetchIssues,
+  } = useQuery({
     queryKey: ["linear-issues-developer", projects.map((p) => p.clientName)],
     queryFn: async () => {
       const results = await Promise.all(
@@ -271,6 +276,21 @@ export default function DeveloperDashboard() {
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               headerAction={
+                <>
+                {/* Fetches the tickets again from Linear; the list stays on
+                    screen while it does. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 smalltext gap-1.5"
+                  onClick={() => void refetchIssues()}
+                  disabled={issuesFetching}
+                  title="Refresh tickets"
+                  aria-label="Refresh tickets"
+                >
+                  <RefreshCw className={`h-3 w-3 ${issuesFetching ? "animate-spin" : ""}`} aria-hidden="true" />
+                  <span className="hidden sm:inline">{issuesFetching && !issuesLoading ? "Refreshing…" : "Refresh"}</span>
+                </Button>
                 <div className="flex items-center rounded-md border border-input p-0.5" role="group" aria-label="Whose tickets">
                   {([
                     ["mine", `My tickets (${myCount})`],
@@ -291,6 +311,7 @@ export default function DeveloperDashboard() {
                     </button>
                   ))}
                 </div>
+                </>
               }
               emptyState={
                 assigneeScope === "mine" && myCount === 0 ? (

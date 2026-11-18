@@ -267,7 +267,7 @@ test.describe('Developer — panels', () => {
   test('Build and Bugs have no Pin to Dashboard buttons', async ({ page }) => {
     await page.getByRole('link', { name: 'Build' }).click();
     await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Backlog').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Refinement').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Bugs' }).click();

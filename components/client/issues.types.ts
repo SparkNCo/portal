@@ -239,7 +239,9 @@ export type FilterState = {
   onDateToChange?: (date: string) => void;
 };
 
-export type IssueViewMode = "grid" | "board" | "list";
+// "row": one line of cards that scrolls sideways (the Build page's panels,
+// like Suggested Features); "View all" opens it into the grid.
+export type IssueViewMode = "grid" | "board" | "list" | "row";
 
 export type IssueDetailTab =
   | "description"

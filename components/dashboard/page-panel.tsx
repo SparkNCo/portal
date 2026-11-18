@@ -28,6 +28,7 @@ export function PagePanel({
   page,
   panelId,
   pinnable = true,
+  expandable = true,
   expandFrom = "md",
   className,
   contentClassName,
@@ -37,6 +38,9 @@ export function PagePanel({
   panelId: string;
   // Off for panels that only exist inside another one (e.g. Metrics' charts).
   pinnable?: boolean;
+  // Off for panels that are always full width (no two-column grid around
+  // them, e.g. Build's rows), where the expand button would do nothing.
+  expandable?: boolean;
   expandFrom?: keyof typeof EXPAND_FROM;
   className?: string;
   contentClassName?: string;
@@ -46,25 +50,27 @@ export function PagePanel({
   const breakpoint = EXPAND_FROM[expandFrom];
 
   return (
-    <div className={cn("relative", expanded && breakpoint.span, className)}>
+    <div className={cn("relative", expandable && expanded && breakpoint.span, className)}>
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
         {/* Only does anything once the grid has 2 columns, so hidden below
             that, like on the Dashboard. */}
-        <button
-          type="button"
-          onClick={toggle}
-          title={expanded ? "Shrink to half width" : "Expand to full width"}
-          aria-label={expanded ? "Shrink to half width" : "Expand to full width"}
-          aria-pressed={expanded}
-          className={cn(breakpoint.button, panelActionButtonClass)}
-        >
-          {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-        </button>
+        {expandable && (
+          <button
+            type="button"
+            onClick={toggle}
+            title={expanded ? "Shrink to half width" : "Expand to full width"}
+            aria-label={expanded ? "Shrink to half width" : "Expand to full width"}
+            aria-pressed={expanded}
+            className={cn(breakpoint.button, panelActionButtonClass)}
+          >
+            {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+        )}
         {pinnable && <PinButton panelId={panelId as PinnablePanelId} inline />}
       </div>
       {/* Room above the content for the toolbar: always with the pin; with
           only the expand button, just where it shows. */}
-      <div className={cn(pinnable ? "pt-12" : breakpoint.room, contentClassName)}>{children}</div>
+      <div className={cn(pinnable ? "pt-12" : expandable && breakpoint.room, contentClassName)}>{children}</div>
     </div>
   );
 }

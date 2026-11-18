@@ -32,8 +32,6 @@ export function questionnaire() {
           idea: [...aboutQuestions("idea"), ...scopeQuestions],
           technical: [...aboutQuestions("building"), ...scopeQuestions, ...buildQuestions],
         },
-        // The AI fills the scope questions from the description (POST /prefill).
-        prefillAfter: "about_audience",
       },
       governance: {
         key: "governance",

@@ -67,6 +67,16 @@ export function IssueSkeletons({
         ))}
       </div>
     );
+  } else if (view === "row") {
+    content = (
+      <div className="flex gap-3 overflow-hidden pt-3 pb-2">
+        {items(count ?? 4).map((i) => (
+          <div key={i} className="w-80 shrink-0">
+            <CardSkeleton />
+          </div>
+        ))}
+      </div>
+    );
   } else {
     content = (
       <div className="grid gap-2 pt-3 grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">

@@ -199,8 +199,28 @@ function GridView({
   );
 }
 
+// One line of cards scrolling sideways, same card style and width as the
+// Build page's Suggested Features row.
+function RowView({ issues, ...item }: IssueItemProps & { readonly issues: Issue[] }) {
+  return (
+    <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
+      {issues.map((issue) => (
+        <div key={issue.id} className="w-80 shrink-0">
+          <IssueCard
+            issue={issue}
+            onOpen={() => item.onOpen(issue)}
+            hasUpdate={item.hasUpdate(issue)}
+            lightCard={item.lightCard}
+            showProject={item.showProject}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The full card's body: skeletons, the empty state, or the tickets in the
-// chosen view (board, list or grid).
+// chosen view (board, list, grid or a sideways row).
 function IssueViews({
   loading,
   issues,
@@ -227,6 +247,10 @@ function IssueViews({
   }
   if (viewMode === "board") {
     return <BoardView issues={issues} selectedStatuses={selectedStatuses} expanded={expanded} {...item} />;
+  }
+  // "View all" on a row shows every ticket at once, in the grid.
+  if (viewMode === "row" && !expanded) {
+    return <RowView issues={issues} {...item} />;
   }
   if (viewMode === "list") {
     return (
