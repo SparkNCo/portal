@@ -23,6 +23,8 @@ import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { Input } from "@/components/ui/input";
 import { cn, safeDecodeURIComponent } from "@/lib/utils";
 import { PagePanel } from "@/components/dashboard/page-panel";
+import { PinButton } from "@/components/dashboard/pin-button";
+import type { PinnablePanelId } from "@/lib/pinnable-panels";
 
 type LineFilter = "all" | "scope" | "done";
 
@@ -37,6 +39,7 @@ export function MetricsPanel({
   slug: slugProp,
   edgeToEdge = false,
   layoutPage = "monitor",
+  pinPanelId,
 }: {
   slug?: string;
   // Set when its container already reaches the screen edges on mobile (the
@@ -46,6 +49,9 @@ export function MetricsPanel({
   // Which page the charts' expand button saves its state for, so widening
   // one on Monitor doesn't widen it on the Dashboard.
   layoutPage?: string;
+  // Monitor: the panel's own pin, at the end of the filter bar (the filters
+  // leave room for it) instead of on a strip above the panel.
+  pinPanelId?: PinnablePanelId;
 } = {}) {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
@@ -213,7 +219,12 @@ export function MetricsPanel({
   return (
     <div className="space-y-4 mb-20">
       {/* Unified filter bar */}
-      <div className={cn("flex flex-wrap items-center gap-3", edgeToEdge && "px-4 sm:px-0")}>
+      <div className={cn("relative flex flex-wrap items-center gap-3", edgeToEdge && "px-4 sm:px-0", pinPanelId && "pr-11")}>
+        {pinPanelId && (
+          <div className="absolute right-0 top-1.5">
+            <PinButton panelId={pinPanelId} inline />
+          </div>
+        )}
         <Select value={selectedProjectValue} onValueChange={setSelectedProjectName}>
           <SelectTrigger className="w-52 smalltext">
             <SelectValue placeholder="Select project" />
@@ -311,15 +322,33 @@ export function MetricsPanel({
       {/* Side by side from lg up; each chart can be widened to the full
           width there (expand button, not pinnable on its own). */}
       <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-4", !edgeToEdge && "-mx-4 sm:mx-0")}>
-        <PagePanel page={layoutPage} panelId="metrics_cycle_chart" pinnable={false} expandFrom="lg">
+        {/* Each chart's expand button sits inside its card's corner (lg up,
+            where it does something), so there's no strip above the charts. */}
+        <PagePanel
+          page={layoutPage}
+          panelId="metrics_cycle_chart"
+          pinnable={false}
+          expandFrom="lg"
+          toolbar="inside"
+          cornerClassName="top-6 right-6"
+        >
           <CycleBarChart
+            headerClassName="lg:pr-16"
             data={filteredCycleMetrics}
             activeCycleNumber={spanAllCycles ? undefined : activeCycleNumber}
             onCycleClick={selectCycle}
           />
         </PagePanel>
-        <PagePanel page={layoutPage} panelId="metrics_issues_chart" pinnable={false} expandFrom="lg">
+        <PagePanel
+          page={layoutPage}
+          panelId="metrics_issues_chart"
+          pinnable={false}
+          expandFrom="lg"
+          toolbar="inside"
+          cornerClassName="top-6 right-6"
+        >
           <IssueMetricsView
+            headerClassName="lg:pr-16"
             data={issueMetrics}
             cycleMetrics={filteredCycleMetrics}
             activeCycleNumber={activeCycleNumber}

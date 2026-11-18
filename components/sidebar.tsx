@@ -273,10 +273,9 @@ const stakeholderNavItems = [
   { href: "demos", label: "Demos", icon: Video },
   { href: "documents", label: "Documents", icon: FileText },
   { href: "chat", label: "Chat", icon: MessageCircle },
-  // Previously missing entirely — a stakeholder had no way to reach
-  // /settings at all, which is where the Stakeholders tab (add/view other
-  // stakeholders on this initiative) lives.
-  { href: "settings", label: "Settings", icon: Settings },
+  // No Settings: staffing, stakeholders and billing are managed by the
+  // customer (the client's primary contact) and admins — see PAGE_ROLES in
+  // lib/route-access.ts.
 ];
 
 export function Sidebar() {

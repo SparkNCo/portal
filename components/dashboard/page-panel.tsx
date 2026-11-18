@@ -30,10 +30,19 @@ export function PagePanel({
   pinnable = true,
   expandable = true,
   expandFrom = "md",
+  toolbar = "above",
+  cornerClassName = "top-2.5 right-3",
   className,
   contentClassName,
   children,
 }: Readonly<{
+  // "above": a strip above the panel holds the buttons. "inside": they sit
+  // in the panel's own top-right corner, level with its title, with no strip
+  // (the panel leaves room for them; see PriorityTasks' reserveTopRight).
+  toolbar?: "above" | "inside";
+  // With toolbar="inside": where in the corner, level with the panel's title
+  // (cards with the default p-6 header: "top-6 right-6").
+  cornerClassName?: string;
   page: string;
   panelId: string;
   // Off for panels that only exist inside another one (e.g. Metrics' charts).
@@ -48,10 +57,16 @@ export function PagePanel({
 }>) {
   const { expanded, toggle } = usePanelExpanded(page, panelId);
   const breakpoint = EXPAND_FROM[expandFrom];
+  // Room above the content for the toolbar: none when it's inside the panel;
+  // otherwise always with the pin, and with only the expand button just
+  // where it shows.
+  let contentRoom = "";
+  if (toolbar === "above" && pinnable) contentRoom = "pt-12";
+  else if (toolbar === "above" && expandable) contentRoom = breakpoint.room;
 
   return (
     <div className={cn("relative", expandable && expanded && breakpoint.span, className)}>
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+      <div className={cn("absolute z-10 flex items-center gap-1.5", toolbar === "inside" ? cornerClassName : "top-3 right-3")}>
         {/* Only does anything once the grid has 2 columns, so hidden below
             that, like on the Dashboard. */}
         {expandable && (
@@ -68,9 +83,7 @@ export function PagePanel({
         )}
         {pinnable && <PinButton panelId={panelId as PinnablePanelId} inline />}
       </div>
-      {/* Room above the content for the toolbar: always with the pin; with
-          only the expand button, just where it shows. */}
-      <div className={cn(pinnable ? "pt-12" : expandable && breakpoint.room, contentClassName)}>{children}</div>
+      <div className={cn(contentRoom, contentClassName)}>{children}</div>
     </div>
   );
 }

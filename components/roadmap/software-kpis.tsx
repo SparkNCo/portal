@@ -519,7 +519,15 @@ function KpiCard({
   );
 }
 
-export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
+export function SoftwareKPIs({
+  linearName,
+  headerClassName,
+}: {
+  readonly linearName: string;
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  readonly headerClassName?: string;
+}) {
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
@@ -556,7 +564,7 @@ export function SoftwareKPIs({ linearName }: { readonly linearName: string }) {
 
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl flex flex-col h-full">
-      <CardHeader>
+      <CardHeader className={headerClassName}>
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
           <TrendingUp className="h-4 w-4 text-primary" />
           SDLC Metrics

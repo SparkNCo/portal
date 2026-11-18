@@ -9,6 +9,20 @@
 
 The client dashboard is the landing page for users with `role === "customer"` or `role === "stakeholder"` after login. Both roles see the same page and the same data.
 
+### Whose panels these are
+
+The pinned panels (which ones, their order and full width) are kept per **owner** in `portal.pinned_panels`, and an initiative's Dashboard belongs to its **customer** (`usePinnedPanelsOwnerId`, `hooks/use-pinned-panels.ts`):
+
+| Role | Whose panels | Can change them |
+|---|---|---|
+| `customer` | Their own | Yes: pin / unpin (from Monitor, Build, Bugs), reorder, full width, "Add default panels" |
+| `admin` (viewing the initiative) | The customer's (the layout passes the initiative's slug) | Yes, the same — changes show for the customer too, and the other way round |
+| `stakeholder` | The customer of the initiative in the URL (from their own assignment for it; a stakeholder can have several) | **No, read-only** (`useDashboardReadOnly`): no drag / width / unpin buttons, no "Add default panels", and no Pin to Dashboard buttons on Monitor, Build or Bugs. Viewing and approving is their part; the dashboard is the customer's |
+
+What is per user for everyone: the sidebar order (`user_layout.nav_order`) and the expand button of the panels on Build / Monitor (`user_layout.expanded_panels`, see "Expanding panels on other pages").
+
+> The stakeholder reads the customer's `pinned_panels` rows from the browser (as admins already do), so the table's RLS has to allow that read. Its policy isn't in this repo's migrations.
+
 The URL follows the pattern `/{clientName}/dashboard`, where `clientName` is the slug stored on the user's profile (e.g. `/acme/dashboard`).
 
 ---
@@ -27,7 +41,7 @@ The sidebar renders a different set of links depending on the logged-in user's r
 | Role | Navigation items (default order) |
 |---|---|
 | `customer` | Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings |
-| `stakeholder` | Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings |
+| `stakeholder` | Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat (no Settings: staffing, stakeholders and billing are managed by the customer and admins) |
 | `developer` | Developer, Build, Bugs, Demos, Chat, Documents |
 | `admin` | The selected initiative's pages (the customer's, plus Query), then an **Admin** section with Users |
 

@@ -132,11 +132,23 @@ test.describe('question plan', () => {
     expect(plan.complianceAsked).toBe(true);
   });
 
-  test('module questions sit in the area they belong to', () => {
-    const mvp = planFor(base({ stage: 'mvp', scope_industry: 'healthcare' }));
-    expect(mvp.sections.find((s) => s.area === 'privacy')?.questions.map((q) => q.id)).toContain('hc_hipaa_scope');
-    const building = planFor(base({ scope_industry: 'healthcare' }));
-    expect(building.sections.find((s) => s.area === 'launch')?.questions.map((q) => q.id)).toContain('hc_hipaa_scope');
+  test('compliance questions (e.g. HIPAA) sit in the privacy area in every stage', () => {
+    // /assessment shows the privacy area inside its Data privacy module.
+    for (const stage of ['building', 'mvp', 'scaling']) {
+      const plan = planFor(base({ stage, scope_industry: 'healthcare', scope_region: ['us'] }));
+      const privacy = plan.sections.find((s) => s.area === 'privacy')?.questions.map((q) => q.id) ?? [];
+      expect(privacy).toContain('hc_hipaa_scope');
+      expect(privacy).toContain('hc_baa');
+      for (const s of plan.sections.filter((x) => x.area !== 'privacy')) {
+        expect(s.questions.map((q) => q.id)).not.toContain('hc_hipaa_scope');
+      }
+    }
+  });
+
+  test('without compliance questions, Building and Scaling get no privacy area', () => {
+    for (const stage of ['building', 'scaling']) {
+      expect(planFor(base({ stage })).sections.some((s) => s.area === 'privacy')).toBe(false);
+    }
   });
 
   test('AI can add a detectable module and the plan says why; it cannot add others', () => {

@@ -510,14 +510,17 @@ export const STAGE_LAYOUT: Record<TechStage, Layout> = {
 
 // ── Context modules ─────────────────────────────────────────────────────────
 
-// Where a module question sits, by what it's about. Building has no privacy
-// area, so compliance questions go to Launch readiness (assumption #7).
+// Where a module question sits, by what it's about. Compliance questions
+// (HIPAA, children, GDPR / CCPA, financial rules…) go to the privacy area in
+// every stage, which /assessment shows inside its Data privacy module; for
+// Building and Scaling, which have no privacy area of their own, buildPlan
+// adds it when a module needs it.
 type Kind = "compliance" | "security" | "scale" | "abuse";
 
 const KIND_AREA: Record<TechStage, Record<Kind, AreaId>> = {
-  building: { compliance: "launch", security: "security", scale: "data", abuse: "security" },
+  building: { compliance: "privacy", security: "security", scale: "data", abuse: "security" },
   mvp: { compliance: "privacy", security: "security", scale: "architecture", abuse: "abuse" },
-  scaling: { compliance: "compliance", security: "security", scale: "performance", abuse: "security" },
+  scaling: { compliance: "privacy", security: "security", scale: "performance", abuse: "security" },
 };
 
 export function moduleArea(stage: TechStage, kind: Kind): AreaId {

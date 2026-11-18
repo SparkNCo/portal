@@ -82,7 +82,7 @@ function BuildPageContent() {
     enabled: !!slug,
   });
 
-  // "Recently Created": every ticket, any status. Same query (and cache) as
+  // "Recently Created": tickets of every status. Same query (and cache) as
   // the Dashboard's, Monitor's and Bugs' pages.
   const { data: everyIssueData, isLoading: everyIssueLoading } = useQuery({
     queryKey: ["linear-issues", slug],
@@ -92,7 +92,9 @@ function BuildPageContent() {
 
   const allIssues: any[] = issuesData ?? [];
 
-  const recentIssues = [...(everyIssueData ?? [])].sort(
+  // Newest first, any status except finished ones (Done, Approved), which
+  // have their own "Approved" panel.
+  const recentIssues = (everyIssueData ?? []).filter((i: any) => !isClosedIssue(i)).sort(
     (a: any, b: any) =>
       new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
   );
@@ -207,9 +209,19 @@ function BuildPageContent() {
           </Select>
         )}
 
-        {panels.map(({ panelId, title, issues, loading }) => (
-          <div key={panelId} className="-mx-4 sm:mx-0">
-            <PagePanel page="build" panelId={panelId} expandable={false}>
+        {/* Two per row (each can expand to full width); the pin and expand
+            buttons sit inside each panel's corner, so there's no gap above
+            every panel. */}
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          {panels.map(({ panelId, title, issues, loading }) => (
+            <PagePanel
+              key={panelId}
+              page="build"
+              panelId={panelId}
+              toolbar="inside"
+              className="flex min-w-0 flex-col"
+              contentClassName="flex-1 min-w-0"
+            >
               <PriorityTasks
                 loading={loading}
                 issuesData={inSelectedProject(issues)}
@@ -220,13 +232,14 @@ function BuildPageContent() {
                 slug={slug}
                 lightCard
                 viewMode="row"
+                reserveTopRight={2}
                 openIssueId={openIssueId}
                 openIssueTab={openIssueTab}
                 onDeepLinkClose={clearDeepLink}
               />
             </PagePanel>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {fallbackIssue && (

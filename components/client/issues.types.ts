@@ -300,4 +300,8 @@ export type PriorityTasksProps = {
   emptyState?: ReactNode;
   /** The tickets are still being fetched: show placeholders, not "no issues". */
   loading?: boolean;
+  /** How many buttons the page puts in the card's top-right corner (pin,
+   * expand, drag…): the header leaves room for them, level with the title.
+   * E.g. PagePanel's toolbar="inside", the Dashboard's pinned panels. */
+  reserveTopRight?: 1 | 2 | 3;
 };

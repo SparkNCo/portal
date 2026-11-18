@@ -22,6 +22,19 @@ const noopFilterState = {
   onClearFilters: () => {},
 };
 
+// Ticket panels: on the Dashboard their drag / width / unpin buttons sit
+// inside the panel's corner, level with its title, instead of on a strip
+// above it (see SortablePinnedPanel's toolbarInside). Charts and the other
+// panels keep the strip, since they have controls of their own up there.
+export const TICKET_PANEL_IDS = new Set<PinnablePanelId>([
+  "build_product_decisions",
+  "build_acceptance_testing",
+  "build_recently_created",
+  "build_backlog",
+  "build_done",
+  "bugs_list",
+]);
+
 const PRIORITY_RANK: Record<string, number> = {
   Urgent: 4,
   High: 3,
@@ -74,6 +87,7 @@ export function PinnedPanelRenderer({
   onEditIssue,
   hidePinButton,
   issuesLoading = false,
+  readOnly = false,
 }: Readonly<{
   panelId: PinnablePanelId;
   slug: string;
@@ -84,6 +98,9 @@ export function PinnedPanelRenderer({
   onOpenChat?: (title: string) => void;
   onEditIssue?: (issue: any) => void;
   hidePinButton?: boolean;
+  /** Stakeholder's view of the customer's Dashboard: no corner buttons, so
+   * no room kept for them. */
+  readOnly?: boolean;
 }>) {
   const matchesSelectedProject = (i: any) =>
     !selectedProjectIds ||
@@ -141,6 +158,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -165,15 +183,16 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
   }
 
   if (panelId === "build_recently_created") {
-    // Every ticket, newest first.
+    // Newest first, any status except finished ones (Done, Approved).
     const issues = allIssues
-      .filter(matchesSelectedProject)
+      .filter((i) => !isClosedIssue(i) && matchesSelectedProject(i))
       .sort(
         (a, b) =>
           new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
@@ -190,6 +209,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -216,6 +236,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -242,6 +263,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -285,6 +307,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );

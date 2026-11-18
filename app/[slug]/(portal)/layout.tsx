@@ -73,8 +73,9 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   // An admin browsing a customer's routes (e.g. /lualink/...) needs a
   // CustomerSlugProvider with that customer's slug — without it, hooks
   // like usePinnedPanelsOwnerId() would fall back to the admin's own id
-  // instead of the customer being viewed. Every other role already resolves
-  // correctly from their own `[slug]`, so this is admin-only.
+  // instead of the customer being viewed. Customers are their own owner, and
+  // stakeholders resolve the customer from their assignment for the `[slug]`
+  // (in usePinnedPanelsOwnerId itself), so this is admin-only.
   return profile?.role === "admin" ? (
     <CustomerSlugProvider value={urlSlug}>{content}</CustomerSlugProvider>
   ) : (

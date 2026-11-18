@@ -11,12 +11,14 @@ import {
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { PINNABLE_PANELS } from "@/lib/pinnable-panels";
 
-// Pins go to the Dashboard, which developers don't have — so no button for
-// them (and no pinned-panels lookup either). `inline`: inside a toolbar that
-// already places it (PagePanel), instead of pinned to the panel's corner.
+// Pins go to the Dashboard, which developers don't have, and which
+// stakeholders only view (it's the customer's: see useDashboardReadOnly) —
+// so no button for them (and no pinned-panels lookup either). `inline`:
+// inside a toolbar that already places it (PagePanel), instead of pinned to
+// the panel's corner.
 export function PinButton({ panelId, inline = false }: Readonly<{ panelId: PinnablePanelId; inline?: boolean }>) {
   const { profile } = useUser();
-  if (profile?.role === "developer") return null;
+  if (profile?.role === "developer" || profile?.role === "stakeholder") return null;
   return <PinToggle panelId={panelId} inline={inline} />;
 }
 
