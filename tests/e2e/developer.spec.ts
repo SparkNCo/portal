@@ -158,7 +158,7 @@ test.describe('Developer — panels', () => {
 
     // The feature panel is the only issue form on Build.
     await page.locator('#issue-title').first().fill('qzxv unmatched gibberish title 48213');
-    // Searches 3s after typing stops.
+    // Searches 1s after typing stops (title and description).
     await expect(page.getByText('No similar tickets found')).toBeVisible({ timeout: 20_000 });
   });
 

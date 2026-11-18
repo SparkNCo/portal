@@ -172,7 +172,9 @@ export function IssueCard({
   return (
     <div
       className={cn(
-        "group relative min-h-36 rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
+        // A column filling its slot's height: in a row or grid every card is
+        // as tall as the tallest one, with the plates along the bottom.
+        "group relative flex h-full min-h-36 flex-col rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
         lightCard
           ? "light-card"
           : "bg-background hover:bg-muted text-foreground",
@@ -216,7 +218,7 @@ export function IssueCard({
           <Pencil className="h-3.5 w-3.5" />
         </button>
       )}
-      <div className="p-4 pl-5">
+      <div className="flex flex-1 flex-col p-4 pl-5">
         <div className="flex items-center gap-1.5 mb-2">
           {typeIcon && (
             <typeIcon.Icon
@@ -260,7 +262,8 @@ export function IssueCard({
         >
           {issue.title}
         </p>
-        <div className="flex items-center gap-1 flex-wrap">
+        {/* Status, cycle, points and labels sit on the bottom edge. */}
+        <div className="mt-auto flex items-center gap-1 flex-wrap">
           {issue?.state?.name &&
             (lightCard && NEUTRAL_STATUS_NAMES.has(issue.state.name) ? (
               <Badge variant="outline" className="smalltext border light-card-text">

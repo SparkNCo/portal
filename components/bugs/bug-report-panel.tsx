@@ -215,6 +215,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
           onContinue={() => setDetailsRevealed(true)}
           slug={slug}
           kind="bug"
+          searchText={[...steps, expected, actual].join("\n")}
         />
 
         {detailsRevealed && (
