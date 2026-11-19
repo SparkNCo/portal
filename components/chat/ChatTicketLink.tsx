@@ -5,11 +5,12 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { API_HEADERS } from "@/lib/api-headers";
-import { safeDecodeURIComponent, deriveIssueKind, getIssueCode } from "@/lib/utils";
-import { issueShareUrl } from "@/hooks/use-issue-deep-link";
+import { safeDecodeURIComponent } from "@/lib/utils";
+import { issueCodeOf, issueShareUrl } from "@/hooks/use-issue-deep-link";
 
-// The button next to a ticket chat's title that opens the ticket: on the
-// Bugs page for a bug, on Build otherwise, with its detail modal open. Shown
+// The button next to a ticket chat's title that opens the ticket, with its
+// detail modal open: the same link the modal's "Copy link" gives (Monitor;
+// developers end up on their Developer page). Shown
 // only once the ticket is found for this initiative (issues/by-id checks it's
 // this customer's), so a deleted ticket or another customer's never links.
 export function ChatTicketLink({
@@ -41,10 +42,10 @@ export function ChatTicketLink({
 
   if (!issue || !slug) return null;
 
-  const isBug = deriveIssueKind(issue.labels?.nodes) === "bug";
-  const href = issueShareUrl("", slug, issue.id, isBug);
   // Jira tickets carry their key; Linear ones, in their branch name.
-  const code = issue.identifier ?? (issue.branchName ? getIssueCode(issue.branchName) : undefined);
+  const code = issueCodeOf(issue) || undefined;
+  if (!code) return null;
+  const href = issueShareUrl("", slug, code);
 
   return (
     <Link

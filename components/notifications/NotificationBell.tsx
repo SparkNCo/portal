@@ -18,6 +18,8 @@ import {
   FileCheck2,
   FileX,
   ArrowRightLeft,
+  Maximize2,
+  Minimize2,
   Search,
   X,
 } from "lucide-react";
@@ -227,6 +229,62 @@ function searchableText(n: Notification): string {
     .toLowerCase();
 }
 
+// The "See all" modal's type filter: the actions grouped the way people
+// think of them, rather than one option per action. Order = dropdown order.
+const NOTIFICATION_CATEGORIES: { key: string; label: string; actions: string[] }[] = [
+  { key: "chat", label: "Chat", actions: ["chat_message", "chat_mention", "chat_reply"] },
+  { key: "decisions", label: "Decisions", actions: ["decision_requested", "decision_answered"] },
+  { key: "demos", label: "Demos", actions: ["demo_uploaded", "demo_comment_added", "demo_comment_edited"] },
+  { key: "design", label: "Design", actions: ["design_resource_added"] },
+  { key: "requirements", label: "Requirements", actions: ["requirement_update_added"] },
+  {
+    key: "documents",
+    label: "Documents",
+    actions: [
+      "document_request_created",
+      "document_request_claimed",
+      "document_request_released",
+      "document_request_completed",
+      "document_shared",
+    ],
+  },
+  { key: "status", label: "Status changes", actions: ["status_changed"] },
+];
+const OTHER_CATEGORY = { key: "other", label: "Other" };
+const ALL_TYPES = "__all__";
+
+// An action this list doesn't know yet (a new notification type) is "Other".
+function categoryOf(action: string): string {
+  return NOTIFICATION_CATEGORIES.find((c) => c.actions.includes(action))?.key ?? OTHER_CATEGORY.key;
+}
+
+// The "See all" modal's list, grouped under date headers (newest first), so
+// it's clear at a glance how recent each one is. Only groups with
+// notifications are shown.
+const DATE_GROUPS = ["Today", "Yesterday", "Last 7 days", "Last 30 days", "Older"] as const;
+type DateGroup = (typeof DATE_GROUPS)[number];
+
+function dateGroupOf(iso: string, now: Date): DateGroup {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const t = new Date(iso).getTime();
+  if (t >= startOfToday) return "Today";
+  if (t >= startOfToday - day) return "Yesterday";
+  if (t >= startOfToday - 6 * day) return "Last 7 days";
+  if (t >= startOfToday - 29 * day) return "Last 30 days";
+  return "Older";
+}
+
+function groupByDate(list: Notification[]): { group: DateGroup; items: Notification[] }[] {
+  const now = new Date();
+  const byGroup = new Map<DateGroup, Notification[]>();
+  for (const n of list) {
+    const group = dateGroupOf(n.created_at, now);
+    byGroup.set(group, [...(byGroup.get(group) ?? []), n]);
+  }
+  return DATE_GROUPS.filter((g) => byGroup.has(g)).map((group) => ({ group, items: byGroup.get(group)! }));
+}
+
 // Same list (and cache key) as the admin sidebar's Initiative dropdown.
 type CustomerSummary = { clientName: string | null; linear_slug: string | null };
 
@@ -272,9 +330,10 @@ function customerLabel(key: string, customers: CustomerSummary[]): string {
 }
 
 // The bell only ever holds PAGE_SIZE (3) notifications — this lists every
-// unread one, fetched fresh each time it opens, with a client-side filter.
-// Admins get notifications from every customer at once, so they also get a
-// customer filter, plus a "Seen" tab to find one they already opened.
+// unread one, fetched fresh each time it opens, with a client-side search,
+// a filter by type (chat, decisions, demos…) and a "Seen" tab to find one
+// already opened. Admins get notifications from every customer at once, so
+// they also get a customer filter.
 type NotificationsTab = "unread" | "seen";
 
 function AllNotificationsModal({
@@ -288,7 +347,7 @@ function AllNotificationsModal({
   readonly onOpenChange: (open: boolean) => void;
   readonly onOpen: (n: Notification) => void;
   readonly isAdmin: boolean;
-  // Tab the modal opens on; "seen" when an admin has nothing unread.
+  // Tab the modal opens on; "seen" when there's nothing unread.
   readonly startTab?: NotificationsTab;
 }) {
   const [all, setAll] = useState<Notification[]>([]);
@@ -296,7 +355,10 @@ function AllNotificationsModal({
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [customerFilter, setCustomerFilter] = useState(ALL_CUSTOMERS);
+  const [typeFilter, setTypeFilter] = useState(ALL_TYPES);
   const [tab, setTab] = useState<NotificationsTab>(startTab);
+  // Wider and taller (lg up), like the ticket modal's expand button.
+  const [expanded, setExpanded] = useState(false);
 
   // Reset on close, so reopening always starts clean on `startTab`
   // (resetting on open instead would first fetch the stale tab, then refetch).
@@ -304,6 +366,7 @@ function AllNotificationsModal({
     if (open) return;
     setTab(startTab);
     setQuery("");
+    setExpanded(false);
   }, [open, startTab]);
 
   const { data: customers = [] } = useQuery<CustomerSummary[]>({
@@ -322,6 +385,7 @@ function AllNotificationsModal({
     if (!open) return;
     let cancelled = false;
     setCustomerFilter(ALL_CUSTOMERS);
+    setTypeFilter(ALL_TYPES);
     setLoading(true);
     const load = async () => {
       const rows = await fetchAllNotifications(tab === "seen");
@@ -351,25 +415,51 @@ function AllNotificationsModal({
       });
   }, [all, chatSlugs, customers, isAdmin]);
 
+  // One option per type that actually has notifications here, in the
+  // categories' own order ("Other" last).
+  const typeOptions = useMemo(() => {
+    const present = new Set(all.map((n) => categoryOf(n.event.action)));
+    return [...NOTIFICATION_CATEGORIES, OTHER_CATEGORY].filter((c) => present.has(c.key));
+  }, [all]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return all.filter((n) => {
       if (customerFilter !== ALL_CUSTOMERS && (customerKeyOf(n, chatSlugs, customers) ?? NO_CUSTOMER) !== customerFilter) {
         return false;
       }
+      if (typeFilter !== ALL_TYPES && categoryOf(n.event.action) !== typeFilter) return false;
       return !q || searchableText(n).includes(q);
     });
-  }, [all, chatSlugs, customers, query, customerFilter]);
+  }, [all, chatSlugs, customers, query, customerFilter, typeFilter]);
 
-  const isFiltering = query.trim() !== "" || customerFilter !== ALL_CUSTOMERS;
+  const isFiltering = query.trim() !== "" || customerFilter !== ALL_CUSTOMERS || typeFilter !== ALL_TYPES;
+  const showCustomerFilter = isAdmin && customerOptions.length > 0;
+  // Only worth a filter with more than one type to tell apart.
+  const showTypeFilter = typeOptions.length > 1;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex flex-col gap-0 p-0 h-[80vh] max-w-xl max-sm:h-dvh max-sm:max-w-none"
+        className={`flex flex-col gap-0 p-0 transition-all duration-200 max-sm:h-dvh max-sm:max-w-none ${
+          expanded ? "h-[80vh] max-w-xl lg:h-[92vh] lg:max-w-5xl" : "h-[80vh] max-w-xl"
+        }`}
       >
-        <div className="flex-shrink-0 border-b px-4 pt-4 pb-3 pr-12">
+        {/* Same place and icons as the ticket modal's expand button
+            (ExpandableDialogChrome): next to the close X, lg up, where
+            there's room to grow. Inline here since that component expects
+            the dialog's default padding. */}
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="hidden lg:inline-flex absolute right-10 top-4 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={expanded ? "Shrink modal" : "Expand modal"}
+          title={expanded ? "Shrink" : "Expand"}
+        >
+          {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+        <div className="flex-shrink-0 border-b px-4 pt-4 pb-3 pr-12 lg:pr-20">
           <DialogTitle className="text-lg font-semibold">
             All notifications
             {!loading && (
@@ -378,8 +468,8 @@ function AllNotificationsModal({
               </span>
             )}
           </DialogTitle>
-          {isAdmin && (
-            <div role="tablist" aria-label="Notification status" className="mt-3 -mb-3 flex gap-4">
+          {/* Every role: Unread, or Seen to find one they already opened. */}
+          <div role="tablist" aria-label="Notification status" className="mt-3 -mb-3 flex gap-4">
               {(["unread", "seen"] as const).map((t) => (
                 <button
                   key={t}
@@ -394,10 +484,11 @@ function AllNotificationsModal({
                 </button>
               ))}
             </div>
-          )}
         </div>
-        <div className="flex flex-shrink-0 flex-col gap-2 border-b px-4 py-3 sm:flex-row">
-          <div className="relative flex-1">
+        {/* Search on its own row, the filters side by side below it, so
+            neither gets squeezed out next to the search box. */}
+        <div className="flex flex-shrink-0 flex-col gap-2 border-b px-4 py-3">
+          <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
@@ -411,10 +502,12 @@ function AllNotificationsModal({
               className="pl-9 focus-visible:ring-0 focus-visible:border-primary"
             />
           </div>
-          {isAdmin && customerOptions.length > 0 && (
+          {(showCustomerFilter || showTypeFilter) && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {showCustomerFilter && (
             <Select value={customerFilter} onValueChange={setCustomerFilter}>
               <SelectTrigger
-                className="h-9 sm:w-48 smalltext focus:ring-0 focus-visible:border-primary"
+                className="h-9 smalltext focus:ring-0 focus-visible:border-primary"
                 aria-label="Filter by customer"
               >
                 <SelectValue />
@@ -429,6 +522,26 @@ function AllNotificationsModal({
               </SelectContent>
             </Select>
           )}
+          {showTypeFilter && (
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger
+                className="h-9 smalltext focus:ring-0 focus-visible:border-primary"
+                aria-label="Filter by type"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_TYPES}>All types</SelectItem>
+                {typeOptions.map((c) => (
+                  <SelectItem key={c.key} value={c.key}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading && <div className="px-3 py-6 text-center smalltext text-muted-foreground">Loading…</div>}
@@ -441,7 +554,19 @@ function AllNotificationsModal({
                   : "No unread notifications."}
             </div>
           )}
-          {!loading && filtered.map((n) => <NotificationItem key={n.id} notification={n} onOpen={onOpen} onDark />)}
+          {!loading &&
+            groupByDate(filtered).map(({ group, items }) => (
+              <section key={group} aria-label={group}>
+                {/* Stays at the top while its group scrolls under it. */}
+                <h3 className="sticky top-0 z-10 border-b bg-background px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-card/60">
+                  {group}
+                  <span className="ml-2 font-normal normal-case tracking-normal text-card/40">{items.length}</span>
+                </h3>
+                {items.map((n) => (
+                  <NotificationItem key={n.id} notification={n} onOpen={onOpen} onDark />
+                ))}
+              </section>
+            ))}
         </div>
       </DialogContent>
     </Dialog>
@@ -502,11 +627,9 @@ export function NotificationBell() {
   const isSmallScreen = useIsSmallScreen();
   const hasNotifications = !loading && notifications.length > 0;
   const isAdmin = profile?.role === "admin";
-  // Admins always get "See all" — it's also their way into older, already
-  // seen notifications (the modal's Seen tab). Everyone else only needs it
-  // when there are more unread than the popup shows.
-  const showSeeAll =
-    !loading && (isAdmin || (totalUnreadCount > notifications.length && totalUnreadCount > 3));
+  // Always "See all" — it's also the way into older, already seen
+  // notifications (the modal's Seen tab), for every role.
+  const showSeeAll = !loading;
 
   const openSeeAll = () => {
     setOpen(false);
@@ -528,7 +651,7 @@ export function NotificationBell() {
       onOpenChange={setSeeAllOpen}
       onOpen={handleOpen}
       isAdmin={isAdmin}
-      startTab={isAdmin && totalUnreadCount === 0 ? "seen" : "unread"}
+      startTab={totalUnreadCount === 0 ? "seen" : "unread"}
     />
   );
 

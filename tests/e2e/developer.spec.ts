@@ -84,7 +84,6 @@ test.describe('Developer — panels', () => {
   });
 
   test('ticket filters offer Cycle instead of Labels, and a picked cycle shows as an active filter', async ({ page }) => {
-    await page.getByRole('button', { name: /^All \(/ }).click();
     await page.getByRole('button', { name: 'Filter' }).click();
     const panel = page.getByRole('dialog').filter({ hasText: 'Filters' });
     await expect(panel.getByText('Labels', { exact: true })).toHaveCount(0);
@@ -107,29 +106,13 @@ test.describe('Developer — panels', () => {
 
   // ── Tickets: whose, and how they're laid out ────────────────────────────────
 
-  test('tickets start on My tickets, and All shows every ticket of the initiative', async ({ page }) => {
-    const mine = page.getByRole('button', { name: /^My tickets \(\d+\)$/ });
-    const all = page.getByRole('button', { name: /^All \(\d+\)$/ });
-    await expect(mine).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
-
-    const mineCount = Number((await mine.innerText()).match(/\d+/)![0]);
-    const allCount = Number((await all.innerText()).match(/\d+/)![0]);
-    expect(allCount).toBeGreaterThanOrEqual(mineCount);
-    if (mineCount === 0) {
-      await expect(page.getByText('No open tickets assigned to you')).toBeVisible();
-      await page.getByRole('button', { name: 'Show all tickets' }).click();
-    } else {
-      await all.click();
-    }
-    await expect(all).toHaveAttribute('aria-pressed', 'true');
-
-    // Remembered after a reload.
-    await page.reload();
-    await expect(page.getByRole('button', { name: /^All \(\d+\)$/ })).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+  test('tickets show every ticket of the initiative, with no "My tickets" split', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Refresh tickets' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /^My tickets/ })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Whose tickets' })).toHaveCount(0);
   });
 
   test('tickets can be shown as a board by status, or as a compact list', async ({ page }) => {
-    await page.getByRole('button', { name: /^All \(/ }).click();
 
     await page.getByRole('button', { name: 'Board view' }).click();
     const columns = ['Backlog', 'Planning', 'Development', 'QA', 'UAT'];
@@ -164,7 +147,6 @@ test.describe('Developer — panels', () => {
 
   // Only opens and switches the forms — never adds a version.
   test('Demo tab: Create Version options stay open when clicked again and switch between each other', async ({ page }) => {
-    await page.getByRole('button', { name: /^All \(/ }).click();
     const firstTicket = page.getByRole('main').locator('div.group > button[aria-label]').first();
     await firstTicket.click();
     const dialog = page.getByRole('dialog');

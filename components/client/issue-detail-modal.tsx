@@ -71,7 +71,7 @@ import { API_HEADERS, API_JSON_HEADERS } from "@/lib/api-headers";
 import { DemoTab } from "./demo-tab";
 import { FilePreviewModal, docxToHtml, previewFormatOf } from "@/components/documents/document-preview-modal";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { issueShareUrl } from "@/hooks/use-issue-deep-link";
+import { issueCodeOf, issueShareUrl } from "@/hooks/use-issue-deep-link";
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -2213,7 +2213,7 @@ export function IssueDetailModal({
 
   async function handleCopyLink() {
     if (!shareSlug) return;
-    const url = issueShareUrl(window.location.origin, shareSlug, issue.id, isBugIssue, activeTab);
+    const url = issueShareUrl(window.location.origin, shareSlug, issueCodeOf(issue), activeTab);
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Link copied", {

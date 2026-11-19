@@ -14,6 +14,29 @@ import { PinButton } from "@/components/dashboard/pin-button";
 import { PagePanel } from "@/components/dashboard/page-panel";
 import { useRoadmapData } from "@/hooks/use-roadmap-data";
 import { safeDecodeURIComponent } from "@/lib/utils";
+import { Suspense } from "react";
+import { IssueDetailModal } from "@/components/client/priority-tasks";
+import { useIssueDeepLink, useDeepLinkedIssueFallback, matchesIssueRef } from "@/hooks/use-issue-deep-link";
+
+// A ticket link (SPA-500, the detail modal's "Copy link"):
+// /{slug}/monitor?ticket=SPA-123&tab=decisions opens that ticket's detail
+// modal on that tab — from this page's own issues when it's there, else
+// looked up by number within this initiative (a ticket that isn't this
+// customer's opens nothing). In its own Suspense, since reading the URL's
+// params would otherwise suspend the whole page.
+function MonitorTicketDeepLink({ slug, issues, loaded }: Readonly<{ slug: string; issues: any[]; loaded: boolean }>) {
+  const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
+  const inPage = openIssueId ? issues.find((i) => matchesIssueRef(i, openIssueId)) : undefined;
+  const fallbackIssue = useDeepLinkedIssueFallback({
+    issueId: openIssueId,
+    slug,
+    enabled: loaded && !inPage,
+    onUnavailable: clearDeepLink,
+  });
+  const issue = inPage ?? fallbackIssue;
+  if (!issue) return null;
+  return <IssueDetailModal issue={issue} slug={slug} onClose={clearDeepLink} initialTab={openIssueTab} />;
+}
 
 export default function RoadmapPage() {
   const { profile } = useUser();
@@ -22,7 +45,7 @@ export default function RoadmapPage() {
   const urlSlug = rawUrlSlug ? safeDecodeURIComponent(rawUrlSlug) : rawUrlSlug;
   const slug = customerSlug ?? urlSlug ?? profile?.linear_slug ?? "";
 
-  const { data: issuesData } = useQuery({
+  const { data: issuesData, isSuccess: issuesLoaded } = useQuery({
     queryKey: ["linear-issues", slug],
     queryFn: () => fetchIssues(slug),
     enabled: !!slug,
@@ -103,6 +126,9 @@ export default function RoadmapPage() {
       <div className="px-4 md:px-6 pb-6">
         <MetricsPanel slug={slug} pinPanelId="metrics_panel" />
       </div>
+      <Suspense fallback={null}>
+        <MonitorTicketDeepLink slug={slug} issues={allIssues} loaded={issuesLoaded} />
+      </Suspense>
     </div>
   );
 }

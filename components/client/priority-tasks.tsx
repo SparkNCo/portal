@@ -20,6 +20,7 @@ import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, 
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { TaskFilterPanel, ActiveFilterChips, hasFilterOptions } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
@@ -306,7 +307,7 @@ export function PriorityTasks({
   // the fetch is still in flight).
   useEffect(() => {
     if (!openIssueId) return;
-    const match = issuesData.find((i) => i.id === openIssueId);
+    const match = issuesData.find((i) => matchesIssueRef(i, openIssueId));
     if (match) setSelectedIssue(match);
   }, [openIssueId, issuesData]);
 
@@ -351,7 +352,7 @@ export function PriorityTasks({
       issue={selectedIssue}
       slug={slug ?? (selectedIssue as any)._project}
       onClose={() => {
-        if (selectedIssue.id === openIssueId) onDeepLinkClose?.();
+        if (matchesIssueRef(selectedIssue, openIssueId ?? null)) onDeepLinkClose?.();
         setSelectedIssue(null);
       }}
       onEdit={
@@ -359,7 +360,7 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={selectedIssue.id === openIssueId ? (openIssueTab ?? initialModalTab) : initialModalTab}
+      initialTab={matchesIssueRef(selectedIssue, openIssueId ?? null) ? (openIssueTab ?? initialModalTab) : initialModalTab}
     />
   );
   if (compact) {

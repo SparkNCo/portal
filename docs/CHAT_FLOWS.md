@@ -178,7 +178,7 @@ The `?newChat` param is passed to `ChatLayout` as `initialTitle`, which pre-fill
 
 ## Link from a ticket's chat to the ticket
 
-On the Chat page, a ticket's chat has a small button right of its title with the ticket's code (e.g. `SPA-123 ↗`). It opens the ticket's detail modal: on `/{slug}/bugs` for a bug, on `/{slug}/build` otherwise (`ChatTicketLink`, `components/chat/ChatTicketLink.tsx`, the same link as the modal's "Copy link").
+On the Chat page, a ticket's chat has a small button right of its title with the ticket's code (e.g. `SPA-123 ↗`). It opens the ticket's detail modal with the same link as the modal's "Copy link": `/{slug}/monitor?ticket=SPA-123`, which developers (no Monitor) get on their Developer page instead (`ChatTicketLink`, `components/chat/ChatTicketLink.tsx`; see `BUILD_AND_BUGS_FLOWS.md` → "Ticket links").
 
 - **Which ticket:** Realtime chats have it in `chats.issue_id` (`type = 'issue'`). CometChat ticket groups carry it in their metadata (`issueId`, set by `getOrCreateIssueGroup.ts` since this button exists); older groups don't, so it's read back from the group id (`issue_` + the ticket id with non-alphanumerics as `_`, `issueIdFromGroupGuid` in `lib/chat-ticket.ts`). That only works for Linear tickets (UUIDs); an older CometChat group of a Jira ticket shows no button.
 - **Shown only when the ticket is found for this initiative** (`issues/by-id?id=&slug=`, which checks it's this customer's), so a deleted ticket, or a chat of another customer's ticket, never gets a link. The code comes from the ticket (`identifier`, or Linear's branch name).
@@ -231,7 +231,7 @@ User lands on /{slug}/chat (old /dev/chat and /admin/chats links redirect here)
 
 | File | Responsibility |
 |---|---|
-| `components/chat/ChatTicketLink.tsx` | The button next to a ticket chat's title that opens the ticket (Bugs or Build) |
+| `components/chat/ChatTicketLink.tsx` | The button next to a ticket chat's title that opens the ticket (its ticket link) |
 | `lib/chat-ticket.ts` | `issueIdFromGroupGuid`: a CometChat ticket group's ticket id from its group id (unit-tested in `tests/unit/chat-ticket.spec.ts`) |
 | `components/chat/mentions.ts` | @mention logic — `<@uid:…>` tokens ↔ `@Name`, what's being typed after `@`, who to offer (unit-tested in `tests/unit/mentions.spec.ts`) |
 | `components/chat/CometChat/useGroupMembers.ts` | A group's people with their portal names — who can be mentioned, and the names shown on messages |

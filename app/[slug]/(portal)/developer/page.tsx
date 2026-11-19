@@ -18,7 +18,9 @@ import { pickDeveloperProject } from "@/lib/developer-routes";
 import { useParams } from "next/navigation";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import { AskProject } from "@/components/dashboard/ask-project";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { IssueDetailModal } from "@/components/client/priority-tasks";
+import { useIssueDeepLink, useDeepLinkedIssueFallback, matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { fetchIssues, fetchPoliciesStatus } from "../dashboard/page";
 import type { Issue, IssueViewMode } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
@@ -53,7 +55,17 @@ function useStoredChoice<T extends string>(key: string, initial: T, allowed: rea
   return [value, update] as const;
 }
 
+// Reads a ticket link's params (useIssueDeepLink), which needs a Suspense
+// boundary around it.
 export default function DeveloperDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <DeveloperDashboardContent />
+    </Suspense>
+  );
+}
+
+function DeveloperDashboardContent() {
   const { profile } = useUser();
   const queryClient = useQueryClient();
   const { selectedProject: selectedProjectFromSidebar } = useSelectedProject();
@@ -66,13 +78,7 @@ export default function DeveloperDashboard() {
   const [selectedCycles, setSelectedCycles] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<"updated" | "priority">("updated");
-  // Remembered in this browser; default to the developer's own tickets in a
-  // grid.
-  const [assigneeScope, setAssigneeScope] = useStoredChoice<"mine" | "all">(
-    "developer-tickets-scope",
-    "mine",
-    ["mine", "all"],
-  );
+  // Remembered in this browser; a grid by default.
   const [viewMode, setViewMode] = useStoredChoice<IssueViewMode>(
     "developer-tickets-view",
     "grid",
@@ -150,19 +156,14 @@ export default function DeveloperDashboard() {
     ? allIssues.filter((i: any) => i._project === selectedProject)
     : allIssues;
 
-  // "My tickets" = assigned to this developer in Linear (matched by email).
-  const myEmail = profile?.email?.toLowerCase();
-  const isMine = (i: any) => !!myEmail && i.assignee?.email?.toLowerCase() === myEmail;
-  const myCount = projectIssues.filter(isMine).length;
-  const projectFiltered = assigneeScope === "mine" ? projectIssues.filter(isMine) : projectIssues;
 
   const PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "No priority"];
 
   const statusFiltered = selectedStatuses.length > 0
-    ? projectFiltered.filter((i: any) => selectedStatuses.includes(i?.state?.name))
-    : projectFiltered;
+    ? projectIssues.filter((i: any) => selectedStatuses.includes(i?.state?.name))
+    : projectIssues;
 
-  const availableCycles = [...new Set(projectFiltered.map(cycleOf))].sort((a, b) => {
+  const availableCycles = [...new Set(projectIssues.map(cycleOf))].sort((a, b) => {
     if (a === NO_CYCLE_LABEL) return 1;
     if (b === NO_CYCLE_LABEL) return -1;
     return Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, ""));
@@ -176,11 +177,26 @@ export default function DeveloperDashboard() {
     ? cycleFiltered.filter((i: any) => selectedPriorities.includes(i.priorityLabel))
     : cycleFiltered;
 
+  // A ticket link (?ticket=SPA-123&tab=…): developers have no Monitor, so a
+  // copied link sends them here (see issueShareUrl). Opened from the list
+  // when it's on screen, else looked up by number in this initiative.
+  const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
+
   const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
     if (sortBy === "priority")
       return PRIORITY_ORDER.indexOf(a.priorityLabel) - PRIORITY_ORDER.indexOf(b.priorityLabel);
     // default: last updated
     return new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
+  });
+
+  // Not in the list on screen (filtered out, closed, another assignee…):
+  // fetched by number for the initiative on screen.
+  const deepLinkSlug = selectedProject ?? projects[0]?.clientName ?? "";
+  const deepLinkFallback = useDeepLinkedIssueFallback({
+    issueId: openIssueId,
+    slug: deepLinkSlug,
+    enabled: !!issuesData && !visibleIssues.some((i: any) => matchesIssueRef(i, openIssueId)),
+    onUnavailable: clearDeepLink,
   });
 
   const filterState = {
@@ -273,6 +289,9 @@ export default function DeveloperDashboard() {
               showProject
               sortBy={sortBy}
               onSortByChange={setSortBy}
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               headerAction={
@@ -291,40 +310,7 @@ export default function DeveloperDashboard() {
                   <RefreshCw className={`h-3 w-3 ${issuesFetching ? "animate-spin" : ""}`} aria-hidden="true" />
                   <span className="hidden sm:inline">{issuesFetching && !issuesLoading ? "Refreshing…" : "Refresh"}</span>
                 </Button>
-                <div className="flex items-center rounded-md border border-input p-0.5" role="group" aria-label="Whose tickets">
-                  {([
-                    ["mine", `My tickets (${myCount})`],
-                    ["all", `All (${projectIssues.length})`],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setAssigneeScope(value)}
-                      aria-pressed={assigneeScope === value}
-                      className={`h-6 rounded px-2 smalltext font-medium transition-colors ${
-                        assigneeScope === value
-                          ? "bg-primary/15 text-primary"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
                 </>
-              }
-              emptyState={
-                assigneeScope === "mine" && myCount === 0 ? (
-                  <div className="flex flex-col items-center gap-2 py-10 text-center">
-                    <p className="smalltext font-medium text-foreground">No open tickets assigned to you</p>
-                    <p className="smalltext text-muted-foreground">
-                      Tickets assigned to {profile?.email} in Linear show up here.
-                    </p>
-                    <Button size="sm" variant="outline" className="smalltext" onClick={() => setAssigneeScope("all")}>
-                      Show all tickets
-                    </Button>
-                  </div>
-                ) : undefined
               }
             />
           )}
@@ -344,6 +330,15 @@ export default function DeveloperDashboard() {
           profile={profile}
         /> */}
       </div>
+
+      {deepLinkFallback && (
+        <IssueDetailModal
+          issue={deepLinkFallback}
+          slug={deepLinkSlug}
+          onClose={clearDeepLink}
+          initialTab={openIssueTab}
+        />
+      )}
 
       {editingIssue && (
         <EditIssueModal

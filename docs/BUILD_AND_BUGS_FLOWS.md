@@ -274,3 +274,22 @@ A small **orange message-icon badge** appears on an issue card (top-right corner
 | `supabase/functions/lib/aiClient.ts` | **AI.** Shared config-driven LLM client (see `PORTAL_DOCS.md` §12) |
 | `supabase/migrations/20260909120000_create_suggested_features.sql` | `portal.suggested_features` table |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Weekly `suggested-features-weekly` pg_cron job (Mon 06:00 UTC) |
+
+---
+
+## Ticket links (SPA-500, SPA-600)
+
+The link icon at the top right of a ticket's detail modal copies a link to it (`issueShareUrl`, `hooks/use-issue-deep-link.ts`), opened on the tab that's showing:
+
+```
+/{slug}/monitor?ticket=SPA-123&tab=decisions
+```
+
+- **`ticket`** is the ticket's readable number (Linear identifier / Jira key; `issueCodeOf`). `tab` is optional (`description` is left out): `chat`, `decisions`, `demo`, `design`, `tests`…
+- **Monitor** opens it: from its own issues when the ticket is there, else looked up by number within that initiative (`GET /issues/by-id?code=SPA-123&slug=…`, which also checks it's that customer's ticket). Not found or not theirs → "That ticket isn't available".
+- **Developers** have no Monitor (`PAGE_ROLES`): the portal layout sends them to `/{slug}/developer` with the same `ticket` / `tab` (no "page isn't available" toast), and the Developer page opens it the same way.
+- **Signed out:** they log in first and come back to the link (`AuthGate`), then the initiative's access check decides.
+- The chat's ticket button (`ChatTicketLink`) uses the same link.
+
+`?issueId={id}&tab=…` (the ticket's internal id) still works on Build, Bugs, Monitor and the Developer page. Notifications about a ticket keep using it, on Build or Bugs (`resolveLink` in `components/notifications/NotificationBell.tsx`); so do older links.
+

@@ -14,7 +14,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useIssueDeepLink, useDeepLinkedIssueFallback } from "@/hooks/use-issue-deep-link";
+import { useIssueDeepLink, useDeepLinkedIssueFallback, matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -84,7 +84,7 @@ function BugsPageContent() {
   // directly by id (same lookup EditIssueModal's "similar issue" hint
   // already uses) and open it in its own modal instead of leaving the deep
   // link a no-op.
-  const foundInPanel = bugIssues.some((i: any) => i.id === openIssueId);
+  const foundInPanel = bugIssues.some((i: any) => matchesIssueRef(i, openIssueId));
   const fallbackIssue = useDeepLinkedIssueFallback({
     issueId: openIssueId,
     slug,

@@ -2,7 +2,9 @@
 // Reading tickets, through the ticket-system wrapper (Linear or the
 // customer's Jira — see lib/tickets/provider.ts).
 import { ticketErrorResponse, TicketError } from "../lib/tickets/errors.ts";
-import { customerBySlug, issueBelongsToCustomer, ticketsForId, ticketsForSlug } from "../lib/tickets/provider.ts";
+import { customerBySlug, issueBelongsToCustomer, ticketsForCustomer, ticketsForId, ticketsForSlug } from "../lib/tickets/provider.ts";
+import { jiraId } from "../lib/tickets/ids.ts";
+import { ticketSystemOf } from "../lib/tickets/ticketSystem.ts";
 import { attachRequesters } from "./issueRequests.ts";
 
 // Backs the "Edit this instead" action on the similar-issues hint — the vector match
@@ -11,21 +13,31 @@ import { attachRequesters } from "./issueRequests.ts";
 // With `slug` (a shared/deep link opened on that initiative's page), the
 // ticket must be that customer's: anything else is the same 404 as a missing
 // one, so the link doesn't reveal tickets of other customers.
+//
+// Or by ticket number (`code`, e.g. SPA-123 — the readable links copied from
+// the detail modal), which needs `slug`: the number alone doesn't say which
+// customer's ticket system it's in (a Jira id carries its customer; a key
+// doesn't).
 export async function handleGetIssueById(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
+  const code = searchParams.get("code")?.trim().toUpperCase() || null;
   const slug = searchParams.get("slug");
   const notFound = () => Response.json({ error: "Issue not found" }, { status: 404 });
+  if (code && !slug) return Response.json({ error: "A ticket number needs slug" }, { status: 400 });
+  if (!code && !searchParams.get("id")) return Response.json({ error: "Missing id" }, { status: 400 });
 
   try {
     const customer = slug ? await customerBySlug(slug) : null;
     if (slug && !customer) return notFound();
 
-    const tickets = await ticketsForId(id);
+    // Linear looks a ticket up by its number directly; a Jira id is
+    // `jira:{customer_id}:{key}` (lib/tickets/ids.ts).
+    let id = searchParams.get("id");
+    if (code) id = ticketSystemOf(customer.systems) === "jira" ? jiraId(customer.customer_id, code) : code;
+    const tickets = code ? ticketsForCustomer(customer) : await ticketsForId(id);
     const issue = await tickets.getIssue(id);
     if (!issue) return notFound();
-    if (customer && !(await issueBelongsToCustomer(customer, { ...issue, id }))) return notFound();
+    if (customer && !(await issueBelongsToCustomer(customer, { ...issue, id: issue.id ?? id }))) return notFound();
 
     const [withRequester] = await attachRequesters([issue]);
     return Response.json(withRequester);
