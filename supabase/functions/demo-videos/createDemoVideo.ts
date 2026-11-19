@@ -44,6 +44,7 @@ export const createDemoVideoFromUpload = async (
   slug?: string,
   issueCode?: string,
   issueType?: string,
+  description: string | null = null,
 ) => {
   validateMediaFile(file);
 
@@ -74,6 +75,7 @@ export const createDemoVideoFromUpload = async (
       storage_path: storagePath,
       uploaded_by: uploadedBy,
       title,
+      description,
       // demo_number omitted: new demo, the column's sequence default assigns it.
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
@@ -139,8 +141,9 @@ export const createDemoVideoFromExisting = async (
       embed_url: source.embed_url,
       embed_provider: source.embed_provider,
       uploaded_by: uploadedBy,
-      // Same demo, so keep the source's demo_number.
+      // Same demo, so keep the source's demo_number (and its description).
       title: source.title,
+      description: source.description,
       demo_number: source.demo_number,
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")
@@ -189,6 +192,7 @@ export const createDemoVideoFromEmbed = async (
   slug?: string,
   issueCode?: string,
   issueType?: string,
+  description: string | null = null,
 ) => {
   validateEmbedUrl(embedUrl);
 
@@ -206,6 +210,7 @@ export const createDemoVideoFromEmbed = async (
       embed_provider: detectEmbedProvider(embedUrl),
       uploaded_by: uploadedBy,
       title,
+      description,
       // demo_number omitted — see createDemoVideoFromUpload's own note.
     })
     .select("*, uploader:users!uploaded_by(id, email, userName)")

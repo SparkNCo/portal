@@ -4,6 +4,7 @@ import {
   MAX_SOURCES,
   MIN_SIMILARITY,
   buildAskPrompt,
+  buildNotFoundPrompt,
   MAX_TICKET_ROWS,
   citedSources,
   citedTickets,
@@ -51,7 +52,7 @@ test.describe('relevantSources', () => {
     expect(picked.map((m) => m.id)).toEqual(['d', 'b', 'c']);
   });
 
-  test('nothing relevant: empty, so the answer is "not found" without calling the AI', () => {
+  test('nothing relevant: empty, so the answer is "not found" (the AI only writes that sentence)', () => {
     expect(relevantSources([{ similarity: 0.5 }, { similarity: 0.79 }])).toEqual([]);
   });
 
@@ -75,7 +76,28 @@ test.describe('buildAskPrompt', () => {
   test('answers only from the sources, and in the question’s language', () => {
     const prompt = buildAskPrompt('¿Cómo funciona el login?', [doc]);
     expect(prompt).toContain('Answer only from the information above');
-    expect(prompt.trimEnd().endsWith('Answer in the same language as the question above.')).toBe(true);
+    expect(prompt.trimEnd().endsWith('Answer in the same language as the question above (set language first).')).toBe(true);
+    // Decided from the question alone, before answering; also when it found
+    // nothing; not the sources' language (or English because the prompt is).
+    expect(prompt).toContain('first set language to the language the question is written in, judging by the question alone');
+    expect(prompt).toContain('also when found is false');
+    expect(prompt).toContain('The project information above may be in another language');
+  });
+
+  test('knows which project it answers about, and turns away questions about another one', () => {
+    const prompt = buildAskPrompt('How many tickets does Acme have?', [doc], '', 'Spark Portal');
+    expect(prompt).toContain('You answer questions about one software project, "Spark Portal",');
+    expect(prompt).toContain('if the question asks about another project, client or company');
+    expect(prompt).toContain('here you can only answer questions about "Spark Portal"');
+    // Without a name, no such rule (and no empty quotes).
+    expect(buildAskPrompt('q', [doc])).not.toContain('another project, client or company');
+  });
+
+  test('"not found" with no sources at all: one sentence, in the question’s language', () => {
+    const prompt = buildNotFoundPrompt('¿Cuál es la capital de Francia?');
+    expect(prompt).toContain('Question: ¿Cuál es la capital de Francia?');
+    expect(prompt).toContain('in the language the question is written in');
+    expect(prompt).toContain("Don't answer the question itself");
   });
 
   test('long content is cut at MAX_CONTENT_CHARS', () => {

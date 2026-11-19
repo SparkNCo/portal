@@ -69,7 +69,9 @@ User types a question and presses Ask (Enter also sends; Shift+Enter = new line)
           ├── liveTickets: the client's tickets from Linear / Jira, one line each
           │     (status, cycle, priority, assignee, due date)
           │
-          ├── no sources and no tickets → { found: false } — "not found", the AI isn't called
+          ├── no sources and no tickets → { found: false } — "not found": the AI only writes
+          │     that one sentence, in the question's language (buildNotFoundPrompt);
+          │     with the AI off or failing, the panel's own English one
           │
           ├── AI configured? (AI_API_KEY) → otherwise 503
           ├── buildAskPrompt (ask/prompt.ts) → requestJson (lib/aiClient.ts)
@@ -78,7 +80,7 @@ User types a question and presses Ask (Enter also sends; Shift+Enter = new line)
           └── { question, found, answer, sources: the cited numbered sources, then the cited tickets }
 ```
 
-While it waits, the panel shows a thin orange bar sliding left to right under the input (no text; screen readers get "Looking through the project's documents, test cases and issues"). Then the answer appears below the input with the cited sources (an issue's code and status in orange), or the "not found" message.
+While it waits, the panel shows (`AskLoading`) an orange bar sliding left to right under the input, the step it's on — "Searching documents, tests and issues…", then "Checking the project's tickets…", then "Writing the answer…", which stays until the answer is in (it's one request, so the steps move on by time, in the backend's order) — and three placeholder lines where the answer will appear. Screen readers get "Looking through the project's documents, test cases and issues", and each step. Then the answer appears below the input with the cited sources (an issue's code and status in orange), or the "not found" message.
 
 ### The prompt
 
@@ -92,20 +94,19 @@ Each source is numbered so the answer can cite it, and written the way the ticke
 <content>
 ```
 
-Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, plain text and short, list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **answer in the language of the question**.
+Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, plain text and short, list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **answer in the language of the question** — also when it found nothing (the instructions are in English; that doesn't make English the answer's language). The JSON schema's `answer` field says so too.
 
-The project is never chosen through the prompt: the search is already limited to one client in SQL.
+The project is never chosen through the prompt: the search is already limited to one client in SQL. The prompt does name it (the client's name), so a question about **another** project or client ("how many tickets does Acme have?" asked on Spark Portal's page) is turned away — "here I can only answer about Spark Portal; ask from that project's page if you have access" — instead of being answered with this project's data under the other name. Access itself doesn't depend on that: the AI only ever sees the data of the project in the URL, which the caller was checked for (`canAsk`).
 
 ### Sources on screen
 
 | Type | Opens |
 |---|---|
-| Issue (bug) | `/{slug}/bugs?issueId=…`: the Bugs page with the ticket's modal open |
-| Issue (feature or other) | `/{slug}/build?issueId=…` |
+| Issue | `/{slug}/monitor?ticket=SPA-456`: Monitor with the ticket's modal open, the same link as the modal's "Copy link". Developers (no Monitor, they ask from their own page) get `/{slug}/developer?ticket=…` |
 | Document | `/{slug}/documents` |
 | Test case | Not a link (test cases have no page of their own) |
 
-Both Bugs and Build open a ticket that isn't in their lists by fetching it by id, checked against the client (`issues/by-id?slug=`).
+Monitor and the Developer page open a ticket that isn't in their lists by fetching it by number, checked against the client (`issues/by-id?code=…&slug=`). See `BUILD_AND_BUGS_FLOWS.md` → "Ticket links".
 
 ---
 

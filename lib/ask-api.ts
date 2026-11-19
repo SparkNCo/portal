@@ -16,7 +16,7 @@ export type AskSource = {
   title: string;
   // Issues only.
   status: string | null;
-  // Issues only: bugs open on the Bugs page, everything else on Build.
+  // Issues only: bug or feature (the source opens on Monitor either way).
   kind?: "bug" | "feature" | null;
 };
 

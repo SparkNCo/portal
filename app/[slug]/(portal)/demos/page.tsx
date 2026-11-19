@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PreviewLinksBanner } from "@/components/client/preview-links-banner";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
@@ -30,12 +31,13 @@ import {
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 
-async function createDemoFromUpload(issueId: string, email: string, file: File, title: string) {
+async function createDemoFromUpload(issueId: string, email: string, file: File, title: string, description: string) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("issue_id", issueId);
   formData.append("email", email);
   formData.append("title", title);
+  if (description) formData.append("description", description);
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
@@ -48,13 +50,13 @@ async function createDemoFromUpload(issueId: string, email: string, file: File, 
   return (await res.json()) as Demo;
 }
 
-async function createDemoFromEmbed(issueId: string, email: string, embedUrl: string, title: string) {
+async function createDemoFromEmbed(issueId: string, email: string, embedUrl: string, title: string, description: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos`,
     {
       method: "POST",
       headers: API_JSON_HEADERS,
-      body: JSON.stringify({ issue_id: issueId, email, embed_url: embedUrl, title }),
+      body: JSON.stringify({ issue_id: issueId, email, embed_url: embedUrl, title, description: description || undefined }),
     },
   );
   if (!res.ok) {
@@ -78,6 +80,7 @@ function UploadDemoForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"upload" | "embed" | null>(null);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [embedUrl, setEmbedUrl] = useState("");
   const [selectedIssueIds, setSelectedIssueIds] = useState<Set<string>>(new Set());
@@ -101,11 +104,13 @@ function UploadDemoForm({
       // Upload/link once, on the first selected ticket, then attach that
       // same demo to every other selected ticket as a new version each —
       // no re-uploading the file per ticket.
+      // Attached copies take the first one's title and description too.
       const trimmedTitle = title.trim();
+      const trimmedDescription = description.trim();
       const first =
         mode === "upload"
-          ? await createDemoFromUpload(ids[0]!, email, file!, trimmedTitle)
-          : await createDemoFromEmbed(ids[0]!, email, embedUrl.trim(), trimmedTitle);
+          ? await createDemoFromUpload(ids[0]!, email, file!, trimmedTitle, trimmedDescription)
+          : await createDemoFromEmbed(ids[0]!, email, embedUrl.trim(), trimmedTitle, trimmedDescription);
 
       for (const issueId of ids.slice(1)) {
         await attachDemoToIssue(issueId, email, first.id);
@@ -154,6 +159,21 @@ function UploadDemoForm({
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Login flow walkthrough"
             className="bg-secondary/30 border-border smalltext"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="upload-demo-description" className="smalltext font-medium text-muted-foreground">
+            Description <span className="font-normal">(optional)</span>
+          </label>
+          <Textarea
+            id="upload-demo-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What this demo shows, what to look for…"
+            maxLength={2000}
+            rows={3}
+            className="bg-secondary/30 border-border smalltext resize-y"
           />
         </div>
 
@@ -378,6 +398,11 @@ function DemoCard({
             >
               {demo.title}
             </p>
+            {demo.description && (
+              <p className="smalltext text-muted-foreground line-clamp-2" title={demo.description}>
+                {demo.description}
+              </p>
+            )}
             <p className="smalltext text-muted-foreground font-mono">{demoLabel(demo)}</p>
           </div>
         </div>

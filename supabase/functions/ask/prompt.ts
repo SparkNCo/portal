@@ -166,7 +166,17 @@ export function ticketList(rows: TicketRow[]): string {
 
 // Each source is numbered ([1], [2]…) so the answer can cite them by number;
 // tickets from the ticket list are cited by code.
-export function buildAskPrompt(question: string, sources: Source[], tickets = ""): string {
+// The project's name in the prompt: one line, no quotes, bounded.
+const projectLabel = (name?: string | null) => (name ?? "").replace(/["\r\n]+/g, " ").trim().slice(0, 100);
+
+// `projectName`: the project the information below belongs to, so a question
+// about another one ("how many tickets does Acme have?") is turned away
+// instead of answered with this project's data under the other name. The
+// data itself is already this project's only (scoped in SQL / by the
+// ticket system, and the caller's access checked), so this is about not
+// misleading, not about access.
+export function buildAskPrompt(question: string, sources: Source[], tickets = "", projectName?: string | null): string {
+  const project = projectLabel(projectName);
   const blocks = sources
     .map((source, i) => `[${i + 1}] ${sourceHeading(source)}\n${clip(source.content)}`)
     .join("\n\n");
@@ -176,27 +186,45 @@ export function buildAskPrompt(question: string, sources: Source[], tickets = ""
     blocks && `Project information that matches the question (documents, test cases and issues):\n\n${blocks}`,
   ].filter(Boolean);
 
-  return `You answer questions about one software project for the people working on it, using ONLY the project information below.
+  const projectIntro = project ? `one software project, "${project}",` : "one software project";
+  const otherProjectRule = project
+    ? `
+- Only "${project}": if the question asks about another project, client or company (e.g. by name), don't answer it from this information. Set found to false and say, in answer, that here you can only answer questions about "${project}", and that they can ask from that project's own page if they have access to it.`
+    : "";
+
+  return `You answer questions about ${projectIntro} for the people working on it, using ONLY the project information below.
 
 ${sections.join("\n\n---\n\n")}
 
 Rules:
 - Answer only from the information above. Don't use outside knowledge and don't guess. If it doesn't contain the answer, set found to false and say briefly, in answer, that the project's documents, tests and issues don't cover it.
-- For questions about tickets as a whole (statuses, the current cycle, priorities, who's working on what, due dates, how many), use the ticket list. When it says it shows only some of the tickets, say your answer covers those.
+- For questions about tickets as a whole (statuses, the current cycle, priorities, who's working on what, due dates, how many), use the ticket list. When it says it shows only some of the tickets, say your answer covers those.${otherProjectRule}
 - For questions about what something is or how it works, use the numbered project information.
 - Plain text, short and direct: a few sentences, or a short list when the question asks for several things.
 - In sources, list the numbers ([1], [2]…) of every numbered item your answer relies on, and only those.
 - In tickets, list the codes (e.g. "SPA-456") of the tickets from the ticket list your answer is about, and only those.
 - When you mention an issue, document or test case in the answer, name it the way it appears above (e.g. "Issue SPA-456").
-- Write the answer in the same language as the question.
+- Language: first set language to the language the question is written in, judging by the question alone (e.g. "English" for "How does login work?", "Spanish" for "¿Cómo funciona el login?"). Then write answer in that language, also when found is false. The project information above may be in another language, and these instructions are in English: neither changes the answer's language. Quote names, messages and codes as they appear, but write everything else in the question's language.
 
 Question: ${question}
 
-Answer in the same language as the question above.`;
+Answer in the same language as the question above (set language first).`;
 }
 
-// The AI's reply, as the JSON schema asks for it.
-export type AskReply = { found: boolean; answer: string; sources: number[]; tickets?: string[] };
+// When nothing in the project matches at all (the AI isn't needed for an
+// answer): only the "not found" sentence, in the question's language.
+export function buildNotFoundPrompt(question: string): string {
+  return `Someone asked a question about a software project, and nothing in the project's documents, test cases and issues covers it.
+
+Write one short, friendly sentence telling them so and suggesting they try asking another way. Write it in the language the question is written in (Spanish for a question in Spanish, and so on). Don't answer the question itself.
+
+Question: ${question}`;
+}
+
+// The AI's reply, as the JSON schema asks for it. `language` comes first on
+// purpose: deciding the question's language before writing keeps the answer
+// from drifting into the sources' language.
+export type AskReply = { language?: string; found: boolean; answer: string; sources: number[]; tickets?: string[] };
 
 // The tickets the answer is about, from the ticket list, by code; unknown or
 // repeated codes are dropped; at most MAX_CITED_TICKETS.

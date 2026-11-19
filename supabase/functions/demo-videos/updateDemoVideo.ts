@@ -179,6 +179,7 @@ export const updateDemoVideoWithExisting = async (
       updated_at: new Date().toISOString(),
       // Same content, so adopt the source demo's identity too.
       title: source.title,
+      description: source.description,
       demo_number: source.demo_number,
     })
     .eq("id", demoId)
