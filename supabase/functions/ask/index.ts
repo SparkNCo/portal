@@ -32,6 +32,7 @@ import {
   MAX_QUESTION_LENGTH,
   relevantSources,
   withExactMatches,
+  withoutSourcesLine,
   type AskReply,
   type Source,
   type TicketRow,
@@ -306,7 +307,7 @@ serveWithCors("ask API Error", async (req) => {
   return Response.json({
     question,
     found: !!reply.found && !!reply.answer?.trim(),
-    answer: (reply.answer ?? "").trim(),
+    answer: withoutSourcesLine(reply.answer ?? ""),
     sources: [...cited, ...listed],
   });
 });

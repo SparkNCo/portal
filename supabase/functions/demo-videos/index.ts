@@ -96,8 +96,9 @@ const handleGetVideos = async (url: URL) => {
   return jsonResponse(await listDemoVideos(issueId));
 };
 
-// Optional, plain text: trimmed, capped, and null when empty.
-const MAX_DESCRIPTION_LENGTH = 2000;
+// Optional, markdown from the page's rich text editor (bold, lists…):
+// trimmed, capped (with room for the markdown syntax), and null when empty.
+const MAX_DESCRIPTION_LENGTH = 4000;
 const cleanDescription = (value: unknown): string | null => {
   const text = typeof value === "string" ? value.trim() : "";
   return text ? text.slice(0, MAX_DESCRIPTION_LENGTH) : null;

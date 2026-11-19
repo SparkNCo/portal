@@ -201,7 +201,7 @@ Rules:
 - For questions about tickets as a whole (statuses, the current cycle, priorities, who's working on what, due dates, how many), use the ticket list. When it says it shows only some of the tickets, say your answer covers those.${otherProjectRule}
 - For questions about what something is or how it works, use the numbered project information.
 - Plain text, short and direct: a few sentences, or a short list when the question asks for several things.
-- In sources, list the numbers ([1], [2]…) of every numbered item your answer relies on, and only those.
+- In sources, list the numbers ([1], [2]…) of every numbered item your answer relies on, and only those. Don't put those numbers, or a "Sources" line, in answer itself: the sources are shown below it.
 - In tickets, list the codes (e.g. "SPA-456") of the tickets from the ticket list your answer is about, and only those.
 - When you mention an issue, document or test case in the answer, name it the way it appears above (e.g. "Issue SPA-456").
 - Language: first set language to the language the question is written in, judging by the question alone (e.g. "English" for "How does login work?", "Spanish" for "¿Cómo funciona el login?"). Then write answer in that language, also when found is false. The project information above may be in another language, and these instructions are in English: neither changes the answer's language. Quote names, messages and codes as they appear, but write everything else in the question's language.
@@ -219,6 +219,16 @@ export function buildNotFoundPrompt(question: string): string {
 Write one short, friendly sentence telling them so and suggesting they try asking another way. Write it in the language the question is written in (Spanish for a question in Spanish, and so on). Don't answer the question itself.
 
 Question: ${question}`;
+}
+
+// A "Sources: [1], [2]" line the AI sometimes still ends the answer with (in
+// any of the usual spellings), and the [n] markers in it: the page shows the
+// sources below the answer, so they'd only repeat. The answer's own text
+// is left as it is.
+const SOURCES_LINE_RE = /\n*[ \t]*\(?(?:sources?|fuentes?)[ \t]*:?[ \t]*(?:\[\d+\][ \t,;y&and]*)+\)?\.?[ \t]*$/i;
+
+export function withoutSourcesLine(answer: string): string {
+  return answer.replace(SOURCES_LINE_RE, "").trim();
 }
 
 // The AI's reply, as the JSON schema asks for it. `language` comes first on

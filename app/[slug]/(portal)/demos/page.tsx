@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DemoDescription } from "@/components/client/demo-description";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PreviewLinksBanner } from "@/components/client/preview-links-banner";
 import { IssueDetailModal } from "@/components/client/issue-detail-modal";
@@ -166,14 +167,18 @@ function UploadDemoForm({
           <label htmlFor="upload-demo-description" className="smalltext font-medium text-muted-foreground">
             Description <span className="font-normal">(optional)</span>
           </label>
-          <Textarea
+          {/* Rich text (bold, italics, lists, links), saved as markdown. */}
+          <RichTextEditor
             id="upload-demo-description"
+            ariaLabel="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
             placeholder="What this demo shows, what to look for…"
-            maxLength={2000}
-            rows={3}
-            className="bg-secondary/30 border-border smalltext resize-y"
+            allowImages={false}
+            resizable
+            minHeight="72px"
+            className="bg-secondary/30 border-border"
+            onDark
           />
         </div>
 
@@ -398,11 +403,7 @@ function DemoCard({
             >
               {demo.title}
             </p>
-            {demo.description && (
-              <p className="smalltext text-muted-foreground line-clamp-2" title={demo.description}>
-                {demo.description}
-              </p>
-            )}
+            {demo.description && <DemoDescription markdown={demo.description} clamp className="smalltext" />}
             <p className="smalltext text-muted-foreground font-mono">{demoLabel(demo)}</p>
           </div>
         </div>

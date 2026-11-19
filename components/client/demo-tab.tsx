@@ -8,6 +8,8 @@ import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DemoDescription } from "./demo-description";
 import {
   Select,
   SelectContent,
@@ -525,14 +527,18 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             <label htmlFor="new-demo-description" className="text-xs font-medium text-muted-foreground">
               Description <span className="font-normal">(optional)</span>
             </label>
-            <Textarea
+            {/* Rich text (bold, italics, lists, links), saved as markdown. */}
+            <RichTextEditor
               id="new-demo-description"
+              ariaLabel="Description"
               value={newDemoDescription}
-              onChange={(e) => setNewDemoDescription(e.target.value)}
+              onChange={setNewDemoDescription}
               placeholder="What this demo shows, what to look for…"
-              maxLength={2000}
-              rows={3}
-              className="bg-background resize-y"
+              allowImages={false}
+              resizable
+              minHeight="72px"
+              className="bg-background"
+              onDark
             />
           </div>
 
@@ -1046,9 +1052,7 @@ function DemoMeta({
     <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-border bg-background">
       <div className="min-w-0">
         <p className="text-xs font-medium text-foreground truncate">{demo.title}</p>
-        {demo.description && (
-          <p className="mt-0.5 mb-1 text-xs text-muted-foreground whitespace-pre-line break-words">{demo.description}</p>
-        )}
+        {demo.description && <DemoDescription markdown={demo.description} className="mt-0.5 mb-1 text-xs" />}
         <p className="text-[10px] text-muted-foreground font-mono">{demoLabel(demo)}</p>
         <p className="text-[10px] text-muted-foreground">
           v{demo.version}

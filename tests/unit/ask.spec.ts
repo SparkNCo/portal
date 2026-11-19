@@ -15,6 +15,7 @@ import {
   type TicketRow,
   relevantSources,
   withExactMatches,
+  withoutSourcesLine,
   sourceHeading,
   type Source,
 } from '../../supabase/functions/ask/prompt';
@@ -40,6 +41,20 @@ const doc: Source = {
   content: 'Login uses Supabase Auth.',
   similarity: 0.85,
 };
+
+test.describe('withoutSourcesLine', () => {
+  test('drops a trailing "Sources: [1]" line (the sources are shown below the answer)', () => {
+    expect(withoutSourcesLine('Login uses Supabase Auth.\n\nSources: [1]')).toBe('Login uses Supabase Auth.');
+    expect(withoutSourcesLine('Login uses Supabase Auth. Sources: [1], [2]')).toBe('Login uses Supabase Auth.');
+    expect(withoutSourcesLine('El login usa Supabase Auth.\nFuentes: [1] y [3].')).toBe('El login usa Supabase Auth.');
+    expect(withoutSourcesLine('Login uses Supabase Auth. (Source: [2])')).toBe('Login uses Supabase Auth.');
+  });
+
+  test('leaves the rest of the answer alone', () => {
+    expect(withoutSourcesLine('See Issue SPA-456 for the sources of the bug.')).toBe('See Issue SPA-456 for the sources of the bug.');
+    expect(withoutSourcesLine('  Done.  ')).toBe('Done.');
+  });
+});
 
 test.describe('relevantSources', () => {
   test('keeps only matches at or above the threshold, best first', () => {
