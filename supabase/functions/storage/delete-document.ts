@@ -1,153 +1,48 @@
 // @ts-nocheck
-
+// DELETE /storage { document_id, user_id } — soft delete. Anyone with access
+// to the document (or an admin) can delete it. The document is only marked
+// deleted (deleted_at / deleted_by): the file stays in documents_bucket, and
+// the row and its permissions stay, so it could be restored. Its search
+// vectors are removed, so search and "Ask about this project" stop finding it.
 import { supabase } from "../client.ts";
-import { corsHeaders } from "../utils/headers.ts";
 import { deleteDocumentVectors } from "../lib/vector.ts";
-import { extractPathFromUrl } from "./downloadDocument.ts";
-import {
-  DeleteDocumentSchema,
-  DeleteDocumentResponseSchema,
-} from "./zod.ts";
-
-// Deletes a deleted document's file from documents_bucket, unless another
-// document row still points at the same file.
-async function removeDocumentFile(link: string, schema: string) {
-  try {
-    const path = extractPathFromUrl(link);
-    if (!path) return;
-
-    const { count } = await supabase.schema(schema)
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .eq("link", link);
-    if (count) return;
-
-    // The public URL may be percent-encoded (names with spaces etc.); missing
-    // paths are ignored, so try both spellings.
-    let decoded = path;
-    try {
-      decoded = decodeURIComponent(path);
-    } catch {
-      // keep the raw path
-    }
-    const { error } = await supabase.storage
-      .from("documents_bucket")
-      .remove(Array.from(new Set([path, decoded])));
-    if (error) console.error("[deleteDocument] file removal failed (non-fatal):", error.message);
-  } catch (err) {
-    console.error("[deleteDocument] file removal failed (non-fatal):", err);
-  }
-}
+import { DeleteDocumentSchema } from "./zod.ts";
+import { hasDocumentAccess, jsonResponse } from "./access.ts";
 
 export async function deleteDocument(req: Request, schema: string) {
   try {
-    const body = await req.json();
-
-    const parsedBody = DeleteDocumentSchema.safeParse(body);
-
+    const parsedBody = DeleteDocumentSchema.safeParse(await req.json());
     if (!parsedBody.success) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid request body",
-          details: parsedBody.error.flatten(),
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return jsonResponse({ error: "Invalid request body", details: parsedBody.error.flatten() }, 400);
     }
-
     const { document_id, user_id } = parsedBody.data;
 
-    // 1. CHECK OWNER PERMISSION (admins bypass this)
-    const { data: userData } = await supabase.schema(schema)
-      .from("users")
-      .select("role")
-      .eq("id", user_id)
-      .maybeSingle();
-    const isAdmin = userData?.role === "admin";
-
-    if (!isAdmin) {
-      const { data: permissionData, error: permissionError } = await supabase.schema(schema)
-        .from("document_permissions")
-        .select("permission")
-        .eq("user_id", user_id)
-        .eq("document_id", document_id)
-        .single();
-
-      if (permissionError || !permissionData) {
-        return new Response(JSON.stringify({ error: "No access" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (permissionData.permission !== "owner") {
-        return new Response(
-          JSON.stringify({ error: "Only the owner can delete this document" }),
-          {
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
+    if (!(await hasDocumentAccess(schema, user_id, document_id))) {
+      return jsonResponse({ error: "No access" }, 403);
     }
 
-    // 2. DELETE DOCUMENT
     const { data: deleted, error } = await supabase.schema(schema)
       .from("documents")
-      .delete()
+      .update({ deleted_at: new Date().toISOString(), deleted_by: user_id })
       .eq("id", document_id)
-      .select("project_slug, link")
+      .is("deleted_at", null)
+      .select("project_slug")
       .maybeSingle();
-
     if (error) {
       console.error("[deleteDocument]", error);
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: error.message }, 500);
     }
+    if (!deleted) return jsonResponse({ error: "Document not found" }, 404);
 
-    // Remove the file too, or it stays in the bucket forever. Best-effort —
-    // the document is already gone either way.
-    if (deleted?.link) {
-      await removeDocumentFile(deleted.link, schema);
-    }
-
-    // Best-effort: a leftover vector is harmless.
-    if (deleted?.project_slug && typeof EdgeRuntime !== "undefined") {
+    // Best-effort: a leftover vector is harmless (lists and Ask skip deleted
+    // documents anyway).
+    if (deleted.project_slug && typeof EdgeRuntime !== "undefined") {
       EdgeRuntime.waitUntil(deleteDocumentVectors(deleted.project_slug, [document_id]));
     }
 
-    // RESPONSE
-    const responsePayload = { success: true, document_id };
-
-    const parsedOutput = DeleteDocumentResponseSchema.safeParse(responsePayload);
-
-    if (!parsedOutput.success) {
-      console.error(
-        "[deleteDocument Response Validation Error]",
-        parsedOutput.error.flatten(),
-      );
-      return new Response(
-        JSON.stringify({ error: "Invalid response format" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    return new Response(JSON.stringify(parsedOutput.data), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: true, document_id });
   } catch (error) {
     console.error("[deleteDocument]", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: error.message }, 500);
   }
 }

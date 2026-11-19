@@ -123,7 +123,7 @@ export const getDemoSourceFields = async (supabase: any, demoId: string) => {
   const { data, error } = await supabase
     .schema(SCHEMA)
     .from("demo_videos")
-    .select("source_type, file_name, storage_path, embed_url, embed_provider, title, demo_number")
+    .select("source_type, file_name, storage_path, embed_url, embed_provider, title, description, demo_number")
     .eq("id", demoId)
     .maybeSingle();
 
@@ -138,6 +138,7 @@ export const getDemoSourceFields = async (supabase: any, demoId: string) => {
     embed_provider: string | null;
     // So "attach existing" rows keep the source demo's identity.
     title: string;
+    description: string | null;
     demo_number: number;
   };
 };

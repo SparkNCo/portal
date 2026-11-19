@@ -86,7 +86,7 @@ Some pages inside an initiative are also limited by role (`PAGE_ROLES` in `lib/r
 | Page | Roles |
 |---|---|
 | `/{slug}/developer` | `developer` only |
-| `/{slug}/settings` | `admin`, `customer`, `stakeholder` (not developers) |
+| `/{slug}/settings` | `admin`, `customer` (not stakeholders or developers) |
 
 Opening one of those with another role sends the user to that initiative's main page (`/{slug}/developer` for developers, `/{slug}/dashboard` for everyone else) with the toast _"That page isn't available for your role."_
 - **No portal profile, an unrecognised role, or nowhere valid to land** (e.g. a customer with no linked client): an _"Your account isn't set up yet"_ screen with a Log out button, instead of the page (`components/account-not-set-up.tsx`).

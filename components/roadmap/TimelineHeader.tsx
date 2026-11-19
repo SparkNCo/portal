@@ -38,11 +38,14 @@ interface TimelineHeaderProps {
   onNext: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  className?: string;
 }
 
-export function TimelineHeader({ onPrev, onNext, canGoBack, canGoForward }: TimelineHeaderProps) {
+export function TimelineHeader({ onPrev, onNext, canGoBack, canGoForward, className }: TimelineHeaderProps) {
   return (
-    <CardHeader className="flex flex-row flex-wrap justify-between gap-2">
+    <CardHeader className={cn("flex flex-row flex-wrap justify-between gap-2", className)}>
       <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
         <Map className="h-4 w-4 text-primary" />
         Projects Timeline

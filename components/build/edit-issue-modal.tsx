@@ -114,8 +114,11 @@ export function EditIssueModal({
   const queryClient = useQueryClient();
   const { profile } = useUser();
   const role = profile?.role;
-  // Same gate as issue-detail-modal.tsx's own header badges — quick priority/
-  // status changes are a developer/admin action, not a customer-facing one.
+  // Same gates as issue-detail-modal.tsx's own header badges: priority is
+  // editable by every role (the client's call too); status and cycle are a
+  // developer/admin action, not a customer-facing one.
+  const canEditPriority =
+    role === "customer" || role === "stakeholder" || role === "developer" || role === "admin";
   const canEditTicketMeta = role === "developer" || role === "admin";
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState(issue.title);
@@ -252,7 +255,7 @@ export function EditIssueModal({
             <span className="smalltext font-mono text-muted-foreground">
               {getIssueCode(issue.branchName)}
             </span>
-            {canEditTicketMeta ? (
+            {canEditPriority ? (
               <IssuePriorityPicker
                   currentLabel={currentPriorityLabel}
                   saving={changingPriority}

@@ -80,7 +80,8 @@ test.describe('Ask about this project', () => {
     await expect(page.getByText('Yes. When Resend is not configured, emails go out through SMTP (Issue SPA-456).')).toBeVisible({ timeout: 15_000 });
 
     const issueLink = page.getByRole('link', { name: /Issue SPA-456.*Fallback to nodemailer/ });
-    await expect(issueLink).toHaveAttribute('href', `/${slug.toLowerCase()}/build?issueId=linear-uuid-1`);
+    // Same link as the ticket modal's "Copy link": Monitor, by ticket number.
+    await expect(issueLink).toHaveAttribute('href', `/${slug.toLowerCase()}/monitor?ticket=SPA-456`);
     await expect(page.getByRole('link', { name: /Document.*Email setup\.md/ })).toHaveAttribute('href', `/${slug.toLowerCase()}/documents`);
     // Test cases have no page to open: listed, not linked.
     await expect(page.getByText('Sends the invite email')).toBeVisible();

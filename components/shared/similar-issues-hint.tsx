@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { API_HEADERS } from "@/lib/api-headers";
+import { getIssueCode } from "@/lib/utils";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
-import { IssueCard } from "@/components/client/issue-cards";
 import type { Issue } from "@/components/client/issues.types";
 
 type SimilarIssueMatch = {
@@ -14,12 +14,16 @@ type SimilarIssueMatch = {
   metadata?: { ticket_id?: string; title?: string; kind?: "bug" | "feature" };
 };
 
-// Don't bother querying on very short/partial titles — too little text for the
+// Don't bother querying on very short/partial text — too little for the
 // embedding to be meaningful, and it'd just be noise while the user is still typing.
 const MIN_QUERY_LENGTH = 7;
-// Long on purpose — every firing embeds the query and runs a vector search, so this waits for the user to
-// actually pause typing rather than re-querying on every short break in typing.
-const DEBOUNCE_MS = 3000;
+// Every firing embeds the query and runs a vector search; 1s after they stop
+// typing (in the title or the description) keeps it feeling live without a
+// search per keystroke.
+const DEBOUNCE_MS = 1000;
+// gte-small reads ~512 tokens; the start of a long description says enough.
+const MAX_QUERY_LENGTH = 1000;
+const MAX_MATCHES = 3;
 
 // Client-side safety net only: the backend already drops matches under 0.8
 // (SIMILARITY_THRESHOLD in supabase/functions/issues/updateIsste.ts), so this
@@ -51,9 +55,25 @@ async function fetchIssueById(id: string): Promise<Issue> {
   return res.json();
 }
 
-// Non-blocking "this might already exist" nudge shown under the title field while
+// The form's text (markdown from the rich text editors) as plain words for
+// the embedding: no images, link targets, HTML or markdown symbols.
+export function plainSearchText(...parts: string[]): string {
+  return parts
+    .join("\n")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[#*_>`~|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_QUERY_LENGTH);
+}
+
+// Non-blocking "this might already exist" nudge above the title while
 // creating a Feature Request or Bug Report — backed by the issues vector
-// search (pgvector), scoped to the current customer's namespace. Offers a way to edit the
+// search (pgvector), scoped to the current customer's namespace. Searches
+// again as they write (title and description), shows up to three one-line
+// matches so it doesn't push the form around, and offers to edit the
 // existing ticket instead of filing a near-duplicate.
 export function SimilarIssuesHint({
   slug,
@@ -61,6 +81,7 @@ export function SimilarIssuesHint({
   kind,
 }: {
   readonly slug: string;
+  // Title and description together, as plain text (see plainSearchText).
   readonly query: string;
   // Scopes matches to the panel this hint is rendered on — a bug report never
   // suggests a feature request as its "similar ticket" or vice versa.
@@ -70,48 +91,44 @@ export function SimilarIssuesHint({
   const [matchIssues, setMatchIssues] = useState<Record<string, Issue>>({});
   const [dismissed, setDismissed] = useState(false);
   const [searching, setSearching] = useState(false);
-  // A search finished for the current title (so "no matches" can be told
-  // apart from "hasn't searched yet").
+  // A search has finished for this text (so "no matches" can be told apart
+  // from "hasn't searched yet").
   const [searched, setSearched] = useState(false);
   const [loadingMatchId, setLoadingMatchId] = useState<string | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Only the newest search may update the list (an older, slower one could
+  // land after it).
+  const latestRequest = useRef(0);
 
   useEffect(() => {
-    setDismissed(false);
-
-    if (query.trim().length < MIN_QUERY_LENGTH) {
+    const text = query.trim();
+    if (text.length < MIN_QUERY_LENGTH) {
+      // Form cleared (or barely started): start over, hint back on.
+      latestRequest.current++;
       setMatches([]);
       setSearching(false);
       setSearched(false);
+      setDismissed(false);
       return;
     }
-
-    // Mark as searching (and drop stale matches from a previous query) as soon as the
-    // debounce is scheduled, not just once it fires — otherwise old matches stay on
-    // screen for the full wait, looking like an instant, un-debounced search.
-    setMatches([]);
-    setSearching(true);
-    setSearched(false);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      const results = await fetchSimilarIssues(slug, query.trim(), kind);
-      setMatches(results.filter((m) => m.score >= SIMILARITY_THRESHOLD));
+    // The current matches stay on screen while the next search waits and
+    // runs, so the hint doesn't flicker or jump while they type.
+    const timer = setTimeout(async () => {
+      const request = ++latestRequest.current;
+      setSearching(true);
+      const results = await fetchSimilarIssues(slug, text, kind).catch(() => null);
+      if (request !== latestRequest.current) return;
+      if (results) setMatches(results.filter((m) => m.score >= SIMILARITY_THRESHOLD).slice(0, MAX_MATCHES));
       setSearching(false);
       setSearched(true);
     }, DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => clearTimeout(timer);
   }, [slug, query, kind]);
 
   // The vector match only carries { id, title } — fetch the full issue for each
-  // match (ticket code, labels) so the row can look like the rest of the app's
-  // issue rows instead of a bare title.
+  // match (ticket code, status) for the row.
   useEffect(() => {
-    const missing = matches.slice(0, 3).filter((m) => !matchIssues[m.id]);
-    if (missing.length === 0) return;
+    const missing = matches.filter((m) => !matchIssues[m.id]);
     missing.forEach(async (m) => {
       try {
         const issue = await fetchIssueById(m.id);
@@ -126,7 +143,7 @@ export function SimilarIssuesHint({
   async function handleEditInstead(match: SimilarIssueMatch) {
     setLoadingMatchId(match.id);
     try {
-      const issue = await fetchIssueById(match.id);
+      const issue = matchIssues[match.id] ?? (await fetchIssueById(match.id));
       setEditingIssue(issue);
     } catch {
       toast.error("Failed to load ticket. Please try again.");
@@ -135,76 +152,61 @@ export function SimilarIssuesHint({
     }
   }
 
+  const showMatches = !dismissed && matches.length > 0;
+
   return (
     <>
-      {!dismissed && searched && !searching && matches.length === 0 && (
-        <div className="flex items-center justify-between gap-2 smalltext text-muted-foreground" role="status">
-          <span>No similar tickets found</span>
-          <button
-            type="button"
-            aria-label="Dismiss"
-            onClick={() => setDismissed(true)}
-            className="shrink-0 hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+      {/* One short muted line, so it doesn't push the form down. */}
+      {!dismissed && searched && matches.length === 0 && (
+        <p className="flex items-center gap-1.5 smalltext text-muted-foreground" role="status">
+          No similar tickets found
+          {searching && <Loader2 className="h-3 w-3 animate-spin" aria-label="Updating" />}
+        </p>
       )}
 
-      {!dismissed && (searching || matches.length > 0) && (
-        <div className="space-y-1.5 smalltext">
+      {showMatches && (
+        <div className="rounded-md border border-warning/30 bg-warning/5 px-2 py-1.5 smalltext" role="status">
           <div className="flex items-center justify-between gap-2">
-            <p className="smalltext font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              {searching ? "Looking for similar tickets…" : "Similar existing tickets"}
+            <p className="flex items-center gap-1.5 font-semibold">
+              <AlertTriangle className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+              Similar existing ticket{matches.length === 1 ? "" : "s"}
+              {searching && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-label="Updating" />}
             </p>
             <button
               type="button"
-              aria-label="Dismiss"
+              aria-label="Dismiss similar tickets"
               onClick={() => setDismissed(true)}
               className="shrink-0 text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
-
-          {searching ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Searching…
-            </div>
-          ) : (
-            <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
-              {matches.slice(0, 3).map((m) => {
-                const issue = matchIssues[m.id];
-                if (!issue) {
-                  // Full issue hasn't loaded yet (fetched right after matches
-                  // come in) — a lightweight placeholder card avoids a layout
-                  // jump once IssueCard replaces it.
-                  return (
-                    <div
-                      key={m.id}
-                      className="rounded-lg border border-border light-card p-4 animate-pulse"
-                    >
-                      <p className="smalltext font-medium light-card-text truncate">
-                        {m.metadata?.title ?? "Loading…"}
-                      </p>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={m.id} className="relative">
-                    <IssueCard issue={issue} onOpen={() => handleEditInstead(m)} lightCard />
-                    {loadingMatchId === m.id && (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      </div>
+          <ul className="mt-1 space-y-0.5">
+            {matches.map((m) => {
+              const issue = matchIssues[m.id];
+              const title = issue?.title ?? m.metadata?.title ?? "Loading…";
+              return (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleEditInstead(m)}
+                    disabled={loadingMatchId === m.id}
+                    title={`Open ${title} to edit it instead`}
+                    className="flex w-full items-center gap-2 rounded px-1.5 py-0.5 text-left hover:bg-warning/10 disabled:opacity-60"
+                  >
+                    {issue?.branchName && (
+                      <span className="shrink-0 font-mono text-muted-foreground">{getIssueCode(issue.branchName)}</span>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    <span className="min-w-0 flex-1 truncate font-medium text-foreground">{title}</span>
+                    {issue?.state?.name && (
+                      <span className="shrink-0 text-muted-foreground">{issue.state.name}</span>
+                    )}
+                    {loadingMatchId === m.id && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 

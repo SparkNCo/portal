@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, FileText, FlaskConical, Sparkles, Ticket } from "lucide-react";
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { routeSlugFor } from "@/lib/developer-routes";
 import { type AskAnswer, type AskSource, MAX_QUESTION_LENGTH, askProject } from "@/lib/ask-api";
+import { isTicketCode } from "@/hooks/use-issue-deep-link";
+import { useUser } from "context/UserContext";
 
 // The global query (SPA-582), at the top of the Dashboard: ask anything about
 // this project and get a plain-text answer from its documents, test cases and
@@ -17,22 +19,68 @@ import { type AskAnswer, type AskSource, MAX_QUESTION_LENGTH, askProject } from 
 const SOURCE_ICON = { document: FileText, test: FlaskConical, issue: Ticket } as const;
 const SOURCE_LABEL = { document: "Document", test: "Test case", issue: "Issue" } as const;
 
-// Where a cited source opens: issues in their ticket modal (bugs on the Bugs
-// page, the rest on Build; both open any ticket of theirs by id), documents
-// on the Documents page. Test cases have no page.
-function sourceHref(slug: string, source: AskSource): string | null {
+// Where a cited source opens: an issue in its ticket modal, with the same
+// link as the modal's "Copy link" (Monitor, by ticket number) — on the
+// Developer page for developers, who have no Monitor and ask from there.
+// Documents open the Documents page. Test cases have no page.
+function sourceHref(slug: string, source: AskSource, isDeveloper: boolean): string | null {
   const base = `/${routeSlugFor(slug)}`;
   if (source.type === "issue") {
-    const panel = source.kind === "bug" ? "bugs" : "build";
-    return `${base}/${panel}?issueId=${encodeURIComponent(source.id)}`;
+    // By number (SPA-456) when the source has one, else by id.
+    const params = new URLSearchParams(isTicketCode(source.ref) ? { ticket: source.ref.toUpperCase() } : { issueId: source.id });
+    return `${base}/${isDeveloper ? "developer" : "monitor"}?${params.toString()}`;
   }
   if (source.type === "document") return `${base}/documents`;
   return null;
 }
 
+// What the wait is doing, in the order the backend does it (search the
+// sources, fetch the tickets, ask the AI). It's one request, so the steps
+// move on by time; the last one stays until the answer is in.
+const LOADING_STEPS = [
+  { text: "Searching documents, tests and issues…", until: 2000 },
+  { text: "Checking the project's tickets…", until: 4500 },
+  { text: "Writing the answer…", until: Infinity },
+] as const;
+
+// Loading: a sliding bar, the step it's on, and the answer's outline where
+// the answer will appear (so the page doesn't jump when it does).
+function AskLoading() {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Date.now() - started), 250);
+    return () => clearInterval(timer);
+  }, []);
+  const stepText = (LOADING_STEPS.find((s) => elapsed < s.until) ?? LOADING_STEPS[2]).text;
+  const bar = "rounded bg-muted-foreground/15";
+
+  return (
+    <div className="space-y-3">
+      <div
+        role="progressbar"
+        aria-label="Looking through the project's documents, test cases and issues"
+        className="h-1 w-full overflow-hidden rounded-full bg-muted"
+      >
+        <div className="h-full w-2/5 rounded-full bg-gradient-to-r from-primary/30 via-primary to-primary/30 animate-progress-slide motion-reduce:animate-pulse" />
+      </div>
+      <p className="smalltext flex items-center gap-2 text-muted-foreground" aria-live="polite">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary animate-pulse" aria-hidden="true" />
+        {stepText}
+      </p>
+      <div className="space-y-2 animate-pulse" aria-hidden="true">
+        <div className={`${bar} h-3 w-full`} />
+        <div className={`${bar} h-3 w-11/12`} />
+        <div className={`${bar} h-3 w-2/3`} />
+      </div>
+    </div>
+  );
+}
+
 function SourceItem({ slug, source }: Readonly<{ slug: string; source: AskSource }>) {
+  const { profile } = useUser();
   const Icon = SOURCE_ICON[source.type];
-  const href = sourceHref(slug, source);
+  const href = sourceHref(slug, source, profile?.role === "developer");
   const label = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -143,17 +191,7 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
           </Button>
         </form>
 
-        {/* Loading: a thin bar sliding left to right, no text on screen
-            (screen readers still get one). */}
-        {ask.isPending && (
-          <div
-            role="progressbar"
-            aria-label="Looking through the project's documents, test cases and issues"
-            className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
-          >
-            <div className="h-full w-2/5 rounded-full bg-primary animate-progress-slide motion-reduce:animate-pulse" />
-          </div>
-        )}
+        {ask.isPending && <AskLoading />}
 
         {ask.isError && (
           <p className="smalltext text-destructive flex items-start gap-1.5" role="alert">

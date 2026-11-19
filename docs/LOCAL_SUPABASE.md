@@ -295,7 +295,7 @@ Open http://localhost:3001 and sign in with a test user. Variables set in the sh
 
 Stop it with `docker compose -p portal-selfhosted down`.
 
-It works with `localhost:8000` because the portal calls Supabase **from the browser**, and the browser runs on this machine. The only server-side Supabase calls are the server actions in `app/actions.ts`, used by the old template pages `/sign-in` and `/protected/reset-password`, not by the portal's login: inside the container `localhost` is the container itself, so those would fail. On a real server, use the stack's public address instead of `localhost:8000` and both work.
+It works with `localhost:8000` because the portal calls Supabase **from the browser**, and the browser runs on this machine. Nothing in the app calls Supabase from the Next.js server, so `localhost` inside the container never matters. On a real server, use the stack's public address instead of `localhost:8000`.
 
 Functions redirect to `APP_URL` (`http://localhost:3000`, set in `docker-compose.portal.yml`), so a redirect from a function lands on port 3000, not 3001.
 

@@ -71,6 +71,16 @@ No priority tiering — this is a flat sort over the filtered list.
 
 Clicking the edit action on an issue card opens `EditIssueModal` (`components/build/edit-issue-modal.tsx`), which lets you change **title**, **description**, and **priority**, then `PATCH /issues/edit`. On success the `linear-issues` query is invalidated so the list refreshes. Editing also flags the issue as recently updated — see [Recently Updated badge](#recently-updated-badge) below.
 
+**Who can change what from the ticket header** (the priority/status plates in `IssueDetailModal` and `EditIssueModal`):
+
+| Plate | Customer | Stakeholder | Developer | Admin |
+|---|---|---|---|---|
+| Priority (picker, saves on pick via `PATCH /issues/edit`) | ✅ | ✅ | ✅ | ✅ |
+| Status (free picker) | — read-only badge; they move tickets through the guided Business Review / UAT buttons | — same | ✅ | ✅ |
+| Cycle (`EditIssueModal` only) | — | — | ✅ | ✅ |
+
+Front-end only, like the rest of the role rules: `issues/edit` doesn't check who calls it.
+
 ### Create entry point
 
 `CreateIssue` (compact mode) with `defaultType="feature"`, labeled **"Request Feature"**.
@@ -90,26 +100,28 @@ A single horizontally scrollable row of **Suggested Feature** cards on the Build
 3. For each customer, `syncCustomerLinearProjects` fetches the initiative's **live** project list from Linear (and refreshes the `customers.linear_projects` snapshot as a side effect).
 4. Projects that **already have a pending suggestion are skipped**, so an ignored project doesn't pile up one new card per week.
 5. For every remaining project, `generateSuggestionForProject` (`generateSuggestion.ts`):
-   - Fetches the project's name/description, up to 20 milestones and up to 100 issues from Linear (`PROJECT_CONTEXT_QUERY` in `suggested-features/query.ts`).
-   - Builds a prompt (at most 80 issue titles with state/priority) asking for exactly **one** new feature that doesn't duplicate an existing ticket.
+   - Fetches from Linear (`PROJECT_CONTEXT_QUERY` in `suggested-features/query.ts`) the **customer's initiative** (title and description: what the whole product is), the **project** (title, short description and its longer content, plus its status), up to 20 milestones and up to 100 issues with their state type.
+   - **Only open projects get suggestions.** A project that's done (status completed or canceled, or with a completion / cancel date) is skipped (`isProjectClosed`, `ClosedProjectError`).
+   - Builds a prompt with the product (initiative), the project's details, its milestones, and its tickets split into **open**, **completed** and **canceled** (up to 50 each, long texts clipped), asking for exactly **one** new feature consistent with the product that doesn't duplicate or closely overlap any of those tickets.
    - Calls the LLM through the shared AI client (`requestJson`, see [PORTAL_DOCS §12](PORTAL_DOCS.md#12-ai-features--config-driven-ai-client)) with a strict JSON schema: `{ title, description, milestoneId | null }`.
    - Only keeps `milestoneId` if it matches one of that project's real milestones. Otherwise it stores no milestone.
    - Inserts a `pending` row into `portal.suggested_features`.
-6. The response summarizes each customer: `{ slug, projectsFound, created, skippedPending, failed }`. A failure on one project is logged and counted but doesn't stop the run.
+6. The response summarizes each customer: `{ slug, projectsFound, created, skippedPending, skippedDone, failed }` (`skippedDone`: projects already finished). A failure on one project is logged and counted but doesn't stop the run.
 
-`POST /suggested-features/generate` with `{ slug, projectId }` is a manual trigger for a single project (e.g. from Insomnia). `slug` is the clientName route slug and is resolved server-side to `customers.linear_slug`.
+`POST /suggested-features/generate` with `{ slug, projectId }` is a manual trigger for a single project (e.g. from Insomnia). `slug` is the clientName route slug and is resolved server-side to `customers.linear_slug`. For a project that's already done it answers **409** and creates nothing.
 
 #### The card — `SuggestedFeatureCard`
 
-`components/build/suggested-feature-card.tsx` — dark card with an orange stripe, "Suggested Feature" lightbulb header, title, and a description clamped to 4 lines.
+`components/build/suggested-feature-card.tsx` — a dark card with an orange stripe: the title, a two-line preview of the description, the project (and milestone) it would go in, and two buttons, **View** and **Decline**. The row's own heading says "Suggested Features". The full description, the pickers and Approve are in the modal that View opens.
 
-| Element | Behavior |
-|---|---|
-| **Enlarge button** (top-right, shows on hover/focus) | Opens a dialog with the full, untruncated description plus the project/milestone badges. |
-| **Project badge** | Popover picker listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
-| **Milestone badge** | Popover picker listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
-| **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
-| **Accept** | Doesn't accept on click. It opens a **"Set priority to accept"** popover (Urgent / High / Medium / Low), and choosing a priority is what triggers `POST /suggested-features/accept`. |
+| Where | Element | Behavior |
+|---|---|---|
+| Card | **View** | Opens the modal. |
+| Card / modal | **Decline** | `POST /suggested-features/decline` → status `declined`. No Linear issue is created. The card disappears. |
+| Modal | Title and full description | As generated (or as left after overrides). |
+| Modal | **Project** picker | Popover listing the customer's projects (lazy `fetchProjects(slug)`, only loaded when opened). Selecting one calls `PATCH /suggested-features/project`. The backend checks that the project belongs to this customer's `customers.linear_projects` and **clears the milestone**, since the old one belonged to the previous project. |
+| Modal | **Milestone** picker | Popover listing the current project's milestones (lazy `fetchMilestones(projectId)`) plus a "No milestone" option. Calls `PATCH /suggested-features/milestone`. The backend checks that the milestone belongs to the suggestion's project (`null` clears it). |
+| Modal | **Approve** | Doesn't approve on click. It opens a **"Set priority to approve"** popover (Urgent / High / Medium / Low), and choosing a priority is what triggers `POST /suggested-features/accept`. |
 
 **Accept flow** (`acceptSuggestion.ts`):
 1. Resolves the project's Linear team and that team's **Backlog** state.
@@ -251,8 +263,8 @@ A small **orange message-icon badge** appears on an issue card (top-right corner
 | `lib/suggested-features-api.ts` | `SuggestedFeature` type + fetch/accept/decline/update-project/update-milestone wrappers |
 | `supabase/functions/suggested-features/index.ts` | Route table for the suggested-features edge function |
 | `supabase/functions/suggested-features/generateSuggestion.ts` | **AI.** Prompt + `generateSuggestionForProject` (shared by cron and manual trigger), `POST /generate` |
-| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron target `POST /generate-all`: loops over customers/projects, skips projects that already have a pending suggestion |
-| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: project + milestones + issues sent to the AI |
+| `supabase/functions/suggested-features/generateAllSuggestions.ts` | Weekly cron target `POST /generate-all`: loops over customers/projects, skips projects that already have a pending suggestion and projects that are done |
+| `supabase/functions/suggested-features/query.ts` | `PROJECT_CONTEXT_QUERY`: initiative + project (with status) + milestones + issues (with state type) sent to the AI |
 | `supabase/functions/suggested-features/listSuggestions.ts` | `GET`: pending suggestions for a customer |
 | `supabase/functions/suggested-features/acceptSuggestion.ts` | Creates the Linear issue in Backlog with the chosen priority, marks the row accepted |
 | `supabase/functions/suggested-features/declineSuggestion.ts` | Marks the row declined |
@@ -262,3 +274,22 @@ A small **orange message-icon badge** appears on an issue card (top-right corner
 | `supabase/functions/lib/aiClient.ts` | **AI.** Shared config-driven LLM client (see `PORTAL_DOCS.md` §12) |
 | `supabase/migrations/20260909120000_create_suggested_features.sql` | `portal.suggested_features` table |
 | `supabase/migrations/20260929120000_schedule_suggested_features_cron.sql` | Weekly `suggested-features-weekly` pg_cron job (Mon 06:00 UTC) |
+
+---
+
+## Ticket links (SPA-500, SPA-600)
+
+The link icon at the top right of a ticket's detail modal copies a link to it (`issueShareUrl`, `hooks/use-issue-deep-link.ts`), opened on the tab that's showing:
+
+```
+/{slug}/monitor?ticket=SPA-123&tab=decisions
+```
+
+- **`ticket`** is the ticket's readable number (Linear identifier / Jira key; `issueCodeOf`). `tab` is optional (`description` is left out): `chat`, `decisions`, `demo`, `design`, `tests`…
+- **Monitor** opens it: from its own issues when the ticket is there, else looked up by number within that initiative (`GET /issues/by-id?code=SPA-123&slug=…`, which also checks it's that customer's ticket). Not found or not theirs → "That ticket isn't available".
+- **Developers** have no Monitor (`PAGE_ROLES`): the portal layout sends them to `/{slug}/developer` with the same `ticket` / `tab` (no "page isn't available" toast), and the Developer page opens it the same way.
+- **Signed out:** they log in first and come back to the link (`AuthGate`), then the initiative's access check decides.
+- The chat's ticket button (`ChatTicketLink`) uses the same link.
+
+`?issueId={id}&tab=…` (the ticket's internal id) still works on Build, Bugs, Monitor and the Developer page. Notifications about a ticket keep using it, on Build or Bugs (`resolveLink` in `components/notifications/NotificationBell.tsx`); so do older links.
+

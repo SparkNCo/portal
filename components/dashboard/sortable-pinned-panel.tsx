@@ -12,12 +12,21 @@ export function SortablePinnedPanel({
   fullWidth,
   onToggleWidth,
   onUnpin,
+  toolbarInside = false,
+  readOnly = false,
   children,
 }: Readonly<{
+  // Stakeholders: no drag / width / unpin buttons (dragging only starts
+  // from the grip, so without it the panel can't be moved either).
+  readOnly?: boolean;
   id: string;
   fullWidth: boolean;
   onToggleWidth: () => void;
   onUnpin: () => void;
+  // The buttons sit inside the panel's own top-right corner, level with its
+  // title, with no strip above it (ticket panels, which leave room for them —
+  // see TICKET_PANEL_IDS in pinned-panel-renderer.tsx).
+  toolbarInside?: boolean;
   children: React.ReactNode;
 }>) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -39,7 +48,8 @@ export function SortablePinnedPanel({
           end up as separate floating buttons overlapping the panel title.
           Absolutely positioned, so it doesn't push panel content down on its
           own — the pt-12 wrapper below reserves the space instead. */}
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+      {!readOnly && (
+      <div className={`absolute ${toolbarInside ? "top-2.5" : "top-3"} right-3 z-10 flex items-center gap-1.5`}>
         <button
           type="button"
           {...attributes}
@@ -74,7 +84,8 @@ export function SortablePinnedPanel({
           <Pin className="h-3.5 w-3.5 fill-current" />
         </button>
       </div>
-      <div className="pt-12">{children}</div>
+      )}
+      <div className={toolbarInside || readOnly ? "" : "pt-12"}>{children}</div>
     </div>
   );
 }

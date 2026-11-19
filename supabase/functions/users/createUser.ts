@@ -2,6 +2,7 @@
 import { supabase } from "../client.ts";
 import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 import { assertEmailNotTaken } from "./assertEmailNotTaken.ts";
+import { resolveAuthUser } from "./resolveAuthUser.ts";
 import type { TestRun } from "../lib/testMode.ts";
 
 // Only `internal` developers carry a rate — `spark_fde` developers are billed
@@ -63,7 +64,8 @@ export const createUser = async (body: any, schema: string, testRun: TestRun | n
   // app's own users table or Supabase Auth — instead of silently reusing the
   // existing Auth account and overwriting that person's users row with
   // whatever this form submitted (role, customer_id, name, etc.).
-  await assertEmailNotTaken(schema, email);
+  // A lead from the marketing site's /assessment is promoted, not rejected.
+  const { leadUserId } = await assertEmailNotTaken(schema, email);
 
   // Never trust a client-supplied redirect origin (open-redirect / token-leak
   // risk) — same fix as reset-password/index.ts. This link goes out in an
@@ -72,9 +74,7 @@ export const createUser = async (body: any, schema: string, testRun: TestRun | n
   // back to that unusable origin instead of production.
   const redirectTo = "https://app.buildwithspark.co/set-password";
 
-  const { authUserId, inviteLink } = testRun
-    ? testInvite(testRun, email, redirectTo)
-    : await createInvite(email, redirectTo);
+  const { authUserId, inviteLink, isNew } = await accountForNewUser(email, redirectTo, leadUserId, testRun);
 
   const userRow = {
     id: authUserId,
@@ -102,7 +102,8 @@ export const createUser = async (body: any, schema: string, testRun: TestRun | n
 
     if (upsertError) {
       console.error("[createUser] users upsert failed", upsertError.message);
-      await supabase.auth.admin.deleteUser(authUserId);
+      // A promoted lead keeps their account (and their unchanged lead row).
+      if (isNew) await supabase.auth.admin.deleteUser(authUserId);
       throw new Error(upsertError.message);
     }
     data = saved;
@@ -144,6 +145,33 @@ export async function createInvite(email: string, redirectTo: string) {
     authUserId: inviteData.user.id as string,
     inviteLink: inviteData.properties.action_link as string,
   };
+}
+
+// The Auth account and "set your password" link for a new portal user.
+// Usually a brand-new account (invite link). For a promoted lead (see
+// assertEmailNotTaken) the account already exists, so it's reused with a
+// recovery link. `isNew` says whether a failure later may delete the account:
+// never a lead's. Shared with createCustomerFlow.
+export async function accountForNewUser(
+  email: string,
+  redirectTo: string,
+  leadUserId: string | null,
+  testRun: TestRun | null,
+): Promise<{ authUserId: string; inviteLink: string; isNew: boolean }> {
+  if (testRun) {
+    const invite = testInvite(testRun, email, redirectTo);
+    return leadUserId ? { ...invite, authUserId: leadUserId, isNew: false } : { ...invite, isNew: true };
+  }
+  if (!leadUserId) return { ...(await createInvite(email, redirectTo)), isNew: true };
+
+  const resolved = await resolveAuthUser(email, redirectTo);
+  if (resolved.authUserId !== leadUserId) {
+    // The lead's users row and its Auth account disagree: don't guess, and
+    // don't leave behind an account this call just created.
+    if (resolved.isNew) await supabase.auth.admin.deleteUser(resolved.authUserId);
+    throw new Error("This email belongs to an assessment lead whose account doesn't match. Contact support.");
+  }
+  return { authUserId: resolved.authUserId, inviteLink: resolved.inviteLink, isNew: resolved.isNew };
 }
 
 // Test mode's stand-in for createInvite: a made-up id and a link that goes

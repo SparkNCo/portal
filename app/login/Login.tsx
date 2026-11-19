@@ -6,10 +6,10 @@ import { useRouter } from "next/navigation";
 import { SparkButton } from "@/components/ui/spark-button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
-import { getStakeholderClientSlug, PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
+import { PROFILE_ERROR_MESSAGES, useUser } from "context/UserContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
-import { developerPanelPath } from "@/lib/developer-routes";
 import { takeLoginRedirect } from "@/lib/login-redirect";
+import { loginDestination } from "@/lib/login-destination";
 
 export default function LoginForm({
   onLoginSuccess,
@@ -36,44 +36,24 @@ export default function LoginForm({
   const { selectedProject } = useSelectedProject();
 
   useEffect(() => {
-    if (customer) {
-      // Sent here from a page that needs a login (AuthGate): go back there
-      // instead of the home page. That page's own access check still
-      // applies: no access to it means their home page, with a message.
-      const redirectTo = takeLoginRedirect();
-
-      if (customer?.role === "stakeholder") {
-        const clientSlug = getStakeholderClientSlug(customer);
-        if (clientSlug) {
-          router.push(redirectTo ?? `/${clientSlug}/dashboard`);
-          onLoginSuccess(customer.email);
-        } else {
-          setErrorMessage("No client assigned to this account. Contact your administrator.");
-          setLoading(false);
-        }
-        return;
-      }
-      // Unknown role, or a customer with no linked client: there's no page
-      // to send them to (it used to be /undefined/dashboard).
-      const knownRole = customer?.role === "admin" || customer?.role === "developer" || customer?.role === "customer";
-      if (!knownRole || (customer.role === "customer" && !customer.clientName)) {
-        setErrorMessage("Your account isn't set up yet. Contact your administrator.");
-        setLoading(false);
-        supabase.auth.signOut();
-        return;
-      }
-      if (redirectTo) {
-        router.push(redirectTo);
-      } else if (customer?.role === "admin") {
-        router.push("/admin/users");
-      } else if (customer?.role === "developer") {
-        // Their last-picked initiative (or first assignment) — see lib/developer-routes.ts.
-        router.push(developerPanelPath(customer, "developer", selectedProject));
-      } else {
-        router.push(`/${customer.clientName?.toLowerCase()}/dashboard`);
-      }
-      onLoginSuccess(customer.email);
+    if (!customer) {
+      return;
     }
+    // Sent here from a page that needs a login (AuthGate): go back there
+    // instead of the home page. That page's own access check still applies:
+    // no access to it means their home page, with a message. Each role's
+    // destination: lib/login-destination.ts.
+    const destination = loginDestination(customer, takeLoginRedirect(), selectedProject);
+    if (destination.kind === "error") {
+      setErrorMessage(destination.message);
+      setLoading(false);
+      if (destination.signOut) {
+        supabase.auth.signOut();
+      }
+      return;
+    }
+    router.push(destination.to);
+    onLoginSuccess(customer.email);
   }, [customer]);
 
   // Signed in, but the portal profile couldn't be loaded (no portal.users

@@ -28,7 +28,7 @@
 
 ## 1. Roles & Permissions
 
-The portal has four roles. Each role gets a different dashboard, a different sidebar, and different permissions inside every panel.
+The portal has four roles. Each role gets a different dashboard, a different sidebar, and different permissions inside every panel. Every user can reorder their sidebar's items by dragging them; the order is saved per user (SPA-581, see `CLIENT_DASHBOARD_FLOWS.md` → "Reordering the menu").
 
 ---
 
@@ -58,7 +58,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Upload and view documents.
 - Must agree to company policies on first login (Policy Approval Modal).
 
-**Sidebar:** Developer, Chat, Documents
+**Sidebar:** Developer, Build, Bugs, Demos, Chat, Documents
 
 ---
 
@@ -75,7 +75,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - View project stats, SDLC metrics, roadmap, and documents.
 - Manage billing and staffing in Settings.
 
-**Sidebar:** Dashboard, Roadmap, Documents, Chat, Settings
+**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings
 
 ---
 
@@ -90,7 +90,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Cannot access Settings (no billing or staffing panels).
 - Typically a secondary contact on the client side who reviews and approves but is not the primary account owner.
 
-**Sidebar:** Dashboard, Roadmap, Documents, Chat
+**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings
 
 ---
 
@@ -171,7 +171,7 @@ If Supabase authentication succeeds, the app calls `GET /users?email={email}` to
 
 **Profile can't be loaded after sign-in:** no `portal.users` row → "Your account isn't set up yet. Contact your administrator."; request failed → "We couldn't load your account. Please try again." In both cases the user is signed out (login and set-password). The profile lookup by email is case-insensitive. Details: `app/docs/LOGIN_FLOWS.md` → "When the profile can't be loaded".
 
-**Access to `/{slug}` pages:** admins can open any; customers only their own; stakeholders and developers only their assignments. Inside an initiative, `/{slug}/developer` is developers-only and `/{slug}/settings` is not available to developers ("That page isn't available for your role"). Anyone else is sent to their own home page with "You don't have access to that initiative"; users with no profile or an unrecognised role see "Your account isn't set up yet" (and login no longer sends them to `/undefined/…`). Front-end only — the API doesn't enforce it yet. Details: `app/docs/LOGIN_FLOWS.md` → "Who can open which `/{slug}` page".
+**Access to `/{slug}` pages:** admins can open any; customers only their own; stakeholders and developers only their assignments. Inside an initiative, `/{slug}/developer` is developers-only and `/{slug}/settings` is only for customers and admins, not stakeholders or developers ("That page isn't available for your role"). Anyone else is sent to their own home page with "You don't have access to that initiative"; users with no profile or an unrecognised role see "Your account isn't set up yet" (and login no longer sends them to `/undefined/…`). Front-end only — the API doesn't enforce it yet. Details: `app/docs/LOGIN_FLOWS.md` → "Who can open which `/{slug}` page".
 
 **Developers with more than one assignment** land on `/{slug}/developer` for the initiative they last worked on in this browser (the "Working on" dropdown, stored in `localStorage` as `dev-selected-project`, also updated whenever they open a `/{slug}` page), if it's still one of their assignments; otherwise their first assignment; with none, `/dev/developer` ("No assigned projects yet"). The choice is per browser, and "first assignment" has no guaranteed order (the assignments query has no `order by`). Full details: `app/docs/LOGIN_FLOWS.md` → "Developers with more than one assignment".
 
@@ -1000,13 +1000,15 @@ Actions appear on hover:
 |---|---|---|
 | **Open** | Everyone | `GET /storage/download?document_id=...&inline=true` → signed URL → new tab |
 | **Download** | Everyone | `GET /storage/download?document_id=...` → signed download URL → new tab |
-| **Share** | `write` or `owner` | Opens ShareDocumentModal |
-| **Category** | `write` or `owner` | Popover with category options → `PUT /storage` |
-| **Delete** | `owner` only | `DELETE /storage` → list refreshes |
+| **Share** | Anyone with access, admins | Opens ShareDocumentModal |
+| **Category** | Anyone with access, admins | Popover with category options → `PUT /storage` |
+| **Delete** | Anyone with access, admins | Confirmation, then `DELETE /storage`: a **soft delete** (the file stays in storage; the document disappears everywhere) → list refreshes |
+
+There are no owners: a user has access to a document or doesn't. Documents uploaded from now on are visible to everyone on the initiative while they're on it (customer, stakeholders, developers, including people who join later); the uploader and, for a requested document, the requester always have it. Older documents keep the access they had. See `docs/DOCUMENTS_FLOWS.md` → "Access model".
 
 ### 8.5 Share Document Modal
 
-Checkbox list of everyone on the document's initiative (customer, stakeholders, developers — resolved from the document's `project_slug`), multiple selection with Select all → `POST /storage/share` with `{ document_id, emails[], user_id }`. Grants `read`, skipping anyone who already has access. On success the modal closes. A fulfilled document request doesn't use Share: the upload makes the requester the owner (8.2 step 4).
+A list of emails typed or pasted (comma-separated), each shown as a pill; people on the initiative are suggested while typing → `POST /storage/share` with `{ document_id, emails[], user_id }`. Portal users get access (skipping anyone who already has it) and a notification; any other email gets the file by email, attached up to 10 MB, otherwise a 7-day download link. See `docs/DOCUMENTS_FLOWS.md` → "Share Document Modal".
 
 ### 8.6 Upload Document — `UploadDocument`
 

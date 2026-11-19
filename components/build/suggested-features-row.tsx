@@ -68,8 +68,8 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
   );
 }
 
-// Same footprint as a SuggestedFeatureCard: title, description lines, the two
-// pickers and the Accept/Decline row.
+// Same footprint as a SuggestedFeatureCard: title, preview, project line and
+// the View / Decline row.
 function SuggestedFeatureSkeleton() {
   const bar = "rounded bg-muted-foreground/20";
   return (
@@ -82,12 +82,10 @@ function SuggestedFeatureSkeleton() {
       <div className={`${bar} h-4 w-3/4`} />
       <div className="space-y-2">
         <div className={`${bar} h-3 w-full`} />
-        <div className={`${bar} h-3 w-11/12`} />
         <div className={`${bar} h-3 w-2/3`} />
       </div>
-      <div className={`${bar} h-8 w-full`} />
-      <div className={`${bar} h-8 w-full`} />
-      <div className="flex gap-2 pt-1">
+      <div className={`${bar} h-3 w-1/2`} />
+      <div className="flex gap-2">
         <div className={`${bar} h-8 flex-1`} />
         <div className={`${bar} h-8 flex-1`} />
       </div>

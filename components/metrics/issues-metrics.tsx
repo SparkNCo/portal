@@ -136,6 +136,7 @@ export function IssueMetricsView({
   dateFrom = "",
   dateTo = "",
   spanAllCycles = false,
+  headerClassName,
 }: {
   readonly data: IssueMetric[];
   readonly cycleMetrics?: CycleMetric[];
@@ -143,6 +144,9 @@ export function IssueMetricsView({
   readonly dateFrom?: string;
   readonly dateTo?: string;
   readonly spanAllCycles?: boolean;
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  readonly headerClassName?: string;
 }) {
   const cycles = useMemo(
     () => [...cycleMetrics].sort((a, b) => a.number - b.number),
@@ -198,7 +202,7 @@ export function IssueMetricsView({
 
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
-      <CardHeader>
+      <CardHeader className={headerClassName}>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <BarChart2 className="h-4 w-4 text-primary" />
           Issues by Status

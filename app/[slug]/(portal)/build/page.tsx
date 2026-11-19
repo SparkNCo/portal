@@ -8,13 +8,14 @@ import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
 import { useParams } from "next/navigation";
-import { useIssueDeepLink, useDeepLinkedIssueFallback } from "@/hooks/use-issue-deep-link";
+import { useIssueDeepLink, useDeepLinkedIssueFallback, matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
-import { PinButton } from "@/components/dashboard/pin-button";
+import { PagePanel } from "@/components/dashboard/page-panel";
 import type { Issue } from "@/components/client/issues.types";
+import { isClosedIssue } from "@/components/client/issues.types";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import {
   Select,
@@ -40,8 +41,7 @@ function BuildPageContent() {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
   // Deep link from a notification (see components/notifications/
-  // NotificationBell.tsx). This page only ever fetches Business Review/UAT/
-  // Backlog issues (see the issuesData query below) — for anything else,
+  // NotificationBell.tsx). If the issue isn't in any of this page's panels,
   // the fallback query further down fetches that one issue directly by id
   // and opens it in its own modal instead of silently landing here with
   // nothing open.
@@ -73,18 +73,34 @@ function BuildPageContent() {
     enabled: !!slug,
   });
 
-  // Done gets its own query: it's the status that piles up the most, so
-  // sharing the 100-issue cap above would crowd out the active panels.
+  // Finished tickets (Approved in UAT, then Done) get their own query: they
+  // pile up the most, so sharing the 100-issue cap above would crowd out the
+  // active panels. Shown together in the "Approved" panel.
   const { data: doneData, isLoading: doneLoading } = useQuery({
-    queryKey: ["linear-issues", slug, "Done"],
-    queryFn: () => fetchIssues(slug, ["Done"]),
+    queryKey: ["linear-issues", slug, "Approved,Done"],
+    queryFn: () => fetchIssues(slug, ["Approved", "Done"]),
+    enabled: !!slug,
+  });
+
+  // "Recently Created": tickets of every status. Same query (and cache) as
+  // the Dashboard's, Monitor's and Bugs' pages.
+  const { data: everyIssueData, isLoading: everyIssueLoading } = useQuery({
+    queryKey: ["linear-issues", slug],
+    queryFn: () => fetchIssues(slug),
     enabled: !!slug,
   });
 
   const allIssues: any[] = issuesData ?? [];
 
+  // Newest first, any status except finished ones (Done, Approved), which
+  // have their own "Approved" panel.
+  const recentIssues = (everyIssueData ?? []).filter((i: any) => !isClosedIssue(i)).sort(
+    (a: any, b: any) =>
+      new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+  );
+
   const doneIssues = (doneData ?? [])
-    .filter((i: any) => i.state?.name === "Done")
+    .filter((i: any) => isClosedIssue(i))
     .sort(
       (a: any, b: any) =>
         new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
@@ -102,7 +118,8 @@ function BuildPageContent() {
         new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
     );
 
-  const backlogIssues = allIssues
+  // "Refinement": Backlog tickets, last updated first.
+  const refinementIssues = allIssues
     .filter((i: any) => i.state?.name === "Backlog")
     .sort(
       (a: any, b: any) =>
@@ -121,7 +138,7 @@ function BuildPageContent() {
 
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
-      [...businessReviewIssues, ...uatIssues, ...backlogIssues, ...doneIssues]
+      [...businessReviewIssues, ...uatIssues, ...recentIssues, ...refinementIssues, ...doneIssues]
         .filter((i: any) => i.project?.id && i.project?.name)
         .map((i: any) => [
           i.project.id,
@@ -130,35 +147,30 @@ function BuildPageContent() {
     ).values(),
   );
 
-  const visibleBusinessReviewIssues = selectedProject
-    ? businessReviewIssues.filter((i: any) => i.project?.id === selectedProject)
-    : businessReviewIssues;
+  const inSelectedProject = (issues: any[]) =>
+    selectedProject ? issues.filter((i: any) => i.project?.id === selectedProject) : issues;
 
-  const visibleUatIssues = selectedProject
-    ? uatIssues.filter((i: any) => i.project?.id === selectedProject)
-    : uatIssues;
+  // Top to bottom, each a full-width row of cards scrolling sideways.
+  const panels: { panelId: string; title: string; issues: any[]; loading: boolean }[] = [
+    { panelId: "build_product_decisions", title: "Business Reviews", issues: businessReviewIssues, loading: issuesLoading },
+    { panelId: "build_acceptance_testing", title: "Acceptance Testing", issues: uatIssues, loading: issuesLoading },
+    { panelId: "build_recently_created", title: "Recently Created", issues: recentIssues, loading: everyIssueLoading },
+    // Id kept from when this panel was "Backlog" (pinned panels keep working).
+    { panelId: "build_backlog", title: "Refinement", issues: refinementIssues, loading: issuesLoading },
+    { panelId: "build_done", title: "Approved", issues: doneIssues, loading: doneLoading },
+  ];
 
-  const visibleBacklogIssues = selectedProject
-    ? backlogIssues.filter((i: any) => i.project?.id === selectedProject)
-    : backlogIssues;
-
-  const visibleDoneIssues = selectedProject
-    ? doneIssues.filter((i: any) => i.project?.id === selectedProject)
-    : doneIssues;
-
-  // The deep-linked issue isn't necessarily in Business Review/UAT/Backlog/Done —
-  // a decision/demo/design notification can point at an issue in any status
-  // (In Progress, Todo, Done, ...). Once the three panels above have loaded
-  // and it's genuinely not among them, fetch that one issue directly by id
-  // (same lookup EditIssueModal's "similar issue" hint already uses) and
-  // open it in its own modal instead of leaving the deep link a no-op.
-  const foundInPanels =
-    allIssues.some((i: any) => i.id === openIssueId) ||
-    doneIssues.some((i: any) => i.id === openIssueId);
+  // The deep-linked issue isn't necessarily in one of the panels above — a
+  // decision/demo/design notification can point at an issue in any status.
+  // Once they've all loaded and it's genuinely not among them, fetch that one
+  // issue directly by id (same lookup EditIssueModal's "similar issue" hint
+  // already uses) and open it in its own modal instead of leaving the deep
+  // link a no-op.
+  const foundInPanels = panels.some((p) => p.issues.some((i: any) => matchesIssueRef(i, openIssueId)));
   const fallbackIssue = useDeepLinkedIssueFallback({
     issueId: openIssueId,
     slug,
-    enabled: !!issuesData && !!doneData && !foundInPanels,
+    enabled: !!issuesData && !!doneData && !!everyIssueData && !foundInPanels,
     onUnavailable: clearDeepLink,
   });
 
@@ -197,82 +209,36 @@ function BuildPageContent() {
           </Select>
         )}
 
+        {/* Two per row (each can expand to full width); the pin and expand
+            buttons sit inside each panel's corner, so there's no gap above
+            every panel. */}
         <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_product_decisions" />
-            <div className="pt-12 flex-1">
+          {panels.map(({ panelId, title, issues, loading }) => (
+            <PagePanel
+              key={panelId}
+              page="build"
+              panelId={panelId}
+              toolbar="inside"
+              className="flex min-w-0 flex-col"
+              contentClassName="flex-1 min-w-0"
+            >
               <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleBusinessReviewIssues}
+                loading={loading}
+                issuesData={inSelectedProject(issues)}
                 filterState={noopFilterState}
                 onOpenChat={() => {}}
                 onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Business Reviews"
+                title={title}
                 slug={slug}
                 lightCard
+                viewMode="row"
+                reserveTopRight={2}
                 openIssueId={openIssueId}
                 openIssueTab={openIssueTab}
                 onDeepLinkClose={clearDeepLink}
               />
-            </div>
-          </div>
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_acceptance_testing" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleUatIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Acceptance Testing"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_backlog" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={issuesLoading}
-                issuesData={visibleBacklogIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Backlog"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
-          <div className="relative flex flex-col">
-            <PinButton panelId="build_done" />
-            <div className="pt-12 flex-1">
-              <PriorityTasks
-                loading={doneLoading}
-                issuesData={visibleDoneIssues}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title="Completed"
-                slug={slug}
-                lightCard
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </div>
-          </div>
+            </PagePanel>
+          ))}
         </div>
       </div>
 

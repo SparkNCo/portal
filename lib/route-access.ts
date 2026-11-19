@@ -24,7 +24,10 @@ export type SlugAccess =
 // any role that can open the initiative.
 const PAGE_ROLES: Record<string, string[]> = {
   developer: ["developer"],
-  settings: ["admin", "customer", "stakeholder"],
+  // Staffing, Stakeholders and Billing are the client's primary contact's
+  // (and admins'): stakeholders view and approve, they don't manage the
+  // account.
+  settings: ["admin", "customer"],
   // The client-facing overview pages; developers work from their own
   // Developer page instead.
   dashboard: ["admin", "customer", "stakeholder"],

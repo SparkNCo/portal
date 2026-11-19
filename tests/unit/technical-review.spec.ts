@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   CONFIG,
   IDEA_QUESTIONS,
+  agentsMd,
   SCOPE,
   buildPlan,
   contextFromAnswers,
@@ -13,6 +14,7 @@ import {
   questionText,
   ruleBasedIdeaGaps,
   sanitizeAnswers,
+  scoreCompleted,
   scoreRun,
   technicalInvite,
   type Answers,
@@ -130,11 +132,23 @@ test.describe('question plan', () => {
     expect(plan.complianceAsked).toBe(true);
   });
 
-  test('module questions sit in the area they belong to', () => {
-    const mvp = planFor(base({ stage: 'mvp', scope_industry: 'healthcare' }));
-    expect(mvp.sections.find((s) => s.area === 'privacy')?.questions.map((q) => q.id)).toContain('hc_hipaa_scope');
-    const building = planFor(base({ scope_industry: 'healthcare' }));
-    expect(building.sections.find((s) => s.area === 'launch')?.questions.map((q) => q.id)).toContain('hc_hipaa_scope');
+  test('compliance questions (e.g. HIPAA) sit in the privacy area in every stage', () => {
+    // /assessment shows the privacy area inside its Data privacy module.
+    for (const stage of ['building', 'mvp', 'scaling']) {
+      const plan = planFor(base({ stage, scope_industry: 'healthcare', scope_region: ['us'] }));
+      const privacy = plan.sections.find((s) => s.area === 'privacy')?.questions.map((q) => q.id) ?? [];
+      expect(privacy).toContain('hc_hipaa_scope');
+      expect(privacy).toContain('hc_baa');
+      for (const s of plan.sections.filter((x) => x.area !== 'privacy')) {
+        expect(s.questions.map((q) => q.id)).not.toContain('hc_hipaa_scope');
+      }
+    }
+  });
+
+  test('without compliance questions, Building and Scaling get no privacy area', () => {
+    for (const stage of ['building', 'scaling']) {
+      expect(planFor(base({ stage })).sections.some((s) => s.area === 'privacy')).toBe(false);
+    }
   });
 
   test('AI can add a detectable module and the plan says why; it cannot add others', () => {
@@ -409,5 +423,89 @@ test.describe('idea product card', () => {
     expect(profile.rows.map((r) => r.id)).not.toContain('i1_needs');
     expect(profile.rows.find((r) => r.id === 'i3_plan')?.label).toBe('Rollout plan');
     expect(profile.rows.find((r) => r.id === 'i4_depends')?.value).toBe('Yes — Google Calendar');
+  });
+});
+
+test.describe('assessment checklist (/assessment)', () => {
+  test('the running score only counts finished sections', () => {
+    const answers = base({ stage: 'mvp' });
+    const plan = planFor(answers);
+    const first = plan.sections[0]!;
+    const second = plan.sections[1]!;
+    // First section all Yes, second all No (not finished yet).
+    const all: Answers = { ...answers };
+    for (const q of first.questions) all[q.id] = 'yes';
+    for (const q of second.questions) all[q.id] = 'no';
+    const ctx = contextFromAnswers(all);
+
+    const qids = (s: { questions: { id: string }[] }) => s.questions.map((q) => q.id);
+    const governance = ['t1_team', 't3_code_control', 't3_accounts_owned', 't3_takeover'];
+
+    const afterFirst = scoreCompleted(ctx, plan, all, qids(first));
+    expect(afterFirst.overall).toBe(100);
+    expect(afterFirst.areas.map((a) => a.area)).toEqual([first.area]);
+
+    const afterGovernance = scoreCompleted(ctx, plan, all, [...qids(first), ...governance]);
+    expect(afterGovernance.areas.map((a) => a.area).sort()).toEqual(['ownership', first.area].sort());
+
+    const afterAll = scoreCompleted(ctx, plan, all, [...qids(first), ...qids(second), ...governance]);
+    expect(afterAll.overall).toBeLessThan(100);
+    expect(afterAll.overall).toBe(scoreRun(ctx, plan, all).overall);
+  });
+
+  test('"Who controls your code?" is asked but not scored', () => {
+    const answers = base({ stage: 'mvp' });
+    const plan = planFor(answers);
+    const ctx = contextFromAnswers(answers);
+    const good = answerAll(answers, plan, 'yes', { t3_code_control: 'in_house' });
+    const bad = answerAll(answers, plan, 'yes', { t3_code_control: 'ai_platform_only' });
+    expect(scoreRun(ctx, plan, bad).overall).toBe(scoreRun(ctx, plan, good).overall);
+    // Still a critical flag: it's a real ownership risk.
+    expect(scoreRun(ctx, plan, bad).flags.map((f) => f.id)).toContain('ownership');
+  });
+
+  test('checklist modules hold the old intake questions', async () => {
+    const { questionnaire } = await import('../../supabase/functions/technical-review/engine');
+    const { checklist } = questionnaire();
+    const ids = (qs: { id: string }[]) => qs.map((x) => x.id);
+    expect(ids(checklist.intro.questions)).toEqual(['intro_email', 'intro_name', 'intro_company', 'intro_role', 'stage']);
+    expect(ids(checklist.productScope.questions.technical)).toEqual([
+      'about_company', 'about_product', 'about_audience', 'scope_industry', 'scope_users', 'scope_scale',
+      't2_ai_tools', 't2_hosting', 't2_stack', 't2_features',
+    ]);
+    expect(ids(checklist.productScope.questions.idea)).toEqual([
+      'about_company', 'about_product', 'about_audience', 'scope_industry', 'scope_users', 'scope_scale',
+    ]);
+    expect(ids(checklist.governance.questions)).toEqual(['t1_team', 't3_code_control', 't3_accounts_owned', 't3_takeover']);
+    expect(ids(checklist.dataPrivacy.questions)).toEqual(['scope_region', 'scope_children']);
+  });
+
+  test('AGENTS.md carries the context, the rules for its features and the gaps', () => {
+    const answers = base({
+      stage: 'mvp',
+      about_product: 'Clinics manage bookings.',
+      t2_features: ['payments'],
+      t2_stack: ['react_next', 'supabase'],
+    });
+    const plan = planFor(answers);
+    const all = answerAll(answers, plan, 'yes', { secrets_audit: 'no', backup_restore: 'unsure' });
+    const ctx = contextFromAnswers(all);
+    const md = agentsMd({ answers: all, ctx, plan });
+
+    expect(md.startsWith('# AGENTS.md')).toBe(true);
+    expect(md).toContain('**Product:** Clinics manage bookings.');
+    expect(md).toContain('React / Next.js, Supabase');
+    expect(md).toMatch(/idempotent/);
+    expect(md).toContain('## Known gaps');
+    expect(md).toContain('## Not verified yet');
+    expect(md).toBe(agentsMd({ answers: structuredClone(all), ctx, plan }));
+  });
+
+  test('Idea AGENTS.md lists the open questions instead of gaps', () => {
+    const answers: Answers = { stage: 'idea', about_product: 'A booking app', scope_industry: 'healthcare' };
+    const md = agentsMd({ answers, ideaGaps: ruleBasedIdeaGaps(answers) });
+    expect(md).toContain('## Before you build');
+    expect(md).not.toContain('## Known gaps');
+    expect(md).toMatch(/BAA/);
   });
 });

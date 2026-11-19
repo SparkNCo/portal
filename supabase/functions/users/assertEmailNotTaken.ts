@@ -8,14 +8,21 @@ import { escapeIlike } from "../utils/slug.ts";
 // must fail cleanly instead of what createUser.ts/createCustomerFlow.ts used
 // to do: silently reuse the existing Auth account and overwrite its `users`
 // row with whatever the new form submitted.
-export async function assertEmailNotTaken(schema: string, email: string): Promise<void> {
+//
+// Exception: a "lead" (someone who signed in on the marketing site's
+// /assessment) isn't a portal user yet. Creating a user with their email
+// promotes them: same Auth account and `users` row id, new role. Returns that
+// id so the caller reuses the account instead of inviting a new one.
+export async function assertEmailNotTaken(schema: string, email: string): Promise<{ leadUserId: string | null }> {
   const { data: existingRow, error } = await supabase
     .schema(schema)
     .from("users")
-    .select("id")
+    .select("id, role")
     .ilike("email", escapeIlike(email))
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (existingRow) throw new Error("A user with this email already exists");
+  if (!existingRow) return { leadUserId: null };
+  if (existingRow.role === "lead") return { leadUserId: existingRow.id };
+  throw new Error("A user with this email already exists");
 }

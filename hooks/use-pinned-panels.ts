@@ -3,7 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
+import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import { safeDecodeURIComponent } from "@/lib/utils";
 import { API_HEADERS } from "@/lib/api-headers";
 import { PINNABLE_PANELS, type PinnablePanelId } from "@/lib/pinnable-panels";
 
@@ -28,14 +30,26 @@ function normalizeSlug(value: string): string {
   return value.trim().toLowerCase().replaceAll(/[\s-]+/g, "-");
 }
 
+// Stakeholders see the customer's Dashboard (the same panels, order and
+// widths) but can't change it — no pinning, unpinning, reordering or
+// resizing. Viewing and approving is their part; the dashboard is the
+// customer's (and admins').
+export function useDashboardReadOnly(): boolean {
+  const { profile } = useUser();
+  return profile?.role === "stakeholder";
+}
+
 // Resolves whose pinned_panels row to read/write. When an admin/developer
 // is viewing a specific customer's dashboard (via the Dashboards flow),
 // that's the customer's own user record — `customerSlug` is the customer's
-// clientName, not a user id, so it has to be looked up. Otherwise it's just
-// the logged-in user's own dashboard.
+// clientName, not a user id, so it has to be looked up. A stakeholder reads
+// the customer of the initiative in the URL (from their own assignments;
+// read-only, see useDashboardReadOnly). Otherwise it's just the logged-in
+// user's own dashboard.
 export function usePinnedPanelsOwnerId(): string | undefined {
   const { profile } = useUser();
   const customerSlug = useCustomerSlug();
+  const { slug: rawUrlSlug } = useParams<{ slug?: string }>();
 
   const { data: customerLookup } = useQuery({
     queryKey: ["customers"],
@@ -49,6 +63,19 @@ export function usePinnedPanelsOwnerId(): string | undefined {
     },
     enabled: !!customerSlug,
   });
+
+  if (profile?.role === "stakeholder") {
+    // The assignment for this initiative (a stakeholder can have several);
+    // assignments.customer_id is the customer's user id.
+    const urlSlug = rawUrlSlug ? normalizeSlug(safeDecodeURIComponent(rawUrlSlug)) : null;
+    const assignments = profile.assignment_id ?? [];
+    const forThisInitiative = assignments.find(
+      (a) =>
+        !!urlSlug &&
+        [a.clientName, a.linear_slug].some((s) => !!s && normalizeSlug(s) === urlSlug),
+    );
+    return (forThisInitiative ?? assignments[0])?.customer_id;
+  }
 
   if (!customerSlug) return profile?.id;
 

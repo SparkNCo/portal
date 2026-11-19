@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { performLogin } from './helpers';
+import { loginAndExpectHome, performLogin } from './helpers';
 
 async function loginAsStakeholder(page: any) {
   const email    = process.env.TEST_HOLDER_EMAIL;
@@ -48,8 +48,8 @@ test.describe('Stakeholder — login', () => {
       test.skip(true, 'TEST_HOLDER_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/dashboard');
-    expect(page.url()).toContain('/dashboard');
+    await page.goto('/');
+    await loginAndExpectHome(page, 'TEST_HOLDER_EMAIL', 'stakeholder');
   });
 
 });
@@ -68,20 +68,22 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
   });
 
-  test('Client dashboard loads Business Review and Acceptance Testing cards', async ({ page }) => {
-    // The dashboard is now a per-user pinned-panel board (see
-    // lib/pinnable-panels.ts) rather than a fixed layout — what's pinned is
-    // persisted account state, so seed the defaults first to make this
-    // deterministic regardless of what this test account already has pinned.
-    const addDefaultsBtn = page.getByRole('button', { name: 'Add default panels' });
-    if (await addDefaultsBtn.isVisible().catch(() => false)) {
-      await addDefaultsBtn.click();
-    }
-    // Panel headings specifically — once seeded, "Business Review" and
-    // "Acceptance Testing" also appear as per-issue status badges inside the
-    // panels themselves, which would otherwise collide with a plain getByText.
-    await expect(page.getByRole('heading', { name: 'Business Review' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole('heading', { name: 'Acceptance Testing' })).toBeVisible({ timeout: 15_000 });
+  test("Client dashboard is the customer's, read-only", async ({ page }) => {
+    // Stakeholders see the customer's pinned panels (whatever the customer
+    // pinned) but can't change them: no seeding, reordering, resizing or
+    // unpinning.
+    await expect(page.getByText('Your Panels')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'Add default panels' })).toHaveCount(0);
+    await expect(page.locator('button[title="Drag to reorder"]')).toHaveCount(0);
+    await expect(page.locator('button[title="Unpin from Dashboard"]')).toHaveCount(0);
+    await expect(page.locator('button[title="Expand to full width"], button[title="Shrink to half width"]')).toHaveCount(0);
+  });
+
+  test('Build has no Pin to Dashboard buttons (the Dashboard is the customer\'s)', async ({ page }) => {
+    await page.getByRole('link', { name: 'Build' }).click();
+    await expect(page.getByRole('heading', { name: 'Build', level: 1 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Refinement').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[title="Pin to Dashboard"], button[title="Unpin from Dashboard"]')).toHaveCount(0);
   });
 
   // ── Sidebar navigation ─────────────────────────────────────────────────────
@@ -93,8 +95,9 @@ test.describe('Stakeholder — panels', () => {
     await expect(page.getByRole('link', { name: 'Documents' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Chat' })).toBeVisible();
 
-    // Settings is where the Stakeholders tab lives; Developer is developers-only.
-    await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible();
+    // Settings is the customer's and admins' (staffing, stakeholders,
+    // billing); Developer is developers-only.
+    await expect(page.getByRole('link', { name: 'Settings' })).not.toBeVisible();
     await expect(page.getByRole('link', { name: 'Developer' })).not.toBeVisible();
   });
 

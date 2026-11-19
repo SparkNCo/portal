@@ -29,9 +29,8 @@ async function uploadDocument({
   // The requester should own what they asked for, not the developer who
   // happened to upload it.
   ownerEmail?: string;
-  // Every developer assigned to the initiative — so fulfilling a request
-  // doesn't lock the rest of the team out of a document filed under their
-  // own project.
+  // Extra people to give access to. Not the initiative: new documents are
+  // initiative_wide, so everyone on it sees them (storage/access.ts).
   sharedWithEmails?: string[];
 }) {
   const formData = new FormData();
@@ -111,32 +110,6 @@ export function FulfillDocumentRequestModal({
   );
   const resolvedProjectSlug = matchedCustomer?.linear_slug ?? request.customer_slug;
 
-  // Every other stakeholder on this initiative (besides whoever specifically
-  // made this request, who already gets ownership below) — developers are
-  // deliberately left out, they already have their own access as team
-  // members. See uploadDocument's sharedWithEmails / upload-document.tsx's
-  // matching logic for the "Upload Document" panel's own version of this.
-  const { data: assignments } = useQuery({
-    queryKey: ["assignments", matchedCustomer?.id],
-    queryFn: async () => {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/assignments?customer_id=${matchedCustomer!.id}`,
-        { headers: API_JSON_HEADERS },
-      );
-      if (!res.ok) throw new Error("Failed to fetch assignments");
-      return res.json() as Promise<{ role: string; email: string }[]>;
-    },
-    enabled: !!matchedCustomer?.id,
-  });
-
-  const clientSideEmails = Array.from(
-    new Set(
-      [
-        ...(assignments ?? []).filter((a) => a.role === "stakeholder").map((a) => a.email),
-        matchedCustomer?.email,
-      ].filter((e): e is string => !!e),
-    ),
-  );
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -145,8 +118,9 @@ export function FulfillDocumentRequestModal({
         file,
         email: profile?.email ?? "",
         projectSlug: resolvedProjectSlug,
+        // The requester gets access; the initiative already does (new
+        // documents are initiative_wide, storage/access.ts).
         ownerEmail: request.requested_by,
-        sharedWithEmails: clientSideEmails,
       });
       await markRequestDone({ id: request.id, completedBy: profile?.email });
     },

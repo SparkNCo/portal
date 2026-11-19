@@ -239,7 +239,9 @@ export type FilterState = {
   onDateToChange?: (date: string) => void;
 };
 
-export type IssueViewMode = "grid" | "board" | "list";
+// "row": one line of cards that scrolls sideways (the Build page's panels,
+// like Suggested Features); "View all" opens it into the grid.
+export type IssueViewMode = "grid" | "board" | "list" | "row";
 
 export type IssueDetailTab =
   | "description"
@@ -298,4 +300,8 @@ export type PriorityTasksProps = {
   emptyState?: ReactNode;
   /** The tickets are still being fetched: show placeholders, not "no issues". */
   loading?: boolean;
+  /** How many buttons the page puts in the card's top-right corner (pin,
+   * expand, drag…): the header leaves room for them, level with the title.
+   * E.g. PagePanel's toolbar="inside", the Dashboard's pinned panels. */
+  reserveTopRight?: 1 | 2 | 3;
 };

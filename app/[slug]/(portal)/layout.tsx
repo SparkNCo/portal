@@ -38,6 +38,18 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
 
   useEffect(() => {
     if (!redirectTo) return;
+    // A ticket link (/{slug}/monitor?ticket=…, see issueShareUrl) opened by
+    // someone without that page — a developer: their page opens the same
+    // ticket, so the link's params come along and it isn't an error.
+    const linkParams = new URLSearchParams(window.location.search);
+    const ticket = linkParams.get("ticket") ?? linkParams.get("issueId");
+    if (redirectReason === "page" && ticket) {
+      const carried = new URLSearchParams({ [linkParams.has("ticket") ? "ticket" : "issueId"]: ticket });
+      const tab = linkParams.get("tab");
+      if (tab) carried.set("tab", tab);
+      router.replace(`${redirectTo}?${carried.toString()}`);
+      return;
+    }
     if (redirectReason === "page") {
       toast.error("That page isn't available for your role", {
         id: "slug-access-denied",
@@ -73,8 +85,9 @@ function LayoutContent({ children }: { readonly children: React.ReactNode }) {
   // An admin browsing a customer's routes (e.g. /lualink/...) needs a
   // CustomerSlugProvider with that customer's slug — without it, hooks
   // like usePinnedPanelsOwnerId() would fall back to the admin's own id
-  // instead of the customer being viewed. Every other role already resolves
-  // correctly from their own `[slug]`, so this is admin-only.
+  // instead of the customer being viewed. Customers are their own owner, and
+  // stakeholders resolve the customer from their assignment for the `[slug]`
+  // (in usePinnedPanelsOwnerId itself), so this is admin-only.
   return profile?.role === "admin" ? (
     <CustomerSlugProvider value={urlSlug}>{content}</CustomerSlugProvider>
   ) : (

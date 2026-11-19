@@ -20,6 +20,7 @@ import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, 
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
+import { matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { TaskFilterPanel, ActiveFilterChips, hasFilterOptions } from "./task-filter-panel";
 
 function canEditIssue(issue: Issue) {
@@ -89,6 +90,11 @@ type IssueItemProps = {
 };
 
 const SCROLL_LIMIT = "max-h-[600px] overflow-y-auto";
+
+// Spelled out so Tailwind sees the class names.
+// Corner buttons are 28px wide, 6px apart, 12px from the card's edge; this
+// leaves ~12px between them and the header's own content.
+const CORNER_ROOM: Record<1 | 2 | 3, string> = { 1: "pr-14", 2: "pr-24", 3: "pr-32" };
 
 function IssueRows({ issues, className, ...item }: IssueItemProps & { readonly issues: Issue[]; readonly className: string }) {
   return (
@@ -199,8 +205,28 @@ function GridView({
   );
 }
 
+// One line of cards scrolling sideways, same card style and width as the
+// Build page's Suggested Features row.
+function RowView({ issues, ...item }: IssueItemProps & { readonly issues: Issue[] }) {
+  return (
+    <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
+      {issues.map((issue) => (
+        <div key={issue.id} className="w-80 shrink-0">
+          <IssueCard
+            issue={issue}
+            onOpen={() => item.onOpen(issue)}
+            hasUpdate={item.hasUpdate(issue)}
+            lightCard={item.lightCard}
+            showProject={item.showProject}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The full card's body: skeletons, the empty state, or the tickets in the
-// chosen view (board, list or grid).
+// chosen view (board, list, grid or a sideways row).
 function IssueViews({
   loading,
   issues,
@@ -227,6 +253,10 @@ function IssueViews({
   }
   if (viewMode === "board") {
     return <BoardView issues={issues} selectedStatuses={selectedStatuses} expanded={expanded} {...item} />;
+  }
+  // "View all" on a row shows every ticket at once, in the grid.
+  if (viewMode === "row" && !expanded) {
+    return <RowView issues={issues} {...item} />;
   }
   if (viewMode === "list") {
     return (
@@ -260,7 +290,10 @@ export function PriorityTasks({
   onViewModeChange,
   emptyState,
   loading = false,
+  reserveTopRight,
 }: PriorityTasksProps) {
+  // Room right of the header for the corner buttons (see CORNER_ROOM).
+  const cornerRoom = reserveTopRight ? CORNER_ROOM[reserveTopRight] : "";
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -274,7 +307,7 @@ export function PriorityTasks({
   // the fetch is still in flight).
   useEffect(() => {
     if (!openIssueId) return;
-    const match = issuesData.find((i) => i.id === openIssueId);
+    const match = issuesData.find((i) => matchesIssueRef(i, openIssueId));
     if (match) setSelectedIssue(match);
   }, [openIssueId, issuesData]);
 
@@ -319,7 +352,7 @@ export function PriorityTasks({
       issue={selectedIssue}
       slug={slug ?? (selectedIssue as any)._project}
       onClose={() => {
-        if (selectedIssue.id === openIssueId) onDeepLinkClose?.();
+        if (matchesIssueRef(selectedIssue, openIssueId ?? null)) onDeepLinkClose?.();
         setSelectedIssue(null);
       }}
       onEdit={
@@ -327,13 +360,15 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={selectedIssue.id === openIssueId ? (openIssueTab ?? initialModalTab) : initialModalTab}
+      initialTab={matchesIssueRef(selectedIssue, openIssueId ?? null) ? (openIssueTab ?? initialModalTab) : initialModalTab}
     />
   );
   if (compact) {
     return (
       <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full ">
-        <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 pr-10">
+        <CardHeader
+          className={`flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 ${cornerRoom || "pr-10"}`}
+        >
           <CardTitle className="body font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
             {title}
@@ -358,7 +393,8 @@ export function PriorityTasks({
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
       <CardHeader className="flex flex-col gap-2 flex-shrink-0 pt-[14px] pb-3">
-        <CardTitle className="body font-semibold flex items-center gap-2">
+        {/* With corner buttons, as tall as they are so the two line up. */}
+        <CardTitle className={`body font-semibold flex items-center gap-2 ${cornerRoom ? `min-h-7 ${cornerRoom}` : ""}`}>
           <AlertTriangle className="h-4 w-4 text-warning" />
           {title}
         </CardTitle>

@@ -9,7 +9,7 @@
 
 Settings is accessible to `customer` users via their sidebar. Admins also see it when viewing a specific customer's panel through the Dashboards view.
 
-Developers and stakeholders do **not** have Settings in their sidebar nav.
+Developers and stakeholders do **not** have Settings in their sidebar nav, and opening `/{slug}/settings` sends them to their home page with "That page isn't available for your role" (`PAGE_ROLES` in `lib/route-access.ts`). Staffing, stakeholders and billing are the client's primary contact's to manage: a stakeholder views the portal and approves things, but doesn't manage the account.
 
 ---
 
@@ -29,11 +29,12 @@ This means the admin sees the same billing and staffing data the customer would 
 
 ## Tab structure
 
-The settings page has two tabs:
+The settings page has three tabs:
 
 | Tab | Content |
 |---|---|
 | **Staffing** *(default)* | The team assigned to this customer |
+| **Stakeholders** | The customer's stakeholders; customers and admins can add one (`AddStakeholderModal`) |
 | **Billing** | Stripe subscription, invoices, and payment method |
 
 > Note: the code contains a hidden `"documents"` tab case (`activeTab === "documents"`) but there is no tab button for it, making it unreachable in the current UI.

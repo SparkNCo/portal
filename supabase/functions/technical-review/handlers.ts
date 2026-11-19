@@ -5,11 +5,13 @@
 // marketing-site/docs/TECHNICAL_REVIEW_FLOW.md
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 import { supabase } from "../client.ts";
+import { escapeIlike } from "../utils/slug.ts";
 import { sendEmail } from "../lib/mailer.ts";
 import {
   INTRO,
   NEXT_STAGE,
   OFFER_COPY,
+  agentsMd,
   buildPlan,
   questionnaire,
   contextFromAnswers,
@@ -18,12 +20,13 @@ import {
   ideaPlayback,
   ideaProfile,
   sanitizeAnswers,
+  scoreCompleted,
   scoreRun,
   technicalInvite,
   type Answers,
 } from "./engine/index.ts";
 import { detectModules, enrichIdea, ideaGaps, prefillScope } from "./ai.ts";
-import { ideaReportEmail, technicalReportEmail } from "./report.ts";
+import { ideaReportEmail, passcodeEmail, technicalReportEmail } from "./report.ts";
 
 const BOOKING_URL = Deno.env.get("TECHNICAL_REVIEW_BOOKING_URL") ?? "https://cal.com/kabir-malkani-glnivq/consult";
 // Report emails per run (the first send plus a couple of "Edit email" fixes).
@@ -121,6 +124,32 @@ export async function handleStart(req: Request) {
   return json({ reviewId: data.id }, 201);
 }
 
+// ── POST /intro ─────────────────────────────────────────────────────────────
+// The first page again, for a run that already exists (they edited their
+// details): updates the lead, so the report and the sign-in passcode go to
+// the email on screen.
+const IntroSchema = StartSchema.extend({ reviewId: z.string().uuid() });
+
+export async function handleIntro(req: Request) {
+  const parsed = IntroSchema.safeParse(await readBody(req));
+  if (!parsed.success) return json({ error: "Invalid intro", details: parsed.error.flatten() }, 400);
+  const { reviewId, email, name, company, role } = parsed.data;
+  const review = await loadReview(reviewId);
+  if (!review) return bad("Review not found", 404);
+
+  const { error: leadError } = await db()
+    .from("leads")
+    .update({ email, first_name: name, company: company || null })
+    .eq("lead_id", review.lead_id);
+  if (leadError) throw leadError;
+  const { error } = await db()
+    .from("technical_reviews")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("id", review.id);
+  if (error) throw error;
+  return json({ ok: true });
+}
+
 // ── POST /progress ──────────────────────────────────────────────────────────
 export async function handleProgress(req: Request) {
   const body = await readBody(req);
@@ -190,6 +219,7 @@ async function buildResults(review, answers: Answers) {
       playback: ideaPlayback(answers), // plain list, for the email
       profile: ideaProfile(answers), // product card, for the page
       gaps,
+      agentsMd: agentsMd({ answers, ideaGaps: gaps }),
       offer: { primary: "free_consult", secondary: [] },
       offers: describeOffer({ primary: "free_consult", secondary: [] }),
       invite: ideaInvite(answers),
@@ -203,6 +233,7 @@ async function buildResults(review, answers: Answers) {
   return {
     stage: ctx.stage,
     result,
+    agentsMd: agentsMd({ answers, ctx, plan }),
     findings: findingsFor(ctx, plan, answers),
     nextStage: NEXT_STAGE[ctx.stage],
     overflow: plan.overflow,
@@ -317,4 +348,168 @@ export async function handleBook(req: Request) {
   if (error) throw error;
 
   return json({ ok: true });
+}
+
+// ── POST /score ─────────────────────────────────────────────────────────────
+// /assessment's running score, after each checklist module is finished:
+// only the questions of the finished modules (`completed`, question IDs).
+const ScoreSchema = z.object({
+  reviewId: z.string().uuid(),
+  answers: z.record(z.unknown()).optional(),
+  completed: z.array(z.string().max(60)).max(400),
+});
+
+export async function handleScore(req: Request) {
+  const parsed = ScoreSchema.safeParse(await readBody(req));
+  if (!parsed.success) return bad("Invalid score request");
+  const review = await loadReview(parsed.data.reviewId);
+  if (!review) return bad("Review not found", 404);
+  const answers = await saveAnswers(review, parsed.data.answers ?? {});
+  if (!TECH_STAGES.includes(answers.stage as string)) return bad("The score is only for Building, MVP and Scaling");
+
+  const ctx = contextFromAnswers(answers, storedAiModules(review));
+  const result = scoreCompleted(ctx, buildPlan(ctx), answers, parsed.data.completed);
+  return json({ overall: result.overall, areas: result.areas });
+}
+
+// ── POST /sign-in ───────────────────────────────────────────────────────────
+// "Sign in to save progress": emails a temporary passcode. The page checks it
+// with Supabase Auth (verifyOtp) and then sets the password they chose
+// (updateUser), so it's a real Auth account with a password. It's a portal
+// user with role "lead" (the portal's login turns that role away). Any email
+// can ask for one, with or without an assessment started.
+// Emails that already belong to a portal user (customer, developer…) get no
+// passcode: it would let this page change their portal password. They sign
+// in with the password they have.
+const SignInSchema = z.object({ email: z.string().trim().toLowerCase().email().max(254) });
+
+// The newest assessment lead for this email, if any.
+async function findLeadByEmail(email: string) {
+  const { data, error } = await db()
+    .from("leads")
+    .select("lead_id, email, first_name")
+    .ilike("email", escapeIlike(email))
+    .eq("discovery_state", "technical_review")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+async function portalUserByEmail(email: string) {
+  const { data, error } = await supabase
+    .schema("portal")
+    .from("users")
+    .select("id, role")
+    .ilike("email", escapeIlike(email))
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
+
+// Makes sure there's an Auth account for this email.
+async function ensureAuthUser(email: string) {
+  const { error: createError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
+  if (createError && !/already (been )?registered|already exists/i.test(createError.message)) {
+    throw new Error(`Auth user failed: ${createError.message}`);
+  }
+}
+
+export async function handleSignIn(req: Request) {
+  const parsed = SignInSchema.safeParse(await readBody(req));
+  if (!parsed.success) return bad("Enter a valid email");
+  const { email } = parsed.data;
+
+  const portalUser = await portalUserByEmail(email);
+  if (portalUser && portalUser.role !== "lead") {
+    return json({ error: "This email already has a Spark account. Sign in with its password.", code: "has_account" }, 409);
+  }
+
+  // Works before the first page too (it can be the first thing they do):
+  // the lead, if any, only gives the name for the greeting.
+  const lead = await findLeadByEmail(email);
+  const firstName = lead?.first_name || null;
+
+  await ensureAuthUser(email);
+  // A magic-link token, but only its 6-digit code is emailed (no link).
+  const { data, error } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
+  if (error) throw new Error(`Passcode failed: ${error.message}`);
+  const code = data.properties?.email_otp;
+  if (!code) throw new Error("Passcode failed: no code returned");
+
+  if (!portalUser) {
+    const { error: insertError } = await supabase
+      .schema("portal")
+      .from("users")
+      .insert({ id: data.user.id, email, role: "lead", firstName });
+    if (insertError) throw insertError;
+  }
+
+  const mail = passcodeEmail({ name: firstName, code });
+  const { error: sendError } = await sendEmail({ to: email, subject: mail.subject, html: mail.html });
+  if (sendError) {
+    console.error("[technical-review] passcode email failed:", sendError);
+    return bad("We couldn't send the email. Please try again.", 502);
+  }
+  return json({ ok: true });
+}
+
+// ── POST /resume ────────────────────────────────────────────────────────────
+// Signed in (Authorization: Bearer <user access token>): their newest
+// assessment, so they can continue on another device.
+export async function handleResume(req: Request) {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: auth, error: authError } = await supabase.auth.getUser(token);
+  const email = auth?.user?.email?.toLowerCase();
+  if (authError || !email) return bad("Sign in first", 401);
+
+  const { data: leads, error: leadsError } = await db()
+    .from("leads")
+    .select("lead_id, email, first_name, company")
+    .ilike("email", escapeIlike(email))
+    .eq("discovery_state", "technical_review");
+  if (leadsError) throw leadsError;
+  if (!leads?.length) return json({ review: null });
+
+  const { data: reviews, error } = await db()
+    .from("technical_reviews")
+    .select("*")
+    .in(
+      "lead_id",
+      leads.map((l) => l.lead_id),
+    )
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) throw error;
+  const review = reviews?.[0];
+  if (!review) return json({ review: null });
+
+  const answers: Answers = review.answers ?? {};
+  let plan = null;
+  if (TECH_STAGES.includes(answers.stage as string) && review.modules) {
+    try {
+      plan = buildPlan(contextFromAnswers(answers, storedAiModules(review)));
+    } catch {
+      plan = null; // intake not finished: the page asks for the plan again
+    }
+  }
+  // The intro page's answers are stored on the lead (and the role on the
+  // run), not in `answers`.
+  const lead = leads.find((l) => l.lead_id === review.lead_id);
+  const intro = {
+    intro_email: lead?.email ?? email,
+    ...(lead?.first_name && { intro_name: lead.first_name }),
+    ...(lead?.company && { intro_company: lead.company }),
+    ...(review.role && { intro_role: review.role }),
+  };
+  return json({
+    review: {
+      reviewId: review.id,
+      answers,
+      plan,
+      updatedAt: review.updated_at ?? review.created_at,
+      completed: !!review.completed_at,
+    },
+    intro,
+  });
 }

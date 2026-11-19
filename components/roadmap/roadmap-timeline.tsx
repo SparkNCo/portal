@@ -91,6 +91,9 @@ type RoadmapTimelineProps = {
   // useRoadmapData), so each divider has its own "Load more".
   completedPaging?: ProjectGroupPaging;
   upcomingPaging?: ProjectGroupPaging;
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  headerClassName?: string;
 };
 
 function LoadMoreProjectsButton({
@@ -185,6 +188,7 @@ export function RoadmapTimeline({
   onLoadMoreProjects,
   completedPaging,
   upcomingPaging,
+  headerClassName,
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
@@ -557,6 +561,7 @@ export function RoadmapTimeline({
           }
           canGoBack={canGoBack}
           canGoForward={canGoForward}
+          className={headerClassName}
         />
 
         <CardContent className="overflow-x-auto px-2 sm:px-6">

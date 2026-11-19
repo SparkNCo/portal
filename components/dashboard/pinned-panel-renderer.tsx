@@ -22,6 +22,19 @@ const noopFilterState = {
   onClearFilters: () => {},
 };
 
+// Ticket panels: on the Dashboard their drag / width / unpin buttons sit
+// inside the panel's corner, level with its title, instead of on a strip
+// above it (see SortablePinnedPanel's toolbarInside). Charts and the other
+// panels keep the strip, since they have controls of their own up there.
+export const TICKET_PANEL_IDS = new Set<PinnablePanelId>([
+  "build_product_decisions",
+  "build_acceptance_testing",
+  "build_recently_created",
+  "build_backlog",
+  "build_done",
+  "bugs_list",
+]);
+
 const PRIORITY_RANK: Record<string, number> = {
   Urgent: 4,
   High: 3,
@@ -74,6 +87,7 @@ export function PinnedPanelRenderer({
   onEditIssue,
   hidePinButton,
   issuesLoading = false,
+  readOnly = false,
 }: Readonly<{
   panelId: PinnablePanelId;
   slug: string;
@@ -84,6 +98,9 @@ export function PinnedPanelRenderer({
   onOpenChat?: (title: string) => void;
   onEditIssue?: (issue: any) => void;
   hidePinButton?: boolean;
+  /** Stakeholder's view of the customer's Dashboard: no corner buttons, so
+   * no room kept for them. */
+  readOnly?: boolean;
 }>) {
   const matchesSelectedProject = (i: any) =>
     !selectedProjectIds ||
@@ -110,7 +127,7 @@ export function PinnedPanelRenderer({
   if (panelId === "metrics_panel") {
     return (
       <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
-        <MetricsPanel slug={slug} edgeToEdge />
+        <MetricsPanel slug={slug} edgeToEdge layoutPage="dashboard" />
       </PinnedPanelShell>
     );
   }
@@ -141,6 +158,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -165,11 +183,40 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
   }
 
+  if (panelId === "build_recently_created") {
+    // Newest first, any status except finished ones (Done, Approved).
+    const issues = allIssues
+      .filter((i) => !isClosedIssue(i) && matchesSelectedProject(i))
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime(),
+      );
+    return (
+      <PinnedPanelShell panelId={panelId} hidePinButton={hidePinButton}>
+        <PriorityTasks
+          loading={issuesLoading}
+          issuesData={issues}
+          filterState={noopFilterState}
+          onOpenChat={onOpenChat ?? (() => {})}
+          onEditIssue={onEditIssue}
+          title="Recently Created"
+          slug={slug}
+          compact
+          lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
+        />
+      </PinnedPanelShell>
+    );
+  }
+
+  // "Refinement": Backlog tickets, last updated first (id kept from when it
+  // was called Backlog).
   if (panelId === "build_backlog") {
     const issues = allIssues
       .filter((i) => i.state?.name === "Backlog" && matchesSelectedProject(i))
@@ -185,10 +232,11 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Backlog"
+          title="Refinement"
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -196,7 +244,8 @@ export function PinnedPanelRenderer({
 
   if (panelId === "build_done") {
     const issues = allIssues
-      .filter((i) => i.state?.name === "Done" && matchesSelectedProject(i))
+      // Approved in UAT or Done: the "Approved" panel shows both.
+      .filter((i) => isClosedIssue(i) && matchesSelectedProject(i))
       .sort(
         (a, b) =>
           new Date(b.completedAt ?? b.updatedAt ?? 0).getTime() -
@@ -210,10 +259,11 @@ export function PinnedPanelRenderer({
           filterState={noopFilterState}
           onOpenChat={onOpenChat ?? (() => {})}
           onEditIssue={onEditIssue}
-          title="Completed"
+          title="Approved"
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );
@@ -257,6 +307,7 @@ export function PinnedPanelRenderer({
           slug={slug}
           compact
           lightCard
+          reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
       </PinnedPanelShell>
     );

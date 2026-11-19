@@ -6,7 +6,7 @@ import { sendInviteCustomerMail } from "./sendInviteCustomerMail.ts";
 // Admin action: resend the setup/validation email for an existing user.
 // Read-only on customers/users, so it can't create duplicate records.
 export const resendAccountEmail = async (body: any, schema: string) => {
-  const { id, emailType, testRedirectOrigin } = body;
+  const { id, emailType } = body;
 
   if (!id) throw new Error("User id is required");
 
@@ -40,17 +40,7 @@ export const resendAccountEmail = async (body: any, schema: string) => {
   console.log("[resendAccountEmail] resolving auth user", { id });
 
   // Never trust a client-supplied redirect origin (open redirect / token leak).
-  //
-  // TEMPORARY TEST-ONLY OVERRIDE — remove after local invite-link testing:
-  // allows a localhost/127.0.0.1 redirect (only those) for testing against a dev server.
-  const isLocalTestOrigin =
-    typeof testRedirectOrigin === "string" &&
-    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(testRedirectOrigin);
-
-  const redirectOrigin = isLocalTestOrigin
-    ? testRedirectOrigin
-    : Deno.env.get("APP_URL") ?? "http://localhost:3000";
-  const redirectTo = `${redirectOrigin}/set-password`;
+  const redirectTo = `${Deno.env.get("APP_URL") ?? "https://app.buildwithspark.co"}/set-password`;
 
   let inviteLink: string;
   try {

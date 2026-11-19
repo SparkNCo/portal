@@ -6,13 +6,15 @@ import { Label } from "@/components/ui/label";
 import { ProjectSelect } from "@/components/shared/project-select";
 import { MilestoneSelect } from "@/components/shared/milestone-select";
 import { PrioritySelect } from "@/components/shared/priority-select";
-import { SimilarIssuesHint } from "@/components/shared/similar-issues-hint";
+import { SimilarIssuesHint, plainSearchText } from "@/components/shared/similar-issues-hint";
 
 // Title is always visible; the Continue button sits next to it (same row on
 // desktop, stacked on mobile) until details are revealed, then disappears.
-// When `slug` is provided, a "similar issue" hint is shown below the title as the
-// user types, backed by the issues vector search (pgvector) — shared by both the
-// Feature Request and Bug Report panels since they both render this component.
+// When `slug` is provided, a "similar issue" hint is shown above the title,
+// backed by the issues vector search (pgvector). It keeps searching as they
+// write the title and, after Continue, the description (`searchText`) —
+// shared by both the Feature Request and Bug Report panels since they both
+// render this component.
 export function TitleContinueRow({
   title,
   onTitleChange,
@@ -20,6 +22,7 @@ export function TitleContinueRow({
   onContinue,
   slug,
   kind,
+  searchText = "",
 }: {
   title: string;
   onTitleChange: (value: string) => void;
@@ -29,9 +32,12 @@ export function TitleContinueRow({
   // Which panel this is — scopes the similar-issues hint to just bugs or just
   // features. See SimilarIssuesHint's own `kind` prop.
   kind: "bug" | "feature";
+  // The rest of the form's text (description, steps…), searched with the title.
+  searchText?: string;
 }) {
   return (
     <div className="space-y-2">
+      {slug && <SimilarIssuesHint slug={slug} query={plainSearchText(title, searchText)} kind={kind} />}
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div className="flex-1 space-y-1.5">
           <Label htmlFor="issue-title" className="smalltext">Title</Label>
@@ -57,13 +63,6 @@ export function TitleContinueRow({
           </Button>
         )}
       </div>
-      {/* Unmounted (not just hidden) once Continue is clicked — otherwise a
-          debounced search already in flight would still land and pop the
-          hint up after the user has moved on, whether it was showing
-          already or hadn't resolved yet. */}
-      {slug && !detailsRevealed && (
-        <SimilarIssuesHint slug={slug} query={title} kind={kind} />
-      )}
     </div>
   );
 }

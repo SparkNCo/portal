@@ -80,10 +80,14 @@ export function CycleBarChart({
   data,
   activeCycleNumber,
   onCycleClick,
+  headerClassName,
 }: {
   readonly data: CycleMetric[];
   readonly activeCycleNumber?: string;
   readonly onCycleClick?: (cycleNumber: string) => void;
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  readonly headerClassName?: string;
 }) {
   // With "All Projects" selected, every project has its own row for "Cycle
   // 13" — merge same-numbered cycles into a single bar (Scope/Completed
@@ -124,7 +128,7 @@ export function CycleBarChart({
 
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
-      <CardHeader>
+      <CardHeader className={headerClassName}>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <RefreshCw className="h-4 w-4 text-primary" />
           Cycle Scope vs Completed

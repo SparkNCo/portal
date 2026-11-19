@@ -41,7 +41,15 @@ function CustomTooltip({ active, payload }: TooltipProps) {
   );
 }
 
-export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
+export function ProgressPieChart({
+  issuesData,
+  headerClassName,
+}: {
+  issuesData: Issue[];
+  // Extra classes for the card header (e.g. right padding, so buttons a
+  // page puts in the card's top-right corner don't cover anything).
+  headerClassName?: string;
+}) {
   // Self-contained project filter — no cycle/date filter here, just scopes
   // which project's issues feed the chart below.
   const [selectedProject, setSelectedProject] = useState(ALL_PROJECTS_VALUE);
@@ -96,7 +104,7 @@ export function ProgressPieChart({ issuesData }: { issuesData: Issue[] }) {
 
   return (
     <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl flex flex-col text-foreground">
-      <CardHeader>
+      <CardHeader className={headerClassName}>
         <CardTitle className="body font-semibold flex items-center justify-between gap-2">
           <span className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />

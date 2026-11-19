@@ -279,7 +279,6 @@ export default function AdminUsersPage() {
           body: JSON.stringify({
             id: user.id,
             emailType,
-            testRedirectOrigin: window.location.origin,
           }),
         },
       );

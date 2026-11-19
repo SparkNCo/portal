@@ -14,7 +14,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { useIssueDeepLink, useDeepLinkedIssueFallback } from "@/hooks/use-issue-deep-link";
+import { useIssueDeepLink, useDeepLinkedIssueFallback, matchesIssueRef } from "@/hooks/use-issue-deep-link";
 import { useUser } from "context/UserContext";
 import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
@@ -84,7 +84,7 @@ function BugsPageContent() {
   // directly by id (same lookup EditIssueModal's "similar issue" hint
   // already uses) and open it in its own modal instead of leaving the deep
   // link a no-op.
-  const foundInPanel = bugIssues.some((i: any) => i.id === openIssueId);
+  const foundInPanel = bugIssues.some((i: any) => matchesIssueRef(i, openIssueId));
   const fallbackIssue = useDeepLinkedIssueFallback({
     issueId: openIssueId,
     slug,
@@ -211,24 +211,27 @@ function BugsPageContent() {
           <BugReportPanel slug={slug} />
         </div>
 
+        {/* The pin sits inside the panel's corner, level with its title (no
+            strip above the panel), same as Build's panels. */}
         <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
-          <PinButton panelId="bugs_list" />
-          <div className="pt-12">
-            <PriorityTasks
-              loading={issuesLoading}
-              issuesData={visibleIssues}
-              filterState={filterState}
-                  onOpenChat={() => {}}
-                  onEditIssue={(issue) => setEditingIssue(issue)}
-                  title="Bugs"
-                  slug={slug}
-                  headerAction={projectFilterDropdown}
-                  lightCard
-                  openIssueId={openIssueId}
-                  openIssueTab={openIssueTab}
-                  onDeepLinkClose={clearDeepLink}
-            />
+          <div className="absolute top-2.5 right-3 z-10">
+            <PinButton panelId="bugs_list" inline />
           </div>
+          <PriorityTasks
+            loading={issuesLoading}
+            issuesData={visibleIssues}
+            filterState={filterState}
+            onOpenChat={() => {}}
+            onEditIssue={(issue) => setEditingIssue(issue)}
+            title="Bugs"
+            slug={slug}
+            headerAction={projectFilterDropdown}
+            lightCard
+            reserveTopRight={1}
+            openIssueId={openIssueId}
+            openIssueTab={openIssueTab}
+            onDeepLinkClose={clearDeepLink}
+          />
         </div>
       </div>
 

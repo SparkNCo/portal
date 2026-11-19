@@ -160,6 +160,7 @@ export function RichTextEditor({
   allowImages = true,
   resizable = false,
   onSubmitShortcut,
+  onDark = false,
 }: Readonly<{
   value: string;
   onChange: (markdown: string) => void;
@@ -174,6 +175,8 @@ export function RichTextEditor({
   resizable?: boolean;
   /** Called on Ctrl/Cmd+Enter (e.g. to submit the form). */
   onSubmitShortcut?: () => void;
+  /** On a dark background (the page's, not the light card): light text, bold and lists included. */
+  onDark?: boolean;
 }>) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const allowImagesRef = useRef(allowImages);
@@ -221,7 +224,7 @@ export function RichTextEditor({
         ...(id ? { id } : {}),
         ...(ariaLabel ? { "aria-label": ariaLabel } : {}),
         class:
-          "prose prose-sm !text-smalltext max-w-none text-card-foreground focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2",
+          `prose prose-sm !text-smalltext max-w-none ${onDark ? "prose-invert text-foreground" : "text-card-foreground"} focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-sm [&_h3]:font-semibold [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2`,
         style: `min-height: ${minHeight}`,
       },
       handlePaste: (view, event) => {

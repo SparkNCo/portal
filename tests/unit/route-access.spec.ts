@@ -111,6 +111,16 @@ test.describe('checkSlugAccess — which page', () => {
     }
   });
 
+  test('Settings is for customers and admins, not stakeholders', () => {
+    expect(checkSlugAccess(customer, 'acme', null, 'settings')).toEqual({ kind: 'allowed' });
+    expect(checkSlugAccess(admin, 'acme', null, 'settings')).toEqual({ kind: 'allowed' });
+    expect(checkSlugAccess(stakeholder, 'acme', null, 'settings')).toEqual({
+      kind: 'redirect',
+      to: '/acme/dashboard',
+      reason: 'page',
+    });
+  });
+
   test('Query is admins only', () => {
     expect(checkSlugAccess(admin, 'acme', null, 'query')).toEqual({ kind: 'allowed' });
     expect(checkSlugAccess(customer, 'acme', null, 'query')).toEqual({

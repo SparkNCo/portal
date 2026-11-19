@@ -13,12 +13,13 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   usePinnedPanels,
   usePinnedPanelsOwnerId,
+  useDashboardReadOnly,
   useReorderPinnedPanels,
   useAddPanels,
   useTogglePanelWidth,
   useUnpinPanel,
 } from "@/hooks/use-pinned-panels";
-import { PinnedPanelRenderer } from "@/components/dashboard/pinned-panel-renderer";
+import { PinnedPanelRenderer, TICKET_PANEL_IDS } from "@/components/dashboard/pinned-panel-renderer";
 import { SortablePinnedPanel } from "@/components/dashboard/sortable-pinned-panel";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { DEFAULT_PANEL_IDS, type PinnablePanelId } from "@/lib/pinnable-panels";
@@ -98,6 +99,8 @@ export default function ClientDashboard() {
   const allIssues: any[] = issuesData ?? [];
 
   const pinnedPanelsUserId = usePinnedPanelsOwnerId();
+  // Stakeholders see the customer's Dashboard as it is (see useDashboardReadOnly).
+  const dashboardReadOnly = useDashboardReadOnly();
   const { data: pinnedPanels } = usePinnedPanels(pinnedPanelsUserId);
   const reorderPinnedPanels = useReorderPinnedPanels(pinnedPanelsUserId);
   const addPanels = useAddPanels(pinnedPanelsUserId);
@@ -218,6 +221,8 @@ export default function ClientDashboard() {
                     key={pin.panel_id}
                     id={pin.panel_id}
                     fullWidth={pin.full_width}
+                    toolbarInside={TICKET_PANEL_IDS.has(pin.panel_id as PinnablePanelId)}
+                    readOnly={dashboardReadOnly}
                     onToggleWidth={() =>
                       togglePanelWidth.mutate({
                         panelId: pin.panel_id,
@@ -235,6 +240,7 @@ export default function ClientDashboard() {
                       onOpenChat={handleOpenChat}
                       onEditIssue={(issue) => setEditingIssue(issue)}
                       hidePinButton
+                      readOnly={dashboardReadOnly}
                     />
                   </SortablePinnedPanel>
                 ))}
@@ -244,10 +250,11 @@ export default function ClientDashboard() {
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/40 p-10 text-center">
             <p className="text-sm text-muted-foreground">
-              Pin your favorite panels from Monitor, Build, or Bugs to see
-              them here.
+              {dashboardReadOnly
+                ? "No panels on this dashboard yet. They're added by the project's owner."
+                : "Pin your favorite panels from Monitor, Build, or Bugs to see them here."}
             </p>
-            {missingDefaultPanels.length > 0 && (
+            {!dashboardReadOnly && missingDefaultPanels.length > 0 && (
               <Button
                 size="sm"
                 variant="outline"

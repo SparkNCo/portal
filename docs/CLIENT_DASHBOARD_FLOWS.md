@@ -9,6 +9,20 @@
 
 The client dashboard is the landing page for users with `role === "customer"` or `role === "stakeholder"` after login. Both roles see the same page and the same data.
 
+### Whose panels these are
+
+The pinned panels (which ones, their order and full width) are kept per **owner** in `portal.pinned_panels`, and an initiative's Dashboard belongs to its **customer** (`usePinnedPanelsOwnerId`, `hooks/use-pinned-panels.ts`):
+
+| Role | Whose panels | Can change them |
+|---|---|---|
+| `customer` | Their own | Yes: pin / unpin (from Monitor, Build, Bugs), reorder, full width, "Add default panels" |
+| `admin` (viewing the initiative) | The customer's (the layout passes the initiative's slug) | Yes, the same — changes show for the customer too, and the other way round |
+| `stakeholder` | The customer of the initiative in the URL (from their own assignment for it; a stakeholder can have several) | **No, read-only** (`useDashboardReadOnly`): no drag / width / unpin buttons, no "Add default panels", and no Pin to Dashboard buttons on Monitor, Build or Bugs. Viewing and approving is their part; the dashboard is the customer's |
+
+What is per user for everyone: the sidebar order (`user_layout.nav_order`) and the expand button of the panels on Build / Monitor (`user_layout.expanded_panels`, see "Expanding panels on other pages").
+
+> The stakeholder reads the customer's `pinned_panels` rows from the browser (as admins already do), so the table's RLS has to allow that read. Its policy isn't in this repo's migrations.
+
 The URL follows the pattern `/{clientName}/dashboard`, where `clientName` is the slug stored on the user's profile (e.g. `/acme/dashboard`).
 
 ---
@@ -24,14 +38,31 @@ Every page inside the portal (client, developer, admin, roadmap, etc.) shares th
 
 The sidebar renders a different set of links depending on the logged-in user's role:
 
-| Role | Navigation items |
+| Role | Navigation items (default order) |
 |---|---|
-| `customer` | Dashboard, Roadmap, Documents, Chat, Settings |
-| `stakeholder` | Dashboard, Roadmap, Documents, Chat |
-| `developer` | Developer, Chat, Documents |
-| `admin` | Users, Dashboards, Chat |
+| `customer` | Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings |
+| `stakeholder` | Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat (no Settings: staffing, stakeholders and billing are managed by the customer and admins) |
+| `developer` | Developer, Build, Bugs, Demos, Chat, Documents |
+| `admin` | The selected initiative's pages (the customer's, plus Query), then an **Admin** section with Users |
 
 The active link is highlighted based on the current URL path. On mobile, the sidebar closes automatically when a link is clicked.
+
+### Reordering the menu (SPA-581)
+
+Every user can put the menu items in their own order by **dragging** them: each item has a grip handle on its right (shown on hover on desktop, always shown in the mobile drawer). The keyboard works too: focus the handle, `Space` to pick it up, arrow keys to move, `Space` to drop. For admins, the initiative's pages can be reordered; the **Admin** section keeps its place.
+
+- The order is saved per user in **`portal.user_layout.nav_order`** (`20261112120000_user_layout.sql`): the items' keys (`dashboard`, `build`, …) in their order. `user_layout` is one row per user for their own screen layout (also the widened panels, see "Expanding panels on other pages" below). RLS lets each user read and write only their own row (`portal.current_portal_user_id()`, since `portal.users.id` isn't the auth user's id). It follows the user to any browser or device.
+- Applied by `orderNavItems` (`lib/user-layout.ts`): saved items first, in the saved order; any item the saved order doesn't list (a page added later, or never moved) keeps its default place after them; saved keys for pages the user doesn't have are ignored.
+- Saving is optimistic: the menu changes at once, and if saving fails it goes back to the previous order with a "Couldn't save the menu order" toast (`hooks/use-user-layout.ts`).
+- Built with `@dnd-kit` (`SortableNavList` / `SortableNavItem` in `components/sidebar.tsx`), the same library as the Dashboard's panels. Only the handle starts a drag (after 5 px of movement), so clicking an item still just opens it.
+
+### Expanding panels on other pages
+
+The Dashboard's panels have an expand button (full width ↔ half), saved in `pinned_panels.full_width`. The two-column panels on **Build** (Business Reviews, Acceptance Testing, Backlog, Approved) and **Monitor** (Project Stats, SDLC Metrics) have the same button, next to their pin, through `PagePanel` (`components/dashboard/page-panel.tsx`). So do the two charts inside **Metrics** (Cycle Scope vs Completed, Issues by Status), on Monitor and when Metrics is pinned to the Dashboard; they can't be pinned on their own, so they have no pin, and their grid only goes two-column from `lg`, so the button shows from there. Panels that already take the full width (the Bugs list, the Roadmap, Metrics itself) don't need it.
+
+- Saved per user and **per page** in `portal.user_layout.expanded_panels` as `page:panel` (e.g. `build:build_backlog`), so widening a panel on Build doesn't change it on the Dashboard, and developers (who can't pin) get it too.
+- Like on the Dashboard, the button only shows from the `md` breakpoint up, where the grid has two columns.
+- Optimistic like the menu order; a failed save goes back with a "Couldn't save the panel size" toast.
 
 The bottom of the sidebar always shows the user's email, their role, and a **Logout** button that calls `supabase.auth.signOut()` and redirects to `/`.
 
@@ -217,7 +248,9 @@ User lands on /{slug}/dashboard
 |---|---|
 | `app/[slug]/(portal)/dashboard/page.tsx` | Main client dashboard page |
 | `app/[slug]/(portal)/layout.tsx` | Shared layout — AuthGate, Sidebar, ConsentProvider |
-| `components/sidebar.tsx` | Sidebar with role-based navigation and logout |
+| `components/sidebar.tsx` | Sidebar with role-based navigation, drag-to-reorder items (SPA-581), and logout |
+| `lib/user-layout.ts` / `hooks/use-user-layout.ts` | Each user's screen layout (`portal.user_layout`): menu order and widened panels — how they're applied, and reading/saving them |
+| `components/dashboard/page-panel.tsx` | `PagePanel`: a Build / Monitor panel with the expand button and the pin |
 | `components/headerDashboard.tsx` | Sticky top header with title, subtitle, and mobile menu toggle |
 | `components/client/progress-pie-chart.tsx` | Project Stats donut chart |
 | `components/roadmap/software-kpis.tsx` | SDLC Metrics card |

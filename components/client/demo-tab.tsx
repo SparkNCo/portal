@@ -8,6 +8,8 @@ import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DemoDescription } from "./demo-description";
 import {
   Select,
   SelectContent,
@@ -64,6 +66,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   // of Upload Media firing the file picker immediately like it used to.
   const [createMode, setCreateMode] = useState<"upload" | "embed" | null>(null);
   const [newDemoTitle, setNewDemoTitle] = useState("");
+  const [newDemoDescription, setNewDemoDescription] = useState("");
   const [newDemoFile, setNewDemoFile] = useState<File | null>(null);
   const [addEmbedUrl, setAddEmbedUrl] = useState("");
   const [showReplaceEmbedForm, setShowReplaceEmbedForm] = useState(false);
@@ -72,6 +75,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   function resetCreateForm() {
     setCreateMode(null);
     setNewDemoTitle("");
+    setNewDemoDescription("");
     setNewDemoFile(null);
     setAddEmbedUrl("");
   }
@@ -111,7 +115,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
    * Upload a completely new version. v1 -> v2 -> v3 -> ...
    */
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, title }: { file: File; title: string }) => {
+    mutationFn: async ({ file, title, description }: { file: File; title: string; description: string }) => {
       if (!profile?.email) {
         throw new Error("Could not identify the current user");
       }
@@ -121,6 +125,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
       formData.append("issue_id", issue.id);
       formData.append("email", profile.email);
       formData.append("title", title);
+      if (description) formData.append("description", description);
       if (slug) formData.append("slug", slug);
       formData.append("issue_code", getIssueCode(issue.branchName));
       const issueKind = deriveIssueKind(issue.labels?.nodes);
@@ -152,7 +157,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
    * Add a completely new version as an embed link (e.g. Loom).
    */
   const addEmbedMutation = useMutation({
-    mutationFn: async ({ embedUrl, title }: { embedUrl: string; title: string }) => {
+    mutationFn: async ({ embedUrl, title, description }: { embedUrl: string; title: string; description: string }) => {
       if (!profile?.email) {
         throw new Error("Could not identify the current user");
       }
@@ -167,6 +172,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             email: profile.email,
             embed_url: embedUrl,
             title,
+            description: description || undefined,
             slug,
             issue_code: getIssueCode(issue.branchName),
             issue_type: deriveIssueKind(issue.labels?.nodes),
@@ -517,6 +523,25 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
             />
           </div>
 
+          <div className="space-y-2">
+            <label htmlFor="new-demo-description" className="text-xs font-medium text-muted-foreground">
+              Description <span className="font-normal">(optional)</span>
+            </label>
+            {/* Rich text (bold, italics, lists, links), saved as markdown. */}
+            <RichTextEditor
+              id="new-demo-description"
+              ariaLabel="Description"
+              value={newDemoDescription}
+              onChange={setNewDemoDescription}
+              placeholder="What this demo shows, what to look for…"
+              allowImages={false}
+              resizable
+              minHeight="72px"
+              className="bg-background"
+              onDark
+            />
+          </div>
+
           {createMode === "upload" && (
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">
@@ -560,11 +585,16 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
               onClick={() => {
                 if (createMode === "upload") {
                   if (!newDemoFile) return;
-                  uploadMutation.mutate({ file: newDemoFile, title: newDemoTitle.trim() });
+                  uploadMutation.mutate({
+                    file: newDemoFile,
+                    title: newDemoTitle.trim(),
+                    description: newDemoDescription.trim(),
+                  });
                 } else {
                   addEmbedMutation.mutate({
                     embedUrl: addEmbedUrl.trim(),
                     title: newDemoTitle.trim(),
+                    description: newDemoDescription.trim(),
                   });
                 }
               }}
@@ -1022,6 +1052,7 @@ function DemoMeta({
     <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-border bg-background">
       <div className="min-w-0">
         <p className="text-xs font-medium text-foreground truncate">{demo.title}</p>
+        {demo.description && <DemoDescription markdown={demo.description} className="mt-0.5 mb-1 text-xs" />}
         <p className="text-[10px] text-muted-foreground font-mono">{demoLabel(demo)}</p>
         <p className="text-[10px] text-muted-foreground">
           v{demo.version}

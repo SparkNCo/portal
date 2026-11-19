@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { performLogin } from './helpers';
+import { loginAndExpectHome, performLogin } from './helpers';
 
 async function loginAsAdmin(page: any) {
   const email = process.env.TEST_ADMIN_EMAIL;
@@ -28,8 +28,8 @@ test.describe('Admin — login', () => {
       test.skip(true, 'TEST_ADMIN_EMAIL / TEST_PASSWORD not set in .env.test');
     }
 
-    await performLogin(page, email!, password!, '/users');
-    expect(page.url()).toContain('/users');
+    await page.goto('/');
+    await loginAndExpectHome(page, 'TEST_ADMIN_EMAIL', 'admin');
   });
 
 });

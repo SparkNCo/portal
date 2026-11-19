@@ -31,6 +31,8 @@ export type Demo = {
   // that later shares its content (see createDemoVideo.ts) so every ticket
   // it's attached to, and the Demos dashboard, show the same name for it.
   title: string;
+  // Optional, entered with the title (same propagation as the title).
+  description?: string | null;
   // Human-friendly sequential id, shown as "demo-<n>" — auto-assigned by the
   // backend (DB column default), never entered by hand.
   demo_number: number;

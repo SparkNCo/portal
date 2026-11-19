@@ -96,6 +96,14 @@ const handleGetVideos = async (url: URL) => {
   return jsonResponse(await listDemoVideos(issueId));
 };
 
+// Optional, markdown from the page's rich text editor (bold, lists…):
+// trimmed, capped (with room for the markdown syntax), and null when empty.
+const MAX_DESCRIPTION_LENGTH = 4000;
+const cleanDescription = (value: unknown): string | null => {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text ? text.slice(0, MAX_DESCRIPTION_LENGTH) : null;
+};
+
 const handlePostVideo = async (req: Request) => {
   const contentType = req.headers.get("content-type") ?? "";
 
@@ -106,6 +114,7 @@ const handlePostVideo = async (req: Request) => {
     const issueId = formData.get("issue_id");
     const email = formData.get("email");
     const title = formData.get("title");
+    const description = formData.get("description");
     const slug = formData.get("slug");
     const issueCode = formData.get("issue_code");
     const issueType = formData.get("issue_type");
@@ -133,12 +142,13 @@ const handlePostVideo = async (req: Request) => {
         typeof slug === "string" ? slug : undefined,
         typeof issueCode === "string" ? issueCode : undefined,
         typeof issueType === "string" ? issueType : undefined,
+        cleanDescription(description),
       ),
       201,
     );
   }
 
-  const { issue_id, email, embed_url, source_demo_id, title, slug, issue_code, issue_type } = await req.json();
+  const { issue_id, email, embed_url, source_demo_id, title, description, slug, issue_code, issue_type } = await req.json();
 
   if (!issue_id) return jsonResponse({ error: "issue_id is required" }, 400);
   if (!email) return jsonResponse({ error: "email is required" }, 400);
@@ -157,7 +167,16 @@ const handlePostVideo = async (req: Request) => {
   }
 
   return jsonResponse(
-    await createDemoVideoFromEmbed(issue_id, email, embed_url, String(title).trim(), slug, issue_code, issue_type),
+    await createDemoVideoFromEmbed(
+      issue_id,
+      email,
+      embed_url,
+      String(title).trim(),
+      slug,
+      issue_code,
+      issue_type,
+      cleanDescription(description),
+    ),
     201,
   );
 };

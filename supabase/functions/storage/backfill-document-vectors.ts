@@ -66,6 +66,7 @@ export async function backfillDocumentVectors(req: Request, schema: string) {
       .from("documents")
       .select("id, file_name, category, link, project_slug", { count: "exact" })
       .not("project_slug", "is", null)
+      .is("deleted_at", null)
       .order("id", { ascending: true })
       .limit(BATCH_SIZE);
     if (project_slug) query = query.ilike("project_slug", project_slug);

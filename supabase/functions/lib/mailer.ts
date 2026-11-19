@@ -11,6 +11,8 @@ export type SendEmailArgs = {
   html: string;
   from?: string;
   provider?: "resend" | "smtp";
+  // Files to attach; `content` is base64.
+  attachments?: { filename: string; content: string }[];
 };
 
 export type SendEmailResult = {
@@ -59,6 +61,9 @@ async function sendViaSmtp(args: SendEmailArgs): Promise<SendEmailResult> {
       to: args.to,
       subject: args.subject,
       html: args.html,
+      ...(args.attachments?.length && {
+        attachments: args.attachments.map((a) => ({ filename: a.filename, content: a.content, encoding: "base64" })),
+      }),
     });
     return { data: { id: info.messageId }, error: null };
   } catch (err) {
@@ -97,6 +102,7 @@ export async function sendEmail(
       to: args.to,
       subject: args.subject,
       html: args.html,
+      ...(args.attachments?.length && { attachments: args.attachments }),
     });
   }
 

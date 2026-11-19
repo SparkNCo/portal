@@ -84,9 +84,9 @@ export const AI_TOOLS = opts(
 // ── Shared pages (all branches) ─────────────────────────────────────────────
 
 export const INTRO: Question[] = [
-  { id: "intro_email", text: "Where should we send your personalized report?", type: "email", required: true },
-  { id: "intro_name", text: "Your name", type: "text", required: true },
-  { id: "intro_company", text: "Company name", type: "text", required: false },
+  { id: "intro_email", text: "Where should we send your personalized report?", type: "email", required: true, placeholder: "bob@example.com" },
+  { id: "intro_name", text: "Your name", type: "text", required: true, placeholder: "Bob Smith" },
+  { id: "intro_company", text: "Company name", type: "text", required: false, placeholder: "Acme Inc." },
   {
     id: "intro_role",
     text: "What best describes you?",
@@ -116,13 +116,32 @@ export const STAGE_QUESTION: Question = {
   ),
 };
 
-// Required in Idea, optional elsewhere.
+// Required in Idea, optional elsewhere. Multiline, with a sample answer as
+// the placeholder.
 export function aboutQuestions(stage: Stage): Question[] {
   const required = stage === "idea";
   return [
-    { id: "about_company", text: "What does your company do?", type: "text", required },
-    { id: "about_product", text: "What does (or will) your product do?", type: "text", required },
-    { id: "about_audience", text: "Who is it for?", type: "text", required },
+    {
+      id: "about_company",
+      text: "What does your company do?",
+      type: "long_text",
+      required,
+      placeholder: "e.g. We help independent physiotherapy clinics run their practice online.",
+    },
+    {
+      id: "about_product",
+      text: "What does (or will) your product do?",
+      type: "long_text",
+      required,
+      placeholder: "e.g. Patients book appointments and get exercise plans; clinics manage their schedule and patient records.",
+    },
+    {
+      id: "about_audience",
+      text: "Who is it for?",
+      type: "long_text",
+      required,
+      placeholder: "e.g. Small physiotherapy clinics and their patients.",
+    },
   ];
 }
 
@@ -430,6 +449,11 @@ export const CHECKS: Record<string, CheckDef> = Object.fromEntries(
 
 export const OWNERSHIP_CHECKS = ["t3_code_control", "t3_accounts_owned", "t3_takeover"];
 
+// Asked in a checklist module but not scored: on /assessment only Yes / No /
+// Unsure answers count towards the score among the questions moved there
+// from the old intake. Still used for critical flags and the report.
+export const UNSCORED_CHECKS = new Set(["t3_code_control"]);
+
 // ── Areas and stage layouts ─────────────────────────────────────────────────
 
 export const AREA_LABELS: Record<AreaId, string> = {
@@ -486,14 +510,17 @@ export const STAGE_LAYOUT: Record<TechStage, Layout> = {
 
 // ── Context modules ─────────────────────────────────────────────────────────
 
-// Where a module question sits, by what it's about. Building has no privacy
-// area, so compliance questions go to Launch readiness (assumption #7).
+// Where a module question sits, by what it's about. Compliance questions
+// (HIPAA, children, GDPR / CCPA, financial rules…) go to the privacy area in
+// every stage, which /assessment shows inside its Data privacy module; for
+// Building and Scaling, which have no privacy area of their own, buildPlan
+// adds it when a module needs it.
 type Kind = "compliance" | "security" | "scale" | "abuse";
 
 const KIND_AREA: Record<TechStage, Record<Kind, AreaId>> = {
-  building: { compliance: "launch", security: "security", scale: "data", abuse: "security" },
+  building: { compliance: "privacy", security: "security", scale: "data", abuse: "security" },
   mvp: { compliance: "privacy", security: "security", scale: "architecture", abuse: "abuse" },
-  scaling: { compliance: "compliance", security: "security", scale: "performance", abuse: "security" },
+  scaling: { compliance: "privacy", security: "security", scale: "performance", abuse: "security" },
 };
 
 export function moduleArea(stage: TechStage, kind: Kind): AreaId {
@@ -647,7 +674,7 @@ export const IDEA_QUESTIONS: { group: string; questions: Question[] }[] = [
         aiEnrich: "Name the audience they gave, e.g. \"Have you talked to independent physiotherapists about this?\"",
       },
       {
-        id: "i1_needs",
+        id: "i1_needs", placeholder: "e.g. Fewer no-shows, faster booking",
         text: "What did they say they needed most?",
         type: "text",
         required: false,
@@ -668,7 +695,7 @@ export const IDEA_QUESTIONS: { group: string; questions: Question[] }[] = [
         aiEnrich: "Name likely real alternatives, e.g. \"e.g. Jira or Linear\" for a ticketing app",
       },
       {
-        id: "i2_missing",
+        id: "i2_missing", placeholder: "e.g. They don't handle recurring appointments",
         text: "What's missing from them?",
         type: "text",
         required: false,
@@ -711,7 +738,7 @@ export const IDEA_QUESTIONS: { group: string; questions: Question[] }[] = [
         options: YES_NO_UNSURE,
         aiEnrich: "Suggest likely integrations, e.g. \"e.g. Stripe, Xero, Google Calendar\" for a booking tool",
       },
-      { id: "i4_names", text: "Which ones?", type: "text", required: false, showIf: { q: "i4_depends", in: ["yes"] } },
+      { id: "i4_names", placeholder: "e.g. Stripe, Google Calendar", text: "Which ones?", type: "text", required: false, showIf: { q: "i4_depends", in: ["yes"] } },
     ],
   },
   {
@@ -731,14 +758,14 @@ export const IDEA_QUESTIONS: { group: string; questions: Question[] }[] = [
           ["other", "Other"],
         ),
       },
-      { id: "i5_other", text: "What else?", type: "text", required: false, showIf: { q: "i5_blockers", anyOf: ["other"] } },
+      { id: "i5_other", placeholder: "e.g. Waiting on funding", text: "What else?", type: "text", required: false, showIf: { q: "i5_blockers", anyOf: ["other"] } },
     ],
   },
   {
     group: "Scope",
     questions: [
-      { id: "i6_must", text: "What are the must-have features?", type: "long_text", required: true, aiEnrich: "Placeholder with 2–3 typical core features for that product type" },
-      { id: "i6_nice", text: "What would be nice to have?", type: "long_text", required: false, aiEnrich: "Placeholder with typical \"later\" features" },
+      { id: "i6_must", placeholder: "One per line, e.g.\nOnline booking\nEmail reminders", text: "What are the must-have features?", type: "long_text", required: true, aiEnrich: "Placeholder with 2–3 typical core features for that product type" },
+      { id: "i6_nice", placeholder: "One per line, e.g.\nMobile app\nReports for clinic owners", text: "What would be nice to have?", type: "long_text", required: false, aiEnrich: "Placeholder with typical \"later\" features" },
     ],
   },
   {

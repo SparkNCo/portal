@@ -13,12 +13,13 @@ export {
   SCOPE,
   STAGE_LAYOUT,
   STAGE_QUESTION,
+  UNSCORED_CHECKS,
   aboutQuestions,
 } from "./catalog.ts";
 export { evalCond, isShown, questionText } from "./conditions.ts";
 export { activeModules, buildPlan, contextFromAnswers, hiddenChecks, ownershipQuestions, planQuestionIds } from "./plan.ts";
 export { questionnaire } from "./questionnaire.ts";
-export { boostedTopics, chooseOffer, criticalFlags, points, scoreRun } from "./scoring.ts";
+export { boostedTopics, chooseOffer, criticalFlags, points, scoreCompleted, scoreRun } from "./scoring.ts";
 export { NEXT_STAGE, RISK_LIBRARY, findingsFor, type Finding } from "./findings.ts";
 export {
   countMustHaves,
@@ -30,4 +31,5 @@ export {
   type ProfileRow,
 } from "./idea.ts";
 export { ALLOWED_ANSWER_IDS, sanitizeAnswers } from "./answers.ts";
+export { agentsMd } from "./agents.ts";
 export { OFFER_COPY, REPO_REVIEW_SCOPE, ideaInvite, joinList, technicalInvite } from "./offers.ts";

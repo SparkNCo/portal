@@ -104,8 +104,13 @@ export function buildPlan(ctx: Context): Plan {
     questions: [],
   }));
   const sectionOf = (area: AreaId) => {
-    const section = sections.find((s) => s.area === area);
-    if (!section) throw new Error(`No ${area} area in ${stage}`);
+    let section = sections.find((s) => s.area === area);
+    if (!section) {
+      // Only module questions can land in an area the stage doesn't have
+      // (compliance → privacy in Building / Scaling): added at the end.
+      section = { area, label: AREA_LABELS[area], questions: [] };
+      sections.push(section);
+    }
     return section;
   };
   const present = new Set<string>();

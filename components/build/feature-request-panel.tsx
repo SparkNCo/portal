@@ -213,6 +213,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
           onContinue={() => setDetailsRevealed(true)}
           slug={slug}
           kind="feature"
+          searchText={[description, ...criteria].join("\n")}
         />
 
         {detailsRevealed && (

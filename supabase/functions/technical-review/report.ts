@@ -97,6 +97,21 @@ ${table(
 </body></html>`;
 }
 
+// Near the top of the report, right after the greeting: book a time to go
+// over it. The full, personalized offer stays at the end.
+function topCta(bookingUrl: string, text: string) {
+  return `<tr><td style="padding:0 40px 24px">${table(
+    `<tr><td style="background:${C.soft};border:1px solid ${C.line};padding:18px 20px">
+      <p style="margin:0 0 12px;font-family:${BODY_FONT};font-size:15px;line-height:22px;color:${C.text}">${esc(text)}</p>
+      <a href="${esc(bookingUrl)}" style="display:inline-block;background:${C.orange};color:#111111;padding:11px 22px;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none">Book a free consult &rarr;</a>
+    </td></tr>`,
+  )}</td></tr>`;
+}
+
+export const TOP_CTA_TECHNICAL =
+  "If you'd like to review your results together or try our free code scan, book some time here.";
+export const TOP_CTA_IDEA = "If you'd like to review your results together, book some time here.";
+
 function offerBlock(offer, invite: string, bookingUrl: string) {
   const primary = OFFER_COPY[offer.primary];
   const secondary = offer.secondary.map((id) => OFFER_COPY[id]?.title).filter(Boolean);
@@ -180,6 +195,7 @@ export function technicalReportEmail(args: {
   );
 
   const body = [
+    topCta(args.bookingUrl, TOP_CTA_TECHNICAL),
     score,
     flags,
     areas,
@@ -255,9 +271,42 @@ export function ideaReportEmail(args: {
   bookingUrl: string;
 }) {
   const body = [
+    topCta(args.bookingUrl, TOP_CTA_IDEA),
     block(h2("What you told us") + productCard(args.profile)),
     block(h2("3 gaps to look at") + args.gaps.map((g, i) => gapCard(g, i + 1)).join("")),
     offerBlock({ primary: "free_consult", secondary: [] }, args.invite, args.bookingUrl),
   ].join("");
   return { subject: "Your product idea review", html: shell(args.name, "Product idea review", body) };
+}
+
+// ── Temporary passcode (/assessment "Sign in to save progress") ──────────────
+
+export function passcodeEmail(args: { name?: string | null; code: string }) {
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<title>Your temporary passcode</title></head>
+<body style="margin:0;padding:0;background:${C.page}">
+${table(
+  `<tr><td align="center" style="padding:32px 12px">
+  ${table(
+    `
+    <tr><td style="background:${C.dark};padding:28px 40px">
+      <p style="margin:0;font-family:${FONT};font-size:26px;font-weight:700;letter-spacing:-.5px;color:${C.cream}">spark<span style="color:${C.orange}">/</span>co</p>
+      <p style="margin:6px 0 0;font-family:${FONT};font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#bdb6ad">Your assessment</p>
+    </td></tr>
+    <tr><td style="height:6px;background:${C.orange};font-size:0;line-height:0">&nbsp;</td></tr>
+    ${block(
+      `${p(`Hi ${esc(args.name) || "there"},`, "margin-top:4px")}${p("Here's your temporary passcode. Enter it on the assessment page, then choose your password to save your progress.")}
+      <p style="margin:18px 0 18px;font-family:${FONT};font-size:34px;line-height:40px;font-weight:700;letter-spacing:8px;color:${C.text}">${esc(args.code)}</p>
+      ${p("It works once and expires after an hour. If you didn't ask for it, you can ignore this email.", `color:${C.muted};font-size:13px;line-height:20px`)}`,
+      "32px 40px 32px",
+    )}`,
+    `max-width:600px;background:${C.card}`,
+  )}
+  </td></tr>`,
+  `background:${C.page}`,
+)}
+</body></html>`;
+  return { subject: "Your Spark assessment passcode", html };
 }
