@@ -7,9 +7,12 @@ import { handleAcceptSuggestion } from "./acceptSuggestion.ts";
 import { handleDeclineSuggestion } from "./declineSuggestion.ts";
 import { handleUpdateSuggestionMilestone } from "./updateSuggestionMilestone.ts";
 import { handleUpdateSuggestionProject } from "./updateSuggestionProject.ts";
+import { handleBulkImport } from "./bulkImport.ts";
 
 // /generate-all = weekly cron target; /generate = manual, single project.
+// /bulk-import = pasted notes → draft tickets (nothing is created there).
 const ROUTES: { method: string; suffix: string; handle: (req: Request) => Promise<Response> }[] = [
+  { method: "POST", suffix: "/bulk-import", handle: handleBulkImport },
   { method: "POST", suffix: "/generate-all", handle: handleGenerateAllSuggestions },
   { method: "POST", suffix: "/generate", handle: handleGenerateSuggestion },
   { method: "POST", suffix: "/accept", handle: handleAcceptSuggestion },
