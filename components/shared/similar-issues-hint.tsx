@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { API_HEADERS } from "@/lib/api-headers";
 import { getIssueCode } from "@/lib/utils";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
-import type { Issue } from "@/components/client/issues.types";
+import { IssueDetailModal } from "@/components/client/issue-detail-modal";
+import { isClosedIssue, type Issue } from "@/components/client/issues.types";
 
 type SimilarIssueMatch = {
   id: string;
@@ -73,8 +74,9 @@ export function plainSearchText(...parts: string[]): string {
 // creating a Feature Request or Bug Report — backed by the issues vector
 // search (pgvector), scoped to the current customer's namespace. Searches
 // again as they write (title and description), shows up to three one-line
-// matches so it doesn't push the form around, and offers to edit the
-// existing ticket instead of filing a near-duplicate.
+// matches so it doesn't push the form around. A match opens the ticket
+// itself (the regular detail modal); its edit button (top right, open
+// tickets only, same rule as the panels) leads to Edit Ticket.
 export function SimilarIssuesHint({
   slug,
   query,
@@ -95,6 +97,7 @@ export function SimilarIssuesHint({
   // from "hasn't searched yet").
   const [searched, setSearched] = useState(false);
   const [loadingMatchId, setLoadingMatchId] = useState<string | null>(null);
+  const [viewingIssue, setViewingIssue] = useState<Issue | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   // Only the newest search may update the list (an older, slower one could
   // land after it).
@@ -140,11 +143,11 @@ export function SimilarIssuesHint({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
-  async function handleEditInstead(match: SimilarIssueMatch) {
+  async function handleOpenMatch(match: SimilarIssueMatch) {
     setLoadingMatchId(match.id);
     try {
       const issue = matchIssues[match.id] ?? (await fetchIssueById(match.id));
-      setEditingIssue(issue);
+      setViewingIssue(issue);
     } catch {
       toast.error("Failed to load ticket. Please try again.");
     } finally {
@@ -189,9 +192,9 @@ export function SimilarIssuesHint({
                 <li key={m.id}>
                   <button
                     type="button"
-                    onClick={() => handleEditInstead(m)}
+                    onClick={() => handleOpenMatch(m)}
                     disabled={loadingMatchId === m.id}
-                    title={`Open ${title} to edit it instead`}
+                    title={`Open ${title}`}
                     className="flex w-full items-center gap-2 rounded px-1.5 py-0.5 text-left hover:bg-warning/10 disabled:opacity-60"
                   >
                     {issue?.branchName && (
@@ -208,6 +211,22 @@ export function SimilarIssuesHint({
             })}
           </ul>
         </div>
+      )}
+
+      {viewingIssue && (
+        <IssueDetailModal
+          issue={viewingIssue}
+          slug={slug}
+          onClose={() => setViewingIssue(null)}
+          onEdit={
+            isClosedIssue(viewingIssue)
+              ? undefined
+              : () => {
+                  setEditingIssue(viewingIssue);
+                  setViewingIssue(null);
+                }
+          }
+        />
       )}
 
       {editingIssue && (

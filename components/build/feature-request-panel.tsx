@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lightbulb, Paperclip } from "lucide-react";
+import { ClipboardList, Lightbulb, Paperclip } from "lucide-react";
+import { BulkImportDialog } from "@/components/build/bulk-import-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -199,12 +201,22 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
 
   return (
     <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle level={2} className="body font-semibold flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-primary" />
           Request a Feature
         </CardTitle>
+        <Button type="button" variant="outline" size="sm" onClick={() => setBulkImportOpen(true)}>
+          <ClipboardList className="h-3.5 w-3.5 mr-1.5" />
+          Bulk Import
+        </Button>
       </CardHeader>
+      <BulkImportDialog
+        slug={slug}
+        projects={projects}
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+      />
       <CardContent className="space-y-4">
         <TitleContinueRow
           title={title}
