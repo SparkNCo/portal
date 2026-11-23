@@ -112,8 +112,7 @@ const cycleName = (cycle: NonNullable<TicketRow["cycle"]>) =>
 
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() || 0 : 0);
 
-// Current-cycle tickets first, then the rest of the open work, then closed
-// tickets; most recently updated first within each; at most MAX_TICKET_ROWS.
+
 export function orderTickets(rows: TicketRow[]): TicketRow[] {
   const rank = (row: TicketRow) => (row.cycle?.isActive && !row.closed ? 0 : row.closed ? 2 : 1);
   return [...rows]
@@ -121,8 +120,26 @@ export function orderTickets(rows: TicketRow[]): TicketRow[] {
     .slice(0, MAX_TICKET_ROWS);
 }
 
-// "Current cycle: Cycle 16 (2026-11-03 to 2026-11-16)" — one line per active
-// cycle (teams can each have their own).
+
+export function cycleCalendar(rows: TicketRow[], now = Date.now()): string[] {
+  const byName = new Map<string, NonNullable<TicketRow["cycle"]>>();
+  for (const row of rows) {
+    if (row.cycle && !byName.has(cycleName(row.cycle))) byName.set(cycleName(row.cycle), row.cycle);
+  }
+  return [...byName.entries()]
+    .sort(([, a], [, b]) => time(a.startsAt) - time(b.startsAt))
+    .map(([name, cycle]) => {
+      const start = day(cycle.startsAt);
+      const end = day(cycle.endsAt);
+      let when = "upcoming";
+      if (cycle.isActive) when = "current";
+      else if (cycle.endsAt && time(cycle.endsAt) < now) when = "past";
+      const dates = start && end ? `${start} to ${end}, ` : "";
+      return `${name} (${dates}${when})`;
+    });
+}
+
+
 function currentCycles(rows: TicketRow[]): string[] {
   const seen = new Map<string, string>();
   for (const row of rows) {
@@ -136,7 +153,6 @@ function currentCycles(rows: TicketRow[]): string[] {
   return [...seen.values()];
 }
 
-// "SPA-582 · In the dashboard, add a global query · In Progress · Cycle 16 (current) · High · Facundo · due 2026-11-20 · feature"
 export function ticketLine(row: TicketRow): string {
   const title = row.title.length > MAX_TICKET_TITLE_CHARS ? `${row.title.slice(0, MAX_TICKET_TITLE_CHARS)}…` : row.title;
   const parts = [row.code, title, row.status ?? "No status"];
@@ -149,24 +165,51 @@ export function ticketLine(row: TicketRow): string {
   return parts.join(" · ");
 }
 
-// The ticket list as written into the prompt; "" when there are no tickets.
-export function ticketList(rows: TicketRow[]): string {
+export function ticketList(rows: TicketRow[], now = Date.now()): string {
   if (rows.length === 0) return "";
   const ordered = orderTickets(rows);
   const cycles = currentCycles(rows);
+  const calendar = cycleCalendar(ordered, now);
   const header = [
     cycles.length ? `Current cycle: ${cycles.join("; ")}` : "No cycle is active right now.",
+    ...(calendar.length ? [`Cycles: ${calendar.join("; ")}`] : []),
     ordered.length < rows.length ? `Showing ${ordered.length} of ${rows.length} tickets (current cycle and open work first).` : `${rows.length} tickets.`,
     "Format: code · title · status · cycle · priority · assignee · due date · type",
   ];
   return [...header, ...ordered.map(ticketLine)].join("\n");
 }
 
+// ── The answer's language ───────────────────────────────────────────────────
+const LANGUAGE_RULE =
+  "- Language: always write answer in English, whatever language the question, the project information above or these instructions are in, also when found is false. Quote names, ticket titles, messages and codes as they appear (a title in another language stays as it is), but write everything else in English.";
+
+const STATUS_QUESTION_PATTERNS: RegExp[] = [
+  /\bcycles?\b/i, /\bsprints?\b/i, /\bwhen\b/i, /\bdeploy/i, /\brelease/i, /\bship(ped|ping)?\b/i, /\blaunch/i,
+  /\bstatus\b/i, /\bpriorit/i, /\bdue\b/i, /\bdeadline/i, /\beta\b/i, /\bdone\b/i, /\bfinish/i, /\bready\b/i,
+  /\bprogress\b/i, /\bschedul/i, /\bwho('s| is)? (working|assigned)/i, /\bassign/i,
+];
+
+export function isTicketStatusQuestion(question: string): boolean {
+  return STATUS_QUESTION_PATTERNS.some((pattern) => pattern.test(question));
+}
+
+function statusQuestionRules(today: string): string {
+  return `
+This question is about where some work stands (its status, cycle, priority, dates or who has it). For this kind of question:
+- First find the ticket(s) it's about. People name the feature, not its code: match what the question mentions against the ticket titles in the ticket list (and the issues in the numbered information) by meaning, not exact words — e.g. "the SSO feature" matches "Login with SSO", "the query feature" matches "In the dashboard, add a global query". If more than one ticket matches, answer for each, briefly. If none clearly matches, set found to false and say no ticket in this project matches, naming what you looked for.
+- Start the answer with the ticket's code and title (e.g. "SPA-582 — Global query"), then answer exactly what was asked from that ticket's line: its status, its cycle (with the cycle's dates from the "Cycles" line), its priority, its due date, who it's assigned to.
+- "When will it be done / deployed / released / ready?": there's no deployment date field, so go in this order and say which one you used:
+  1. Its status is Done, Approved, Canceled or another finished one → say it's already finished (don't give a future date).
+  2. It has a due date → that date.
+  3. It's in a cycle → it's planned for that cycle: give the cycle's end date as the expected date, and say it's an estimate from the cycle, not a promised date. If that cycle is past and the ticket is still open, say it didn't make it in that cycle and is still in progress.
+  4. Neither → say it has no date or cycle planned yet, and give its current status.
+- Never invent a date, cycle, priority or person that isn't in the lines above. Today is ${today}: you can say how far away a date is, or that it's overdue.`;
+}
+
 // ── The prompt ──────────────────────────────────────────────────────────────
 
 // Each source is numbered ([1], [2]…) so the answer can cite them by number;
 // tickets from the ticket list are cited by code.
-// The project's name in the prompt: one line, no quotes, bounded.
 const projectLabel = (name?: string | null) => (name ?? "").replace(/["\r\n]+/g, " ").trim().slice(0, 100);
 
 // `projectName`: the project the information below belongs to, so a question
@@ -177,15 +220,18 @@ const projectLabel = (name?: string | null) => (name ?? "").replace(/["\r\n]+/g,
 // misleading, not about access.
 export function buildAskPrompt(question: string, sources: Source[], tickets = "", projectName?: string | null): string {
   const project = projectLabel(projectName);
+  const today = new Date().toISOString().slice(0, 10);
   const blocks = sources
     .map((source, i) => `[${i + 1}] ${sourceHeading(source)}\n${clip(source.content)}`)
     .join("\n\n");
 
   const sections = [
-    tickets && `Ticket list (live from the ticket system, as of ${new Date().toISOString().slice(0, 10)}):\n\n${tickets}`,
+    tickets && `Ticket list (live from the ticket system, as of ${today}):\n\n${tickets}`,
     blocks && `Project information that matches the question (documents, test cases and issues):\n\n${blocks}`,
   ].filter(Boolean);
 
+  // Only with the ticket list: without it there's nothing to answer these from.
+  const statusRules = tickets && isTicketStatusQuestion(question) ? `\n${statusQuestionRules(today)}` : "";
   const projectIntro = project ? `one software project, "${project}",` : "one software project";
   const otherProjectRule = project
     ? `
@@ -203,38 +249,26 @@ Rules:
 - Plain text, short and direct: a few sentences, or a short list when the question asks for several things.
 - In sources, list the numbers ([1], [2]…) of every numbered item your answer relies on, and only those. Don't put those numbers, or a "Sources" line, in answer itself: the sources are shown below it.
 - In tickets, list the codes (e.g. "SPA-456") of the tickets from the ticket list your answer is about, and only those.
-- When you mention an issue, document or test case in the answer, name it the way it appears above (e.g. "Issue SPA-456").
-- Language: first set language to the language the question is written in, judging by the question alone (e.g. "English" for "How does login work?", "Spanish" for "¿Cómo funciona el login?"). Then write answer in that language, also when found is false. The project information above may be in another language, and these instructions are in English: neither changes the answer's language. Quote names, messages and codes as they appear, but write everything else in the question's language.
+- When you mention an issue, document or test case in the answer, name it the way it appears above (e.g. "Issue SPA-456").${statusRules}
+${LANGUAGE_RULE}
 
 Question: ${question}
 
-Answer in the same language as the question above (set language first).`;
-}
-
-// When nothing in the project matches at all (the AI isn't needed for an
-// answer): only the "not found" sentence, in the question's language.
-export function buildNotFoundPrompt(question: string): string {
-  return `Someone asked a question about a software project, and nothing in the project's documents, test cases and issues covers it.
-
-Write one short, friendly sentence telling them so and suggesting they try asking another way. Write it in the language the question is written in (Spanish for a question in Spanish, and so on). Don't answer the question itself.
-
-Question: ${question}`;
+Answer in English.`;
 }
 
 // A "Sources: [1], [2]" line the AI sometimes still ends the answer with (in
 // any of the usual spellings), and the [n] markers in it: the page shows the
 // sources below the answer, so they'd only repeat. The answer's own text
 // is left as it is.
-const SOURCES_LINE_RE = /\n*[ \t]*\(?(?:sources?|fuentes?)[ \t]*:?[ \t]*(?:\[\d+\][ \t,;y&and]*)+\)?\.?[ \t]*$/i;
+const SOURCES_LINE_RE = /\n*[ \t]*\(?sources?[ \t]*:?[ \t]*(?:\[\d+\][ \t,;&and]*)+\)?\.?[ \t]*$/i;
 
 export function withoutSourcesLine(answer: string): string {
   return answer.replace(SOURCES_LINE_RE, "").trim();
 }
 
-// The AI's reply, as the JSON schema asks for it. `language` comes first on
-// purpose: deciding the question's language before writing keeps the answer
-// from drifting into the sources' language.
-export type AskReply = { language?: string; found: boolean; answer: string; sources: number[]; tickets?: string[] };
+// The AI's reply, as the JSON schema asks for it.
+export type AskReply = { found: boolean; answer: string; sources: number[]; tickets?: string[] };
 
 // The tickets the answer is about, from the ticket list, by code; unknown or
 // repeated codes are dropped; at most MAX_CITED_TICKETS.

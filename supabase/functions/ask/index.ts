@@ -24,7 +24,6 @@ import { ticketsForSlug } from "../lib/tickets/provider.ts";
 import { deriveIssueKind } from "../lib/vector.ts";
 import {
   buildAskPrompt,
-  buildNotFoundPrompt,
   citedSources,
   citedTickets,
   issueCodesIn,
@@ -203,27 +202,6 @@ const matchKey = (m: ProjectMatch) => `${m.source_type}:${m.document_id ?? m.tes
 const forPage = (sources: SourceOut[]) =>
   sources.map(({ type, id, ref, title, status, kind }) => ({ type, id, ref, title, status: status ?? null, kind: kind ?? null }));
 
-// The "nothing covers that" sentence in the question's language, or "" (the
-// panel then shows its own English one) when the AI is off, busy or fails —
-// a not-found answer never fails because of it.
-async function notFoundAnswer(question: string): Promise<string> {
-  if (!aiEnabled()) return "";
-  try {
-    const reply = await requestJson<{ answer: string }>(buildNotFoundPrompt(question), {
-      name: "not_found_answer",
-      schema: {
-        type: "object",
-        properties: { answer: { type: "string", description: "In the language the question is written in." } },
-        required: ["answer"],
-        additionalProperties: false,
-      },
-    });
-    return (reply.answer ?? "").trim().slice(0, 300);
-  } catch {
-    return "";
-  }
-}
-
 serveWithCors("ask API Error", async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -262,8 +240,9 @@ serveWithCors("ask API Error", async (req) => {
   const matches = withExactMatches(exact, relevantSources(similar), matchKey);
   const sources = await withDetails(matches);
   if (sources.length === 0 && tickets.length === 0) {
-    // Still in the question's language: the panel's own fallback is English.
-    return Response.json({ question, found: false, answer: await notFoundAnswer(question), sources: [] });
+    // No AI call: answers are always in English, and with an empty answer the
+    // panel shows its own "nothing covers that" sentence.
+    return Response.json({ question, found: false, answer: "", sources: [] });
   }
 
   if (!aiEnabled()) {
@@ -277,15 +256,12 @@ serveWithCors("ask API Error", async (req) => {
       schema: {
         type: "object",
         properties: {
-          // First, so the language is decided from the question before the
-          // answer is written (not drifting into the sources' language).
-          language: { type: "string", description: "The language the question is written in, e.g. English or Spanish." },
           found: { type: "boolean" },
-          answer: { type: "string", description: "Written in `language`, the question's language." },
+          answer: { type: "string", description: "Always in English." },
           sources: { type: "array", items: { type: "integer" } },
           tickets: { type: "array", items: { type: "string" } },
         },
-        required: ["language", "found", "answer", "sources", "tickets"],
+        required: ["found", "answer", "sources", "tickets"],
         additionalProperties: false,
       },
     });

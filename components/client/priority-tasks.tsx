@@ -206,12 +206,13 @@ function GridView({
 }
 
 // One line of cards scrolling sideways, same card style and width as the
-// Build page's Suggested Features row.
+// Build page's Suggested Features row. Phones: 280px, the grid's ("View all")
+// minimum, so a whole card fits a 375px screen inside the panel's padding.
 function RowView({ issues, ...item }: IssueItemProps & { readonly issues: Issue[] }) {
   return (
     <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
       {issues.map((issue) => (
-        <div key={issue.id} className="w-80 shrink-0">
+        <div key={issue.id} className="w-[280px] sm:w-80 shrink-0">
           <IssueCard
             issue={issue}
             onOpen={() => item.onOpen(issue)}

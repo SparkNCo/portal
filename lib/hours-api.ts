@@ -1,5 +1,18 @@
 import { API_JSON_HEADERS as API_HEADERS } from "@/lib/api-headers";
 
+// The same rule the hours function and the database check: 0.5 to 24 per
+// entry, in half hours. Relative path on purpose: "supabase" alone would
+// resolve to the CLI package in node_modules.
+export {
+  HOURS_STEP,
+  MAX_HOURS_PER_ENTRY,
+  isValidHours,
+  entryTickets,
+  savedTicketLabel,
+  type LoggedTicket,
+} from "../supabase/functions/hours/hoursRules";
+import type { LoggedTicket } from "../supabase/functions/hours/hoursRules";
+
 export interface HoursLogEntry {
   id: string;
   developer_id: string;
@@ -9,6 +22,10 @@ export interface HoursLogEntry {
   hours: number;
   worked_on: string;
   issue_ids: string[];
+  // Code and title of each ticket, as saved with the entry. Empty on entries
+  // from before they were saved: read them with entryTickets (falls back to
+  // issue_ids, looked up by id).
+  tickets?: LoggedTicket[];
   summary: string | null;
   created_at: string;
   updated_at: string;
@@ -21,7 +38,7 @@ export interface LogHoursPayload {
   project_name: string;
   hours: number;
   worked_on: string;
-  issue_ids?: string[];
+  tickets?: LoggedTicket[];
   summary?: string;
 }
 
@@ -51,7 +68,7 @@ export interface UpdateHoursPayload {
   worked_on: string;
   project_slug: string;
   project_name: string;
-  issue_ids?: string[];
+  tickets?: LoggedTicket[];
   summary?: string;
 }
 

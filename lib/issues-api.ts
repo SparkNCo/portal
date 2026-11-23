@@ -91,6 +91,20 @@ export async function postCreateIssue(payload: CreateIssuePayload) {
   return res.json();
 }
 
+// One ticket by its id (Linear or `jira:…`), whatever its status — for
+// tickets a project's list doesn't include (it returns at most 100, so older
+// Done ones are often missing). Rejects when it's gone (e.g. purged).
+export async function fetchIssueById(
+  id: string,
+): Promise<{ id: string; identifier?: string | null; title: string; branchName?: string | null }> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/by-id?id=${encodeURIComponent(id)}`,
+    { headers: API_HEADERS },
+  );
+  if (!res.ok) throw new Error("Ticket not found");
+  return res.json();
+}
+
 export async function fetchProjects(slug: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/issues/projects?slug=${encodeURIComponent(slug)}`,

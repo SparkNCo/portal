@@ -69,9 +69,8 @@ User types a question and presses Ask (Enter also sends; Shift+Enter = new line)
           ├── liveTickets: the client's tickets from Linear / Jira, one line each
           │     (status, cycle, priority, assignee, due date)
           │
-          ├── no sources and no tickets → { found: false } — "not found": the AI only writes
-          │     that one sentence, in the question's language (buildNotFoundPrompt);
-          │     with the AI off or failing, the panel's own English one
+          ├── no sources and no tickets → { found: false } — "not found", with no AI call:
+          │     the panel shows its own English sentence
           │
           ├── AI configured? (AI_API_KEY) → otherwise 503
           ├── buildAskPrompt (ask/prompt.ts) → requestJson (lib/aiClient.ts)
@@ -94,7 +93,7 @@ Each source is numbered so the answer can cite it, and written the way the ticke
 <content>
 ```
 
-Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, plain text and short, list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **answer in the language of the question** — also when it found nothing (the instructions are in English; that doesn't make English the answer's language). The JSON schema's `answer` field says so too.
+Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, plain text and short, list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **always answer in English**, whatever language the question is in — also when it found nothing. Ticket titles, names and messages are quoted as they are. The JSON schema's `answer` field says so too.
 
 The project is never chosen through the prompt: the search is already limited to one client in SQL. The prompt does name it (the client's name), so a question about **another** project or client ("how many tickets does Acme have?" asked on Spark Portal's page) is turned away — "here I can only answer about Spark Portal; ask from that project's page if you have access" — instead of being answered with this project's data under the other name. Access itself doesn't depend on that: the AI only ever sees the data of the project in the URL, which the caller was checked for (`canAsk`).
 
@@ -134,6 +133,16 @@ The answer comes from the portal's shared AI client (`lib/aiClient.ts`, `AI_*` s
 - "When is the email notifications ticket due?"
 - "What's the status of the tickets in the current cycle?" / "What's in UAT?" / "What is Facundo working on?"
 - Something the project doesn't cover ("What's the capital of France?") should answer "not found".
+
+### Status, cycle, priority and date questions
+
+"What cycle is the SSO feature in?", "When will the query feature be deployed?", "What's the priority of the export?". `isTicketStatusQuestion` (prompt.ts) spots them by their words (cycle, when, deploy, status, priority, due, ready…) and, when the ticket list is there, the prompt adds rules for them:
+
+- **Find the ticket by its title**, not its code: "the SSO feature" matches "Login with SSO". Several matches → each one, briefly; none → "not found", naming what it looked for.
+- **Start with the ticket's code and title**, then exactly what was asked (status, cycle with its dates, priority, due date, assignee).
+- **"When will it be done / deployed?"** — there's no deployment date, so in this order: already finished → says so; due date → that date; in a cycle → the cycle's end date, as an estimate (and, if that cycle is past and the ticket still open, that it didn't make it); neither → no date planned yet, with its status. It never makes up a date.
+
+For the cycle dates, the ticket list's header has a `Cycles:` line with every cycle the tickets are in, its dates and whether it's past, current or upcoming (`cycleCalendar`).
 
 ---
 

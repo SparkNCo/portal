@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, FileText, FlaskConical, Sparkles, Ticket } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import { AlertCircle, FileText, FlaskConical, RotateCcw, SearchX, Sparkles, Ticket } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,27 +79,30 @@ function AskLoading() {
   );
 }
 
+// One cited source: a small card with its kind (and ticket code), title and
+// status, clickable where it has a page to open.
 function SourceItem({ slug, source }: Readonly<{ slug: string; source: AskSource }>) {
   const { profile } = useUser();
   const Icon = SOURCE_ICON[source.type];
   const href = sourceHref(slug, source, profile?.role === "developer");
+  const box =
+    "flex min-w-0 items-center gap-2 rounded-md border border-border bg-background/60 px-2.5 py-1.5 transition-colors";
   const label = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <span className="smalltext text-muted-foreground shrink-0">
+      <span className="smalltext shrink-0 text-muted-foreground">
         {SOURCE_LABEL[source.type]}
         {source.type === "issue" && (
           <>
             {" "}
-            <span className="font-medium text-primary">{source.ref}</span>
+            <span className="font-semibold text-primary">{source.ref}</span>
           </>
         )}
       </span>
-      <span className="smalltext font-medium truncate">{source.title}</span>
+      <span className="smalltext min-w-0 flex-1 truncate font-medium text-foreground">{source.title}</span>
       {source.status && (
-        <span className="smalltext shrink-0">
-          <span className="text-muted-foreground">· </span>
-          <span className="text-primary">{source.status}</span>
+        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+          {source.status}
         </span>
       )}
     </>
@@ -105,32 +110,46 @@ function SourceItem({ slug, source }: Readonly<{ slug: string; source: AskSource
   return (
     <li className="min-w-0">
       {href ? (
-        <Link href={href} className="flex items-center gap-1.5 min-w-0 rounded-md px-2 py-1 hover:bg-muted">
+        <Link href={href} className={`${box} hover:border-primary/40 hover:bg-muted/60`}>
           {label}
         </Link>
       ) : (
-        <span className="flex items-center gap-1.5 min-w-0 px-2 py-1">{label}</span>
+        <span className={box}>{label}</span>
       )}
     </li>
   );
 }
 
+// The answer in its own card: an "Answer" heading, the text (lists and bold
+// rendered — the AI often answers in bullet points), then the sources.
+// "Not found" gets a quieter card of its own.
 function AnswerBlock({ slug, result }: Readonly<{ slug: string; result: AskAnswer }>) {
   if (!result.found) {
     return (
-      <p className="smalltext text-muted-foreground" role="status">
-        {result.answer ||
-          "Nothing in this project's documents, test cases or issues covers that. Try asking it another way."}
-      </p>
+      <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 p-4" role="status">
+        <SearchX className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <p className="smalltext text-muted-foreground">
+          {result.answer ||
+            "Nothing in this project's documents, test cases or issues covers that. Try asking it another way."}
+        </p>
+      </div>
     );
   }
   return (
-    <div className="space-y-3" role="status">
-      <p className="body whitespace-pre-line">{result.answer}</p>
+    <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4" role="status">
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+        Answer
+      </p>
+      {/* Styled by hand: there's no typography plugin, and Tailwind's reset
+          drops list bullets. */}
+      <div className="body text-foreground [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_li]:marker:text-primary [&_strong]:font-semibold [&_strong]:text-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+        <ReactMarkdown remarkPlugins={[remarkBreaks]}>{result.answer}</ReactMarkdown>
+      </div>
       {result.sources.length > 0 && (
-        <div className="space-y-1">
-          <p className="smalltext font-semibold text-muted-foreground">Sources</p>
-          <ul className="space-y-0.5">
+        <div className="space-y-2 border-t border-border pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</p>
+          <ul className="grid gap-1.5 sm:grid-cols-2">
             {result.sources.map((source) => (
               <SourceItem key={`${source.type}-${source.id}`} slug={slug} source={source} />
             ))}
@@ -144,12 +163,25 @@ function AnswerBlock({ slug, result }: Readonly<{ slug: string; result: AskAnswe
 export function AskProject({ slug }: Readonly<{ slug: string }>) {
   const [question, setQuestion] = useState("");
   const ask = useMutation({ mutationFn: (q: string) => askProject(slug, q) });
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Once asked, the question is locked (while it's answered and after), so
+  // the answer below always matches the question above it. "Ask another
+  // question" starts over. A failed request leaves it editable to try again.
+  const locked = ask.isPending || ask.isSuccess;
 
   const trimmed = question.trim();
-  const canAsk = !!slug && trimmed.length > 0 && trimmed.length <= MAX_QUESTION_LENGTH && !ask.isPending;
+  const canAsk = !!slug && trimmed.length > 0 && trimmed.length <= MAX_QUESTION_LENGTH && !locked;
 
   function submit() {
     if (canAsk) ask.mutate(trimmed);
+  }
+
+  function askAnother() {
+    ask.reset();
+    setQuestion("");
+    // After the re-render that makes it editable again.
+    requestAnimationFrame(() => inputRef.current?.focus());
   }
 
   return (
@@ -161,8 +193,12 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* One box: a multiline question with the Ask button inside it,
+            below the text. The box carries the focus ring for both. */}
+        {/* Same look before and after asking: once asked it only stops being
+            editable (readOnly below), it isn't dimmed. */}
         <form
-          className="flex flex-col sm:flex-row gap-2"
+          className="rounded-lg bg-card text-card-foreground focus-within:ring-2 focus-within:ring-ring"
           onSubmit={(e) => {
             e.preventDefault();
             submit();
@@ -172,7 +208,10 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
             Your question about this project
           </label>
           <Textarea
+            ref={inputRef}
             id="ask-project-question"
+            readOnly={locked}
+            aria-readonly={locked || undefined}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => {
@@ -183,12 +222,40 @@ export function AskProject({ slug }: Readonly<{ slug: string }>) {
             }}
             placeholder="e.g. What's left before the login with SSO is done?"
             maxLength={MAX_QUESTION_LENGTH}
-            rows={1}
-            className="min-h-[40px] resize-none bg-card text-card-foreground"
+            rows={3}
+            aria-describedby="ask-project-keys"
+            className="min-h-[88px] resize-none border-0 bg-transparent text-card-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           />
-          <Button type="submit" disabled={!canAsk} className="shrink-0">
-            Ask
-          </Button>
+          <div className="flex items-center justify-between gap-3 px-3 pb-3">
+            <span id="ask-project-keys" className="smalltext text-card-foreground/60">
+              {locked ? (
+                <span className="hidden sm:inline">
+                  {ask.isPending ? "Looking for the answer…" : "Asked. Start over to ask something else."}
+                </span>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Enter to ask · Shift + Enter for a new line</span>
+                  <span className="sm:hidden sr-only">Enter to ask</span>
+                </>
+              )}
+            </span>
+            {ask.isSuccess ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={askAnother}
+                className="shrink-0 bg-primary text-white hover:bg-primary/90"
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                Ask another question
+              </Button>
+            ) : (
+              <Button type="submit" size="sm" disabled={!canAsk} className="shrink-0">
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                {ask.isPending ? "Asking…" : "Ask"}
+              </Button>
+            )}
+          </div>
         </form>
 
         {ask.isPending && <AskLoading />}

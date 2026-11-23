@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useUser } from "../../../context/UserContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -36,7 +36,9 @@ import {
   Plus,
   Send,
   KeyRound,
+  Clock,
 } from "lucide-react";
+import DeveloperHoursModal from "./DeveloperHoursModal";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import { supabase } from "@/lib/supabase-client";
 import { Header } from "@/components/headerDashboard";
@@ -50,7 +52,11 @@ type User = {
   lastName?: string | null;
   phoneNumber?: string | null;
   customer_id?: string | null;
+  // Developers only: "internal" = added by a customer (External to admins).
+  developerType?: "spark_fde" | "internal";
 };
+
+const isExternalDeveloper = (u: User) => u.role === "developer" && u.developerType === "internal";
 
 type PreviewLink = { url: string; text: string };
 
@@ -100,6 +106,8 @@ export default function AdminUsersPage() {
   );
   const [viewingStakeholderUser, setViewingStakeholderUser] =
     useState<User | null>(null);
+  // The developer whose submitted hours are open (read-only).
+  const [viewingHoursUser, setViewingHoursUser] = useState<User | null>(null);
   const [expandedUser, setExpandedUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
 
@@ -374,6 +382,24 @@ export default function AdminUsersPage() {
             setEditingProfileUser(viewingProfileUser);
             setViewingProfileUser(null);
           }}
+          // Same view as the row's "Hours" button. Only developers have hours,
+          // and this whole page is admins only (app/admin/layout.tsx).
+          onViewHours={
+            viewingProfileUser.role === "developer"
+              ? () => {
+                  setViewingHoursUser(viewingProfileUser);
+                  setViewingProfileUser(null);
+                }
+              : undefined
+          }
+        />
+      )}
+      {viewingHoursUser && (
+        <DeveloperHoursModal
+          developerId={viewingHoursUser.id}
+          developerEmail={viewingHoursUser.email}
+          developerName={viewingHoursUser.userName}
+          onClose={() => setViewingHoursUser(null)}
         />
       )}
       {editingClientUser && (
@@ -469,9 +495,12 @@ export default function AdminUsersPage() {
 
           {/* One panel per role — only developer rows can expand to show assignments */}
           {ROLES.map((role) => {
-            const roleUsers = filteredUsers.filter(
-              (u: User) => u.role === role,
-            );
+            // Developers: Spark & Co's first, then the External ones
+            // (added by customers), each group keeping its order.
+            const roleUsers = filteredUsers
+              .filter((u: User) => u.role === role)
+              .sort((a: User, b: User) => Number(isExternalDeveloper(a)) - Number(isExternalDeveloper(b)));
+            const firstExternalId = roleUsers.find(isExternalDeveloper)?.id;
             return (
               <Card
                 key={role}
@@ -493,23 +522,39 @@ export default function AdminUsersPage() {
                     <div className="space-y-2">
                       {roleUsers.map((u: User) => {
                         const isExpanded = expandedUser?.id === u.id;
+                        const external = isExternalDeveloper(u);
                         return (
+                          <Fragment key={u.id}>
+                          {u.id === firstExternalId && (
+                            <p className="flex items-center gap-2 pt-3 pb-1 smalltext font-medium text-muted-foreground">
+                              External developers
+                              <span className="font-normal">· added by customers</span>
+                            </p>
+                          )}
                           <div
-                            key={u.id}
-                            className="rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-colors group"
+                            // External ones are toned down until hovered or
+                            // focused, so Spark & Co's stand out.
+                            className={`rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-all group ${
+                              external ? "opacity-80 hover:opacity-100 focus-within:opacity-100" : ""
+                            }`}
                           >
                             <div className="flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-primary">
                                   {getInitials(u.email)}
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex items-center gap-2">
                                   <p
                                     title={u.email}
                                     className="text-sm md:smalltext font-medium text-card-foreground truncate"
                                   >
                                     {u.email}
                                   </p>
+                                  {external && (
+                                    <Badge variant="outline" className="shrink-0 smalltext border-card-foreground/30 text-card-foreground/70">
+                                      External
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
 
@@ -528,6 +573,19 @@ export default function AdminUsersPage() {
                                     >
                                       <Eye className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
                                       <span className="hidden sm:inline">Profile</span>
+                                    </Button>
+                                  )}
+                                  {u.role === "developer" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-9 sm:w-auto gap-1 px-2 sm:px-3 text-xs group/icon hover:bg-background hover:text-primary"
+                                      onClick={() => setViewingHoursUser(u)}
+                                      title="Submitted hours"
+                                      aria-label={`Submitted hours of ${u.userName || u.email}`}
+                                    >
+                                      <Clock className="h-4 w-4 text-card-foreground group-hover/icon:text-primary" />
+                                      <span className="hidden sm:inline">Hours</span>
                                     </Button>
                                   )}
                                   {u.role === "customer" && (
@@ -739,6 +797,7 @@ export default function AdminUsersPage() {
                       </div>
                     )}
                   </div>
+                          </Fragment>
                 );
               })}
             </div>

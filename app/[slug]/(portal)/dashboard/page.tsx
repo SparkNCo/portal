@@ -158,10 +158,15 @@ export default function ClientDashboard() {
         title="Dashboard"
         subtitle={`Welcome back, ${capitalize(profile?.firstName ?? profile?.userName ?? profile?.email ?? "User")}`}
         subtitleClassName="smalltext"
+        // Top right of the page, above everything (the Ask panel included).
+        actions={<RequestProjectDialog slug={slug} requestedBy={profile?.email} compact />}
       />
       <div className="p-4 md:p-6 space-y-6 ">
-        {/* Global query (SPA-582): ask about this project's documents, tests and issues. */}
-        <div className="-mx-4 sm:mx-0">
+        {/* Global query (SPA-582): ask about this project's documents, tests
+            and issues. A headline feature, so it stands apart: room above,
+            below and on both sides, centered, half the width on desktop.
+            Phones keep it edge to edge, like the other panels. */}
+        <div className="-mx-4 sm:mx-auto sm:w-[85%] lg:w-1/2 py-2 sm:py-6 md:py-8">
           <AskProject slug={slug} />
         </div>
         {issuesError && (
@@ -190,16 +195,6 @@ export default function ClientDashboard() {
             panels below (progress_pie_chart, build_product_decisions,
             build_acceptance_testing), currently always empty so nothing is
             filtered out. */}
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Your Panels
-          </h2>
-          <RequestProjectDialog
-            slug={slug}
-            requestedBy={profile?.email}
-            compact
-          />
-        </div>
 
         {pinnedPanels && pinnedPanels.length > 0 ? (
           <DndContext

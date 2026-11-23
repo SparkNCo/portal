@@ -40,20 +40,26 @@ import { NumberStepper } from "@/components/shared/number-stepper";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { cn } from "@/lib/utils";
 import {
+  HOURS_STEP,
+  MAX_HOURS_PER_ENTRY,
   deleteLogHours,
+  entryTickets,
+  isValidHours,
   patchLogHours,
   postLogHours,
   type HoursLogEntry,
+  type LoggedTicket,
 } from "@/lib/hours-api";
 
 type Project = { clientName: string; slug: string; allocation?: number | null };
 
-// Same field chrome as Add Developer / edit-issue-modal: a cream input sitting
-// flush on the modal's own background instead of an outlined box. Also opts
-// every field into this modal's type scale (smalltext = 16px) instead of the
+// Same field chrome as Edit Ticket (edit-issue-modal) and Bulk Import: a
+// soft gray field with light text, flush on the dark modal, instead of the
+// cream (bg-secondary) boxes that clashed with the dark theme. Also opts every
+// field into this modal's type scale (smalltext = 16px) instead of the
 // primitives' own baked-in text-sm (14px) — smalltext's `!important` is what
 // lets it win over that.
-const fieldClass = "bg-secondary border-0 smalltext";
+const fieldClass = "bg-muted/40 border-0 smalltext text-foreground placeholder:text-muted-foreground";
 
 function todayISODate() {
   return new Date().toISOString().slice(0, 10);
@@ -92,7 +98,7 @@ export function LogHoursModal({
   );
   const [hours, setHours] = useState(entry ? String(entry.hours) : "");
   const [workedOn, setWorkedOn] = useState(entry?.worked_on ?? todayISODate());
-  const [ticketIds, setTicketIds] = useState<string[]>(entry?.issue_ids ?? []);
+  const [ticketIds, setTicketIds] = useState<string[]>(entry ? entryTickets(entry).map((t) => t.id) : []);
   const [ticketPickerOpen, setTicketPickerOpen] = useState(false);
   const [summary, setSummary] = useState(entry?.summary ?? "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -111,14 +117,35 @@ export function LogHoursModal({
   }, [issues, selectedProject]);
 
   // Already-picked tickets drop out of the dropdown entirely instead of just
-  // graying out — the chips below are the only place they still show.
+  // graying out — the chips above it are the only place they still show.
   const pickableTicketOptions = ticketOptions.filter((o) => !ticketIds.includes(o.id));
 
-  // A previously-selected ticket might not be in `ticketOptions` anymore (e.g. it's
-  // since been marked Done and dropped from the dashboard's active issue list) —
-  // still show its chip so removing it stays possible, just without a friendly label.
-  function ticketOption(id: string) {
-    return ticketOptions.find((o) => o.id === id) ?? { id, code: null, title: id };
+  // What the entry being edited already has saved per ticket (code, title).
+  const savedTickets = useMemo(
+    () => new Map(entry ? entryTickets(entry).map((t) => [t.id, t]) : []),
+    [entry],
+  );
+
+  // A picked ticket's code and title: from the picker's list, else (it's
+  // since been marked Done and dropped from the active list) what the entry
+  // already saved. Without either — an older entry, saved with ids only — the
+  // chip shows the id so it can still be removed.
+  function ticketOption(id: string): { id: string; code: string | null; title: string } {
+    const listed = ticketOptions.find((o) => o.id === id);
+    if (listed) return listed;
+    const saved = savedTickets.get(id);
+    return { id, code: saved?.code ?? null, title: saved?.title ?? id };
+  }
+
+  // What's saved with the entry: code and title as they are now, so showing
+  // them later needs no lookup. Unknown ones (an older entry's ticket that's
+  // no longer listed) keep just their id.
+  function ticketsToSave(): LoggedTicket[] {
+    return ticketIds.map((id) => {
+      const listed = ticketOptions.find((o) => o.id === id);
+      if (listed) return { id, code: listed.code, title: listed.title };
+      return savedTickets.get(id) ?? { id, code: null, title: null };
+    });
   }
 
   // Shared by the dropdown list and the selected-ticket chips so both always
@@ -159,8 +186,17 @@ export function LogHoursModal({
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const parsedHours = Number(hours);
-  const hoursValid = Number.isInteger(parsedHours) && parsedHours > 0;
+  const hoursValid = isValidHours(parsedHours);
+  // Said only once something is typed, not on an empty field.
+  const hoursError = hours.trim() !== "" && !hoursValid;
   const canSubmit = hoursValid && !!selectedProject && !!workedOn;
+
+  // The arrows move by half an hour and stay within 0.5 … 24.
+  function bumpHours(delta: number) {
+    const current = Number.parseFloat(hours) || 0;
+    const next = Math.min(MAX_HOURS_PER_ENTRY, Math.max(HOURS_STEP, current + delta));
+    setHours(String(Math.round(next / HOURS_STEP) * HOURS_STEP));
+  }
 
   function handleSubmit() {
     if (!canSubmit || !selectedProject) return;
@@ -169,7 +205,7 @@ export function LogHoursModal({
       worked_on: workedOn,
       project_slug: selectedProject.slug,
       project_name: selectedProject.clientName,
-      issue_ids: ticketIds,
+      tickets: ticketsToSave(),
       summary: summary.trim() || undefined,
     };
     if (isEditing) {
@@ -213,14 +249,23 @@ export function LogHoursModal({
               <Label htmlFor="log-hours-hours" className="smalltext">Hours</Label>
               <NumberStepper
                 id="log-hours-hours"
-                min={1}
-                step={1}
+                min={HOURS_STEP}
+                max={MAX_HOURS_PER_ENTRY}
+                step={HOURS_STEP}
                 value={hours}
                 onChange={setHours}
-                onBump={(delta) => setHours(String(Math.max(1, (Number.parseInt(hours, 10) || 0) + delta)))}
-                placeholder="e.g. 4"
+                onBump={bumpHours}
+                placeholder="e.g. 1.5"
                 autoFocus
+                invalid={hoursError}
+                describedBy={hoursError ? "log-hours-hours-error" : undefined}
+                className="bg-muted/40 border-0 text-foreground"
               />
+              {hoursError && (
+                <p id="log-hours-hours-error" className="smalltext text-destructive">
+                  {HOURS_STEP} to {MAX_HOURS_PER_ENTRY}h, in half hours
+                </p>
+              )}
             </div>
             <div className="flex-1 space-y-1.5">
               <Label htmlFor="log-hours-date" className="smalltext">Date</Label>
@@ -230,7 +275,8 @@ export function LogHoursModal({
                 value={workedOn}
                 max={todayISODate()}
                 onChange={(e) => setWorkedOn(e.target.value)}
-                className={fieldClass}
+                // Dark color scheme: the browser's calendar icon shows light.
+                className={cn(fieldClass, "[color-scheme:dark]")}
               />
             </div>
           </div>
@@ -261,6 +307,32 @@ export function LogHoursModal({
             <Label className="smalltext">
               Tickets <span className="text-muted-foreground font-normal">(optional)</span>
             </Label>
+            {/* The picked tickets sit above the picker, so its dropdown (which
+                opens downwards) never covers them. */}
+            {ticketIds.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                {ticketIds.map((id) => {
+                  const option = ticketOption(id);
+                  return (
+                    <Badge
+                      key={id}
+                      variant="outline"
+                      className="smalltext flex w-full items-center justify-between gap-1.5 rounded-md border-border bg-muted/40 py-1.5 pl-2.5 pr-1 font-normal text-foreground"
+                    >
+                      <span className="min-w-0 truncate">{ticketDisplayLabel(option)}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${ticketDisplayLabel(option)}`}
+                        onClick={() => toggleTicket(id)}
+                        className="shrink-0 rounded-full p-0.5 text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
             <Popover open={ticketPickerOpen} onOpenChange={setTicketPickerOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -268,7 +340,7 @@ export function LogHoursModal({
                   variant="outline"
                   role="combobox"
                   disabled={!selectedProject}
-                  className={cn(fieldClass, "w-full justify-between font-normal")}
+                  className={cn(fieldClass, "w-full justify-between font-normal hover:bg-muted/60 hover:text-foreground")}
                 >
                   <span className="truncate">
                     {!selectedProject
@@ -308,30 +380,6 @@ export function LogHoursModal({
                 </Command>
               </PopoverContent>
             </Popover>
-            {ticketIds.length > 0 && (
-              <div className="flex flex-col gap-1.5 pt-1">
-                {ticketIds.map((id) => {
-                  const option = ticketOption(id);
-                  return (
-                    <Badge
-                      key={id}
-                      variant="secondary"
-                      className="smalltext flex w-full items-center justify-between gap-1.5 rounded-md py-1.5 pl-2.5 pr-1"
-                    >
-                      <span className="min-w-0 truncate">{ticketDisplayLabel(option)}</span>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${ticketDisplayLabel(option)}`}
-                        onClick={() => toggleTicket(id)}
-                        className="shrink-0 rounded-full p-0.5 text-muted-foreground outline-none transition-colors hover:bg-muted-foreground/20 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           <div className="space-y-1.5">
@@ -342,7 +390,7 @@ export function LogHoursModal({
               value={summary}
               onChange={setSummary}
               placeholder="What did you work on?"
-              className="border-0"
+              className="border-0 bg-muted/40 [&_.ProseMirror]:text-foreground"
               minHeight="90px"
               ariaLabel="Summary"
               allowImages={false}

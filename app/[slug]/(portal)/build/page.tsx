@@ -70,7 +70,9 @@ function BuildTicketsPanel({
       panelId={panelId}
       toolbar="inside"
       expandable={false}
-      className="flex min-w-0 flex-col"
+      // Phones: each panel its own bordered, rounded box (as on desktop),
+      // so one category of tickets is clearly apart from the next.
+      className="flex min-w-0 flex-col max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-border"
       contentClassName="flex-1 min-w-0"
     >
       <PriorityTasks
@@ -267,7 +269,9 @@ function BuildPageContent() {
         {/* One per row, the full width: a single row of tickets until "View
             all" shows every one in several rows (kept per user). The pin
             sits inside each panel's corner. */}
-        <div className="-mx-4 sm:mx-0 grid grid-cols-1 gap-4 md:gap-6">
+        {/* Not edge to edge on phones (no -mx-4): the side gutter shows each
+            panel's border. */}
+        <div className="grid grid-cols-1 gap-4 md:gap-6">
           {panels.map(({ panelId, title, issues, loading }) => (
             <BuildTicketsPanel
               key={panelId}

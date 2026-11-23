@@ -4,7 +4,8 @@ import {
   MAX_SOURCES,
   MIN_SIMILARITY,
   buildAskPrompt,
-  buildNotFoundPrompt,
+  cycleCalendar,
+  isTicketStatusQuestion,
   MAX_TICKET_ROWS,
   citedSources,
   citedTickets,
@@ -46,7 +47,7 @@ test.describe('withoutSourcesLine', () => {
   test('drops a trailing "Sources: [1]" line (the sources are shown below the answer)', () => {
     expect(withoutSourcesLine('Login uses Supabase Auth.\n\nSources: [1]')).toBe('Login uses Supabase Auth.');
     expect(withoutSourcesLine('Login uses Supabase Auth. Sources: [1], [2]')).toBe('Login uses Supabase Auth.');
-    expect(withoutSourcesLine('El login usa Supabase Auth.\nFuentes: [1] y [3].')).toBe('El login usa Supabase Auth.');
+    expect(withoutSourcesLine('Login uses Supabase Auth.\nSources: [1] and [3].')).toBe('Login uses Supabase Auth.');
     expect(withoutSourcesLine('Login uses Supabase Auth. (Source: [2])')).toBe('Login uses Supabase Auth.');
   });
 
@@ -88,15 +89,18 @@ test.describe('buildAskPrompt', () => {
     expect(prompt).toContain('Question: How does login work?');
   });
 
-  test('answers only from the sources, and in the question’s language', () => {
-    const prompt = buildAskPrompt('¿Cómo funciona el login?', [doc]);
+  test('answers only from the sources, always in English', () => {
+    const prompt = buildAskPrompt('When will it be deployed?', [doc]);
     expect(prompt).toContain('Answer only from the information above');
-    expect(prompt.trimEnd().endsWith('Answer in the same language as the question above (set language first).')).toBe(true);
-    // Decided from the question alone, before answering; also when it found
-    // nothing; not the sources' language (or English because the prompt is).
-    expect(prompt).toContain('first set language to the language the question is written in, judging by the question alone');
+    expect(prompt).toContain('always write answer in English, whatever language the question');
     expect(prompt).toContain('also when found is false');
-    expect(prompt).toContain('The project information above may be in another language');
+    expect(prompt.trimEnd().endsWith('Answer in English.')).toBe(true);
+  });
+
+  test('the language rule comes last, after the status rules, right before the question', () => {
+    const prompt = buildAskPrompt('When will SPA-1 be deployed?', [], 'SPA-1 · Login · Backlog · No cycle · Unassigned');
+    expect(prompt.indexOf('- Language:')).toBeGreaterThan(prompt.indexOf('Never invent a date'));
+    expect(prompt.indexOf('- Language:')).toBeLessThan(prompt.indexOf('Question: When will SPA-1 be deployed?'));
   });
 
   test('knows which project it answers about, and turns away questions about another one', () => {
@@ -106,13 +110,6 @@ test.describe('buildAskPrompt', () => {
     expect(prompt).toContain('here you can only answer questions about "Spark Portal"');
     // Without a name, no such rule (and no empty quotes).
     expect(buildAskPrompt('q', [doc])).not.toContain('another project, client or company');
-  });
-
-  test('"not found" with no sources at all: one sentence, in the question’s language', () => {
-    const prompt = buildNotFoundPrompt('¿Cuál es la capital de Francia?');
-    expect(prompt).toContain('Question: ¿Cuál es la capital de Francia?');
-    expect(prompt).toContain('in the language the question is written in');
-    expect(prompt).toContain("Don't answer the question itself");
   });
 
   test('long content is cut at MAX_CONTENT_CHARS', () => {
@@ -195,10 +192,58 @@ test.describe('the live ticket list', () => {
     expect(cited.map((r) => r.id)).toEqual(['b', 'a']);
   });
 
+  test('the Cycles line: every cycle with its dates, past / current / upcoming, earliest first', () => {
+    const past = { number: 15, name: null, startsAt: '2026-10-20T00:00:00Z', endsAt: '2026-11-02T00:00:00Z', isActive: false };
+    const next = { number: 17, name: null, startsAt: '2026-11-17T00:00:00Z', endsAt: '2026-11-30T00:00:00Z', isActive: false };
+    const now = new Date('2026-11-10T12:00:00Z').getTime();
+    expect(cycleCalendar([row({ cycle: next }), row({ cycle: current }), row({ cycle: past }), row({})], now)).toEqual([
+      'Cycle 15 (2026-10-20 to 2026-11-02, past)',
+      'Cycle 16 (2026-11-03 to 2026-11-16, current)',
+      'Cycle 17 (2026-11-17 to 2026-11-30, upcoming)',
+    ]);
+    expect(ticketList([row({ cycle: next })], now)).toContain('Cycles: Cycle 17 (2026-11-17 to 2026-11-30, upcoming)');
+  });
+
   test('the prompt carries the ticket list and how to use it', () => {
     const prompt = buildAskPrompt('What is in the current cycle?', [], ticketList([row({ code: 'SPA-7', cycle: current })]));
     expect(prompt).toContain('Ticket list (live from the ticket system');
     expect(prompt).toContain('SPA-7 · A ticket · Backlog · Cycle 16 (current)');
     expect(prompt).toContain('use the ticket list');
+  });
+});
+
+test.describe('questions about status, cycle, priority or dates', () => {
+  test('recognized by their words', () => {
+    for (const q of [
+      'What cycle is the SSO feature in?',
+      'When will the query feature be deployed?',
+      'What is the priority of the export?',
+      "Who's working on login?",
+      'What is the status of the region filter?',
+      'Is the search ready yet?',
+    ]) {
+      expect(isTicketStatusQuestion(q), q).toBe(true);
+    }
+  });
+
+  test('not for questions about what something is or how it works', () => {
+    for (const q of ['How does login work?', 'What does the export include?']) {
+      expect(isTicketStatusQuestion(q), q).toBe(false);
+    }
+  });
+
+  const list = 'Current cycle: Cycle 16\nSPA-1 · Login with SSO · In Progress · Cycle 16 (current) · Unassigned';
+
+  test('adds the rules for finding the ticket by its title and answering "when" without inventing a date', () => {
+    const prompt = buildAskPrompt('When will the SSO feature be deployed?', [], list);
+    expect(prompt).toContain('match what the question mentions against the ticket titles');
+    expect(prompt).toContain("there's no deployment date field");
+    expect(prompt).toContain("give the cycle's end date as the expected date");
+    expect(prompt).toContain('Never invent a date');
+  });
+
+  test('not for other questions, nor without a ticket list', () => {
+    expect(buildAskPrompt('How does login work?', [], list)).not.toContain("there's no deployment date field");
+    expect(buildAskPrompt('When will the SSO feature be deployed?', [], '')).not.toContain("there's no deployment date field");
   });
 });
