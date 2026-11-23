@@ -11,23 +11,27 @@ const SETTLE_MS = 250;
 
 // On phones, keeps a centered dialog above the on-screen keyboard: returns a
 // style that fits it into the visible area (window.visualViewport). Empty on
-// wider screens.
-export function useVisualViewportFit(): CSSProperties {
+// wider screens. With `fill`, the dialog takes the whole visible area (edge to
+// edge, top to bottom) instead of only being capped by it.
+export function useVisualViewportFit({ fill = false }: { fill?: boolean } = {}): CSSProperties {
   const [style, setStyle] = useState<CSSProperties>({});
 
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
     const mobile = window.matchMedia(MOBILE_QUERY);
+    const margin = fill ? 0 : MARGIN_PX;
 
     const update = () => {
       if (!mobile.matches) {
         setStyle({});
         return;
       }
+      const height = `${viewport.height - margin * 2}px`;
       setStyle({
         top: `${viewport.offsetTop + viewport.height / 2}px`,
-        maxHeight: `${viewport.height - MARGIN_PX * 2}px`,
+        maxHeight: height,
+        ...(fill && { height }),
       });
     };
 
@@ -40,7 +44,7 @@ export function useVisualViewportFit(): CSSProperties {
       viewport.removeEventListener("scroll", update);
       mobile.removeEventListener("change", update);
     };
-  }, []);
+  }, [fill]);
 
   // Once the dialog has resized for the keyboard, scrolls the focused field
   // back into view.

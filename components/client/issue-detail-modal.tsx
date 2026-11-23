@@ -2075,7 +2075,8 @@ export function IssueDetailModal({
   const [isExpanded, setIsExpanded] = useState(false);
   // On phones, keeps the modal (and the chat input at its bottom) above the
   // on-screen keyboard.
-  const visibleAreaStyle = useVisualViewportFit();
+  // On phones it fills the screen on every tab (and shrinks above the keyboard).
+  const visibleAreaStyle = useVisualViewportFit({ fill: true });
   const [advancing, setAdvancing] = useState(false);
   const [changingPriority, setChangingPriority] = useState(false);
   const [currentStateName, setCurrentStateName] = useState(issue.state?.name);
@@ -2087,10 +2088,11 @@ export function IssueDetailModal({
   const [activeTab, setActiveTab] = useState<IssueDetailTab>(
     initialTab ?? "description",
   );
-  // On small screens the stage buttons (Complete Review / Approved / Fixes
-  // Required) are hidden on the Chat tab, which needs the room for its
-  // messages and input; every other tab shows them.
-  const hideStageButtons = activeTab === "chat";
+  // On small screens the Chat tab gets the room for its messages and input:
+  // the header keeps only its top row (labels, code, priority, status) — the
+  // title, "Requested by … on …" and the stage buttons (Complete Review /
+  // Approved / Fixes Required) are hidden. Every other tab shows them.
+  const compactChatHeader = activeTab === "chat";
 
   // "Complete Review" stays available even with open questions (blocking it
   // entirely was confusing — adding a question made the button vanish with
@@ -2260,7 +2262,9 @@ export function IssueDetailModal({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent
         className={cn(
-          "flex flex-col overflow-hidden max-h-[90vh] transition-all duration-200",
+          // Phones: the whole screen (100dvh until the visible-area style
+          // above takes over and follows the keyboard). Wider: as before.
+          "flex flex-col overflow-hidden max-h-[90vh] max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:border-0 transition-all duration-200",
           isExpanded
             ? "sm:max-w-3xl md:max-w-5xl lg:max-w-6xl sm:max-h-[92vh]"
             : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl sm:max-h-[85vh]",
@@ -2345,11 +2349,13 @@ export function IssueDetailModal({
                 </Badge>
               )}
             </div>
-            <DialogTitle className="text-base font-semibold leading-snug">
+            {/* Hidden only visually on the phone's Chat tab: screen readers
+                still announce the dialog by its title. */}
+            <DialogTitle className={cn("text-base font-semibold leading-snug", compactChatHeader && "max-sm:sr-only")}>
               {issue.title}
             </DialogTitle>
             {origin.requestedBy !== undefined && (
-              <p className="smalltext italic text-muted-foreground">
+              <p className={cn("smalltext italic text-muted-foreground", compactChatHeader && "max-sm:hidden")}>
                 {origin.requestedBy ? `Requested by ${origin.requestedBy.name}` : "Created by Spark & Co"}
                 {origin.createdAt &&
                   ` on ${formatRequestedDate(origin.createdAt)}`}
@@ -2364,7 +2370,7 @@ export function IssueDetailModal({
                 unanswered-question warning lives on the Decisions tab
                 itself now (see the orange X next to its label below). */}
             {currentStateName === "Business Review" && (
-              <div className={cn("pt-3", hideStageButtons && "max-sm:hidden")}>
+              <div className={cn("pt-3", compactChatHeader && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
@@ -2383,7 +2389,7 @@ export function IssueDetailModal({
               // expand/close icons up in the top-right corner, irrelevant by
               // this row) below sm, so the two buttons reach the same right
               // margin as everything else instead of stopping short of it.
-              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", hideStageButtons && "max-sm:hidden")}>
+              <div className={cn("flex gap-2 pt-3 -mr-20 sm:mr-0", compactChatHeader && "max-sm:hidden")}>
                 <Button
                   size="sm"
                   variant="success"
@@ -2464,7 +2470,11 @@ export function IssueDetailModal({
         {activeTab === "description" && <DescriptionTab issue={issue} />}
 
         {activeTab === "chat" && (
-          <div className="flex-1 flex flex-col overflow-hidden min-h-[320px]">
+          // No minimum height on phones: with the keyboard open the visible
+          // area is ~350px, and a fixed 320px plus the header pushed the
+          // message input under the keyboard (the dialog clips what
+          // overflows). The message list shrinks and scrolls instead.
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0 sm:min-h-[320px]">
             <IssueChatTab issueId={issue.id} issueTitle={issue.title} slug={slug} />
           </div>
         )}
