@@ -37,6 +37,11 @@ export function moveNavKey(keys: string[], from: string, to: string): string[] {
 // more than one ("build:build_backlog").
 export const expandedPanelKey = (page: string, panelId: string) => `${page}:${panelId}`;
 
+// A ticket panel showing every ticket ("View all", several rows) rather than
+// one row: its own key next to the widened ones, so a panel someone widened
+// before ticket panels went full width doesn't open showing everything.
+export const showAllPanelKey = (page: string, panelId: string) => `${expandedPanelKey(page, panelId)}:all`;
+
 // The list with that panel widened or back to half width.
 export function setPanelExpanded(keys: string[], key: string, expanded: boolean): string[] {
   const without = keys.filter((k) => k !== key);

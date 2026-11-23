@@ -304,4 +304,9 @@ export type PriorityTasksProps = {
    * expand, drag…): the header leaves room for them, level with the title.
    * E.g. PagePanel's toolbar="inside", the Dashboard's pinned panels. */
   reserveTopRight?: 1 | 2 | 3;
+  /** "View all" (every ticket, in several rows) controlled by the page, to
+   * keep it per user (hooks/use-user-layout.ts → usePanelShowAll). Without
+   * it, the panel keeps its own, forgotten on reload. */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 };

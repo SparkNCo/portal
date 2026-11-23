@@ -291,11 +291,21 @@ export function PriorityTasks({
   emptyState,
   loading = false,
   reserveTopRight,
+  expanded: expandedProp,
+  onExpandedChange,
 }: PriorityTasksProps) {
   // Room right of the header for the corner buttons (see CORNER_ROOM).
   const cornerRoom = reserveTopRight ? CORNER_ROOM[reserveTopRight] : "";
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  // "View all": the caller's (saved per user, see usePanelShowAll) when it
+  // passes one; otherwise this panel's own, forgotten on reload.
+  const [expandedLocal, setExpandedLocal] = useState(false);
+  const expanded = expandedProp ?? expandedLocal;
+  const setExpanded = (update: (v: boolean) => boolean) => {
+    const next = update(expanded);
+    if (onExpandedChange) onExpandedChange(next);
+    else setExpandedLocal(next);
+  };
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [titleFilter, setTitleFilter] = useState("");

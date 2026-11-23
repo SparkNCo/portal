@@ -384,34 +384,44 @@ Posting feedback on a demo version sends an in-app notification (the header bell
 
 ### 7g. Freeing storage (admins)
 
-Two admin-only routes find and remove the **uploaded demo files of an initiative whose tickets are finished**, to free space in the `demo-videos` bucket. Use the first to review, then the second to delete. Code: `supabase/functions/demo-videos/cleanupDemos.ts`.
+Two admin-only routes find and remove the **uploaded demo files of an initiative's finished tickets**, to free space in the `demo-videos` bucket. Use the first to review, then the second to delete. Code: `supabase/functions/demo-videos/cleanupDemos.ts` (the rules: `cleanupRules.ts`).
 
 | Method | Purpose |
 |---|---|
-| `GET /demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` | Lists what would be removed. Deletes nothing. |
-| `DELETE /demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` | Removes it. |
+| `GET /demo-videos?type=cleanup&slug=<initiative>&email=<admin email>[&mode=…]` | Lists what would be removed. Deletes nothing. |
+| `DELETE /demo-videos?type=cleanup&slug=<initiative>&email=<admin email>[&mode=…]` | Removes it. |
 
-`slug` is the initiative's route slug (its `clientName`, e.g. `spark-portal`); `customer_id=<id>` works instead. `email` must belong to an admin, otherwise `403`. An unknown initiative returns `404`.
+`slug` is the initiative's route slug (its `clientName`, e.g. `spark-portal`); `customer_id=<id>` works instead. `email` must belong to an admin, otherwise `403`. An unknown initiative returns `404`; an unknown `mode`, `400`.
+
+**Modes:**
+
+| `mode` | Done tickets | Deleted tickets |
+|---|---|---|
+| `keep-latest` (default) | Keep their **latest** demo version; older versions go | Every version goes |
+| `all` | Every version goes | Every version goes |
+
+The latest version is the highest `version` of the ticket, uploads and links alike: if it's a link, every older upload goes.
 
 **Which files qualify:**
 
 1. Every ticket in the initiative's Linear projects (`customers.linear_projects`) is fetched from Linear, including archived and trashed ones (`includeArchived: true`).
-2. A ticket is finished when its state is **Done** or it's **deleted** (in Linear's trash). Approved and Canceled tickets don't count.
-3. Only `source_type = 'upload'` demos are considered — embed links (Loom, etc.) take no storage.
-4. A file can be shared by several demo rows (one upload attached to several tickets, see "Attaching an existing demo"). It's only removed when **every** row using it, in this initiative or any other, is on a finished ticket. Files still used by an open ticket are left alone and counted in `skippedInUse`.
+2. A ticket is finished when its state is **Done** or it's **deleted** (in Linear's trash). Approved and Canceled tickets don't count. Open tickets are never touched.
+3. Only `source_type = 'upload'` demos are removed — embed links (Loom, etc.) take no storage.
+4. A file can be shared by several demo rows (one upload attached to several tickets, see "Attaching an existing demo"). It's only removed when **every** row using it, in this initiative or any other, may go under the mode (e.g. with `keep-latest`, not when it's some Done ticket's latest version). Files that stay are counted in `skippedInUse`.
 
 **`GET` response:**
 
 ```json
 {
   "initiative": "Spark-Portal",
+  "mode": "keep-latest",
   "files": [
     {
       "storagePath": "<issueId>/v1/<uuid>.mp4",
       "sizeBytes": 48211022,
       "demoIds": ["…"],
       "title": "Login flow walkthrough",
-      "tickets": [{ "issueId": "…", "identifier": "SPA-123", "title": "…", "reason": "done" }]
+      "tickets": [{ "issueId": "…", "identifier": "SPA-123", "title": "…", "version": 1, "reason": "older-version" }]
     }
   ],
   "skippedInUse": 2,
@@ -421,7 +431,7 @@ Two admin-only routes find and remove the **uploaded demo files of an initiative
 }
 ```
 
-**`DELETE`** recomputes the same list (it never takes one from the caller), removes those files from the bucket in batches of 100, then deletes their `demo_videos` rows. Each row's feedback (`demo_video_comments`) goes with it (`ON DELETE CASCADE`). Response: `{ initiative, deletedFiles, freedBytes, deletedDemoRows }`. If storage removal fails partway, it stops and reports how many files were already removed; rows are only deleted after every file is gone.
+**`DELETE`** recomputes the same list (it never takes one from the caller), removes those files from the bucket in batches of 100, then deletes their `demo_videos` rows. Each row's feedback (`demo_video_comments`) goes with it (`ON DELETE CASCADE`). `reason` is `older-version` (Done ticket, not its latest, `keep-latest`), `done` (Done ticket, `all`) or `deleted`. Response: `{ initiative, mode, deletedFiles, freedBytes, deletedDemoRows }`. If storage removal fails partway, it stops and reports how many files were already removed; rows are only deleted after every file is gone.
 
 **Good to know:**
 
@@ -445,8 +455,8 @@ Two admin-only routes find and remove the **uploaded demo files of an initiative
 | `PUT /demo-videos` (JSON) | Replace the selected version's content with an embed link | `demo_id`, `email`, `embed_url` |
 | `PUT /demo-videos` (JSON) | Replace the selected version's content with an already-uploaded demo — no re-upload | `demo_id`, `email`, `source_demo_id` |
 | `GET /demo-videos?issue_ids=` | List every version across a *set* of issues (comma-separated ids), newest first — powers the Demos sidebar page and `DemoPicker`, not the per-ticket tab | — |
-| `GET /demo-videos?type=cleanup&slug=&email=` | Admins: list an initiative's demo files that can be removed to free storage (see 7g) | — |
-| `DELETE /demo-videos?type=cleanup&slug=&email=` | Admins: remove those files and their demo rows (see 7g) | — |
+| `GET /demo-videos?type=cleanup&slug=&email=&mode=` | Admins: list an initiative's demo files that can be removed to free storage; `mode` = `keep-latest` (default) or `all` (see 7g) | — |
+| `DELETE /demo-videos?type=cleanup&slug=&email=&mode=` | Admins: remove those files and their demo rows (see 7g) | — |
 
 ---
 

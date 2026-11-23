@@ -1,6 +1,7 @@
 "use client";
 
 import { Header } from "@/components/headerDashboard";
+import { usePanelShowAll } from "@/hooks/use-user-layout";
 import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { BugReportPanel } from "@/components/bugs/bug-report-panel";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
@@ -42,6 +43,8 @@ function BugsPageContent() {
   // notification fired — the fallback query further down covers that case
   // the same way build/page.tsx does.
   const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
+  // "View all" kept per user (portal.user_layout).
+  const showAll = usePanelShowAll("bugs", "bugs_list");
   // Aliased — this page already has its own `selectedProject` state below
   // for the Linear sub-project filter buttons, a different concept.
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
@@ -228,6 +231,8 @@ function BugsPageContent() {
             headerAction={projectFilterDropdown}
             lightCard
             reserveTopRight={1}
+            expanded={showAll.expanded}
+            onExpandedChange={showAll.set}
             openIssueId={openIssueId}
             openIssueTab={openIssueTab}
             onDeepLinkClose={clearDeepLink}

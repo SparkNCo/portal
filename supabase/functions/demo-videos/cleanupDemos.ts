@@ -3,14 +3,25 @@ import { supabase } from "../client.ts";
 import { linearRequest } from "../issues/linearClient.ts";
 import { escapeIlike } from "../utils/slug.ts";
 import { BUCKET, SCHEMA } from "./helpers.ts";
+import {
+  DEFAULT_CLEANUP_MODE,
+  latestVersionByIssue,
+  pickRemovableFiles,
+  type CleanupMode,
+  type RemovalReason,
+} from "./cleanupRules.ts";
 
-// Frees storage: finds the uploaded demo files of an initiative whose tickets
-// are all Done or deleted in Linear, so they can be removed.
+// Frees storage: finds the uploaded demo files of an initiative's Done or
+// deleted tickets, so they can be removed. Which ones, per mode, is in
+// cleanupRules.ts: by default ("keep-latest") a Done ticket keeps its latest
+// version; "all" removes every version of Done tickets too. Deleted tickets
+// lose all their demos either way.
 //
 // A file is only a candidate when *every* demo row pointing at it (a demo can
-// be attached to several tickets, all sharing one file) belongs to a Done or
-// deleted ticket — a file still used by an open ticket is never touched.
-// Link demos (Loom, etc.) take no storage and are ignored.
+// be attached to several tickets, all sharing one file) may go — a file still
+// used by an open ticket, or that is a Done ticket's latest version in
+// "keep-latest", is never touched. Link demos (Loom, etc.) take no storage
+// and are never removed (they still count as a ticket's latest version).
 //
 // Tickets permanently purged from Linear (30+ days in trash) no longer come
 // back from Linear at all, so their demos can't be tied to the initiative and
@@ -42,13 +53,6 @@ async function fetchInitiativeIssues(projectIds: string[]): Promise<LinearIssue[
   return issues;
 }
 
-// Why a ticket's demos may go: "done" or "deleted"; null keeps them.
-function removalReason(issue: LinearIssue): "done" | "deleted" | null {
-  if (issue.trashed) return "deleted";
-  if (issue.state?.name === "Done") return "done";
-  return null;
-}
-
 // The initiative by route slug (clientName) or customer id.
 async function resolveInitiative({ slug, customerId }: { slug?: string | null; customerId?: string | null }) {
   let query = supabase.schema(SCHEMA).from("customers").select("customer_id, clientName, linear_projects");
@@ -77,12 +81,13 @@ async function fileSizes(paths: string[]): Promise<Map<string, number>> {
 
 export type CleanupPlan = {
   initiative: string;
+  mode: CleanupMode;
   files: {
     storagePath: string;
     sizeBytes: number;
     demoIds: string[];
     title: string | null;
-    tickets: { issueId: string; identifier: string; title: string; reason: "done" | "deleted" }[];
+    tickets: { issueId: string; identifier: string; title: string; version: number; reason: RemovalReason }[];
   }[];
   skippedInUse: number;
   totalFiles: number;
@@ -90,7 +95,10 @@ export type CleanupPlan = {
   demoRows: number;
 };
 
-export async function planDemoCleanup(params: { slug?: string | null; customerId?: string | null }): Promise<CleanupPlan | null> {
+type CleanupParams = { slug?: string | null; customerId?: string | null; mode?: CleanupMode };
+
+export async function planDemoCleanup(params: CleanupParams): Promise<CleanupPlan | null> {
+  const mode = params.mode ?? DEFAULT_CLEANUP_MODE;
   const initiative = await resolveInitiative(params);
   if (!initiative) return null;
   const projectIds: string[] = initiative.linear_projects ?? [];
@@ -98,68 +106,51 @@ export async function planDemoCleanup(params: { slug?: string | null; customerId
   const issues = projectIds.length ? await fetchInitiativeIssues(projectIds) : [];
   const issueById = new Map(issues.map((i) => [i.id, i]));
 
-  // Uploaded demos on this initiative's tickets.
+  // Every demo version on this initiative's tickets, links included: a link
+  // can be a ticket's latest version.
   const issueIds = issues.map((i) => i.id);
   const demos: any[] = [];
   for (let i = 0; i < issueIds.length; i += 200) {
     const { data, error } = await supabase
       .schema(SCHEMA)
       .from("demo_videos")
-      .select("id, issue_id, storage_path, title")
-      .eq("source_type", "upload")
+      .select("id, issue_id, version, source_type, storage_path, title")
       .in("issue_id", issueIds.slice(i, i + 200));
     if (error) throw new Error(error.message);
     demos.push(...(data ?? []));
   }
+  const latest = latestVersionByIssue(demos);
 
-  const paths = [...new Set(demos.map((d) => d.storage_path).filter(Boolean))];
+  // Only uploaded files take storage.
+  const paths = [
+    ...new Set(demos.filter((d) => d.source_type === "upload").map((d) => d.storage_path).filter(Boolean)),
+  ];
 
   // Every row that uses each file, across all initiatives — a shared file is
   // only removable if none of its rows is on a ticket that stays.
-  const usersOfPath = new Map<string, any[]>();
+  const usersOfPath = new Map<string, any[]>(paths.map((p) => [p, []]));
   for (let i = 0; i < paths.length; i += 200) {
     const { data, error } = await supabase
       .schema(SCHEMA)
       .from("demo_videos")
-      .select("id, issue_id, storage_path, title")
+      .select("id, issue_id, version, storage_path, title")
       .in("storage_path", paths.slice(i, i + 200));
     if (error) throw new Error(error.message);
     for (const row of data ?? []) {
-      usersOfPath.set(row.storage_path, [...(usersOfPath.get(row.storage_path) ?? []), row]);
+      usersOfPath.get(row.storage_path)?.push(row);
     }
   }
 
-  const files: CleanupPlan["files"] = [];
-  let skippedInUse = 0;
-  for (const path of paths) {
-    const rows = usersOfPath.get(path) ?? [];
-    const tickets = rows.map((r) => {
-      const issue = issueById.get(r.issue_id);
-      return issue ? { issue, reason: removalReason(issue) } : { issue: null, reason: null };
-    });
-    if (rows.length === 0 || tickets.some((t) => !t.reason)) {
-      skippedInUse++;
-      continue;
-    }
-    files.push({
-      storagePath: path,
-      sizeBytes: 0,
-      demoIds: rows.map((r) => r.id),
-      title: rows.find((r) => r.title)?.title ?? null,
-      tickets: tickets.map((t) => ({
-        issueId: t.issue!.id,
-        identifier: t.issue!.identifier,
-        title: t.issue!.title,
-        reason: t.reason!,
-      })),
-    });
-  }
+  const picked = pickRemovableFiles(usersOfPath, issueById, latest, mode);
+  const files: CleanupPlan["files"] = picked.files.map((f) => ({ ...f, sizeBytes: 0 }));
+  const skippedInUse = picked.skippedInUse;
 
   const sizes = await fileSizes(files.map((f) => f.storagePath));
   files.forEach((f) => (f.sizeBytes = sizes.get(f.storagePath) ?? 0));
 
   return {
     initiative: initiative.clientName,
+    mode,
     files,
     skippedInUse,
     totalFiles: files.length,
@@ -171,7 +162,7 @@ export async function planDemoCleanup(params: { slug?: string | null; customerId
 // Removes the files from storage, then the demo rows that pointed at them
 // (their feedback comments go with them via ON DELETE CASCADE). Recomputes
 // the plan instead of trusting a list from the caller.
-export async function runDemoCleanup(params: { slug?: string | null; customerId?: string | null }) {
+export async function runDemoCleanup(params: CleanupParams) {
   const plan = await planDemoCleanup(params);
   if (!plan) return null;
 
@@ -197,6 +188,7 @@ export async function runDemoCleanup(params: { slug?: string | null; customerId?
 
   return {
     initiative: plan.initiative,
+    mode: plan.mode,
     deletedFiles: paths.length,
     freedBytes: plan.totalBytes,
     deletedDemoRows: demoIds.length,

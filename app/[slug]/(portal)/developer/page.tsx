@@ -3,6 +3,7 @@
 import { Header } from "@/components/headerDashboard";
 import { QuickLinks } from "@/components/developer/quick-links";
 import { ToolShortcuts } from "@/components/developer/tool-shortcuts";
+import { usePanelShowAll } from "@/hooks/use-user-layout";
 import { PriorityTasks } from "@/components/client/priority-tasks";
 import { CreateIssue } from "@/components/shared/create-issue";
 import { PolicyApprovalModal } from "@/components/ui/PolicyApprovalModal";
@@ -181,6 +182,8 @@ function DeveloperDashboardContent() {
   // copied link sends them here (see issueShareUrl). Opened from the list
   // when it's on screen, else looked up by number in this initiative.
   const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
+  // "View all" kept per user (portal.user_layout).
+  const showAll = usePanelShowAll("developer", "developer_tasks");
 
   const visibleIssues = [...priorityFiltered].sort((a: any, b: any) => {
     if (sortBy === "priority")
@@ -294,6 +297,8 @@ function DeveloperDashboardContent() {
               onDeepLinkClose={clearDeepLink}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              expanded={showAll.expanded}
+              onExpandedChange={showAll.set}
               headerAction={
                 <>
                 {/* Fetches the tickets again from Linear; the list stays on

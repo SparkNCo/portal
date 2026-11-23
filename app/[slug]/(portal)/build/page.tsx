@@ -14,6 +14,7 @@ import { useCustomerSlug } from "context/CustomerSlugContext";
 import { useSelectedProject } from "@/lib/selected-project-context";
 import { fetchIssues } from "../dashboard/page";
 import { PagePanel } from "@/components/dashboard/page-panel";
+import { usePanelShowAll } from "@/hooks/use-user-layout";
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 import { safeDecodeURIComponent } from "@/lib/utils";
@@ -28,6 +29,70 @@ import {
 // Radix Select reserves the empty string for "no value" internally, so "no
 // project selected" (show every project) needs its own sentinel instead.
 const ALL_PROJECTS_VALUE = "__all__";
+
+// Build's panels have no status filters.
+const noopFilterState = {
+  selectedStatuses: [],
+  onlyActive: false,
+  availableStatuses: [],
+  hasCycles: false,
+  onToggleStatus: () => {},
+  onToggleActive: () => {},
+  onClearFilters: () => {},
+};
+
+// One ticket panel: full width, with its "View all" kept per user.
+function BuildTicketsPanel({
+  panelId,
+  title,
+  loading,
+  issues,
+  slug,
+  onEditIssue,
+  openIssueId,
+  openIssueTab,
+  onDeepLinkClose,
+}: Readonly<{
+  panelId: string;
+  title: string;
+  loading: boolean;
+  issues: Issue[];
+  slug: string;
+  onEditIssue: (issue: Issue) => void;
+  openIssueId: ReturnType<typeof useIssueDeepLink>["openIssueId"];
+  openIssueTab: ReturnType<typeof useIssueDeepLink>["openIssueTab"];
+  onDeepLinkClose: () => void;
+}>) {
+  const showAll = usePanelShowAll("build", panelId);
+  return (
+    <PagePanel
+      page="build"
+      panelId={panelId}
+      toolbar="inside"
+      expandable={false}
+      className="flex min-w-0 flex-col"
+      contentClassName="flex-1 min-w-0"
+    >
+      <PriorityTasks
+        loading={loading}
+        issuesData={issues}
+        filterState={noopFilterState}
+        onOpenChat={() => {}}
+        onEditIssue={onEditIssue}
+        title={title}
+        slug={slug}
+        lightCard
+        viewMode="row"
+        reserveTopRight={1}
+        expanded={showAll.expanded}
+        onExpandedChange={showAll.set}
+        openIssueId={openIssueId}
+        openIssueTab={openIssueTab}
+        onDeepLinkClose={onDeepLinkClose}
+      />
+    </PagePanel>
+  );
+}
 
 export default function BuildPage() {
   return (
@@ -126,16 +191,6 @@ function BuildPageContent() {
         new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime(),
     );
 
-  const noopFilterState = {
-    selectedStatuses: [],
-    onlyActive: false,
-    availableStatuses: [],
-    hasCycles: false,
-    onToggleStatus: () => {},
-    onToggleActive: () => {},
-    onClearFilters: () => {},
-  };
-
   const projects: { id: string; name: string }[] = Array.from(
     new Map(
       [...businessReviewIssues, ...uatIssues, ...recentIssues, ...refinementIssues, ...doneIssues]
@@ -209,35 +264,23 @@ function BuildPageContent() {
           </Select>
         )}
 
-        {/* Two per row (each can expand to full width); the pin and expand
-            buttons sit inside each panel's corner, so there's no gap above
-            every panel. */}
-        <div className="-mx-4 sm:mx-0 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {/* One per row, the full width: a single row of tickets until "View
+            all" shows every one in several rows (kept per user). The pin
+            sits inside each panel's corner. */}
+        <div className="-mx-4 sm:mx-0 grid grid-cols-1 gap-4 md:gap-6">
           {panels.map(({ panelId, title, issues, loading }) => (
-            <PagePanel
+            <BuildTicketsPanel
               key={panelId}
-              page="build"
               panelId={panelId}
-              toolbar="inside"
-              className="flex min-w-0 flex-col"
-              contentClassName="flex-1 min-w-0"
-            >
-              <PriorityTasks
-                loading={loading}
-                issuesData={inSelectedProject(issues)}
-                filterState={noopFilterState}
-                onOpenChat={() => {}}
-                onEditIssue={(issue) => setEditingIssue(issue)}
-                title={title}
-                slug={slug}
-                lightCard
-                viewMode="row"
-                reserveTopRight={2}
-                openIssueId={openIssueId}
-                openIssueTab={openIssueTab}
-                onDeepLinkClose={clearDeepLink}
-              />
-            </PagePanel>
+              title={title}
+              loading={loading}
+              issues={inSelectedProject(issues)}
+              slug={slug}
+              onEditIssue={setEditingIssue}
+              openIssueId={openIssueId}
+              openIssueTab={openIssueTab}
+              onDeepLinkClose={clearDeepLink}
+            />
           ))}
         </div>
       </div>

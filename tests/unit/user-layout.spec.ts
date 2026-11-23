@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { expandedPanelKey, moveNavKey, orderNavItems, setPanelExpanded } from '../../lib/user-layout';
+import { expandedPanelKey, moveNavKey, orderNavItems, setPanelExpanded, showAllPanelKey } from '../../lib/user-layout';
 
 const items = ['dashboard', 'monitor', 'build', 'bugs', 'settings'].map((href) => ({ href }));
 const keys = (list: { href: string }[]) => list.map((i) => i.href);
@@ -47,5 +47,19 @@ test.describe('widened panels on pages other than the Dashboard', () => {
     expect(widened).toEqual(['monitor:software_kpis', key]);
     expect(setPanelExpanded(widened, key, true)).toEqual(['monitor:software_kpis', key]);
     expect(setPanelExpanded(widened, key, false)).toEqual(['monitor:software_kpis']);
+  });
+});
+
+test.describe('showAllPanelKey', () => {
+  test("a ticket panel's View all has its own key, apart from its width", () => {
+    expect(showAllPanelKey('build', 'build_backlog')).toBe('build:build_backlog:all');
+    expect(showAllPanelKey('build', 'build_backlog')).not.toBe(expandedPanelKey('build', 'build_backlog'));
+  });
+
+  test('turning View all on or off leaves a widened panel as it was', () => {
+    const widened = expandedPanelKey('build', 'build_done');
+    const showAll = showAllPanelKey('build', 'build_done');
+    expect(setPanelExpanded([widened], showAll, true)).toEqual([widened, showAll]);
+    expect(setPanelExpanded([widened, showAll], showAll, false)).toEqual([widened]);
   });
 });
