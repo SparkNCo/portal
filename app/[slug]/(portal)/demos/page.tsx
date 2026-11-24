@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Film, Loader2, Upload, Link as LinkIcon, Plus, Search, Video, X } from "lucide-react";
+import { Film, Image as ImageIcon, Loader2, Upload, Link as LinkIcon, Plus, RefreshCw, Search, Video, X } from "lucide-react";
 import { Header } from "@/components/headerDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,13 @@ async function createDemoFromEmbed(issueId: string, email: string, embedUrl: str
     throw new Error(body?.error ?? "Failed to add video link");
   }
   return (await res.json()) as Demo;
+}
+
+// "48.2 MB" for the chosen file's chip.
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function UploadDemoForm({
@@ -204,23 +211,56 @@ function UploadDemoForm({
         </div>
 
         {mode === "upload" && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <input
               ref={fileInputRef}
               type="file"
               accept="video/*,image/*"
               className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                // Cancelling the picker keeps the file already chosen.
+                const picked = e.target.files?.[0];
+                if (picked) setFile(picked);
+                // Cleared so picking the same file again (after removing it)
+                // still counts as a change.
+                e.target.value = "";
+              }}
             />
+            {/* With a file picked it becomes "Replace file…": the new pick
+                replaces it. The chip's ✕ removes it instead. */}
             <Button
               size="sm"
               variant="outline"
               className="gap-1.5 smalltext"
               onClick={() => fileInputRef.current?.click()}
+              disabled={submitMutation.isPending}
             >
-              <Upload className="h-3.5 w-3.5" />
-              {file ? file.name : "Choose video or image…"}
+              {file ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+              {file ? "Replace file…" : "Choose video or image…"}
             </Button>
+            {file && (
+              <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 smalltext">
+                {file.type.startsWith("image/") ? (
+                  <ImageIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                ) : (
+                  <Film className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground" title={file.name}>
+                  {file.name}
+                </span>
+                <span className="shrink-0 text-muted-foreground tabular-nums">{formatFileSize(file.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => setFile(null)}
+                  disabled={submitMutation.isPending}
+                  aria-label={`Remove ${file.name}`}
+                  title="Remove this file"
+                  className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
