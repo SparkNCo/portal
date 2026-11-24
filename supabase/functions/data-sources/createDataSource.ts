@@ -60,6 +60,7 @@ export async function handleCreateDataSource(req: Request, callerId: string | nu
       database_name: config.database,
       username: config.username,
       ssl: config.ssl,
+      ssl_ca: config.ca ?? null,
       created_by: callerId,
     })
     .select(DATA_SOURCE_COLUMNS)

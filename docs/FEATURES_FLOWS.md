@@ -347,6 +347,12 @@ Picking one calls `POST /demo-videos` (Create) or `PUT /demo-videos` (Update) wi
 
 > **Shared storage safety:** since several `demo_videos` rows can now point at the same `storage_path`, replacing or re-uploading a version no longer blindly deletes the old file — `isStoragePathInUseElsewhere` checks whether any other row still references it first (`removeOldStorageObjectIfUnused`). Without this, replacing one ticket's version could silently break playback on every other ticket sharing that same video.
 
+### 7c-bis. Unlinking a demo from a ticket (the demo stays)
+
+**"Unlink"** (developers and admins, next to Update Version) removes the selected version from **this ticket** without deleting the demo: `DELETE /demo-videos?id=<demo version id>&email=<user>` (`unlinkDemoVideo.ts`). Only that ticket's `demo_videos` row goes, with its feedback thread (`ON DELETE CASCADE`); the file or link, and every other ticket's version of it, are untouched.
+
+It's only allowed while **another ticket still uses the same demo** (same `storage_path` for uploads, same `embed_url` for links). On the only ticket that has it, unlinking would be deleting it, so the server answers `409` — "This is the only ticket using this demo… Attach it to another ticket first." — and nothing changes. The tab asks to confirm first, shows "Unlinking demo…" while it runs, then selects the ticket's latest remaining version.
+
 ### 7d. Playback & embeds
 
 - **Uploads:** `GET /demo-videos?issue_id=` signs a fresh 1-hour URL (`createSignedUrl`) for every upload-type row on every fetch — the bucket is private, so nothing is ever served from a permanent public URL.

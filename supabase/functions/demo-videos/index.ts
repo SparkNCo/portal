@@ -18,6 +18,7 @@ import { listComments } from "./listComments.ts";
 import { createComment } from "./createComment.ts";
 import { updateComment } from "./updateComment.ts";
 import { planDemoCleanup, runDemoCleanup } from "./cleanupDemos.ts";
+import { UnlinkError, unlinkDemoVideo } from "./unlinkDemoVideo.ts";
 import { CLEANUP_MODES, parseCleanupMode } from "./cleanupRules.ts";
 
 Deno.serve(async (req) => {
@@ -56,6 +57,10 @@ Deno.serve(async (req) => {
       return await handlePatchComment(req);
     }
 
+    if (req.method === "DELETE") {
+      return await handleUnlinkVideo(url);
+    }
+
     return jsonResponse({ error: "Method not allowed" }, 405);
   } catch (error) {
     console.error("[demo-videos] Error:", error);
@@ -75,6 +80,23 @@ Deno.serve(async (req) => {
 
 const forbidden = () =>
   jsonResponse({ error: "Only developers and admins can add or change demo versions" }, 403);
+
+// DELETE ?id=<demo version id>&email=<user> — unlinks that demo from its
+// ticket, keeping the demo (it must still be on another ticket; see
+// unlinkDemoVideo.ts). Developers and admins only.
+const handleUnlinkVideo = async (url: URL) => {
+  const demoId = url.searchParams.get("id");
+  const email = url.searchParams.get("email");
+  if (!demoId || !email) return jsonResponse({ error: "id and email are required" }, 400);
+  if (!(await canManageDemos(supabase, email))) return forbidden();
+
+  try {
+    return jsonResponse(await unlinkDemoVideo(supabase, demoId));
+  } catch (err) {
+    if (err instanceof UnlinkError) return jsonResponse({ error: err.message }, err.status);
+    throw err;
+  }
+};
 
 const handleGetVideos = async (url: URL) => {
   const issueIdsParam = url.searchParams.get("issue_ids");

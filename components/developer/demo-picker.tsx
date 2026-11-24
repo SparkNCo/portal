@@ -32,11 +32,14 @@ export function DemoPicker({
   slug,
   onSelect,
   disabled,
+  pending = false,
   onOpen,
 }: {
   readonly slug: string;
   readonly onSelect: (demo: Demo) => void;
   readonly disabled?: boolean;
+  /** The picked demo is being attached: the button shows a spinner. */
+  readonly pending?: boolean;
   /** Called when the picker opens — e.g. to close a sibling form. */
   readonly onOpen?: () => void;
 }) {
@@ -67,7 +70,8 @@ export function DemoPicker({
           type="button"
           variant="ghost"
           size="sm"
-          disabled={disabled}
+          disabled={disabled || pending}
+          aria-busy={pending || undefined}
           className={`gap-1.5 ${open ? "bg-muted" : ""}`}
           // Clicking it while open keeps it open (Radix skips its own toggle
           // when the click is default-prevented); clicking elsewhere closes it.
@@ -75,8 +79,17 @@ export function DemoPicker({
             if (open) e.preventDefault();
           }}
         >
-          <ChevronsUpDown className="h-3.5 w-3.5" />
-          Select Existing
+          {pending ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Attaching…
+            </>
+          ) : (
+            <>
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+              Select Existing
+            </>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[28rem] p-0" align="start">

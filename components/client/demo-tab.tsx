@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil } from "lucide-react";
+import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil, Unlink } from "lucide-react";
 
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,11 @@ function wasEdited(comment: DemoComment): boolean {
   return new Date(comment.updated_at).getTime() - new Date(comment.created_at).getTime() > 5000;
 }
 
+// One toast for attaching an existing demo: "Attaching demo…" while it saves,
+// then replaced in place by the result.
+const ATTACH_TOAST_ID = "demo-attach-existing";
+const UNLINK_TOAST_ID = "demo-unlink";
+
 export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const { profile } = useUser();
   // Viewing and feedback are open to every role; adding or changing
@@ -61,6 +66,8 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
+  // "Unlink from this ticket?" showing for the selected version.
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   // Create Version's Upload Media / Add Link both need a title now (a brand
   // new demo's identity), so both share one small mode-switched form instead
   // of Upload Media firing the file picker immediately like it used to.
@@ -211,13 +218,52 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 
       return attachDemoToIssue(issue.id, email, sourceDemoId);
     },
+    // A loading toast while it saves, replaced by the result (same id).
+    onMutate: () => {
+      toast.loading("Attaching demo…", { id: ATTACH_TOAST_ID });
+    },
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
       setCreateOpen(false);
-      toast.success(`Demo attached (v${demo.version})`);
+      toast.success(`Demo attached (v${demo.version})`, { id: ATTACH_TOAST_ID });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message, { id: ATTACH_TOAST_ID }),
+  });
+
+  /*
+   * Unlink the selected version from this ticket, keeping the demo: only
+   * when another ticket still has it (the server checks and says so if not).
+   * This ticket's feedback on that version goes with it.
+   */
+  const unlinkMutation = useMutation({
+    mutationFn: async (demoId: string) => {
+      if (!profile?.email) throw new Error("Could not identify the current user");
+      const params = new URLSearchParams({ id: demoId, email: profile.email });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/demo-videos?${params.toString()}`, {
+        method: "DELETE",
+        headers: API_JSON_HEADERS,
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Failed to unlink the demo");
+      return body as { version: number };
+    },
+    onMutate: () => {
+      toast.loading("Unlinking demo…", { id: UNLINK_TOAST_ID });
+    },
+    onSuccess: ({ version }) => {
+      queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
+      queryClient.invalidateQueries({ queryKey: ["project-demos"] });
+      setSelectedVersion(null);
+      setConfirmingUnlink(false);
+      toast.success(`v${version} unlinked from this ticket. The demo is still on its other tickets.`, {
+        id: UNLINK_TOAST_ID,
+      });
+    },
+    onError: (err: Error) => {
+      setConfirmingUnlink(false);
+      toast.error(err.message, { id: UNLINK_TOAST_ID });
+    },
   });
 
   /*
@@ -336,13 +382,17 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
 
       return (await res.json()) as Demo;
     },
+    // A loading toast while it saves, replaced by the result (same id).
+    onMutate: () => {
+      toast.loading("Attaching demo…", { id: ATTACH_TOAST_ID });
+    },
     onSuccess: (demo) => {
       queryClient.invalidateQueries({ queryKey: ["demo-versions", issue.id] });
       setSelectedVersion(demo.version);
       setUpdateOpen(false);
-      toast.success(`Version v${demo.version} updated`);
+      toast.success(`Version v${demo.version} updated`, { id: ATTACH_TOAST_ID });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message, { id: ATTACH_TOAST_ID }),
   });
 
   const isSupportedMediaFile = (file: File) =>
@@ -456,6 +506,28 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           </Button>
         )}
 
+        {canManageVersions && currentDemo && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="gap-1.5 text-muted-foreground hover:text-destructive"
+            disabled={unlinkMutation.isPending}
+            onClick={() => {
+              setConfirmingUnlink(true);
+              setCreateOpen(false);
+              setUpdateOpen(false);
+            }}
+            title="Remove this demo from this ticket, keeping it on its other tickets"
+          >
+            {unlinkMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Unlink className="h-3.5 w-3.5" />
+            )}
+            Unlink
+          </Button>
+        )}
+
         <input
           ref={fileInputRef}
           type="file"
@@ -471,6 +543,35 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           onChange={handleReplaceFileSelect}
         />
       </div>
+
+      {confirmingUnlink && currentDemo && (
+        <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3" role="alertdialog" aria-label="Unlink demo">
+          <p className="smalltext text-foreground">
+            Unlink v{currentDemo.version} from this ticket? The demo itself isn't deleted: it stays on the
+            other tickets that use it. Only this ticket's version, and its feedback, are removed.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="smalltext"
+              onClick={() => setConfirmingUnlink(false)}
+              disabled={unlinkMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="smalltext"
+              onClick={() => unlinkMutation.mutate(currentDemo.id)}
+              disabled={unlinkMutation.isPending}
+            >
+              {unlinkMutation.isPending ? "Unlinking…" : "Unlink"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Create Version: choose Upload Media, Add Link, or Select Existing.
           Clicking the open option keeps it open; picking another one (or
@@ -498,7 +599,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           {slug && (
             <DemoPicker
               slug={slug}
-              disabled={attachExistingMutation.isPending}
+              pending={attachExistingMutation.isPending}
               onSelect={(demo) => attachExistingMutation.mutate(demo.id)}
               onOpen={() => setCreateMode(null)}
             />
@@ -653,7 +754,7 @@ export function DemoTab({ issue, slug }: { issue: Issue; slug?: string }) {
           {slug && (
             <DemoPicker
               slug={slug}
-              disabled={replaceWithExistingMutation.isPending}
+              pending={replaceWithExistingMutation.isPending}
               onSelect={(demo) => replaceWithExistingMutation.mutate(demo.id)}
               onOpen={() => setShowReplaceEmbedForm(false)}
             />

@@ -12,7 +12,7 @@ import {
   MYSQL_STATEMENT_TIMEOUT_SECONDS,
 } from "./connectionErrors.ts";
 import { buildMysqlStructure } from "./mysqlStructure.ts";
-import type { ConnectionConfig } from "./postgresClient.ts";
+import { tlsOptions, type ConnectionConfig } from "./postgresClient.ts";
 import { MAX_ROWS } from "../query/describeStructure.ts";
 
 // Per catalog query when reading the structure.
@@ -26,9 +26,10 @@ async function withMysql<T>(config: ConnectionConfig, fn: (conn: any) => Promise
     database: config.database,
     user: config.username,
     password: config.password,
-    // Encrypted but not verified against a CA, like Postgres's "require":
-    // hosted MySQL often signs with its own CA (Aiven does).
-    ssl: config.ssl ? { minVersion: "TLSv1.2", rejectUnauthorized: false } : undefined,
+    // With the server's CA (Aiven signs with its own): verified against it,
+    // which the edge runtime needs for such servers (see tlsOptions).
+    // Otherwise encrypted but not verified, like Postgres's "require".
+    ssl: tlsOptions(config) ?? (config.ssl ? { minVersion: "TLSv1.2", rejectUnauthorized: false } : undefined),
     connectTimeout: MYSQL_CONNECT_TIMEOUT_SECONDS * 1000,
     // Dates as the database shows them (no time zone shifts), big numbers as text.
     dateStrings: true,

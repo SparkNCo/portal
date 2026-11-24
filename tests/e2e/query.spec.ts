@@ -143,7 +143,8 @@ test.describe('Query — page (mocked functions)', () => {
     await expect(dialog).toHaveCount(0);
 
     const created = calls.find((c) => c.method === 'POST' && c.path === '');
-    expect(created?.body).toMatchObject({ slug: SLUG, name: 'Shop', host: 'db.example.com', port: 5432, ssl: true });
+    // SSL is off unless it's turned on.
+    expect(created?.body).toMatchObject({ slug: SLUG, name: 'Shop', host: 'db.example.com', port: 5432, ssl: false });
     await expect(page.getByText('reader@db.example.com:5432/shop')).toBeVisible();
   });
 

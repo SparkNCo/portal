@@ -17,7 +17,21 @@ export type ConnectionConfig = {
   username: string;
   password: string;
   ssl: boolean;
+  // The server's CA certificate (PEM), when it's signed with its own CA
+  // (Aiven, AWS RDS, self-signed). Only used with ssl.
+  ca?: string | null;
 };
+
+// The `ssl` option for the Postgres and MySQL drivers. With the server's CA,
+// the server is verified against it — needed where it's signed with a private
+// CA: the edge runtime (Deno) checks the certificate even when told not to,
+// so without the CA such a server's handshake fails ("write UNKNOWN").
+// Without one: encrypted, not verified, as before.
+export function tlsOptions(config: ConnectionConfig) {
+  if (!config.ssl) return undefined;
+  if (config.ca) return { ca: config.ca, rejectUnauthorized: true, minVersion: "TLSv1.2" };
+  return null;
+}
 
 // Opens a connection, runs `fn` with it and always closes it.
 export async function withConnection<T>(config: ConnectionConfig, fn: (sql: any) => Promise<T>): Promise<T> {
@@ -27,7 +41,9 @@ export async function withConnection<T>(config: ConnectionConfig, fn: (sql: any)
     database: config.database,
     username: config.username,
     password: config.password,
-    ssl: config.ssl ? "require" : false,
+    // With the server's CA: verified against it. Otherwise "require"
+    // (encrypted, not verified), or no SSL.
+    ssl: tlsOptions(config) ?? (config.ssl ? "require" : false),
     max: 1,
     connect_timeout: CONNECT_TIMEOUT_SECONDS,
     idle_timeout: 1,

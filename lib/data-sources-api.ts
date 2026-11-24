@@ -30,6 +30,9 @@ export type ConnectionDetails = {
   username: string;
   password: string;
   ssl: boolean;
+  // The server's CA certificate (PEM), for providers that sign with their
+  // own (Aiven, AWS RDS, self-signed); "" for none. Only used with SSL.
+  ssl_ca: string;
 };
 
 export type DataSource = {
@@ -42,6 +45,7 @@ export type DataSource = {
   database_name: string;
   username: string;
   ssl: boolean;
+  ssl_ca: string | null;
   schema_path: string | null;
   schema_refreshed_at: string | null;
   schema_error: string | null;

@@ -10,6 +10,27 @@ export const CONNECT_TIMEOUT_SECONDS = 5;
 // which can take most of a minute.
 export const SQLSERVER_CONNECT_TIMEOUT_SECONDS = 30;
 
+// SSL setup failures, for Postgres and MySQL. A server signed with its own CA
+// (Aiven, AWS RDS, self-signed) fails the handshake in the edge runtime
+// unless its CA certificate is given: the runtime checks the certificate even
+// when told not to, and reports it as the connection dropping ("write
+// UNKNOWN") or an unknown issuer. Null when it's not that.
+export function describeTlsFailure(message: string, config: ConnectionConfig): string | null {
+  if (!config.ssl) return null;
+  const where = `${config.host}:${config.port}`;
+  const badCertificate =
+    /certificate|self[- ]signed|unable to (get|verify)|unknown ?issuer|invalid peer|UNKNOWN_CA/i.test(message);
+  const dropped = /write UNKNOWN|ECONNRESET|socket hang up|EPIPE|connection reset/i.test(message);
+  if (!badCertificate && !dropped) return null;
+
+  if (config.ca) {
+    return badCertificate
+      ? `${where}'s certificate couldn't be verified with the CA certificate given. Check it's this server's CA (from the provider's console).`
+      : `${where} closed the connection while it was being encrypted. Check the CA certificate is this server's (from the provider's console).`;
+  }
+  return `The encrypted connection to ${where} failed while it was being set up. If the provider signs with its own certificate (Aiven, AWS RDS, a self-signed server), add its CA certificate (e.g. ca.pem) below.`;
+}
+
 // `fallbackPrefix` goes before the raw message when it's none of the
 // connection problems below (e.g. a query that failed once connected).
 export function describeConnectionError(err: any, config: ConnectionConfig, fallbackPrefix = "Couldn't connect: "): string {
@@ -31,6 +52,8 @@ export function describeConnectionError(err: any, config: ConnectionConfig, fall
   if (code === "CONNECT_TIMEOUT" || /timeout|timed out/i.test(message)) {
     return `${where} didn't answer within ${CONNECT_TIMEOUT_SECONDS} seconds. Check the host and port, and that its firewall lets outside connections in.`;
   }
+  const tls = describeTlsFailure(message, config);
+  if (tls) return tls;
   if (/ssl|tls|certificate/i.test(message)) {
     return `The SSL connection failed (${message}). Try with SSL ${config.ssl ? "off" : "on"}.`;
   }
@@ -101,6 +124,8 @@ export function describeMysqlError(err: any, config: ConnectionConfig, fallbackP
   if (code === "ETIMEDOUT" || /timeout|timed out/i.test(message)) {
     return `${where} didn't answer within ${MYSQL_CONNECT_TIMEOUT_SECONDS} seconds. Check the host and port, and that its firewall lets outside connections in.`;
   }
+  const tls = describeTlsFailure(message, config);
+  if (tls) return tls;
   if (/ssl|tls|certificate/i.test(message)) {
     return `The SSL connection failed (${message}). Try with SSL ${config.ssl ? "off" : "on"}.`;
   }
