@@ -1,6 +1,6 @@
 # Ask about this project (global query) — Flows & How It Works
 
-> SPA-582. A plain-text question about one client's project, answered in plain text from that project's stored **documents, test cases and issues**, with the sources it came from.
+> SPA-582. A plain-text question about one client's project, answered as a short title and bullet points from that project's stored **documents, test cases and issues**, with the sources it came from.
 > Panel: `components/dashboard/ask-project.tsx` → `AskProject`. Backend: `supabase/functions/ask/`.
 
 ---
@@ -74,9 +74,9 @@ User types a question and presses Ask (Enter also sends; Shift+Enter = new line)
           │
           ├── AI configured? (AI_API_KEY) → otherwise 503
           ├── buildAskPrompt (ask/prompt.ts) → requestJson (lib/aiClient.ts)
-          │     schema project_answer: { found, answer, sources: [numbers], tickets: [codes] }
+          │     schema project_answer: { found, title, answer, sources: [numbers], tickets: [codes] }
           │
-          └── { question, found, answer, sources: the cited numbered sources, then the cited tickets }
+          └── { question, found, title, answer, sources: the cited numbered sources, then the cited tickets } — [n] in answer renumbered to that order (numberCitations)
 ```
 
 While it waits, the panel shows (`AskLoading`) an orange bar sliding left to right under the input, the step it's on — "Searching documents, tests and issues…", then "Checking the project's tickets…", then "Writing the answer…", which stays until the answer is in (it's one request, so the steps move on by time, in the backend's order) — and three placeholder lines where the answer will appear. Screen readers get "Looking through the project's documents, test cases and issues", and each step. Then the answer appears below the input with the cited sources (an issue's code and status in orange), or the "not found" message.
@@ -93,7 +93,7 @@ Each source is numbered so the answer can cite it, and written the way the ticke
 <content>
 ```
 
-Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, plain text and short, list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **always answer in English**, whatever language the question is in — also when it found nothing. Ticket titles, names and messages are quoted as they are. The JSON schema's `answer` field says so too.
+Rules given to the AI: answer only from those sources (no outside knowledge, no guessing), set `found: false` when they don't cover it, a short `title` plus 2–6 Markdown bullet points, each ending with the [n] of the sources it comes from (renumbered by the backend to the order the panel lists them; tickets from the ticket list get theirs after their code), list the numbers of the sources it relied on, name items the way they appear ("Issue SPA-456"), and **always answer in English**, whatever language the question is in — also when it found nothing. Ticket titles, names and messages are quoted as they are. The JSON schema's `answer` field says so too.
 
 The project is never chosen through the prompt: the search is already limited to one client in SQL. The prompt does name it (the client's name), so a question about **another** project or client ("how many tickets does Acme have?" asked on Spark Portal's page) is turned away — "here I can only answer about Spark Portal; ask from that project's page if you have access" — instead of being answered with this project's data under the other name. Access itself doesn't depend on that: the AI only ever sees the data of the project in the URL, which the caller was checked for (`canAsk`).
 

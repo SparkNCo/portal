@@ -24,8 +24,9 @@ import { ticketsForSlug } from "../lib/tickets/provider.ts";
 import { deriveIssueKind } from "../lib/vector.ts";
 import {
   buildAskPrompt,
-  citedSources,
+  citedNumbers,
   citedTickets,
+  numberCitations,
   issueCodesIn,
   ticketList,
   MAX_QUESTION_LENGTH,
@@ -242,7 +243,7 @@ serveWithCors("ask API Error", async (req) => {
   if (sources.length === 0 && tickets.length === 0) {
     // No AI call: answers are always in English, and with an empty answer the
     // panel shows its own "nothing covers that" sentence.
-    return Response.json({ question, found: false, answer: "", sources: [] });
+    return Response.json({ question, found: false, title: "", answer: "", sources: [] });
   }
 
   if (!aiEnabled()) {
@@ -257,11 +258,14 @@ serveWithCors("ask API Error", async (req) => {
         type: "object",
         properties: {
           found: { type: "boolean" },
-          answer: { type: "string", description: "Always in English." },
-          sources: { type: "array", items: { type: "integer" } },
+          title: { type: "string", description: "A short heading for the answer, in English. Empty when found is false." },
+          answer: { type: "string", description: "Markdown bullet points, always in English." },
+          // Strings tolerated (the AI sometimes puts a ticket code here, which
+          // would fail the whole answer); citedNumbers keeps only valid numbers.
+          sources: { type: "array", items: { type: ["integer", "string"] } },
           tickets: { type: "array", items: { type: "string" } },
         },
-        required: ["found", "answer", "sources", "tickets"],
+        required: ["found", "title", "answer", "sources", "tickets"],
         additionalProperties: false,
       },
     });
@@ -272,7 +276,10 @@ serveWithCors("ask API Error", async (req) => {
     throw err;
   }
 
-  const cited = reply.found ? forPage(citedSources(reply, sources)) : [];
+  // Every numbered source the answer relies on, whether listed in `sources`
+  // or only cited as [n] in the text.
+  const citedNos = reply.found ? citedNumbers(reply, sources.length) : [];
+  const cited = forPage(citedNos.map((n) => sources[n - 1]!));
   // Tickets from the live list the answer is about, after the numbered
   // sources and without repeating one already there.
   const listed = reply.found
@@ -280,10 +287,18 @@ serveWithCors("ask API Error", async (req) => {
         .filter((row) => !cited.some((s) => s.type === "issue" && s.id === row.id))
         .map((row) => ({ type: "issue", id: row.id, ref: row.code, title: row.title, status: row.status, kind: row.kind }))
     : [];
+  const shown = [...cited, ...listed];
+  // [n] in the text = the n-th source as the page lists it.
+  const answer = numberCitations(
+    withoutSourcesLine(reply.answer ?? ""),
+    citedNos,
+    shown.map((s) => (s.type === "issue" ? s.ref : null)),
+  );
   return Response.json({
     question,
     found: !!reply.found && !!reply.answer?.trim(),
-    answer: withoutSourcesLine(reply.answer ?? ""),
-    sources: [...cited, ...listed],
+    title: reply.found ? (reply.title ?? "").trim() : "",
+    answer,
+    sources: shown,
   });
 });

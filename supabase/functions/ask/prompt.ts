@@ -197,7 +197,7 @@ function statusQuestionRules(today: string): string {
   return `
 This question is about where some work stands (its status, cycle, priority, dates or who has it). For this kind of question:
 - First find the ticket(s) it's about. People name the feature, not its code: match what the question mentions against the ticket titles in the ticket list (and the issues in the numbered information) by meaning, not exact words — e.g. "the SSO feature" matches "Login with SSO", "the query feature" matches "In the dashboard, add a global query". If more than one ticket matches, answer for each, briefly. If none clearly matches, set found to false and say no ticket in this project matches, naming what you looked for.
-- Start the answer with the ticket's code and title (e.g. "SPA-582 — Global query"), then answer exactly what was asked from that ticket's line: its status, its cycle (with the cycle's dates from the "Cycles" line), its priority, its due date, who it's assigned to.
+- Put the ticket's code and title in title (e.g. "SPA-582 — Global query"), then answer exactly what was asked from that ticket's line: its status, its cycle (with the cycle's dates from the "Cycles" line), its priority, its due date, who it's assigned to.
 - "When will it be done / deployed / released / ready?": there's no deployment date field, so go in this order and say which one you used:
   1. Its status is Done, Approved, Canceled or another finished one → say it's already finished (don't give a future date).
   2. It has a due date → that date.
@@ -246,8 +246,10 @@ Rules:
 - Answer only from the information above. Don't use outside knowledge and don't guess. If it doesn't contain the answer, set found to false and say briefly, in answer, that the project's documents, tests and issues don't cover it.
 - For questions about tickets as a whole (statuses, the current cycle, priorities, who's working on what, due dates, how many), use the ticket list. When it says it shows only some of the tickets, say your answer covers those.${otherProjectRule}
 - For questions about what something is or how it works, use the numbered project information.
-- Plain text, short and direct: a few sentences, or a short list when the question asks for several things.
-- In sources, list the numbers ([1], [2]…) of every numbered item your answer relies on, and only those. Don't put those numbers, or a "Sources" line, in answer itself: the sources are shown below it.
+- In title, a short heading for the answer: 3 to 8 words, no period at the end (e.g. "Login with SSO — what's left"). Empty when found is false.
+- In answer, bullet points in Markdown: each line starts with "- ", one fact per point, 2 to 6 points, each a short sentence. Bold (**…**) only the key value of a point, such as a status, a date or a number. No heading, intro sentence or closing paragraph around the points: the title is shown above them. When found is false, answer is one plain sentence instead, without bullets.
+- In sources, list only the numbers (1, 2…) of the numbered items your answer relies on, as integers — never ticket codes; tickets from the ticket list go in tickets. Empty when the answer comes only from the ticket list.
+- In answer, end each point that comes from a numbered item with its number(s), like "[2]" or "[1][3]". A point from the ticket list gets no marker: name the ticket by its code instead, and never put a code in brackets (not "[SPA-456]"). Don't add a "Sources" line at the end: the sources are listed below the answer.
 - In tickets, list the codes (e.g. "SPA-456") of the tickets from the ticket list your answer is about, and only those.
 - When you mention an issue, document or test case in the answer, name it the way it appears above (e.g. "Issue SPA-456").${statusRules}
 ${LANGUAGE_RULE}
@@ -268,7 +270,7 @@ export function withoutSourcesLine(answer: string): string {
 }
 
 // The AI's reply, as the JSON schema asks for it.
-export type AskReply = { found: boolean; answer: string; sources: number[]; tickets?: string[] };
+export type AskReply = { found: boolean; title?: string; answer: string; sources: (number | string)[]; tickets?: string[] };
 
 // The tickets the answer is about, from the ticket list, by code; unknown or
 // repeated codes are dropped; at most MAX_CITED_TICKETS.
@@ -286,16 +288,53 @@ export function citedTickets(reply: AskReply, rows: TicketRow[]): TicketRow[] {
   return cited.slice(0, MAX_CITED_TICKETS);
 }
 
+// The numbers the answer cites: those in `sources`, then any [n] used in the
+// text but left out of it, in that order; out of range or repeated dropped.
+export function citedNumbers(reply: AskReply, count: number): number[] {
+  const inText = [...(reply.answer ?? "").matchAll(/\[([\d\s,;]+)\]/g)].flatMap((m) =>
+    m[1]!.split(/[,;]/).map((n) => Number(n.trim())),
+  );
+  const seen = new Set<number>();
+  // A number sent as a string ("2") counts; a ticket code ("SPA-456") doesn't.
+  const listed = (reply.sources ?? []).map((n) => (typeof n === "string" && /^\s*\d+\s*$/.test(n) ? Number(n) : n));
+  for (const n of [...listed, ...inText]) {
+    if (typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= count) seen.add(n);
+  }
+  return [...seen];
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// The answer's [n] markers renumbered to the sources as the page lists them
+// (`cited[i]` is the prompt's number of the source shown as i + 1; markers for
+// anything not shown are dropped), and a marker added after the first mention
+// of each listed ticket's code (`codes[i]`, display order) that has none yet —
+// tickets from the ticket list are cited by code, not by number.
+export function numberCitations(answer: string, cited: number[], codes: (string | null | undefined)[]): string {
+  // A ticket code in brackets ("[SPA-456]", which the AI sometimes writes
+  // despite the prompt) becomes that ticket's number when it's listed, else
+  // goes; a code written that way is still named elsewhere in the point.
+  // Numbers first, so the ones the codes become aren't renumbered again.
+  let text = answer.replace(/[ \t]*\[([\d\s,;]+)\]/g, (_, list: string) => {
+    const shown = [...new Set(list.split(/[,;]/).map((n) => cited.indexOf(Number(n.trim())) + 1).filter((n) => n > 0))];
+    return shown.length ? ` ${shown.map((n) => `[${n}]`).join("")}` : "";
+  });
+  const upper = codes.map((c) => c?.toUpperCase());
+  text = text.replace(/[ \t]*\[([A-Za-z][A-Za-z0-9]*-\d+)\]/g, (_, code: string) => {
+    const i = upper.indexOf(code.toUpperCase());
+    return i >= 0 ? ` [${i + 1}]` : "";
+  });
+  codes.forEach((code, i) => {
+    const marker = `[${i + 1}]`;
+    if (!code || text.includes(marker)) return;
+    const mention = new RegExp(`\\b${escapeRegExp(code)}\\b(\\*\\*)?(?!\\s*\\[)`, "i");
+    text = text.replace(mention, (found) => `${found} ${marker}`);
+  });
+  return text;
+}
+
 // The cited sources, by the AI's 1-based numbers; anything out of range or
 // repeated is dropped.
 export function citedSources<T>(reply: AskReply, sources: T[]): T[] {
-  const seen = new Set<number>();
-  const cited: T[] = [];
-  for (const n of reply.sources ?? []) {
-    if (Number.isInteger(n) && n >= 1 && n <= sources.length && !seen.has(n)) {
-      seen.add(n);
-      cited.push(sources[n - 1]!);
-    }
-  }
-  return cited;
+  return citedNumbers(reply, sources.length).map((n) => sources[n - 1]!);
 }

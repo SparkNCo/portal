@@ -7,6 +7,7 @@ import {
   cycleCalendar,
   isTicketStatusQuestion,
   MAX_TICKET_ROWS,
+  citedNumbers,
   citedSources,
   citedTickets,
   issueCodesIn,
@@ -17,6 +18,7 @@ import {
   relevantSources,
   withExactMatches,
   withoutSourcesLine,
+  numberCitations,
   sourceHeading,
   type Source,
 } from '../../supabase/functions/ask/prompt';
@@ -245,5 +247,36 @@ test.describe('questions about status, cycle, priority or dates', () => {
   test('not for other questions, nor without a ticket list', () => {
     expect(buildAskPrompt('How does login work?', [], list)).not.toContain("there's no deployment date field");
     expect(buildAskPrompt('When will the SSO feature be deployed?', [], '')).not.toContain("there's no deployment date field");
+  });
+});
+
+test.describe('citedNumbers', () => {
+  test('takes the listed numbers first, then [n] markers only used in the text', () => {
+    expect(citedNumbers({ found: true, answer: '- A [3]\n- B [1, 2]', sources: [2, 9] }, 3)).toEqual([2, 3, 1]);
+    expect(citedNumbers({ found: true, answer: '- A [7]', sources: [] }, 3)).toEqual([]);
+  });
+});
+
+test.describe('numberCitations', () => {
+  test('renumbers [n] to the order the page lists the sources, dropping ones not shown', () => {
+    // Prompt's [3] is shown first, [1] second; [5] isn't shown.
+    expect(numberCitations('- A [1]\n- B [3][5]\n- C [1, 3]', [3, 1], [null, null])).toBe('- A [2]\n- B [1]\n- C [2][1]');
+  });
+
+  test('adds a marker after the first mention of a listed ticket that has none', () => {
+    expect(numberCitations('- **SPA-12** is in UAT\n- SPA-12 again', [1], [null, 'SPA-12'])).toBe('- **SPA-12** [2] is in UAT\n- SPA-12 again');
+    expect(numberCitations('- SPA-123 is done', [], ['SPA-12'])).toBe('- SPA-123 is done');
+    expect(numberCitations('- SPA-12 is done [1]', [1], ['SPA-12'])).toBe('- SPA-12 is done [1]');
+  });
+});
+
+test.describe('ticket codes where numbers belong', () => {
+  test('a code in sources is ignored, a number sent as a string counts', () => {
+    expect(citedNumbers({ found: true, answer: '- A', sources: ['SPA-578', '2'] }, 3)).toEqual([2]);
+  });
+
+  test('[SPA-578] in the answer becomes the listed ticket\'s number, or goes when it isn\'t listed', () => {
+    expect(numberCitations('- **Status:** UAT [SPA-578]\n- **Cycle:** 24 [spa-578]', [], ['SPA-578'])).toBe('- **Status:** UAT [1]\n- **Cycle:** 24 [1]');
+    expect(numberCitations('- **Status:** UAT [SPA-578]', [], [])).toBe('- **Status:** UAT');
   });
 });

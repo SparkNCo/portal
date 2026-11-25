@@ -25,6 +25,10 @@ export type AskAnswer = {
   // false: nothing in the project covers the question (answer is empty or
   // says so).
   found: boolean;
+  // A short heading for the answer (empty when not found, and missing from
+  // answers before it was added).
+  title?: string;
+  // Markdown bullet points (one plain sentence when not found).
   answer: string;
   sources: AskSource[];
 };
