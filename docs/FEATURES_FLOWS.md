@@ -147,11 +147,11 @@ Allowed for:
 5. `PATCH /test-executions/result` is called with `{ execution_id, result, recorded_by, kind: "uat", attachments }`.
 6. The entry is appended to `execution.results[]` and rendered under a **"UAT Result"** label (older entries recorded before `kind` existed fall back to a generic "Actual" label).
 
-### 3e. Marking a test Passed (Stakeholder only, final approval)
+### 3e. Marking a test Passed (Customer, Stakeholder or Admin — final approval)
 
 1. Issue must be in **UAT** state and the execution must already be `approved` or `passed`.
-2. The execution must have **at least one recorded UAT Result** (`results` contains an entry with `kind: "uat"`) — a stakeholder cannot mark a test passed without first recording a UAT result.
-3. Stakeholder clicks **"Mark as Passed"** → `PATCH /test-executions/result` with `{ execution_id, passed: true }`. Status moves to **`passed`**, and the underlying test's `last_passed_execution_id` is set — locking its steps everywhere (see 3a).
+2. The execution must have **at least one recorded UAT Result** (`results` contains an entry with `kind: "uat"`) — a test can't be marked passed without first recording a UAT result.
+3. The customer, a stakeholder or an admin clicks **"Mark as Passed"** → `PATCH /test-executions/result` with `{ execution_id, passed: true }`. Status moves to **`passed`**, and the underlying test's `last_passed_execution_id` is set — locking its steps everywhere (see 3a).
 4. Can be reverted via **"Revert to Approved"** → `{ execution_id, passed: false }` (this button isn't gated by the UAT-record check).
 
 **Execution status flow:**

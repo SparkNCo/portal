@@ -81,7 +81,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 
 ### Stakeholder
 
-**How accounts are created:** Admin creates them via the **Add Stakeholder** button in the Admin Panel. The stakeholder receives an invitation email.
+**How accounts are created:** by an **admin**, with the **Add Stakeholder** button in the Admin Panel, or by the **customer**, from **Settings → Stakeholders** on their own initiative (`components/settings/add-stakeholder-modal.tsx`; the admins get an email about it). Either way the stakeholder is created for a single customer, and receives an invitation email.
 
 **What they can do:**
 - Same portal access as a customer (Dashboard, Roadmap, Documents, Chat).
@@ -90,7 +90,7 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 - Cannot access Settings (no billing or staffing panels).
 - Typically a secondary contact on the client side who reviews and approves but is not the primary account owner.
 
-**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat, Settings
+**Sidebar:** Dashboard, Monitor, Build, Bugs, Demos, Documents, Chat (no Settings: staffing, stakeholders and billing are the customer's and admins' — `stakeholderNavItems` in `components/sidebar.tsx`, `PAGE_ROLES` in `lib/route-access.ts`)
 
 ---
 
@@ -108,6 +108,8 @@ The portal has four roles. Each role gets a different dashboard, a different sid
 | Reopen a `Done` issue (→ Development) | ✗ | ✗ | ✗ | ✅ |
 | Approve test cases | ✗ | ✗ | ✅ | ✅ |
 | Record UAT results | ✗ | ✗ | ✅ | ✅ |
+| Mark a test as Passed / Revert to Approved (UAT stage, after a UAT result) | ✅ | ✗ | ✅ | ✅ |
+| Add stakeholders (to their own initiative) | ✅ | ✗ | ✅ | ✗ |
 | Create test cases | ✅ | ✗ | ✗ | ✗ |
 | Upload documents | ✅ | ✅ | ✅ | ✅ |
 | View billing & staffing (Settings) | ✅ | ✗ | ✅ | ✗ |
@@ -332,6 +334,8 @@ Calls `POST /users?type=customer`.
 
 Calls `POST /users?type=stakeholder`.
 
+Customers can add stakeholders too, from **Settings → Stakeholders** on their own initiative (`components/settings/add-stakeholder-modal.tsx`): the same fields, then `POST /assignments` with `role: "stakeholder"` assigns them to that customer, and `POST /stakeholder-notifications` emails the admins. A stakeholder belongs to a single customer.
+
 ### 3.6 Assign Developer/Stakeholder to a Customer — `AssignCustomerModal`
 
 Opened via the **Assign** hover button on any developer or stakeholder row.
@@ -457,7 +461,7 @@ All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 
 **Where:** Tests tab inside the Issue Detail Modal.
 
-**Full flow:** `draft → Stakeholder approves → Developer records QA Evidence (QA stage) → Stakeholder records UAT Result (UAT stage) → Stakeholder marks Passed`
+**Full flow:** `draft → Customer/Stakeholder approves → Developer records QA Evidence (QA stage) → Customer/Stakeholder records UAT Result (UAT stage) → Customer, Stakeholder or Admin marks Passed`
 
 **Creating/editing a test (`canManageTests`: Admin always, or Developer only while issue state is Development/QA)**
 1. Tests tab → "+ Add test case"
@@ -481,7 +485,7 @@ All of the above call `PATCH /issues` with `{ issueId, stateName }`.
 
 > Each recording action is gated to both the right role *and* the right stage — developers can't record UAT, customers/stakeholders can't record QA evidence.
 
-**Marking Passed (Stakeholder only — only when issue is in UAT state, and only after at least one UAT Result is recorded)**
+**Marking Passed (Customer, Stakeholder or Admin — only when issue is in UAT state, and only after at least one UAT Result is recorded)**
 1. Tests tab → "Mark as Passed" on an `approved`/`passed` test that has a `kind: "uat"` entry in `actual`
 2. `PATCH /tests/uat` with `{ passed: true }` → status moves to `passed`
 3. Reversible via "Revert to Approved" → `{ passed: false }`
