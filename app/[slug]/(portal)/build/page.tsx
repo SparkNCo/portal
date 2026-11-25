@@ -69,6 +69,9 @@ function BuildTicketsPanel({
       page="build"
       panelId={panelId}
       toolbar="inside"
+      // Level with the header row; 1px lower on phones, where this wrapper
+      // has its own border around the card's.
+      cornerClassName="top-4 sm:top-[15px] right-3"
       expandable={false}
       // Phones: each panel its own bordered, rounded box (as on desktop),
       // so one category of tickets is clearly apart from the next.

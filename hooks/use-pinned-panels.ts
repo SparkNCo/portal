@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { safeDecodeURIComponent } from "@/lib/utils";
 import { API_HEADERS } from "@/lib/api-headers";
-import { PINNABLE_PANELS, type PinnablePanelId } from "@/lib/pinnable-panels";
+import { PINNABLE_PANELS, pinnedFullWidth, type PinnablePanelId } from "@/lib/pinnable-panels";
 
 export type PinnedPanel = {
   id: string;
@@ -124,6 +124,8 @@ export function usePinPanel(userId: string | undefined) {
         panel_id: panelId,
         source_dashboard: sourceDashboard,
         position: nextPosition,
+        // As wide as on its own page: ticket panels full width.
+        full_width: pinnedFullWidth(panelId),
       });
 
       if (error) throw error;
@@ -155,6 +157,7 @@ export function useAddPanels(userId: string | undefined) {
         panel_id: panelId,
         source_dashboard: PINNABLE_PANELS[panelId].sourceDashboard,
         position: startPosition + i,
+        full_width: pinnedFullWidth(panelId),
       }));
 
       const { error } = await pinnedPanelsTable().insert(rows);

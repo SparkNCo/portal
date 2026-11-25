@@ -10,6 +10,7 @@ import { PriorityTasks } from "@/components/client/priority-tasks";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { useRoadmapData } from "@/hooks/use-roadmap-data";
+import { usePanelShowAll } from "@/hooks/use-user-layout";
 import { cn } from "@/lib/utils";
 
 const noopFilterState = {
@@ -26,6 +27,8 @@ const noopFilterState = {
 // inside the panel's corner, level with its title, instead of on a strip
 // above it (see SortablePinnedPanel's toolbarInside). Charts and the other
 // panels keep the strip, since they have controls of their own up there.
+// They look as on their own page (Build, Bugs): one row of cards, with
+// "View all" for every ticket in several rows — not a compact list.
 export const TICKET_PANEL_IDS = new Set<PinnablePanelId>([
   "build_product_decisions",
   "build_acceptance_testing",
@@ -102,6 +105,9 @@ export function PinnedPanelRenderer({
    * no room kept for them. */
   readOnly?: boolean;
 }>) {
+  // Ticket panels' "View all" (several rows), kept per user.
+  const showAll = usePanelShowAll("dashboard", panelId);
+
   const matchesSelectedProject = (i: any) =>
     !selectedProjectIds ||
     selectedProjectIds.size === 0 ||
@@ -156,7 +162,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Business Review"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
@@ -181,7 +189,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Acceptance Testing"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
@@ -207,7 +217,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Recently Created"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
@@ -234,7 +246,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Refinement"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
@@ -261,7 +275,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Approved"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />
@@ -305,7 +321,9 @@ export function PinnedPanelRenderer({
           onEditIssue={onEditIssue}
           title="Bugs"
           slug={slug}
-          compact
+          viewMode="row"
+          expanded={showAll.expanded}
+          onExpandedChange={showAll.set}
           lightCard
           reserveTopRight={hidePinButton && !readOnly ? 3 : undefined}
         />

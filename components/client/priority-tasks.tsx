@@ -95,6 +95,10 @@ const SCROLL_LIMIT = "max-h-[600px] overflow-y-auto";
 // Corner buttons are 28px wide, 6px apart, 12px from the card's edge; this
 // leaves ~12px between them and the header's own content.
 const CORNER_ROOM: Record<1 | 2 | 3, string> = { 1: "pr-14", 2: "pr-24", 3: "pr-32" };
+// Grid header: on phones the search drops below the title, so only the title
+// line keeps the room; from sm up it's one line, which keeps it as a whole.
+const CORNER_ROOM_TITLE: Record<1 | 2 | 3, string> = { 1: "max-sm:pr-8", 2: "max-sm:pr-[4.5rem]", 3: "max-sm:pr-[6.5rem]" };
+const CORNER_ROOM_ROW: Record<1 | 2 | 3, string> = { 1: "sm:pr-14", 2: "sm:pr-24", 3: "sm:pr-32" };
 
 function IssueRows({ issues, className, ...item }: IssueItemProps & { readonly issues: Issue[]; readonly className: string }) {
   return (
@@ -404,11 +408,45 @@ export function PriorityTasks({
   return (
     <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
       <CardHeader className="flex flex-col gap-2 flex-shrink-0 pt-[14px] pb-3">
-        {/* With corner buttons, as tall as they are so the two line up. */}
-        <CardTitle className={`body font-semibold flex items-center gap-2 ${cornerRoom ? `min-h-7 ${cornerRoom}` : ""}`}>
-          <AlertTriangle className="h-4 w-4 text-warning" />
-          {title}
-        </CardTitle>
+        {/* One line: the title on the left; on the right search, View all and
+            then the corner buttons (drag / expand / pin on the Dashboard, pin
+            on Build and Bugs), which float over the room kept for them. On
+            phones the search and View all drop below the title. */}
+        {/* From sm up it never wraps, so search and View all stay level with
+            the corner buttons even at half width: the search shrinks first,
+            then the title truncates. */}
+        <div className={`flex flex-wrap sm:flex-nowrap items-center gap-2 ${reserveTopRight ? CORNER_ROOM_ROW[reserveTopRight] : ""}`}>
+          <CardTitle className={`body font-semibold flex items-center gap-2 min-h-7 min-w-0 mr-auto ${reserveTopRight ? CORNER_ROOM_TITLE[reserveTopRight] : ""}`}>
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            <span className="truncate">{title}</span>
+          </CardTitle>
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink sm:min-w-0">
+            <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52 sm:shrink">
+              <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                aria-label="Search by title or issue code"
+                placeholder="Search by title or code..."
+                value={titleFilter}
+                onChange={(e) => setTitleFilter(e.target.value)}
+                // The panel's own color, edged in the cards' color.
+                className="h-7 pl-8 bg-surface border-surface-raised text-foreground smalltext shadow-none"
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 text-muted-foreground"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? "Collapse" : "View all"}
+              <ArrowRight
+                className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+              />
+            </Button>
+          </div>
+        </div>
+        {(headerAction || (sortBy && onSortByChange) || hasFilterOptions(filterState) || activeFilters > 0 || onViewModeChange) && (
         <div className="flex items-center gap-2 flex-wrap">
           {headerAction}
           {sortBy && onSortByChange && (
@@ -461,30 +499,8 @@ export function PriorityTasks({
             </Popover>
           )}
           {onViewModeChange && <ViewSwitcher value={viewMode} onChange={onViewModeChange} />}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? "Collapse" : "View all"}
-            <ArrowRight
-              className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-            />
-          </Button>
-          {/* Search sits on its own at the right; everything else stays left. */}
-          <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52 sm:ml-auto">
-            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              type="text"
-              aria-label="Search by title or issue code"
-              placeholder="Search by title or code..."
-              value={titleFilter}
-              onChange={(e) => setTitleFilter(e.target.value)}
-              className="h-7 pl-8 bg-secondary/30 border-border smalltext"
-            />
-          </div>
         </div>
+        )}
       </CardHeader>
       {activeFilters > 0 && (
         <div className="px-6 pb-3 -mt-1 flex-shrink-0">

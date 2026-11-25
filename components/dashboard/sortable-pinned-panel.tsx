@@ -7,6 +7,11 @@ import { GripVertical, Maximize2, Minimize2, Pin } from "lucide-react";
 const actionButtonClass =
   "rounded-md border border-border/40 bg-background/80 p-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors";
 
+// Level with a ticket panel's header row (PriorityTasks): the card's 1px
+// border (transparent on phones, but there) plus its 14px top padding; the
+// buttons are as tall as the row (28px).
+export const TOOLBAR_INSIDE_TOP = "top-[15px]";
+
 export function SortablePinnedPanel({
   id,
   fullWidth,
@@ -49,7 +54,7 @@ export function SortablePinnedPanel({
           Absolutely positioned, so it doesn't push panel content down on its
           own — the pt-12 wrapper below reserves the space instead. */}
       {!readOnly && (
-      <div className={`absolute ${toolbarInside ? "top-2.5" : "top-3"} right-3 z-10 flex items-center gap-1.5`}>
+      <div className={`absolute ${toolbarInside ? TOOLBAR_INSIDE_TOP : "top-3"} right-3 z-10 flex items-center gap-1.5`}>
         <button
           type="button"
           {...attributes}
@@ -59,21 +64,17 @@ export function SortablePinnedPanel({
         >
           <GripVertical className="h-3.5 w-3.5" />
         </button>
-        {/* Toggling "full width" only does anything once the grid actually
-            has 2 columns (md:col-span-2 below) — hidden below that
-            breakpoint since it'd be a no-op on a single-column mobile
-            layout. */}
+        {/* Half ↔ full width. Ticket panels' "View all" (several rows) is
+            their own button, next to the search. Toggling the width only does
+            anything once the grid actually has 2 columns (md:col-span-2
+            above) — hidden below that breakpoint, where it'd be a no-op. */}
         <button
           type="button"
           onClick={onToggleWidth}
           title={fullWidth ? "Shrink to half width" : "Expand to full width"}
           className={`hidden md:inline-block ${actionButtonClass}`}
         >
-          {fullWidth ? (
-            <Minimize2 className="h-3.5 w-3.5" />
-          ) : (
-            <Maximize2 className="h-3.5 w-3.5" />
-          )}
+          {fullWidth ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
         <button
           type="button"

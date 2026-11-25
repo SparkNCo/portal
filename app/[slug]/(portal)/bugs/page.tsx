@@ -23,6 +23,7 @@ import { fetchIssues } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
+import { TOOLBAR_INSIDE_TOP } from "@/components/dashboard/sortable-pinned-panel";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function BugsPage() {
@@ -217,7 +218,7 @@ function BugsPageContent() {
         {/* The pin sits inside the panel's corner, level with its title (no
             strip above the panel), same as Build's panels. */}
         <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
-          <div className="absolute top-2.5 right-3 z-10">
+          <div className={`absolute ${TOOLBAR_INSIDE_TOP} right-3 z-10`}>
             <PinButton panelId="bugs_list" inline />
           </div>
           <PriorityTasks
