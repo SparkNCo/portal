@@ -505,7 +505,7 @@ export default function AdminUsersPage() {
               <Card
                 key={role}
                 data-testid={`role-section-${role}`}
-                className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl"
+                className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl"
               >
                 <CardHeader>
                   <CardTitle className="text-base font-semibold flex items-center gap-2 capitalize text-foreground">
@@ -822,7 +822,7 @@ export default function AdminUsersPage() {
 
       {/* ── Projects view ── */}
       {view === "projects" && (
-        <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
+        <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
               <FolderKanban className="h-4 w-4 text-primary" />

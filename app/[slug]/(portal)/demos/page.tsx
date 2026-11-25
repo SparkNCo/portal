@@ -152,7 +152,7 @@ function UploadDemoForm({
     (mode === "upload" ? !!file : !!embedUrl.trim());
 
   return (
-    <Card className="bg-background border-border text-foreground">
+    <Card className="bg-surface border-surface-line text-foreground">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2">
           <Upload className="h-4 w-4 text-primary" />
@@ -375,7 +375,7 @@ function UploadDemoForm({
 function DemosSkeleton() {
   const bar = "rounded bg-muted-foreground/20";
   return (
-    <Card role="status" aria-live="polite" className="bg-background border-border text-foreground">
+    <Card role="status" aria-live="polite" className="bg-surface border-surface-line text-foreground">
       <span className="sr-only">Loading demos…</span>
       <CardHeader className="flex flex-col gap-2 animate-pulse">
         <div className={`${bar} h-5 w-28`} />
@@ -418,7 +418,7 @@ function DemoCard({
     // (components/client/issue-cards.tsx) — bg-background/text-foreground
     // rather than the light bg-card surface, so this grid reads as the same
     // "issues" visual family instead of a one-off style.
-    <div className="group relative rounded-lg border border-border bg-background text-foreground transition-all duration-150 hover:-translate-y-px hover:bg-muted hover:shadow-md">
+    <div className="group relative rounded-lg border border-surface-line bg-surface-raised text-foreground transition-all duration-150 hover:-translate-y-px hover:bg-muted hover:shadow-md">
       <span
         className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary"
         aria-hidden="true"
@@ -598,7 +598,7 @@ export default function DemosPage() {
                 {uploadButton && <div className="pt-1">{uploadButton}</div>}
               </div>
             ) : (
-              <Card className="bg-background border-border text-foreground">
+              <Card className="bg-surface border-surface-line text-foreground">
                 <CardHeader className="flex flex-col gap-2">
                   <CardTitle className="body font-semibold flex items-center gap-2">
                     <Video className="h-4 w-4 text-primary" />

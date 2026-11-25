@@ -563,7 +563,7 @@ export function SoftwareKPIs({
   };
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl flex flex-col h-full">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl flex flex-col h-full">
       <CardHeader className={headerClassName}>
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
           <TrendingUp className="h-4 w-4 text-primary" />

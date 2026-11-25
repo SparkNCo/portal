@@ -376,7 +376,7 @@ export function PriorityTasks({
   );
   if (compact) {
     return (
-      <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full ">
+      <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full ">
         <CardHeader
           className={`flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 ${cornerRoom || "pr-10"}`}
         >
@@ -402,7 +402,7 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
       <CardHeader className="flex flex-col gap-2 flex-shrink-0 pt-[14px] pb-3">
         {/* With corner buttons, as tall as they are so the two line up. */}
         <CardTitle className={`body font-semibold flex items-center gap-2 ${cornerRoom ? `min-h-7 ${cornerRoom}` : ""}`}>
@@ -417,7 +417,7 @@ export function PriorityTasks({
               onValueChange={(v) => onSortByChange(v as "updated" | "priority")}
             >
               <SelectTrigger
-                className="h-7 w-[130px] shrink-0 gap-1.5 rounded-md border border-input bg-background px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate"
+                className="h-7 w-[130px] shrink-0 gap-1.5 rounded-md border border-surface-line bg-surface-raised px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate"
                 onClick={(e) => e.stopPropagation()}
               >
                 <ArrowUpDown className="h-3 w-3 text-muted-foreground" />

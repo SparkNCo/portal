@@ -69,7 +69,7 @@ export function StakeholdersSection({ customerId }: { readonly customerId?: stri
   const stakeholders = (assignments as any[]).filter((a) => a.role === "stakeholder");
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="body font-semibold flex items-center gap-2">
           <Contact className="h-4 w-4 text-primary" />

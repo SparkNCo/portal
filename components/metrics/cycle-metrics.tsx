@@ -127,7 +127,7 @@ export function CycleBarChart({
   };
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
       <CardHeader className={headerClassName}>
         <CardTitle className="body font-semibold flex items-center gap-2 text-foreground">
           <RefreshCw className="h-4 w-4 text-primary" />
@@ -276,7 +276,7 @@ export function CycleHistoryChart({
   }, [visibleData]);
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-surface-raised border-surface-line">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2">
           <RefreshCw className="h-4 w-4 text-accent" />
@@ -424,7 +424,7 @@ export function CycleTable({ data }: { readonly data: CycleMetric[] }) {
   const sorted = [...data].sort((a, b) => a.number - b.number);
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-surface-raised border-surface-line">
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <Table>
@@ -519,7 +519,7 @@ export function UncompletedIssuesList({
   if (issues.length === 0) return null;
 
   return (
-    <Card className="bg-background border-border">
+    <Card className="bg-surface-raised border-surface-line">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2 flex-wrap">
           <AlertCircle className="h-4 w-4 text-accent shrink-0" />

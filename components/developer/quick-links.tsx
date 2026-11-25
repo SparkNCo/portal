@@ -51,7 +51,7 @@ const links = [
 
 export function QuickLinks() {
   return (
-    <Card className="min-w-0 bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
+    <Card className="min-w-0 bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
       <CardHeader className="px-4 sm:px-6">
         <CardTitle className="smalltext font-semibold flex items-center gap-2 text-white">
           <ExternalLink className="h-4 w-4 text-primary" />

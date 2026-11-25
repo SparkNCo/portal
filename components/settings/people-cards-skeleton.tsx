@@ -18,7 +18,7 @@ export function PeopleCardsSkeleton({
     <Card
       role="status"
       aria-live="polite"
-      className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground"
+      className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground"
     >
       <span className="sr-only">Loading {title.toLowerCase()}…</span>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">

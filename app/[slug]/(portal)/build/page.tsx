@@ -72,7 +72,7 @@ function BuildTicketsPanel({
       expandable={false}
       // Phones: each panel its own bordered, rounded box (as on desktop),
       // so one category of tickets is clearly apart from the next.
-      className="flex min-w-0 flex-col max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-border"
+      className="flex min-w-0 flex-col max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-surface-line"
       contentClassName="flex-1 min-w-0"
     >
       <PriorityTasks

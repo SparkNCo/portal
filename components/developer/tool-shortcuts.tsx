@@ -11,7 +11,7 @@ const tools = [
 
 export function ToolShortcuts() {
   return (
-    <Card className="min-w-0 bg-background border-transparent sm:border-border rounded-none sm:rounded-xl">
+    <Card className="min-w-0 bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
       <CardHeader className="px-4 sm:px-6">
         <CardTitle className="text-base font-semibold flex items-center gap-2 text-white">
           <Zap className="h-4 w-4 text-primary" />

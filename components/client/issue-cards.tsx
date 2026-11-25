@@ -177,7 +177,7 @@ export function IssueCard({
         "group relative flex h-full min-h-36 flex-col rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
         lightCard
           ? "light-card"
-          : "bg-background hover:bg-muted text-foreground",
+          : "bg-surface-raised border-surface-line hover:bg-surface-hover text-foreground",
       )}
     >
       <span
@@ -327,7 +327,7 @@ export function IssueListRow({
         "group relative flex flex-wrap items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border sm:flex-nowrap",
         lightCard
           ? "light-card"
-          : "bg-background hover:bg-muted text-foreground",
+          : "bg-surface-raised border-surface-line hover:bg-surface-hover text-foreground",
       )}
     >
       <button

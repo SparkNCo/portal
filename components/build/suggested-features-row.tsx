@@ -45,7 +45,7 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
     <Card
       role="region"
       aria-labelledby="suggested-features-heading"
-      className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl"
+      className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl"
     >
       <CardHeader className={open ? undefined : "py-4"}>
         {/* One heading for the row, instead of a label on every card. The
@@ -97,7 +97,7 @@ function SuggestedFeatureSkeleton() {
   return (
     <div
       role="status"
-      className="relative w-[280px] sm:w-80 shrink-0 animate-pulse rounded-lg border border-border bg-background p-4 pl-5 space-y-3"
+      className="relative w-[280px] sm:w-80 shrink-0 animate-pulse rounded-lg border border-surface-line bg-surface-raised p-4 pl-5 space-y-3"
     >
       <span className="sr-only">Loading suggested features…</span>
       <span className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary/40" aria-hidden="true" />

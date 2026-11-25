@@ -103,7 +103,7 @@ export function ProgressPieChart({
     TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl flex flex-col text-foreground">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl flex flex-col text-foreground">
       <CardHeader className={headerClassName}>
         <CardTitle className="body font-semibold flex items-center justify-between gap-2">
           <span className="flex items-center gap-2">

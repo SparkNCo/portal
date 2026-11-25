@@ -551,7 +551,7 @@ export function RoadmapTimeline({
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+      <Card className="overflow-hidden bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
         <TimelineHeader
           onPrev={() => setWindowStart((w) => Math.max(0, (w ?? 0) - 1))}
           onNext={() =>
@@ -633,7 +633,7 @@ export function RoadmapTimeline({
       </Card>
 
       {selection && (
-        <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+        <Card className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
