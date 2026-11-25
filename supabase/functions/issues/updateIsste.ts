@@ -31,7 +31,7 @@ export async function handleUpdateState(req: Request): Promise<Response> {
     const { result, previousState } = await tickets.setIssueState(issueId, stateName);
 
     if (result?.success && actorEmail) {
-      await markIssueUpdated(issueId, actorEmail);
+      await markIssueUpdated(issueId, actorEmail, "description");
     }
     if (result?.success && slug && actorEmail && previousState !== stateName) {
       // Fire-and-forget so notifications don't delay the response.
@@ -93,7 +93,7 @@ export async function handleUpdateIssue(req: Request): Promise<Response> {
   const updatedIssue = result?.issue;
 
   if (actorEmail) {
-    await markIssueUpdated(issueId, actorEmail);
+    await markIssueUpdated(issueId, actorEmail, "description");
   }
 
   // Best-effort — keeps the issues vector index in sync for edits made through this
@@ -184,7 +184,7 @@ export async function handleAddComment(req: Request): Promise<Response> {
     return Response.json({ error: "Failed to create decision", details: data }, { status: 500 });
   }
 
-  await markIssueUpdated(issueId, ownerEmail);
+  await markIssueUpdated(issueId, ownerEmail, "decisions");
   if (slug) {
     // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
@@ -309,7 +309,7 @@ export async function handleSetDecision(req: Request): Promise<Response> {
     console.error("[handleSetDecision] ticket comment error (non-fatal):", err);
   }
 
-  await markIssueUpdated(row.issue_id, decisionEmail);
+  await markIssueUpdated(row.issue_id, decisionEmail, "decisions");
   if (slug) {
     // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({

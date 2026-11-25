@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
           .eq("id", sender)
           .maybeSingle();
         if (sendingUser?.email) {
-          await markIssueUpdated(issueId, sendingUser.email);
+          await markIssueUpdated(issueId, sendingUser.email, "chat");
         }
       }
 

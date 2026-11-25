@@ -193,13 +193,18 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
+      {/* Opens the ticket like the card does — on the tab the update was
+          made in (the caller's onOpen, see unseenUpdateTab). */}
       {hasUpdate && (
-        <span
-          className="absolute top-2 right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
-          title="Recently updated"
+        <button
+          type="button"
+          onClick={onOpen}
+          className="absolute top-2 right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background hover:scale-110 transition-transform"
+          title="Recently updated: open to see what changed"
+          aria-label={`${issue.title}: recently updated, open to see what changed`}
         >
           <Mail className="h-2.5 w-2.5 text-white" />
-        </span>
+        </button>
       )}
       {onEdit && (
         <button
@@ -377,12 +382,15 @@ export function IssueListRow({
         </span>
       )}
       {hasUpdate && (
-        <span
-          className="order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
-          title="Recently updated"
+        <button
+          type="button"
+          onClick={onOpen}
+          className="relative z-10 order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 hover:scale-110 transition-transform"
+          title="Recently updated: open to see what changed"
+          aria-label={`${issue.title}: recently updated, open to see what changed`}
         >
           <Mail className="h-2 w-2 text-white" />
-        </span>
+        </button>
       )}
       <div className="order-5 basis-full sm:hidden" aria-hidden="true" />
       {issue.state?.name &&

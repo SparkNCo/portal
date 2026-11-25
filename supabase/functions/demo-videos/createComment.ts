@@ -80,7 +80,7 @@ export const notifyDemoFeedback = async ({
     .eq("id", demoVideoId)
     .maybeSingle();
 
-  if (video?.issue_id) await markIssueUpdated(video.issue_id, email);
+  if (video?.issue_id) await markIssueUpdated(video.issue_id, email, "demo");
 
   if (slug && video) {
     const isDeveloper = authorRole === "developer";

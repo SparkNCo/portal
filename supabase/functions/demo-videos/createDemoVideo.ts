@@ -93,7 +93,7 @@ export const createDemoVideoFromUpload = async (
     throw new Error(insertError.message);
   }
 
-  await markIssueUpdated(issueId, email);
+  await markIssueUpdated(issueId, email, "demo");
   if (slug) {
     // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
@@ -159,7 +159,7 @@ export const createDemoVideoFromExisting = async (
     throw new Error(insertError.message);
   }
 
-  await markIssueUpdated(issueId, email);
+  await markIssueUpdated(issueId, email, "demo");
   if (slug) {
     // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({
@@ -226,7 +226,7 @@ export const createDemoVideoFromEmbed = async (
     throw new Error(insertError.message);
   }
 
-  await markIssueUpdated(issueId, email);
+  await markIssueUpdated(issueId, email, "demo");
   if (slug) {
     // Fire-and-forget so notifications don't delay the response.
     EdgeRuntime.waitUntil(notifyProject({

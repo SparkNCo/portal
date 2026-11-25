@@ -12,7 +12,11 @@ function restHeaders(extra: Record<string, string> = {}) {
   };
 }
 
-export async function markIssueUpdated(issueId: string, updatedBy: string): Promise<void> {
+// The ticket modal tab a change was made in (IssueDetailTab on the frontend):
+// the card's "Recently updated" badge opens the ticket there.
+export type IssueUpdateTab = "description" | "chat" | "decisions" | "tests" | "design" | "demo";
+
+export async function markIssueUpdated(issueId: string, updatedBy: string, tab: IssueUpdateTab): Promise<void> {
   const supabaseUrl = Deno.env.get("PROJECT_URL")!;
 
   try {
@@ -24,6 +28,9 @@ export async function markIssueUpdated(issueId: string, updatedBy: string): Prom
         updated_by: updatedBy,
         updated_at: new Date().toISOString(),
         seen: false,
+        // Always sent, so it's the last change's tab (the upsert only
+        // overwrites the columns it's given).
+        tab,
       }),
     });
   } catch (err) {

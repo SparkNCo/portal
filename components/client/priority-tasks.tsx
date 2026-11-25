@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { getIssueCode } from "@/lib/utils";
-import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
+import { type Issue, type IssueDetailTab, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
@@ -313,9 +313,12 @@ export function PriorityTasks({
   };
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  // The tab its unseen update was made in, when opened from a card with the
+  // "Recently updated" badge (null: the modal's usual first tab).
+  const [selectedTab, setSelectedTab] = useState<IssueDetailTab | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
   const { profile } = useUser();
-  const { hasUnseenUpdate } = useIssueUpdateBadge();
+  const { hasUnseenUpdate, unseenUpdateTab } = useIssueUpdateBadge();
 
   // Deep link from a notification — open once the target issue actually
   // shows up in issuesData (it may not be there on the very first render if
@@ -354,7 +357,10 @@ export function PriorityTasks({
     : issuesData;
 
   const itemProps: IssueItemProps = {
-    onOpen: setSelectedIssue,
+    onOpen: (issue) => {
+      setSelectedTab(unseenUpdateTab(issue, profile?.email));
+      setSelectedIssue(issue);
+    },
     hasUpdate: (issue) => hasUnseenUpdate(issue, profile?.email),
     lightCard,
     showProject,
@@ -375,7 +381,11 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={matchesIssueRef(selectedIssue, openIssueId ?? null) ? (openIssueTab ?? initialModalTab) : initialModalTab}
+      initialTab={
+        matchesIssueRef(selectedIssue, openIssueId ?? null)
+          ? (openIssueTab ?? initialModalTab)
+          : (selectedTab ?? initialModalTab)
+      }
     />
   );
   if (compact) {
