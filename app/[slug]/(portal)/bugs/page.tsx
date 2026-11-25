@@ -23,6 +23,7 @@ import { fetchIssues } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
+import { TICKET_PANEL_ICONS } from "@/components/client/ticket-panel-icons";
 import { TOOLBAR_INSIDE_TOP } from "@/components/dashboard/sortable-pinned-panel";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
@@ -228,6 +229,7 @@ function BugsPageContent() {
             onOpenChat={() => {}}
             onEditIssue={(issue) => setEditingIssue(issue)}
             title="Bugs"
+            icon={TICKET_PANEL_ICONS.bugs_list}
             slug={slug}
             headerAction={projectFilterDropdown}
             lightCard

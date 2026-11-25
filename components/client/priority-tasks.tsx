@@ -296,11 +296,15 @@ export function PriorityTasks({
   emptyState,
   loading = false,
   reserveTopRight,
+  icon,
   expanded: expandedProp,
   onExpandedChange,
 }: PriorityTasksProps) {
   // Room right of the header for the corner buttons (see CORNER_ROOM).
   const cornerRoom = reserveTopRight ? CORNER_ROOM[reserveTopRight] : "";
+  // The panel's own icon in orange, or the amber warning triangle.
+  const TitleIcon = icon ?? AlertTriangle;
+  const titleIconColor = icon ? "text-primary" : "text-warning";
   const scrollRef = useRef<HTMLDivElement>(null);
   // "View all": the caller's (saved per user, see usePanelShowAll) when it
   // passes one; otherwise this panel's own, forgotten on reload.
@@ -395,7 +399,7 @@ export function PriorityTasks({
           className={`flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 ${cornerRoom || "pr-10"}`}
         >
           <CardTitle className="body font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning" />
+            <TitleIcon className={`h-4 w-4 ${titleIconColor}`} />
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -427,7 +431,7 @@ export function PriorityTasks({
             then the title truncates. */}
         <div className={`flex flex-wrap sm:flex-nowrap items-center gap-2 ${reserveTopRight ? CORNER_ROOM_ROW[reserveTopRight] : ""}`}>
           <CardTitle className={`body font-semibold flex items-center gap-2 min-h-7 min-w-0 mr-auto ${reserveTopRight ? CORNER_ROOM_TITLE[reserveTopRight] : ""}`}>
-            <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+            <TitleIcon className={`h-4 w-4 shrink-0 ${titleIconColor}`} />
             <span className="truncate">{title}</span>
           </CardTitle>
           <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink sm:min-w-0">

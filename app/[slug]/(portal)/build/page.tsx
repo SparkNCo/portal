@@ -4,6 +4,7 @@ import { Header } from "@/components/headerDashboard";
 import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { FeatureRequestPanel } from "@/components/build/feature-request-panel";
 import { SuggestedFeaturesRow } from "@/components/build/suggested-features-row";
+import { TICKET_PANEL_ICONS } from "@/components/client/ticket-panel-icons";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useState } from "react";
@@ -85,6 +86,7 @@ function BuildTicketsPanel({
         onOpenChat={() => {}}
         onEditIssue={onEditIssue}
         title={title}
+        icon={TICKET_PANEL_ICONS[panelId]}
         slug={slug}
         lightCard
         viewMode="row"

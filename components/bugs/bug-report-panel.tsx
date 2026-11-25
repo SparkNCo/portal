@@ -277,7 +277,8 @@ export function BugReportPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bug-attachments">
+              {/* block: on its own line, with "Add files" below it. */}
+              <Label htmlFor="bug-attachments" className="block">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)

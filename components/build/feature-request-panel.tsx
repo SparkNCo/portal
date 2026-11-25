@@ -281,7 +281,8 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="feature-attachments" className="smalltext">
+              {/* block: on its own line, with "Add files" below it. */}
+              <Label htmlFor="feature-attachments" className="smalltext block">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)

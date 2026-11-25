@@ -7,6 +7,7 @@ import { SoftwareKPIs } from "@/components/roadmap/software-kpis";
 import { RoadmapTimeline } from "@/components/roadmap/roadmap-timeline";
 import { MetricsPanel } from "@/components/metrics/metrics-panel";
 import { PriorityTasks } from "@/components/client/priority-tasks";
+import { TICKET_PANEL_ICONS } from "@/components/client/ticket-panel-icons";
 import { PinButton } from "@/components/dashboard/pin-button";
 import type { PinnablePanelId } from "@/lib/pinnable-panels";
 import { useRoadmapData } from "@/hooks/use-roadmap-data";
@@ -163,6 +164,7 @@ export function PinnedPanelRenderer({
           title="Business Review"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard
@@ -190,6 +192,7 @@ export function PinnedPanelRenderer({
           title="Acceptance Testing"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard
@@ -218,6 +221,7 @@ export function PinnedPanelRenderer({
           title="Recently Created"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard
@@ -247,6 +251,7 @@ export function PinnedPanelRenderer({
           title="Refinement"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard
@@ -276,6 +281,7 @@ export function PinnedPanelRenderer({
           title="Approved"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard
@@ -322,6 +328,7 @@ export function PinnedPanelRenderer({
           title="Bugs"
           slug={slug}
           viewMode="row"
+          icon={TICKET_PANEL_ICONS[panelId]}
           expanded={showAll.expanded}
           onExpandedChange={showAll.set}
           lightCard

@@ -75,9 +75,11 @@ export function RequestProjectDialog({
       <Button
         size={compact ? "sm" : "default"}
         onClick={() => setOpen(true)}
-        className="bg-primary text-primary-foreground hover:bg-primary/90"
+        // The page's background, a panel's edge and the panel titles' color,
+        // with an orange +; on hover the whole button takes an orange tone.
+        className="border border-surface-line bg-background text-foreground shadow-none transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
       >
-        <Plus className="h-4 w-4 mr-2" />
+        <Plus className="h-4 w-4 mr-2 text-primary" />
         New Project Request
       </Button>
 

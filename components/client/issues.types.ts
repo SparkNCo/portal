@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 // Low -> High escalates through the orange family (lightest to most
 // intense/red-leaning); Urgent stays destructive red as the tier beyond High.
@@ -257,6 +258,9 @@ export type PriorityTasksProps = {
   onOpenChat?: (title: string) => void;
   onEditIssue?: (issue: Issue) => void;
   title?: string;
+  /** Left of the title, in orange (see TICKET_PANEL_ICONS). Without it, an
+   * amber warning triangle. */
+  icon?: LucideIcon;
   compact?: boolean;
   // Renders the compact row list on the light-card surface (see .light-card in
   // globals.css) instead of the default dark bg-background rows — opt-in per

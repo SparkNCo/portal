@@ -193,25 +193,12 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
-      {/* Opens the ticket like the card does — on the tab the update was
-          made in (the caller's onOpen, see unseenUpdateTab). */}
-      {hasUpdate && (
-        <button
-          type="button"
-          onClick={onOpen}
-          className="absolute top-2 right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background hover:scale-110 transition-transform"
-          title="Recently updated: open to see what changed"
-          aria-label={`${issue.title}: recently updated, open to see what changed`}
-        >
-          <Mail className="h-2.5 w-2.5 text-white" />
-        </button>
-      )}
+
       {onEdit && (
         <button
           type="button"
           className={cn(
-            "absolute top-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
-            hasUpdate ? "right-8" : "right-2",
+            "absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
             lightCard ? "light-card-chip" : "hover:bg-secondary",
           )}
           onClick={(e) => {
@@ -239,6 +226,20 @@ export function IssueCard({
           >
             {getIssueCode(issue.branchName)}
           </span>
+          {/* Right of the code. Opens the ticket like the card does — on the
+              tab the update was made in (the caller's onOpen, see
+              unseenUpdateTab); above the card's own click area. */}
+          {hasUpdate && (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-orange-500 hover:scale-110 transition-transform"
+              title="Recently updated: open to see what changed"
+              aria-label={`${issue.title}: recently updated, open to see what changed`}
+            >
+              <Mail className="h-2.5 w-2.5 text-white" />
+            </button>
+          )}
           {showProject && issue.project?.name && (
             <span
               className={cn(

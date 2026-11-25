@@ -157,6 +157,9 @@ export function CycleBarChart({
                   allowDecimals={false}
                 />
                 <Tooltip
+                  // The band behind the hovered cycle: the ticket cards'
+                  // gray (#242424), not Recharts' default light gray.
+                  cursor={{ fill: "hsl(var(--surface-raised))" }}
                   contentStyle={{
                     backgroundColor: "oklch(0.13 0 0)",
                     border: "1px solid oklch(0.22 0 0)",
