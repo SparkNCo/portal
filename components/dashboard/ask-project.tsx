@@ -89,8 +89,6 @@ function SourceItem({
   const label = (
     <>
       <span className="flex min-w-0 items-center gap-2">
-        {/* The number the answer's [n] markers point to. */}
-        <span className="shrink-0 font-mono text-xs font-semibold text-primary">[{n}]</span>
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className="smalltext min-w-0 flex-1 truncate text-muted-foreground">
           {SOURCE_LABEL[source.type]}

@@ -7,7 +7,6 @@ import { Loader2, Upload, Video, Link as LinkIcon, Send, Plus, RefreshCw, Pencil
 
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { DemoDescription } from "./demo-description";
 import {
@@ -928,6 +927,10 @@ function DemoFeedbackThread({
   // The comment being edited (only one at a time) and its draft text.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  // Screenshots pasted into either editor still uploading: posting or saving
+  // waits for them, or the image would be left out.
+  const [uploadingNew, setUploadingNew] = useState(false);
+  const [uploadingEdit, setUploadingEdit] = useState(false);
 
   const commentsQuery = useQuery({
     queryKey: ["demo-comments", demoId],
@@ -1018,7 +1021,7 @@ function DemoFeedbackThread({
     !!profile?.email && comment.author?.email?.toLowerCase() === profile.email.toLowerCase();
 
   const handleSubmitComment = () => {
-    if (!commentBody.trim()) return;
+    if (!commentBody.trim() || uploadingNew) return;
     addCommentMutation.mutate(commentBody);
   };
 
@@ -1075,12 +1078,15 @@ function DemoFeedbackThread({
               </div>
               {editingId === comment.id ? (
                 <div className="mt-2 flex flex-col gap-2">
-                  <Textarea
+                  {/* Rich text, screenshots included (paste or drop). */}
+                  <RichTextEditor
                     value={editDraft}
-                    onChange={(e) => setEditDraft(e.target.value)}
-                    aria-label="Edit your feedback"
-                    className="bg-background min-h-[72px]"
-                    autoFocus
+                    onChange={setEditDraft}
+                    ariaLabel="Edit your feedback"
+                    minHeight="72px"
+                    className="bg-background"
+                    onDark
+                    onUploadingChange={setUploadingEdit}
                   />
                   <div className="flex justify-end gap-2">
                     <Button
@@ -1098,6 +1104,7 @@ function DemoFeedbackThread({
                       size="sm"
                       disabled={
                         editCommentMutation.isPending ||
+                        uploadingEdit ||
                         !editDraft.trim() ||
                         editDraft.trim() === comment.body.trim()
                       }
@@ -1108,9 +1115,7 @@ function DemoFeedbackThread({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">
-                  {comment.body}
-                </p>
+                <DemoDescription markdown={comment.body} allowImages className="mt-1 text-sm text-foreground" />
               )}
             </div>
           ))}
@@ -1118,16 +1123,25 @@ function DemoFeedbackThread({
       )}
 
       <div className="flex flex-col gap-2">
-        <Textarea
+        {/* Rich text (bold, lists, links) and screenshots: paste or drop an
+            image to upload it (to Linear, like a ticket's images) and put it
+            in the feedback. Saved as markdown. */}
+        <RichTextEditor
           value={commentBody}
-          onChange={(e) => setCommentBody(e.target.value)}
-          placeholder="Leave feedback on this version…"
-          className="bg-background min-h-[112px]"
+          onChange={setCommentBody}
+          placeholder="Leave feedback on this version… (paste or drop screenshots)"
+          ariaLabel="Your feedback on this version"
+          minHeight="112px"
+          className="bg-background"
+          onDark
+          resizable
+          onSubmitShortcut={handleSubmitComment}
+          onUploadingChange={setUploadingNew}
         />
         <Button
           size="sm"
           className="self-end gap-1.5"
-          disabled={addCommentMutation.isPending || !commentBody.trim()}
+          disabled={addCommentMutation.isPending || uploadingNew || !commentBody.trim()}
           onClick={handleSubmitComment}
         >
           {addCommentMutation.isPending ? (

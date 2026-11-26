@@ -45,6 +45,21 @@ export const createComment = async (
   return data;
 };
 
+// The feedback as the notification bell shows it: plain text, not the
+// editor's markdown — a pasted screenshot ("![name](url)") reads "📷 Image",
+// a link its text, and bold/italic/list marks and line breaks go.
+export function feedbackPreview(body: string): string {
+  return body
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " 📷 Image ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\\(?=\r?\n|$)/g, "")
+    .replace(/^\s*(?:[-*+]|\d+\.)\s+/gm, "")
+    .replace(/[*_~`#>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
 // Shared by posting and editing feedback. Flags the ticket as updated, then
 // notifies: always whoever uploaded this version (normally its developer),
 // and on top of that the other side of the project —
@@ -94,7 +109,7 @@ export const notifyDemoFeedback = async ({
       objectType: "demo_comment",
       objectId: demoVideoId,
       link: resolveIssueDashboardLink(slug, issueType),
-      preview: body.slice(0, 200),
+      preview: feedbackPreview(body),
       issueCode,
       issueId: video.issue_id,
     }));

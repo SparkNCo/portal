@@ -16,7 +16,6 @@ import EditStakeholderModal from "./EditStakeholderModal";
 import ViewStakeholderModal from "./ViewStakeholderModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import {
   DropdownMenu,
@@ -495,8 +494,8 @@ export default function AdminUsersPage() {
 
           {/* One panel per role — only developer rows can expand to show assignments */}
           {ROLES.map((role) => {
-            // Developers: Spark & Co's first, then the External ones
-            // (added by customers), each group keeping its order.
+            // Developers: Spark & Co's first, then the External ones, each
+            // group keeping its order.
             const roleUsers = filteredUsers
               .filter((u: User) => u.role === role)
               .sort((a: User, b: User) => Number(isExternalDeveloper(a)) - Number(isExternalDeveloper(b)));
@@ -522,21 +521,17 @@ export default function AdminUsersPage() {
                     <div className="space-y-2">
                       {roleUsers.map((u: User) => {
                         const isExpanded = expandedUser?.id === u.id;
-                        const external = isExternalDeveloper(u);
                         return (
                           <Fragment key={u.id}>
                           {u.id === firstExternalId && (
-                            <p className="flex items-center gap-2 pt-3 pb-1 smalltext font-medium text-muted-foreground">
+                            <p className="pt-3 pb-1 smalltext font-medium text-muted-foreground">
                               External developers
-                              <span className="font-normal">· added by customers</span>
                             </p>
                           )}
                           <div
-                            // External ones are toned down until hovered or
-                            // focused, so Spark & Co's stand out.
-                            className={`rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-all group ${
-                              external ? "opacity-80 hover:opacity-100 focus-within:opacity-100" : ""
-                            }`}
+                            // External developers look the same as Spark & Co's;
+                            // the "External developers" heading above sets them apart.
+                            className="rounded-lg border border-border bg-card/90 hover:bg-card text-card-foreground transition-all group"
                           >
                             <div className="flex flex-col gap-2 rounded-lg p-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3 min-w-0">
@@ -550,11 +545,6 @@ export default function AdminUsersPage() {
                                   >
                                     {u.email}
                                   </p>
-                                  {external && (
-                                    <Badge variant="outline" className="shrink-0 smalltext border-card-foreground/30 text-card-foreground/70">
-                                      External
-                                    </Badge>
-                                  )}
                                 </div>
                               </div>
 

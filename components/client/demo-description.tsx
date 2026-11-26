@@ -3,13 +3,16 @@
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { cn } from "@/lib/utils";
+import { useProxiedImageUrl } from "@/hooks/use-proxied-image-url";
 
-// A demo's description (demo_videos.description): markdown from the rich
-// text editor it's written in (bold, italics, lists, links — see
-// RichTextEditor), shown below the video and on the Demos page. Plain text
-// from before it was rich is markdown too, so it shows the same.
+// A demo's description (demo_videos.description), or a piece of feedback on
+// it (demo_comments.body): markdown from the rich text editor it's written in
+// (bold, italics, lists, links — see RichTextEditor), shown below the video
+// and on the Demos page. Plain text from before it was rich is markdown too,
+// so it shows the same.
 // `clamp`: just its first lines (the Demos page's cards), paragraphs run
 // together so the clamp counts lines, not blocks.
+// `allowImages`: feedback can have screenshots pasted in; descriptions can't.
 // The editor saves a line break inside a paragraph (Shift+Enter, an empty
 // line) as markdown's "\" at the end of the line. That only works when more
 // text follows in the same paragraph: a "\" on its own line, or ending a
@@ -19,11 +22,31 @@ export function withoutBackslashBreaks(markdown: string): string {
   return markdown.replace(/\\(?=\r?\n|$)/g, "");
 }
 
+// Images uploaded from the editor live on Linear (uploads.linear.app), which
+// needs Linear's key to serve them: shown through the portal's proxy, as in
+// the ticket modal. Opens full size in a new tab.
+function MarkdownImage({ src, alt }: Readonly<{ src?: string; alt?: string }>) {
+  const resolvedSrc = useProxiedImageUrl(src);
+  if (!resolvedSrc) return null;
+  return (
+    <a href={resolvedSrc} target="_blank" rel="noopener noreferrer" className="my-1.5 block w-fit">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={resolvedSrc}
+        alt={alt ?? ""}
+        loading="lazy"
+        className="max-h-72 max-w-full rounded-md border border-surface-line object-contain"
+      />
+    </a>
+  );
+}
+
 export function DemoDescription({
   markdown,
   clamp = false,
+  allowImages = false,
   className,
-}: Readonly<{ markdown: string; clamp?: boolean; className?: string }>) {
+}: Readonly<{ markdown: string; clamp?: boolean; allowImages?: boolean; className?: string }>) {
   return (
     <div
       className={cn(
@@ -38,14 +61,15 @@ export function DemoDescription({
     >
       <ReactMarkdown
         remarkPlugins={[remarkBreaks]}
-        // Text only: no images or raw HTML in a demo's description.
-        disallowedElements={["img"]}
+        // No raw HTML ever; images only where asked for (and never clamped).
+        disallowedElements={allowImages && !clamp ? [] : ["img"]}
         components={{
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer">
               {children}
             </a>
           ),
+          img: ({ src, alt }) => <MarkdownImage src={typeof src === "string" ? src : undefined} alt={alt} />,
         }}
       >
         {withoutBackslashBreaks(markdown)}

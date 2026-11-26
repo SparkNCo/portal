@@ -180,6 +180,16 @@ function WorkspaceAvatar({ name, logoUrl }: Readonly<{ name: string; logoUrl?: s
   );
 }
 
+// A heading over a group of nav items (admins: "Workspace" for the selected
+// customer's pages, "Admin" for their own).
+function NavSectionLabel({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
+  return (
+    <p className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50", className)}>
+      {children}
+    </p>
+  );
+}
+
 function NavLink({
   href,
   label,
@@ -500,6 +510,7 @@ export function Sidebar() {
             {/* Always listed so the menu keeps the same items; disabled
                 until an initiative is selected. The Admin section below
                 keeps its place. */}
+            <NavSectionLabel className="pt-1">Workspace</NavSectionLabel>
             <SortableNavList
               items={orderedAdminCustomerNavItems}
               onReorder={(keys) => saveNavOrder.mutate(keys)}
@@ -517,9 +528,7 @@ export function Sidebar() {
                 />
               )}
             />
-            <p className="px-3 pt-4 pb-1 smalltext font-medium text-sidebar-foreground/50">
-              Admin
-            </p>
+            <NavSectionLabel className="pt-4">Admin</NavSectionLabel>
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.href}
