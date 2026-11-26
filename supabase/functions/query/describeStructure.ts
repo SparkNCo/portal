@@ -119,11 +119,11 @@ ${columnsRule(columns)}
 ${dialect.rules.map((rule) => `- ${rule}`).join("\n")}
 - Today is ${today}; resolve relative dates ("this year", "last month") from it.
 - If the question can't be answered from these tables, set answerable to false, sql to an empty string, and say why in explanation.
-- explanation: one or two short sentences saying what the query returns, written in the language the question is written in (an English question gets an English explanation, a Spanish one a Spanish explanation). Never switch to another language, such as Chinese, that the question doesn't use.
+- explanation: one or two short sentences saying what the query returns, always written in English, whatever language the question is in. Never switch to another language (Spanish, Chinese…). Table, column and value names stay as they are in the database.
 
 Question: ${question}
 
-Write the explanation in the same language as the question above.`;
+Write the explanation in English.`;
 }
 
 // ─── Shared result columns (one question, several connections) ───────────

@@ -53,13 +53,31 @@ test.describe('parseConnectionInput', () => {
   test('trims the fields and fills in the defaults', () => {
     const parsed = parseConnectionInput({ host: '  db.example.com ', database: ' shop', username: 'reader ', password: ' p w ' });
     expect(parsed).toEqual({
-      config: { type: 'postgres', host: 'db.example.com', port: 5432, database: 'shop', username: 'reader', password: ' p w ', ssl: true },
+      config: { type: 'postgres', host: 'db.example.com', port: 5432, database: 'shop', username: 'reader', password: ' p w ', ssl: true, ca: null },
     });
   });
 
   test('keeps the port and SSL it is given', () => {
     const parsed = parseConnectionInput({ ...config, port: '6543', ssl: false });
-    expect(parsed).toEqual({ config: { ...config, port: 6543, ssl: false } });
+    expect(parsed).toEqual({ config: { ...config, port: 6543, ssl: false, ca: null } });
+  });
+
+  const pem = '-----BEGIN CERTIFICATE-----\nMIIEQTCCAqmgAwIBAgIU\n-----END CERTIFICATE-----';
+
+  test('keeps a CA certificate (trimmed) with SSL on', () => {
+    expect(parseConnectionInput({ ...config, ssl_ca: `\n  ${pem}  \n` })).toEqual({ config: { ...config, ca: pem } });
+  });
+
+  test('ignores the CA certificate with SSL off, and when empty', () => {
+    expect(parseConnectionInput({ ...config, ssl: false, ssl_ca: pem })).toEqual({ config: { ...config, ssl: false, ca: null } });
+    expect(parseConnectionInput({ ...config, ssl_ca: '   ' })).toEqual({ config: { ...config, ca: null } });
+  });
+
+  test('refuses a CA certificate that is not PEM, or too long', () => {
+    const notPem = parseConnectionInput({ ...config, ssl_ca: 'not a certificate' });
+    expect('error' in notPem && notPem.error).toContain('PEM format');
+    const tooLong = parseConnectionInput({ ...config, ssl_ca: `${pem}\n${'x'.repeat(20001)}` });
+    expect('error' in tooLong && tooLong.error).toContain('too long');
   });
 
   test('says what is missing or wrong', () => {
@@ -79,7 +97,30 @@ test.describe('describeConnectionError', () => {
     expect(describeConnectionError({ code: 'ENOTFOUND' }, config)).toContain(`Couldn't find the host "db.example.com"`);
     expect(describeConnectionError({ code: 'ECONNREFUSED' }, config)).toContain('db.example.com:5432 refused the connection');
     expect(describeConnectionError({ code: 'CONNECT_TIMEOUT' }, config)).toContain("didn't answer within 5 seconds");
-    expect(describeConnectionError({ message: 'self-signed certificate' }, config)).toContain('Try with SSL off');
+    expect(describeConnectionError({ message: 'self-signed certificate' }, config)).toContain('add its CA certificate');
+  });
+
+  test('an SSL setup that fails (unknown CA, or the runtime\'s "write UNKNOWN"): add the CA certificate', () => {
+    for (const message of ['write UNKNOWN', 'unable to verify the first certificate', 'invalid peer certificate: UnknownIssuer']) {
+      expect(describeConnectionError({ message }, config), message).toContain('add its CA certificate (e.g. ca.pem)');
+      expect(describeMysqlError({ message }, { ...config, type: 'mysql' }), message).toContain('add its CA certificate (e.g. ca.pem)');
+    }
+  });
+
+  test('with a CA certificate given: says to check it is the right one', () => {
+    const withCa = { ...config, ca: '-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----' };
+    expect(describeConnectionError({ message: 'unable to verify the first certificate' }, withCa)).toContain(
+      "couldn't be verified with the CA certificate given",
+    );
+    expect(describeMysqlError({ message: 'write UNKNOWN' }, { ...withCa, type: 'mysql' })).toContain(
+      'Check the CA certificate is this server',
+    );
+  });
+
+  test('with SSL off, a dropped connection is not about certificates', () => {
+    expect(describeMysqlError({ message: 'write UNKNOWN' }, { ...config, type: 'mysql', ssl: false })).toBe(
+      "Couldn't connect: write UNKNOWN",
+    );
   });
 
   test('anything else keeps its message, after the prefix', () => {
@@ -168,9 +209,11 @@ test.describe('describeStructure / buildPrompt', () => {
     expect(prompt).toContain(`At most ${MAX_ROWS} rows`);
     expect(prompt).toContain('Today is 2026-10-16');
     expect(prompt).toContain('Question: ¿Cuántos pedidos se cancelaron?');
-    // The language rule is repeated last, right after the question: some
-    // models (Qwen) otherwise drift into Chinese for the explanation.
-    expect(prompt.trimEnd().endsWith('Write the explanation in the same language as the question above.')).toBe(true);
+    // Always English, also for a question in another language; repeated
+    // last, right after the question: some models (Qwen) otherwise drift
+    // into another language for the explanation.
+    expect(prompt).toContain('always written in English, whatever language the question is in');
+    expect(prompt.trimEnd().endsWith('Write the explanation in English.')).toBe(true);
     expect(prompt).toContain('Never switch to another language');
     // Joins: a wrong or missing ON gives every group the same total.
     expect(prompt).toContain('Join tables only through the foreign keys shown above');
@@ -185,7 +228,7 @@ const azure = { ...config, type: 'sqlserver' as const, host: 'shop.database.wind
 test.describe('SQL Server — connection input and errors', () => {
   test('the engine sets the default port, and unknown engines are refused', () => {
     const parsed = parseConnectionInput({ type: 'sqlserver', host: 'shop.database.windows.net', database: 'shop', username: 'reader', password: 'p' });
-    expect(parsed).toEqual({ config: { ...azure, password: 'p' } });
+    expect(parsed).toEqual({ config: { ...azure, password: 'p', ca: null } });
     expect(parseConnectionInput({ ...azure, type: 'oracle' })).toEqual({ error: 'Database type must be PostgreSQL, SQL Server or MySQL' });
   });
 
@@ -294,7 +337,7 @@ const aiven = { ...config, type: 'mysql' as const, host: 'shop.aivencloud.com', 
 test.describe('MySQL — connection input and errors', () => {
   test('MySQL defaults to port 3306', () => {
     const parsed = parseConnectionInput({ type: 'mysql', host: 'shop.aivencloud.com', database: 'shop', username: 'reader', password: 'p' });
-    expect(parsed).toEqual({ config: { ...aiven, password: 'p' } });
+    expect(parsed).toEqual({ config: { ...aiven, password: 'p', ca: null } });
   });
 
   test('logins, databases, SSL and the network are told apart', () => {

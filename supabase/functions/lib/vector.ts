@@ -46,6 +46,8 @@ export function deriveIssueKind(
   const names = new Set((labels ?? []).map((l) => l.name?.toLowerCase()));
   if (names.has("bug")) return "bug";
   if (names.has("feature")) return "feature";
+  // Anything else (no label, "Improvement"…) is untyped: the similar-tickets
+  // hint shows it on both Request a Feature and Report a Bug.
   return null;
 }
 
@@ -241,7 +243,9 @@ export async function deleteIssueVectors(_namespace: string, ids: string[]): Pro
   }
 }
 
-// `kind` scopes results to bugs or features; omit to search both.
+// `kind` leaves out the other kind ("feature" skips bugs, "bug" skips
+// features); untyped issues (no Bug/Feature label) match either. Omit it to
+// search everything. See migration 20261125120000.
 export async function queryTopIssueMatches(
   namespace: string,
   queryText: string,

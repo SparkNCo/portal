@@ -48,7 +48,7 @@ export function InvoicesPanel({ invoices = [] }: { invoices: Invoice[] }) {
   }
 
   return (
-    <Card className="flex flex-col space-y-2 h-full bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
+    <Card className="flex flex-col space-y-2 h-full bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
       {visible.map((invoice) => (
         <div
           key={invoice.id}

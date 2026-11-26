@@ -17,7 +17,7 @@ import { IssueCard } from "@/components/client/issue-cards";
 import { useIssueUpdateBadge } from "@/components/client/use-issue-update-badge";
 import { TaskFilterPanel, ActiveFilterChips } from "@/components/client/task-filter-panel";
 import { useUser } from "context/UserContext";
-import type { FilterState, Issue } from "@/components/client/issues.types";
+import type { FilterState, Issue, IssueDetailTab } from "@/components/client/issues.types";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 import type { ProjectGroupPaging } from "@/hooks/use-roadmap-data";
 import { X, Search, SlidersHorizontal, ChevronDown, ChevronRight } from "lucide-react";
@@ -192,7 +192,7 @@ export function RoadmapTimeline({
 }: RoadmapTimelineProps) {
   const queryClient = useQueryClient();
   const { profile } = useUser();
-  const { hasUnseenUpdate } = useIssueUpdateBadge();
+  const { hasUnseenUpdate, unseenUpdateTab } = useIssueUpdateBadge();
   const [expandedProjects, setExpandedProjects] = useState<
     Record<string, boolean>
   >({});
@@ -200,6 +200,8 @@ export function RoadmapTimeline({
   const [showUpcoming, setShowUpcoming] = useState(false);
   const [selection, setSelection] = useState<CycleSelection | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  // Opened from a card with an unseen update: the tab it was made in.
+  const [selectedTab, setSelectedTab] = useState<IssueDetailTab | null>(null);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [issueSearch, setIssueSearch] = useState("");
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
@@ -551,7 +553,7 @@ export function RoadmapTimeline({
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+      <Card className="overflow-hidden bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
         <TimelineHeader
           onPrev={() => setWindowStart((w) => Math.max(0, (w ?? 0) - 1))}
           onNext={() =>
@@ -633,7 +635,7 @@ export function RoadmapTimeline({
       </Card>
 
       {selection && (
-        <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+        <Card className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -750,7 +752,10 @@ export function RoadmapTimeline({
                       <IssueCard
                         key={issue.id ?? i}
                         issue={toIssue(issue)}
-                        onOpen={() => setSelectedIssue(toIssue(issue))}
+                        onOpen={() => {
+                          setSelectedTab(unseenUpdateTab(issue, profile?.email));
+                          setSelectedIssue(toIssue(issue));
+                        }}
                         onEdit={() => setEditingIssue(toIssue(issue))}
                         dueDate={issue.dueDate}
                         completedAt={issue.completedAt}
@@ -783,6 +788,7 @@ export function RoadmapTimeline({
           issue={selectedIssue}
           slug={slug}
           onClose={() => setSelectedIssue(null)}
+          initialTab={selectedTab ?? undefined}
         />
       )}
       {editingIssue && (

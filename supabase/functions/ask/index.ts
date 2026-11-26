@@ -24,9 +24,9 @@ import { ticketsForSlug } from "../lib/tickets/provider.ts";
 import { deriveIssueKind } from "../lib/vector.ts";
 import {
   buildAskPrompt,
-  buildNotFoundPrompt,
-  citedSources,
+  citedNumbers,
   citedTickets,
+  numberCitations,
   issueCodesIn,
   ticketList,
   MAX_QUESTION_LENGTH,
@@ -203,27 +203,6 @@ const matchKey = (m: ProjectMatch) => `${m.source_type}:${m.document_id ?? m.tes
 const forPage = (sources: SourceOut[]) =>
   sources.map(({ type, id, ref, title, status, kind }) => ({ type, id, ref, title, status: status ?? null, kind: kind ?? null }));
 
-// The "nothing covers that" sentence in the question's language, or "" (the
-// panel then shows its own English one) when the AI is off, busy or fails —
-// a not-found answer never fails because of it.
-async function notFoundAnswer(question: string): Promise<string> {
-  if (!aiEnabled()) return "";
-  try {
-    const reply = await requestJson<{ answer: string }>(buildNotFoundPrompt(question), {
-      name: "not_found_answer",
-      schema: {
-        type: "object",
-        properties: { answer: { type: "string", description: "In the language the question is written in." } },
-        required: ["answer"],
-        additionalProperties: false,
-      },
-    });
-    return (reply.answer ?? "").trim().slice(0, 300);
-  } catch {
-    return "";
-  }
-}
-
 serveWithCors("ask API Error", async (req) => {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
@@ -262,8 +241,9 @@ serveWithCors("ask API Error", async (req) => {
   const matches = withExactMatches(exact, relevantSources(similar), matchKey);
   const sources = await withDetails(matches);
   if (sources.length === 0 && tickets.length === 0) {
-    // Still in the question's language: the panel's own fallback is English.
-    return Response.json({ question, found: false, answer: await notFoundAnswer(question), sources: [] });
+    // No AI call: answers are always in English, and with an empty answer the
+    // panel shows its own "nothing covers that" sentence.
+    return Response.json({ question, found: false, title: "", answer: "", sources: [] });
   }
 
   if (!aiEnabled()) {
@@ -277,15 +257,15 @@ serveWithCors("ask API Error", async (req) => {
       schema: {
         type: "object",
         properties: {
-          // First, so the language is decided from the question before the
-          // answer is written (not drifting into the sources' language).
-          language: { type: "string", description: "The language the question is written in, e.g. English or Spanish." },
           found: { type: "boolean" },
-          answer: { type: "string", description: "Written in `language`, the question's language." },
-          sources: { type: "array", items: { type: "integer" } },
+          title: { type: "string", description: "A short heading for the answer, in English. Empty when found is false." },
+          answer: { type: "string", description: "Markdown bullet points, always in English." },
+          // Strings tolerated (the AI sometimes puts a ticket code here, which
+          // would fail the whole answer); citedNumbers keeps only valid numbers.
+          sources: { type: "array", items: { type: ["integer", "string"] } },
           tickets: { type: "array", items: { type: "string" } },
         },
-        required: ["language", "found", "answer", "sources", "tickets"],
+        required: ["found", "title", "answer", "sources", "tickets"],
         additionalProperties: false,
       },
     });
@@ -296,7 +276,10 @@ serveWithCors("ask API Error", async (req) => {
     throw err;
   }
 
-  const cited = reply.found ? forPage(citedSources(reply, sources)) : [];
+  // Every numbered source the answer relies on, whether listed in `sources`
+  // or only cited as [n] in the text.
+  const citedNos = reply.found ? citedNumbers(reply, sources.length) : [];
+  const cited = forPage(citedNos.map((n) => sources[n - 1]!));
   // Tickets from the live list the answer is about, after the numbered
   // sources and without repeating one already there.
   const listed = reply.found
@@ -304,10 +287,18 @@ serveWithCors("ask API Error", async (req) => {
         .filter((row) => !cited.some((s) => s.type === "issue" && s.id === row.id))
         .map((row) => ({ type: "issue", id: row.id, ref: row.code, title: row.title, status: row.status, kind: row.kind }))
     : [];
+  const shown = [...cited, ...listed];
+  // [n] in the text = the n-th source as the page lists it.
+  const answer = numberCitations(
+    withoutSourcesLine(reply.answer ?? ""),
+    citedNos,
+    shown.map((s) => (s.type === "issue" ? s.ref : null)),
+  );
   return Response.json({
     question,
     found: !!reply.found && !!reply.answer?.trim(),
-    answer: withoutSourcesLine(reply.answer ?? ""),
-    sources: [...cited, ...listed],
+    title: reply.found ? (reply.title ?? "").trim() : "",
+    answer,
+    sources: shown,
   });
 });

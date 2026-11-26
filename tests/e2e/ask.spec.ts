@@ -115,6 +115,23 @@ test.describe('Ask about this project', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'The AI model is busy right now' })).toBeVisible({ timeout: 15_000 });
   });
 
+  test('once asked, the question is locked until "Ask another question"', async ({ page }) => {
+    await mockAsk(page, 200, { question: 'What is next?', found: true, answer: 'The SSO login.', sources: [] });
+    await signInAsCustomer(page);
+    await question()(page).fill('What is next?');
+    await page.getByRole('button', { name: 'Ask', exact: true }).click();
+    await expect(page.getByText('The SSO login.')).toBeVisible({ timeout: 15_000 });
+
+    // The answer stays with the question it answers: no editing it.
+    await expect(question()(page)).toHaveAttribute('readonly', '');
+    await expect(question()(page)).toHaveValue('What is next?');
+
+    await page.getByRole('button', { name: 'Ask another question' }).click();
+    await expect(question()(page)).not.toHaveAttribute('readonly', '');
+    await expect(question()(page)).toHaveValue('');
+    await expect(page.getByText('The SSO login.')).toHaveCount(0);
+  });
+
   test('Ask is disabled until there is a question', async ({ page }) => {
     await mockAsk(page, 200, { question: '', found: false, answer: '', sources: [] });
     await signInAsCustomer(page);

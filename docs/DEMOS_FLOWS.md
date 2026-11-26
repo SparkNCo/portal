@@ -81,7 +81,7 @@ Above the issue list, `PreviewLinksBanner` (`components/client/preview-links-ban
 
 ## Freeing storage — removing demos of finished tickets
 
-Uploaded demo videos are the heaviest thing in Storage. Admins can remove the ones belonging to an initiative's **Done or deleted** tickets with two backend routes (there's no button in the UI):
+Uploaded demo videos are the heaviest thing in Storage. Admins can remove the ones belonging to an initiative's **Done or deleted** tickets with two backend routes (there's no button in the UI). By default (`mode=keep-latest`) each Done ticket keeps its latest demo version and loses the older ones; `mode=all` removes every version of Done tickets too. Deleted tickets lose all their demos in both modes.
 
 1. **Review:** `GET /functions/v1/demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` — lists each file, its size, its demo title and the tickets using it, plus `totalFiles` / `totalBytes` / `skippedInUse`. Deletes nothing.
 2. **Remove:** `DELETE /functions/v1/demo-videos?type=cleanup&slug=<initiative>&email=<admin email>` — removes those files from the `demo-videos` bucket and their demo rows (with their feedback).
@@ -94,6 +94,10 @@ curl "$URL?type=cleanup&slug=spark-portal&email=admin@example.com" \
   -H "Authorization: Bearer $KEY" -H "apikey: $KEY"
 
 curl -X DELETE "$URL?type=cleanup&slug=spark-portal&email=admin@example.com" \
+  -H "Authorization: Bearer $KEY" -H "apikey: $KEY"
+
+# Every version of Done tickets, the latest too:
+curl "$URL?type=cleanup&slug=spark-portal&email=admin@example.com&mode=all" \
   -H "Authorization: Bearer $KEY" -H "apikey: $KEY"
 ```
 

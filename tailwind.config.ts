@@ -76,6 +76,14 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Panel and card depth (globals.css): bg-surface (panel),
+        // bg-surface-raised (card on it), bg-surface-hover, border-surface-line.
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          raised: "hsl(var(--surface-raised))",
+          hover: "hsl(var(--surface-hover))",
+          line: "hsl(var(--surface-line))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar))",
           border: "hsl(var(--sidebar-border))",

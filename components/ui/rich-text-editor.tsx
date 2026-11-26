@@ -161,6 +161,7 @@ export function RichTextEditor({
   resizable = false,
   onSubmitShortcut,
   onDark = false,
+  onUploadingChange,
 }: Readonly<{
   value: string;
   onChange: (markdown: string) => void;
@@ -177,8 +178,15 @@ export function RichTextEditor({
   onSubmitShortcut?: () => void;
   /** On a dark background (the page's, not the light card): light text, bold and lists included. */
   onDark?: boolean;
+  /** Whether pasted/dropped images are still uploading (e.g. to hold off submitting until they're in). */
+  onUploadingChange?: (uploading: boolean) => void;
 }>) {
   const [uploadingCount, setUploadingCount] = useState(0);
+  const onUploadingChangeRef = useRef(onUploadingChange);
+  onUploadingChangeRef.current = onUploadingChange;
+  useEffect(() => {
+    onUploadingChangeRef.current?.(uploadingCount > 0);
+  }, [uploadingCount]);
   const allowImagesRef = useRef(allowImages);
   allowImagesRef.current = allowImages;
   const submitShortcutRef = useRef(onSubmitShortcut);

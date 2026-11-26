@@ -156,7 +156,7 @@ export function UploadDocument({
   };
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         {/* Same row height as Project Documents' header (title + search). */}
         <CardTitle className="body font-semibold flex items-center gap-2 sm:min-h-9">

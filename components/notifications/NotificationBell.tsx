@@ -64,6 +64,19 @@ const ACTION_PHRASES: Record<string, string> = {
   status_changed: "changed the status",
 };
 
+// Notifications whose preview is something someone wrote, shown under the
+// line itself. (Others' previews are a title or "from QA to UAT", already
+// part of the line or not worth repeating.)
+const MESSAGE_ACTIONS = new Set([
+  "chat_message",
+  "chat_mention",
+  "chat_reply",
+  "decision_requested",
+  "decision_answered",
+  "demo_comment_added",
+  "demo_comment_edited",
+]);
+
 // Status changes carry the from/to in the preview ("from QA to UAT").
 function actionPhraseFor(event: { action: string; preview: string | null }): string {
   const phrase = ACTION_PHRASES[event.action] ?? event.action;
@@ -204,12 +217,30 @@ function NotificationItem({
       className="group w-full text-left px-3 py-2.5 border-b last:border-b-0 transition-colors bg-accent/5"
     >
       <div className="flex items-start gap-2.5">
-        <Icon className={`h-4 w-4 mt-0.5 ${mutedTextColor} group-hover:text-primary flex-shrink-0`} />
+        {/* Centered on the line between the first and second rows of text
+            (smalltext rows are 26px: 16px × leading-relaxed; 26 − 16/2 = 18). */}
+        <Icon className={`h-4 w-4 mt-[18px] ${mutedTextColor} flex-shrink-0`} />
         <div className="min-w-0 flex-1">
           <p className={`smalltext ${textColor} group-hover:text-primary`}>
-            <span className="font-medium">{event.actor_email ?? "Someone"}</span> {actionPhrase} {formatObject(event)}
+            {/* The user and the ticket code in bold, same size as the rest. */}
+            <span className="font-bold">{event.actor_email ?? "Someone"}</span> {actionPhrase}{" "}
+            {event.issue_code ? (
+              <>
+                on <span className="font-bold">{event.issue_code}</span>
+              </>
+            ) : (
+              formatObject(event)
+            )}
           </p>
-          <p className={`smalltext ${mutedTextColor} group-hover:text-primary mt-0.5`}>
+          {/* What was written (a chat message, a question, a decision, demo
+              feedback), quoted, two lines at most. */}
+          {event.preview && MESSAGE_ACTIONS.has(event.action) && (
+            <p className={`smalltext mt-1 line-clamp-2 border-l-2 border-primary/40 pl-2 italic ${mutedTextColor}`}>
+              {event.preview}
+            </p>
+          )}
+          {/* Only the message turns orange on hover; the icon and time stay muted. */}
+          <p className={`smalltext ${mutedTextColor} mt-0.5`}>
             {formatRelativeTime(notification.created_at)}
           </p>
         </div>
@@ -725,7 +756,7 @@ export function NotificationBell() {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        <PopoverContent align="start" className="w-[28rem] max-w-[90vw] p-0">
+        <PopoverContent align="end" className="w-[28rem] max-w-[90vw] p-0">
           {hasNotifications && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-accent/5">
               <span className="smalltext text-popover-foreground/70">{totalUnreadCount} new</span>

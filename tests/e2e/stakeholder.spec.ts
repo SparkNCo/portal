@@ -72,7 +72,7 @@ test.describe('Stakeholder — panels', () => {
     // Stakeholders see the customer's pinned panels (whatever the customer
     // pinned) but can't change them: no seeding, reordering, resizing or
     // unpinning.
-    await expect(page.getByText('Your Panels')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('button', { name: 'Add default panels' })).toHaveCount(0);
     await expect(page.locator('button[title="Drag to reorder"]')).toHaveCount(0);
     await expect(page.locator('button[title="Unpin from Dashboard"]')).toHaveCount(0);

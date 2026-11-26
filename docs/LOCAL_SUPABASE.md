@@ -55,10 +55,23 @@ docker exec -i supabase-db psql -U postgres -d postgres < supabase/seed/baseline
 docker exec -i supabase-db psql -U postgres -d postgres -1 < supabase/seed/baseline.sql
 docker exec -i supabase-db psql -U postgres -d postgres < supabase/seed/storage.sql
 
-# 3. Apply the migrations newer than that structure. Today that's only
-#    20261105120000_pgvector_only.sql; when the baseline is older than other
-#    migrations, apply each of them too (see "Database" for how to list them).
-docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 < supabase/migrations/20261105120000_pgvector_only.sql
+# 3. Migrations. The baseline already holds every migration older than
+#    BASELINE (the day it was dumped): those are only registered. The newer
+#    ones are applied and registered. Stops at the first one that fails.
+#    When the baseline is regenerated, update BASELINE to that day.
+BASELINE=20261105000000
+docker exec supabase-db psql -U postgres -d postgres -qc \
+  "create schema if not exists supabase_migrations;
+   create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text);"
+for f in supabase/migrations/*.sql; do
+  b=$(basename "$f" .sql); v=${b%%_*}; n=${b#*_}
+  if [[ "$v" > "$BASELINE" ]]; then
+    echo "Applying $b"
+    docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 -q < "$f" || { echo "Failed: $f"; break; }
+  fi
+  docker exec supabase-db psql -U postgres -d postgres -qc \
+    "insert into supabase_migrations.schema_migrations(version, name) values ('$v', '$n') on conflict do nothing;"
+done
 
 # 4. Test users (one per role, from .env.test) and the test client
 #    Spark-Portal. Both are safe to run again.
@@ -82,7 +95,7 @@ Steps 0 to 4 are done once. After that:
 |---|---|
 | Starting work (Supabase stopped) | `cd docker/supabase && docker compose up -d` |
 | The portal's code changed (your edits, or a `git pull`) | Step 5 again: an image is a snapshot of the code when it was built, so the running portal doesn't change until it's rebuilt |
-| A `git pull` brought new migrations | Apply each one (see [Database](#database)) |
+| A `git pull` brought new migrations | The "apply every missing one" loop in [Database](#database) |
 | An edge function's code changed | Nothing: the functions read `supabase/functions` directly. If one doesn't pick it up: `docker compose restart functions` from `docker/supabase` |
 | `docker/supabase/functions.env` changed | `docker compose up -d --force-recreate functions` from `docker/supabase`. A plain `restart` keeps the old values: the file is only read when the container is created |
 | Done for the day | `docker compose -p portal-selfhosted down`, then `docker compose down` from `docker/supabase` (data is kept) |
@@ -217,7 +230,7 @@ docker exec -i supabase-db psql -U postgres -d postgres -1 < supabase/seed/basel
 docker exec -i supabase-db psql -U postgres -d postgres < supabase/seed/storage.sql
 ```
 
-**Migrations.** The cloud has no migration history (they were applied by hand), so the local history in `supabase_migrations.schema_migrations` was filled in by hand too. A new migration is applied and registered like this:
+**Migrations.** The cloud has no migration history (they were applied by hand), so the local history in `supabase_migrations.schema_migrations` is kept by hand: step 3 of the [first-time setup](#first-time-setup-fresh-clone) creates it. A new migration is applied and registered like this:
 
 ```bash
 docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 < supabase/migrations/<file>.sql
@@ -236,7 +249,22 @@ for f in supabase/migrations/*.sql; do
 done
 ```
 
-**Regenerate the baseline** when the cloud changes outside the migrations: `npx supabase db dump --linked --role-only -f supabase/seed/baseline-roles.sql` and `npx supabase db dump --linked -f supabase/seed/baseline.sql`. Check the dump carries no secrets before committing it.
+Apply and register every missing one, in order (after a `git pull`, for example). Stops at the first one that fails:
+
+```bash
+for f in supabase/migrations/*.sql; do
+  b=$(basename "$f" .sql); v=${b%%_*}; n=${b#*_}
+  c=$(docker exec supabase-db psql -U postgres -d postgres -Atc \
+    "select count(*) from supabase_migrations.schema_migrations where version='$v'")
+  [ "$c" != "0" ] && continue
+  echo "Applying $b"
+  docker exec -i supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -1 -q < "$f" || { echo "Failed: $f"; break; }
+  docker exec supabase-db psql -U postgres -d postgres -qc \
+    "insert into supabase_migrations.schema_migrations(version, name) values ('$v', '$n') on conflict do nothing;"
+done
+```
+
+**Regenerate the baseline** when the cloud changes outside the migrations: `npx supabase db dump --linked --role-only -f supabase/seed/baseline-roles.sql` and `npx supabase db dump --linked -f supabase/seed/baseline.sql`. Check the dump carries no secrets before committing it, and set `BASELINE` in step 3 of the [first-time setup](#first-time-setup-fresh-clone) to the day of the new dump.
 
 **Vault isn't copied.** The cloud's secrets are encrypted with another key. Query connections are created again from the page.
 

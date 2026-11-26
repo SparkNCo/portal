@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useUser } from "context/UserContext";
 import { getIssueCode } from "@/lib/utils";
-import { type Issue, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
+import { type Issue, type IssueDetailTab, type IssueViewMode, type PriorityTasksProps, statusColors, isClosedIssue } from "./issues.types";
 import { IssueDetailModal } from "./issue-detail-modal";
 import { IssueCard, IssueListRow } from "./issue-cards";
 import { useIssueUpdateBadge } from "./use-issue-update-badge";
@@ -95,6 +95,10 @@ const SCROLL_LIMIT = "max-h-[600px] overflow-y-auto";
 // Corner buttons are 28px wide, 6px apart, 12px from the card's edge; this
 // leaves ~12px between them and the header's own content.
 const CORNER_ROOM: Record<1 | 2 | 3, string> = { 1: "pr-14", 2: "pr-24", 3: "pr-32" };
+// Grid header: on phones the search drops below the title, so only the title
+// line keeps the room; from sm up it's one line, which keeps it as a whole.
+const CORNER_ROOM_TITLE: Record<1 | 2 | 3, string> = { 1: "max-sm:pr-8", 2: "max-sm:pr-[4.5rem]", 3: "max-sm:pr-[6.5rem]" };
+const CORNER_ROOM_ROW: Record<1 | 2 | 3, string> = { 1: "sm:pr-14", 2: "sm:pr-24", 3: "sm:pr-32" };
 
 function IssueRows({ issues, className, ...item }: IssueItemProps & { readonly issues: Issue[]; readonly className: string }) {
   return (
@@ -206,12 +210,13 @@ function GridView({
 }
 
 // One line of cards scrolling sideways, same card style and width as the
-// Build page's Suggested Features row.
+// Build page's Suggested Features row. Phones: 280px, the grid's ("View all")
+// minimum, so a whole card fits a 375px screen inside the panel's padding.
 function RowView({ issues, ...item }: IssueItemProps & { readonly issues: Issue[] }) {
   return (
     <div className="flex gap-3 overflow-x-auto pt-3 pb-2 custom-scrollbar">
       {issues.map((issue) => (
-        <div key={issue.id} className="w-80 shrink-0">
+        <div key={issue.id} className="w-[280px] sm:w-80 shrink-0">
           <IssueCard
             issue={issue}
             onOpen={() => item.onOpen(issue)}
@@ -291,16 +296,33 @@ export function PriorityTasks({
   emptyState,
   loading = false,
   reserveTopRight,
+  icon,
+  expanded: expandedProp,
+  onExpandedChange,
 }: PriorityTasksProps) {
   // Room right of the header for the corner buttons (see CORNER_ROOM).
   const cornerRoom = reserveTopRight ? CORNER_ROOM[reserveTopRight] : "";
+  // The panel's own icon in orange, or the amber warning triangle.
+  const TitleIcon = icon ?? AlertTriangle;
+  const titleIconColor = icon ? "text-primary" : "text-warning";
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
+  // "View all": the caller's (saved per user, see usePanelShowAll) when it
+  // passes one; otherwise this panel's own, forgotten on reload.
+  const [expandedLocal, setExpandedLocal] = useState(false);
+  const expanded = expandedProp ?? expandedLocal;
+  const setExpanded = (update: (v: boolean) => boolean) => {
+    const next = update(expanded);
+    if (onExpandedChange) onExpandedChange(next);
+    else setExpandedLocal(next);
+  };
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  // The tab its unseen update was made in, when opened from a card with the
+  // "Recently updated" badge (null: the modal's usual first tab).
+  const [selectedTab, setSelectedTab] = useState<IssueDetailTab | null>(null);
   const [titleFilter, setTitleFilter] = useState("");
   const { profile } = useUser();
-  const { hasUnseenUpdate } = useIssueUpdateBadge();
+  const { hasUnseenUpdate, unseenUpdateTab } = useIssueUpdateBadge();
 
   // Deep link from a notification — open once the target issue actually
   // shows up in issuesData (it may not be there on the very first render if
@@ -339,7 +361,10 @@ export function PriorityTasks({
     : issuesData;
 
   const itemProps: IssueItemProps = {
-    onOpen: setSelectedIssue,
+    onOpen: (issue) => {
+      setSelectedTab(unseenUpdateTab(issue, profile?.email));
+      setSelectedIssue(issue);
+    },
     hasUpdate: (issue) => hasUnseenUpdate(issue, profile?.email),
     lightCard,
     showProject,
@@ -360,17 +385,21 @@ export function PriorityTasks({
           ? () => onEditIssue(selectedIssue)
           : undefined
       }
-      initialTab={matchesIssueRef(selectedIssue, openIssueId ?? null) ? (openIssueTab ?? initialModalTab) : initialModalTab}
+      initialTab={
+        matchesIssueRef(selectedIssue, openIssueId ?? null)
+          ? (openIssueTab ?? initialModalTab)
+          : (selectedTab ?? initialModalTab)
+      }
     />
   );
   if (compact) {
     return (
-      <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full ">
+      <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full ">
         <CardHeader
           className={`flex flex-row items-center justify-between flex-shrink-0 pt-[14px] pb-3 ${cornerRoom || "pr-10"}`}
         >
           <CardTitle className="body font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning" />
+            <TitleIcon className={`h-4 w-4 ${titleIconColor}`} />
             {title}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -391,13 +420,47 @@ export function PriorityTasks({
   }
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground flex flex-col w-full h-full">
       <CardHeader className="flex flex-col gap-2 flex-shrink-0 pt-[14px] pb-3">
-        {/* With corner buttons, as tall as they are so the two line up. */}
-        <CardTitle className={`body font-semibold flex items-center gap-2 ${cornerRoom ? `min-h-7 ${cornerRoom}` : ""}`}>
-          <AlertTriangle className="h-4 w-4 text-warning" />
-          {title}
-        </CardTitle>
+        {/* One line: the title on the left; on the right search, View all and
+            then the corner buttons (drag / expand / pin on the Dashboard, pin
+            on Build and Bugs), which float over the room kept for them. On
+            phones the search and View all drop below the title. */}
+        {/* From sm up it never wraps, so search and View all stay level with
+            the corner buttons even at half width: the search shrinks first,
+            then the title truncates. */}
+        <div className={`flex flex-wrap sm:flex-nowrap items-center gap-2 ${reserveTopRight ? CORNER_ROOM_ROW[reserveTopRight] : ""}`}>
+          <CardTitle className={`body font-semibold flex items-center gap-2 min-h-7 min-w-0 mr-auto ${reserveTopRight ? CORNER_ROOM_TITLE[reserveTopRight] : ""}`}>
+            <TitleIcon className={`h-4 w-4 shrink-0 ${titleIconColor}`} />
+            <span className="truncate">{title}</span>
+          </CardTitle>
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink sm:min-w-0">
+            <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52 sm:shrink">
+              <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                aria-label="Search by title or issue code"
+                placeholder="Search by title or code..."
+                value={titleFilter}
+                onChange={(e) => setTitleFilter(e.target.value)}
+                // The panel's own color, edged in the cards' color.
+                className="h-7 pl-8 bg-surface border-surface-raised text-foreground smalltext shadow-none"
+              />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 text-muted-foreground"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? "Collapse" : "View all"}
+              <ArrowRight
+                className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+              />
+            </Button>
+          </div>
+        </div>
+        {(headerAction || (sortBy && onSortByChange) || hasFilterOptions(filterState) || activeFilters > 0 || onViewModeChange) && (
         <div className="flex items-center gap-2 flex-wrap">
           {headerAction}
           {sortBy && onSortByChange && (
@@ -406,7 +469,7 @@ export function PriorityTasks({
               onValueChange={(v) => onSortByChange(v as "updated" | "priority")}
             >
               <SelectTrigger
-                className="h-7 w-[130px] shrink-0 gap-1.5 rounded-md border border-input bg-background px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate"
+                className="h-7 w-[130px] shrink-0 gap-1.5 rounded-md border border-surface-line bg-surface-raised px-3 smalltext font-medium shadow-none ring-offset-background hover:bg-accent hover:text-accent-foreground focus:ring-1 focus:ring-ring [&>span]:truncate"
                 onClick={(e) => e.stopPropagation()}
               >
                 <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
@@ -450,30 +513,8 @@ export function PriorityTasks({
             </Popover>
           )}
           {onViewModeChange && <ViewSwitcher value={viewMode} onChange={onViewModeChange} />}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? "Collapse" : "View all"}
-            <ArrowRight
-              className={`ml-1 h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-            />
-          </Button>
-          {/* Search sits on its own at the right; everything else stays left. */}
-          <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-52 sm:ml-auto">
-            <Search className="absolute left-2.5 top-1/2 z-10 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              type="text"
-              aria-label="Search by title or issue code"
-              placeholder="Search by title or code..."
-              value={titleFilter}
-              onChange={(e) => setTitleFilter(e.target.value)}
-              className="h-7 pl-8 bg-secondary/30 border-border smalltext"
-            />
-          </div>
         </div>
+        )}
       </CardHeader>
       {activeFilters > 0 && (
         <div className="px-6 pb-3 -mt-1 flex-shrink-0">

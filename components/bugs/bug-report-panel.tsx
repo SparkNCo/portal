@@ -200,7 +200,7 @@ export function BugReportPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+    <Card className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
       <CardHeader>
         <CardTitle className="body font-semibold flex items-center gap-2">
           <Bug className="h-4 w-4 text-destructive" />
@@ -277,7 +277,8 @@ export function BugReportPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="bug-attachments">
+              {/* block: on its own line, with "Add files" below it. */}
+              <Label htmlFor="bug-attachments" className="block">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)

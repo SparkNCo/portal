@@ -11,6 +11,8 @@ type Props = {
   role: string;
   onClose: () => void;
   onEdit?: () => void;
+  // Admins only (this modal lives in Admin → Users): opens their logged hours.
+  onViewHours?: () => void;
 };
 
 export default function ViewDeveloperProfileModal({
@@ -20,6 +22,7 @@ export default function ViewDeveloperProfileModal({
   role,
   onClose,
   onEdit,
+  onViewHours,
 }: Props) {
   const { data } = useQuery({
     queryKey: ["developer-profile", userId],
@@ -45,6 +48,7 @@ export default function ViewDeveloperProfileModal({
       }}
       onClose={onClose}
       onEdit={onEdit}
+      onViewHours={onViewHours}
     />
   );
 }

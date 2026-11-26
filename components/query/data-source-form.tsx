@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -34,9 +35,25 @@ type FormState = {
   username: string;
   password: string;
   ssl: boolean;
+  sslCa: string;
 };
 
-const EMPTY_FORM: FormState = { type: "postgres", name: "", host: "", port: "5432", database: "", username: "", password: "", ssl: true };
+const EMPTY_FORM: FormState = {
+  type: "postgres",
+  name: "",
+  host: "",
+  port: "5432",
+  database: "",
+  username: "",
+  password: "",
+  // Off by default for a new connection (turn it on, and add the CA where the
+  // provider has its own, e.g. Aiven). An edited one shows what it has.
+  ssl: false,
+  sslCa: "",
+};
+
+// A CA certificate file is small; anything bigger isn't one.
+const MAX_CA_FILE_BYTES = 20000;
 
 const defaultPort = (type: DatabaseEngine) => DATABASE_ENGINES.find((e) => e.value === type)?.defaultPort ?? 5432;
 
@@ -51,6 +68,7 @@ function formFor(dataSource: DataSource | null | undefined): FormState {
     username: dataSource.username,
     password: "",
     ssl: dataSource.ssl,
+    sslCa: dataSource.ssl_ca ?? "",
   };
 }
 
@@ -65,6 +83,8 @@ function connectionDetails(form: FormState): ConnectionDetails {
     username: form.username.trim(),
     password: form.password,
     ssl: form.ssl,
+    // Only with SSL: without it nothing is verified.
+    ssl_ca: form.ssl ? form.sslCa.trim() : "",
   };
 }
 
@@ -93,6 +113,21 @@ export function DataSourceForm({
     setForm((prev) => ({ ...prev, [key]: value }));
     setTestResult(null);
   };
+
+  // "Upload file" for the CA certificate: reads it into the field (it's
+  // text), so it can still be checked or edited before saving.
+  const caFileRef = useRef<HTMLInputElement>(null);
+  function readCaFile(file: File | undefined) {
+    if (!file) return;
+    if (file.size > MAX_CA_FILE_BYTES) {
+      toast.error("That file is too big to be a CA certificate.");
+      return;
+    }
+    file
+      .text()
+      .then((text) => update("sslCa", text.trim()))
+      .catch(() => toast.error("Couldn't read that file."));
+  }
 
   const close = (next: boolean) => {
     onOpenChange(next);
@@ -252,6 +287,56 @@ export function DataSourceForm({
               Connect with SSL
             </Label>
           </div>
+
+          {form.ssl && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="data-source-ssl-ca">
+                  CA certificate <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <div className="flex items-center gap-1">
+                  {form.sslCa && (
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => update("sslCa", "")}>
+                      Remove
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2"
+                    onClick={() => caFileRef.current?.click()}
+                  >
+                    <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                    Upload file
+                  </Button>
+                </div>
+              </div>
+              <input
+                ref={caFileRef}
+                type="file"
+                accept=".pem,.crt,.cer,text/plain,application/x-pem-file"
+                className="hidden"
+                onChange={(e) => {
+                  readCaFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+              <Textarea
+                id="data-source-ssl-ca"
+                aria-describedby="data-source-ssl-ca-help"
+                placeholder={"-----BEGIN CERTIFICATE-----\n…\n-----END CERTIFICATE-----"}
+                value={form.sslCa}
+                onChange={(e) => update("sslCa", e.target.value)}
+                className="min-h-[72px] resize-y font-mono text-xs"
+                spellCheck={false}
+              />
+              <p id="data-source-ssl-ca-help" className="smalltext text-muted-foreground">
+                Needed when the provider signs with its own certificate (e.g. Aiven, AWS RDS, a self-signed server).
+                Download it from the provider&apos;s console (often ca.pem).
+              </p>
+            </div>
+          )}
 
           <div role="status" aria-live="polite">
             {testResult?.ok && (

@@ -1,9 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Lightbulb } from "lucide-react";
+import { ChevronDown, Lightbulb } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "context/UserContext";
+import { usePanelExpanded } from "@/hooks/use-user-layout";
 import { fetchSuggestedFeatures } from "@/lib/suggested-features-api";
 import { SuggestedFeatureCard } from "./suggested-feature-card";
 
@@ -16,8 +17,10 @@ import { SuggestedFeatureCard } from "./suggested-feature-card";
 const CAN_MANAGE_ROLES = new Set(["admin", "customer", "stakeholder"]);
 
 // Ticket: "Place a single horizontally scrollable row of Suggested Features
-// cards at the top of the Build page." Renders nothing at all when there are
-// no pending suggestions — no empty-state placeholder — so it doesn't add a
+// cards at the top of the Build page", then "Keep suggested features
+// minimized until opened": only the heading (with the count) shows until it's
+// clicked. Renders nothing at all when there are no pending suggestions — no
+// empty-state placeholder — so it doesn't add a
 // permanent empty section to a page most customers won't have this for yet
 // (no weekly-generation cron wired up on the backend either, see
 // suggested-features/index.ts).
@@ -31,6 +34,9 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
     enabled: !!slug && canManage,
   });
 
+  // Minimized until opened; open or closed is kept per user (portal.user_layout).
+  const { expanded: open, toggle } = usePanelExpanded("build", "suggested_features");
+
   // Nothing at all once we know there are none; placeholders while we don't.
   if (!canManage || (!isLoading && features.length === 0)) return null;
 
@@ -39,31 +45,47 @@ export function SuggestedFeaturesRow({ slug }: { readonly slug: string }) {
     <Card
       role="region"
       aria-labelledby="suggested-features-heading"
-      className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl"
+      className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl"
     >
-      <CardHeader>
-        {/* One heading for the row, instead of a label on every card. */}
-        <CardTitle id="suggested-features-heading" level={2} className="body font-semibold flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 text-primary" aria-hidden="true" />
-          Suggested Features
-          {!isLoading && <span className="smalltext font-semibold text-primary tabular-nums">{features.length}</span>}
+      <CardHeader className={open ? undefined : "py-4"}>
+        {/* One heading for the row, instead of a label on every card. The
+            whole heading opens and closes it. */}
+        <CardTitle id="suggested-features-heading" level={2} className="body font-semibold">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls="suggested-features-content"
+            className="flex w-full items-center gap-2 text-left"
+          >
+            <Lightbulb className="h-4 w-4 text-primary" aria-hidden="true" />
+            Suggested Features
+            {!isLoading && <span className="smalltext font-semibold text-primary tabular-nums">{features.length}</span>}
+            <ChevronDown
+              className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+            <span className="sr-only">{open ? "Minimize" : "Show"}</span>
+          </button>
         </CardTitle>
       </CardHeader>
 
-      <CardContent>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {isLoading
-            ? [0, 1, 2].map((i) => <SuggestedFeatureSkeleton key={i} />)
-            : features.map((feature) => (
-                <SuggestedFeatureCard
-                  key={feature.id}
-                  feature={feature}
-                  slug={slug}
-                  actorEmail={profile?.email ?? ""}
-                />
-              ))}
-        </div>
-      </CardContent>
+      {open && (
+        <CardContent id="suggested-features-content">
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {isLoading
+              ? [0, 1, 2].map((i) => <SuggestedFeatureSkeleton key={i} />)
+              : features.map((feature) => (
+                  <SuggestedFeatureCard
+                    key={feature.id}
+                    feature={feature}
+                    slug={slug}
+                    actorEmail={profile?.email ?? ""}
+                  />
+                ))}
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -75,7 +97,7 @@ function SuggestedFeatureSkeleton() {
   return (
     <div
       role="status"
-      className="relative w-80 shrink-0 animate-pulse rounded-lg border border-border bg-background p-4 pl-5 space-y-3"
+      className="relative w-[280px] sm:w-80 shrink-0 animate-pulse rounded-lg border border-surface-line bg-surface-raised p-4 pl-5 space-y-3"
     >
       <span className="sr-only">Loading suggested features…</span>
       <span className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary/40" aria-hidden="true" />

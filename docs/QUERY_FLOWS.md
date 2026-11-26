@@ -59,7 +59,19 @@ Loading shows a skeleton; a failed load shows the error.
 
 `components/query/data-source-form.tsx`, opened by **Connect database** or by **Edit** on a card.
 
-**Fields:** database type (PostgreSQL, MySQL or SQL Server; changing it moves the port to that engine's default unless one was typed in), name (unique per client, e.g. "Production"), host, port (default `5432` / `3306` / `1433`), database, username, password, and "Connect with SSL" (on by default). The dialog asks for a read-only user.
+**Fields:** database type (PostgreSQL, MySQL or SQL Server; changing it moves the port to that engine's default unless one was typed in), name (unique per client, e.g. "Production"), host, port (default `5432` / `3306` / `1433`), database, username, password, "Connect with SSL" (**off by default** for a new connection; an edited one shows what it has) and, with SSL on, an optional **CA certificate**. The dialog asks for a read-only user.
+
+### CA certificate (SSL with a provider's own CA)
+
+Some providers sign their servers with **their own CA** instead of a public one: Aiven, AWS RDS / Aurora, a client's self-signed server. The edge runtime (Deno) checks the server's certificate even when the driver is told not to, so without that CA the encrypted handshake fails: MySQL reports it as `write UNKNOWN`, Postgres as an unknown issuer. With SSL off it connects, but unencrypted.
+
+The fix is the provider's CA certificate (PEM, e.g. Aiven's `ca.pem` from the service's console), pasted or uploaded ("Upload file") into the form:
+- It's checked (`parseCaCertificate`, `connectionInput.ts`): it must contain `-----BEGIN CERTIFICATE-----`, up to 20,000 characters, and it's only kept with SSL on.
+- It's stored on the connection (`data_sources.ssl_ca`, migration `20261124120000_data_sources_ssl_ca.sql`). A CA certificate isn't secret, so it's a plain column, and the edit form shows it; "Remove" clears it.
+- With it, Postgres and MySQL **verify** the server against it (`tlsOptions`, `postgresClient.ts`). Without it, they connect as before: encrypted, not verified. Providers with a public CA (Neon, Supabase, PlanetScale, TiDB Cloud) don't need it.
+- A failed SSL setup now says what to do (`describeTlsFailure`, `connectionErrors.ts`): without a CA, "add its CA certificate (e.g. ca.pem)"; with one, "check the CA certificate is this server's".
+
+SQL Server doesn't use it yet (it isn't available, see "Database engines").
 
 **Test connection** → `POST /data-sources/test` connects, runs `select 1` with a 5 s connect timeout, and closes. The result shows under the form, in green ("Connected successfully.") or red. It clears when any field changes.
 
@@ -112,7 +124,7 @@ Each connection has a `type`, and everything engine-specific goes through `engin
 | Driver | `npm:postgres` (`postgresClient.ts`) | `npm:mysql2` (`mysql.ts`) | `npm:mssql` (`sqlserver.ts`) |
 | Default port | 5432 | 3306 | 1433 |
 | Connect timeout | 5 s | 10 s: some hosted MySQL (TiDB Serverless, Aiven free) are slow on the first connection | 30 s: Azure SQL serverless databases (the free offer among them) pause when idle and take a while to wake up |
-| Encryption (SSL on) | `ssl: "require"` | TLS 1.2+, not verified against a CA (like Postgres's `require`; Aiven signs with its own CA) | TDS 8.0 **`strict`** first (a plain TLS connection, which works in the edge runtime), then the classic mode for servers older than SQL Server 2022. The classic mode alone fails in Deno with `ECONNRESET` |
+| Encryption (SSL on) | `ssl: "require"`; with a CA certificate, verified against it | TLS 1.2+, not verified (like Postgres's `require`); with a CA certificate, verified against it — needed for Aiven, which signs with its own CA | TDS 8.0 **`strict`** first (a plain TLS connection, which works in the edge runtime), then the classic mode for servers older than SQL Server 2022. The classic mode alone fails in Deno with `ECONNRESET` |
 | Structure | `pg_catalog`: tables, views, columns, keys, **enum types** (`introspect.ts`) | `information_schema` of **the connection's database only** (in MySQL a schema is a database): tables, views, columns, keys, comments. `ENUM` columns keep their values as the column's `values` (`mysqlStructure.ts`) | `INFORMATION_SCHEMA` + `sys.*`: tables, views, columns, keys, `MS_Description` comments. No enums: a `CHECK` that limits a column to fixed values (`status IN ('paid', …)`) becomes that column's `values` (`sqlserverStructure.ts`) |
 | Dialect asked of the AI | PostgreSQL: `LIMIT`, `ILIKE`, `public.table` | MySQL: `LIMIT` (never inside an `IN (…)` subquery, which MySQL refuses: JOIN a derived table or CTE instead), `NOW()`/`DATE_SUB`, `database.table`, `` `backticks` `` | T-SQL: `TOP (n)`, no `LIMIT`, `GETDATE()`/`DATEADD`, `dbo.table`, `[brackets]` |
 | Read-only | `READ ONLY` transaction | `START TRANSACTION READ ONLY`, always rolled back | No read-only transactions in SQL Server: the query runs in a transaction that is **always rolled back** |
@@ -189,7 +201,7 @@ Each card shows the name, `user@host:port/database`, SSL, and the structure's st
    - `ILIKE` for text;
    - today's date, to resolve "this year" or "last month";
    - `answerable: false` when the tables can't answer it;
-   - the explanation in the question's language.
+   - the explanation **always in English**, whatever language the question is in (repeated as the prompt's last line, so the model doesn't drift into another language).
 5. **Checks the SQL** (`checkSql.ts`): trailing semicolons are dropped. Anything that isn't a single statement starting with `SELECT` or `WITH` is refused and never sent.
 6. **Runs it** (`runQuery.ts`), with the minimum safety agreed for now:
    - a **`READ ONLY` transaction**, so the database itself refuses any write;
@@ -245,6 +257,7 @@ All endpoints are admins only, with the session token as bearer.
 | `name` | Unique per client (`UNIQUE (customer_id, name)`) |
 | `type` | `postgres`, `mysql` or `sqlserver` (`data_sources_type_check`, widened in `20261016120000_data_sources_sqlserver.sql` and `20261103120000_data_sources_mysql.sql`) |
 | `host`, `port`, `database_name`, `username`, `ssl` | Connection details. Port 1–65535, SSL on by default |
+| `ssl_ca` | The server's CA certificate (PEM), for providers with their own CA; null otherwise. Not secret, up to 20,000 characters (`20261124120000_data_sources_ssl_ca.sql`) |
 | `password_secret_id` | The `vault.secrets` id holding the password. The password itself is never in the table |
 | `schema_path`, `schema_refreshed_at`, `schema_error` | The structure file, when it was last read, and why the last read failed |
 | `created_by` | → `portal.users.id`, `ON DELETE SET NULL` |

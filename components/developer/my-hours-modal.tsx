@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CartesianGrid,
   Legend,
@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { Calendar, CalendarRange, History, Pencil, X } from "lucide-react";
+import { Calendar, CalendarRange, History, Pencil, Ticket, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,9 +32,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LoadingDataPanel } from "@/components/loader";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
-import { fetchHours, type HoursLogEntry } from "@/lib/hours-api";
+import {
+  entryTickets,
+  fetchHours,
+  savedTicketLabel,
+  type HoursLogEntry,
+  type LoggedTicket,
+} from "@/lib/hours-api";
+import { fetchIssueById } from "@/lib/issues-api";
 import { cn, getIssueCode } from "@/lib/utils";
 import { LogHoursModal } from "@/components/developer/log-hours-modal";
 
@@ -65,6 +70,15 @@ const PROJECT_LINE_COLORS = [
 
 function projectColor(index: number): string {
   return PROJECT_LINE_COLORS[index % PROJECT_LINE_COLORS.length]!;
+}
+
+// "Wed, Nov 19" — the heading of a day's details (the year is in the chart).
+function formatDayHeading(iso: string) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatDate(iso: string) {
@@ -192,8 +206,13 @@ type DayPoint = {
 function buildDayPoint(
   date: string,
   list: HoursLogEntry[],
-  resolveTicketCode: (id: string) => string,
+  ticketLabel: (ticket: LoggedTicket) => string,
 ): DayPoint {
+  // Each ticket once, even if several of the day's entries name it.
+  const tickets = new Map<string, LoggedTicket>();
+  for (const e of list) {
+    for (const t of entryTickets(e)) if (!tickets.has(t.id)) tickets.set(t.id, t);
+  }
   const d = new Date(`${date}T00:00:00`);
   const projectHours: Record<string, number> = {};
   for (const e of list) {
@@ -207,33 +226,39 @@ function buildDayPoint(
     monthLabel: d.toLocaleDateString(undefined, { month: "short" }),
     hours: list.reduce((sum, e) => sum + e.hours, 0),
     entries: list,
-    ticketCodes: Array.from(new Set(list.flatMap((e) => e.issue_ids))).map(resolveTicketCode),
+    ticketCodes: Array.from(tickets.values(), ticketLabel),
     projectHours,
   };
 }
 
-// Purely visual now — the actual click handling lives on the chart itself
-// (see `onClick` on LineChart below), since a real 4px dot is much too small
-// a hit target to click reliably. A plain <circle> (rather than recharts'
-// built-in Dot) keeps this in sync with the chart's own click handling
-// instead of adding a second, redundant, imprecise click target. Skips
-// rendering entirely on a zero-hours day — the zero-filled days (see
-// buildDayPoint) exist so the line still dips to the floor between real
-// entries, but a dot on every single day made it look like something was
-// logged even on days with nothing at all.
+// A day's dot on the chart, and what opens its details. Skips rendering
+// entirely on a zero-hours day — the zero-filled days (see buildDayPoint)
+// exist so the line still dips to the floor between real entries, but a dot
+// on every single day made it look like something was logged even on days
+// with nothing at all.
+//
+// Each dot opens its own day (`payload.date`) when clicked or tapped. The
+// chart's own onClick isn't used: recharts 3 reports the pointer's previous
+// state there (its click resets the active index — see its
+// mouseEventsMiddleware), so the first click opened the wrong, often empty,
+// day and only the second one the right day. An invisible 18px-radius circle
+// around the dot makes it easy to hit, on phones too. `r` is the visible size
+// (the hovered "active" dot is bigger).
+const DOT_HIT_RADIUS = 18;
+
 function ChartDot(props: any) {
-  const { cx, cy, fill, value } = props;
+  const { cx, cy, fill, value, payload, onSelect, r = 4 } = props;
   if (cx == null || cy == null) return null;
   if (!value) return null;
+  const color = fill ?? LINE_COLOR;
   return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={4}
-      fill={fill ?? LINE_COLOR}
-      stroke="oklch(0.13 0 0)"
-      strokeWidth={1}
-    />
+    <g
+      onClick={() => payload?.date && onSelect?.(payload.date)}
+      style={{ cursor: onSelect ? "pointer" : undefined }}
+    >
+      <circle cx={cx} cy={cy} r={DOT_HIT_RADIUS} fill="transparent" />
+      <circle cx={cx} cy={cy} r={r} fill={color} stroke="oklch(0.13 0 0)" strokeWidth={1} />
+    </g>
   );
 }
 
@@ -276,8 +301,9 @@ function DayTooltip({
       )}
       {point.ticketCodes.length > 0 ? (
         <ul className="mt-1 space-y-0.5" style={{ color: "oklch(0.75 0 0)" }}>
-          {point.ticketCodes.map((code) => (
-            <li key={code}>{code}</li>
+          {/* By position: two tickets still loading share the same text. */}
+          {point.ticketCodes.map((label, i) => (
+            <li key={`${i}-${label}`}>{label}</li>
           ))}
         </ul>
       ) : (
@@ -287,6 +313,35 @@ function DayTooltip({
     </div>
   );
 }
+
+// While the hours (and, for an admin, the developer's projects) load: the
+// shape of what's coming — the project and date filters, then the chart's
+// card with a spinner — at the same size, so nothing jumps when it arrives.
+// (The app's LoadingDataPanel is a full-page loader, too tall for a modal.)
+function HoursLoading() {
+  const bar = "rounded-md bg-muted/40";
+  return (
+    <div className="space-y-4" role="status" aria-live="polite">
+      <div className="space-y-2 animate-pulse" aria-hidden="true">
+        <div className={`${bar} h-9 w-full`} />
+        <div className="flex gap-1.5">
+          <div className={`${bar} h-9 flex-1`} />
+          <div className={`${bar} h-9 flex-1`} />
+        </div>
+      </div>
+      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-lg border border-border bg-muted/20">
+        <div
+          className="h-8 w-8 rounded-full border-2 border-muted border-t-primary animate-spin motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+        <p className="smalltext text-muted-foreground">Loading logged hours…</p>
+      </div>
+    </div>
+  );
+}
+
+// The chart's tooltip on phones: nothing (see the <Tooltip> below).
+const NoTooltip = () => null;
 
 // Below Tailwind's `sm` breakpoint, the chart is too narrow for every day's
 // label to fit without overlapping — capped to just the first/last tick
@@ -310,12 +365,22 @@ export function MyHoursModal({
   developerId,
   developerEmail,
   onClose,
+  readOnly = false,
+  title = "My Logged Hours",
+  loading = false,
 }: {
   readonly projects: Project[];
   readonly issues: any[];
   readonly developerId: string;
   readonly developerEmail: string;
   readonly onClose: () => void;
+  // Someone else looking at this developer's hours (an admin, from Users):
+  // everything shows, but entries can't be edited or deleted.
+  readonly readOnly?: boolean;
+  readonly title?: string;
+  // The caller is still loading what the view needs besides the hours (an
+  // admin's view: the developer's projects and allocations).
+  readonly loading?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -332,15 +397,72 @@ export function MyHoursModal({
     enabled: !!developerId,
   });
 
-  const issueById = useMemo(
-    () => new Map(issues.map((i: any) => [i.id, i])),
+  // The tickets the caller already has (its projects' lists)…
+  const listedIssueById = useMemo(
+    () => new Map<string, any>(issues.map((i: any) => [i.id, i])),
     [issues],
   );
 
+  // …and, one by one, the logged tickets those lists don't include: a
+  // project's list returns at most 100 tickets, so older (often Done) ones
+  // with hours on them are missing, and showed as raw ids. Only for entries
+  // saved before code and title were kept with them: newer ones have both
+  // saved and need no lookup at all.
+  const missingIssueIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          (entries ?? []).flatMap((e) =>
+            entryTickets(e)
+              .filter((t) => !savedTicketLabel(t))
+              .map((t) => t.id),
+          ),
+        ),
+      ].filter((id) => !listedIssueById.has(id)),
+    [entries, listedIssueById],
+  );
+  const lookups = useQueries({
+    queries: missingIssueIds.map((id) => ({
+      queryKey: ["issue-by-id", id],
+      queryFn: () => fetchIssueById(id),
+      staleTime: Infinity,
+      retry: false,
+    })),
+  });
+  // Changes only when a lookup finishes, so the chart's points aren't rebuilt
+  // on every render.
+  const lookupsKey = lookups.map((q) => `${q.status}:${q.dataUpdatedAt}`).join("|");
+
+  const issueById = useMemo(() => {
+    const byId = new Map(listedIssueById);
+    missingIssueIds.forEach((id, i) => {
+      const found = lookups[i]?.data;
+      if (found) byId.set(id, found);
+    });
+    return byId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listedIssueById, missingIssueIds, lookupsKey]);
+
+  const failedIssueIds = useMemo(
+    () => new Set(missingIssueIds.filter((_, i) => lookups[i]?.status === "error")),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [missingIssueIds, lookupsKey],
+  );
+
+  // "SPA-123 — Export to PDF" (code and name), in the tooltip and the day's
+  // details. While a ticket is still being looked up, or once it can't be
+  // found (deleted for good), says so rather than showing its id.
   function resolveTicketCode(id: string): string {
     const issue = issueById.get(id);
-    if (!issue) return id;
-    return issue.branchName ? getIssueCode(issue.branchName) : issue.title;
+    if (!issue) return failedIssueIds.has(id) ? "Ticket no longer available" : "Loading ticket…";
+    const code = issue.identifier ?? (issue.branchName ? getIssueCode(issue.branchName) : null);
+    return code ? `${code} — ${issue.title}` : issue.title;
+  }
+
+  // A logged ticket's label: what was saved with the entry (code and title,
+  // as when it was logged), else — older entries, ids only — looked up.
+  function ticketLabel(ticket: LoggedTicket): string {
+    return savedTicketLabel(ticket) ?? resolveTicketCode(ticket.id);
   }
 
   const filteredEntries = useMemo(() => {
@@ -357,10 +479,10 @@ export function MyHoursModal({
       list.push(e);
       buckets.set(e.worked_on, list);
     }
-    return Array.from(buckets, ([date, list]) => buildDayPoint(date, list, resolveTicketCode))
+    return Array.from(buckets, ([date, list]) => buildDayPoint(date, list, ticketLabel))
       .sort((a, b) => a.date.localeCompare(b.date))
       .slice(-DAYS_SHOWN);
-  }, [filteredEntries, issueById]);
+  }, [filteredEntries, issueById, failedIssueIds]);
 
   // Which projects to draw a separate line for — only when "All Projects" is
   // selected (a single-project filter already shows just that one project's
@@ -372,6 +494,13 @@ export function MyHoursModal({
     return Array.from(new Set(filteredEntries.map((e) => e.project_name))).sort();
   }, [filteredEntries, projectFilter]);
   const isMultiProject = activeProjectNames.length > 0;
+
+  // A project's dot in the day's details: the color of its line in the chart
+  // (one line per project with "All Projects"; otherwise the single line's).
+  function projectDotColor(projectName: string): string {
+    const index = activeProjectNames.indexOf(projectName);
+    return index >= 0 ? projectColor(index) : LINE_COLOR;
+  }
 
   const weeklyAllocation = useMemo(() => {
     if (projectFilter === ALL_PROJECTS) {
@@ -414,9 +543,9 @@ export function MyHoursModal({
     }
     return Array.from({ length: dayCount }, (_, i) => {
       const date = addDays(dateFrom, i);
-      return buildDayPoint(date, byDate.get(date) ?? [], resolveTicketCode);
+      return buildDayPoint(date, byDate.get(date) ?? [], ticketLabel);
     });
-  }, [isRangeFocused, dateFrom, dateTo, filteredEntries]);
+  }, [isRangeFocused, dateFrom, dateTo, filteredEntries, issueById, failedIssueIds]);
 
   const rangeTotal = rangeDays.reduce((sum, d) => sum + d.hours, 0);
   // Prorates the weekly allocation to the size of the picked range (e.g. a
@@ -473,13 +602,13 @@ export function MyHoursModal({
           <DialogHeader className="pt-4">
             <DialogTitle className="body flex items-center gap-2 text-primary">
               <History className="h-4 w-4" />
-              My Logged Hours
+              {title}
             </DialogTitle>
           </DialogHeader>
 
           <div className="pt-2 space-y-4">
-            {isLoading ? (
-              <LoadingDataPanel />
+            {isLoading || loading ? (
+              <HoursLoading />
             ) : !entries || entries.length === 0 ? (
               <p className="smalltext text-muted-foreground py-6 text-center">
                 No hours logged yet.
@@ -600,17 +729,13 @@ export function MyHoursModal({
                           projectLabel={allocationProjectLabel}
                         />
                       )}
-                      <div className="h-56 cursor-pointer [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
+                      {/* Clicking or tapping a dot opens that day's details
+                          below (see ChartDot). */}
+                      <div className="h-56 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
                         <ResponsiveContainer width="100%" height={224}>
                           <LineChart
                             data={chartData}
                             margin={{ top: 24, right: 28, left: 12, bottom: 4 }}
-                            onClick={(state) => {
-                              const label = state?.activeLabel;
-                              if (label == null) return;
-                              const point = chartData.find((d) => d.label === label);
-                              if (point) setSelectedDay(point.date);
-                            }}
                           >
                             <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.22 0 0)" />
                             <XAxis
@@ -638,7 +763,12 @@ export function MyHoursModal({
                               width={40}
                               allowDecimals={false}
                             />
-                            <Tooltip content={<DayTooltip isMultiProject={isMultiProject} />} />
+                            {/* Phones: no floating box (it covered the whole
+                                chart); tapping a dot shows its day's details
+                                below instead. */}
+                            <Tooltip
+                              content={isSmallScreen ? NoTooltip : <DayTooltip isMultiProject={isMultiProject} />}
+                            />
                             {isMultiProject && (
                               <Legend
                                 wrapperStyle={{ fontSize: 16 }}
@@ -673,8 +803,8 @@ export function MyHoursModal({
                                     dataKey={(d: DayPoint) => d.projectHours[name] ?? 0}
                                     stroke={color}
                                     strokeWidth={2}
-                                    dot={<ChartDot fill={color} />}
-                                    activeDot={{ r: 6, fill: color, stroke: "oklch(0.13 0 0)", strokeWidth: 1 }}
+                                    dot={<ChartDot fill={color} onSelect={setSelectedDay} />}
+                                    activeDot={<ChartDot fill={color} r={6} onSelect={setSelectedDay} />}
                                   />
                                 );
                               })
@@ -684,8 +814,8 @@ export function MyHoursModal({
                                 dataKey="hours"
                                 stroke={LINE_COLOR}
                                 strokeWidth={2}
-                                dot={<ChartDot />}
-                                activeDot={{ r: 6, fill: LINE_COLOR, stroke: "oklch(0.13 0 0)", strokeWidth: 1 }}
+                                dot={<ChartDot onSelect={setSelectedDay} />}
+                                activeDot={<ChartDot r={6} onSelect={setSelectedDay} />}
                               />
                             )}
                           </LineChart>
@@ -696,71 +826,92 @@ export function MyHoursModal({
                 )}
 
                 {selectedDayData && (
-                  <Card className="bg-black border-border">
-                    <CardHeader>
-                      <CardTitle className="smalltext font-semibold flex items-center justify-between">
-                        <span className="text-primary">
-                          Details — {formatDate(selectedDayData.date)} ({selectedDayData.hours}h)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDay(null)}
-                          aria-label="Close details"
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {selectedDayData.entries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="rounded-md border border-primary bg-background/60 p-3 space-y-1.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="smalltext font-medium text-foreground">
-                                {formatDate(entry.worked_on)}
-                              </span>
-                              <Badge variant="outline" className="smalltext">
-                                {entry.hours}h
-                              </Badge>
-                              <span className="smalltext text-muted-foreground">
-                                {entry.project_name}
-                              </span>
+                  // The picked day: its date and total up top, then one row
+                  // per entry (hours, project with its chart line's color,
+                  // tickets, summary), separated by thin rules.
+                  <section
+                    aria-label={`Logged hours on ${formatDate(selectedDayData.date)}`}
+                    className="overflow-hidden rounded-lg border border-border bg-muted/20"
+                  >
+                    <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+                      <CalendarRange className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      <h3 className="smalltext font-semibold text-foreground">
+                        {formatDayHeading(selectedDayData.date)}
+                      </h3>
+                      <span className="ml-auto smalltext text-muted-foreground">
+                        {selectedDayData.entries.length} {selectedDayData.entries.length === 1 ? "entry" : "entries"}
+                      </span>
+                      <span className="rounded-full bg-primary/15 px-2.5 py-0.5 smalltext font-semibold tabular-nums text-primary">
+                        {selectedDayData.hours}h
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDay(null)}
+                        aria-label="Close details"
+                        className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </header>
+
+                    {selectedDayData.entries.length === 0 ? (
+                      <p className="px-4 py-5 smalltext text-muted-foreground text-center">
+                        Nothing logged this day.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-border">
+                        {selectedDayData.entries.map((entry) => (
+                          <li key={entry.id} className="flex gap-3 px-4 py-3">
+                            <span className="w-12 shrink-0 pt-0.5 body font-semibold tabular-nums text-foreground">
+                              {entry.hours}h
+                            </span>
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <p className="flex items-center gap-2 smalltext font-medium text-foreground">
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full"
+                                  style={{ backgroundColor: projectDotColor(entry.project_name) }}
+                                  aria-hidden="true"
+                                />
+                                <span className="truncate">{entry.project_name}</span>
+                              </p>
+                              {entryTickets(entry).length > 0 && (
+                                <ul className="flex flex-wrap gap-1.5" aria-label="Tickets">
+                                  {entryTickets(entry).map((ticket) => (
+                                    <li
+                                      key={ticket.id}
+                                      className="flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-0.5 smalltext text-foreground"
+                                    >
+                                      <Ticket className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                      <span className="min-w-0 break-words">{ticketLabel(ticket)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {entry.summary && (
+                                <div className="smalltext text-muted-foreground prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_*]:text-muted-foreground">
+                                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>
+                                    {entry.summary}
+                                  </ReactMarkdown>
+                                </div>
+                              )}
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-7 w-7 shrink-0 border-primary text-primary hover:bg-primary/10 hover:text-primary"
-                              onClick={() => setEditingEntry(entry)}
-                              aria-label="Edit this entry"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                          {entry.issue_ids.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {entry.issue_ids.map((id) => (
-                                <Badge key={id} variant="secondary" className="smalltext">
-                                  {resolveTicketCode(id)}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          {entry.summary && (
-                            <div className="smalltext text-foreground prose prose-sm prose-invert max-w-none [&_p]:my-1">
-                              <ReactMarkdown remarkPlugins={[remarkBreaks]}>
-                                {entry.summary}
-                              </ReactMarkdown>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
+                            {!readOnly && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-primary"
+                                onClick={() => setEditingEntry(entry)}
+                                aria-label={`Edit the ${entry.hours}h entry for ${entry.project_name}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
                 )}
               </>
             )}
@@ -768,7 +919,7 @@ export function MyHoursModal({
         </DialogContent>
       </Dialog>
 
-      {editingEntry && (
+      {editingEntry && !readOnly && (
         <LogHoursModal
           projects={projects}
           issues={issues}

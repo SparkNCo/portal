@@ -86,7 +86,8 @@ export function SimilarIssuesHint({
   // Title and description together, as plain text (see plainSearchText).
   readonly query: string;
   // Scopes matches to the panel this hint is rendered on — a bug report never
-  // suggests a feature request as its "similar ticket" or vice versa.
+  // suggests a feature request as its "similar ticket" or vice versa. Tickets
+  // with neither label (no Bug/Feature label in Linear) show up on both.
   readonly kind: "bug" | "feature";
 }) {
   const [matches, setMatches] = useState<SimilarIssueMatch[]>([]);

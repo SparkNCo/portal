@@ -150,6 +150,8 @@ A stakeholder is someone on the client side who can view the portal and approve 
 
 On confirm, calls `POST /users?type=stakeholder` with `{ email, role: "stakeholder", origin, ...optionalFields }`.
 
+**Not only admins:** the customer can add stakeholders too, from **Settings → Stakeholders** on their own initiative (`components/settings/add-stakeholder-modal.tsx`). It creates the user, assigns them to that customer (`POST /assignments`, `role: "stakeholder"`) and emails the admins (`POST /stakeholder-notifications`). A stakeholder belongs to a single customer.
+
 ---
 
 ## Assign a Developer or Stakeholder to a Customer — `AssignCustomerModal`

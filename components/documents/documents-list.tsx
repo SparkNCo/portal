@@ -132,7 +132,7 @@ export function DocumentsList({
   });
 
   return (
-    <Card className="bg-background border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:min-h-9 justify-between gap-3">
           <CardTitle className="body font-semibold flex items-center gap-2">

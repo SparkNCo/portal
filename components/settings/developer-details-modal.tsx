@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/components/ui/button";
 import { ExpandableDialogChrome } from "@/components/shared/expandable-dialog-chrome";
-import { CalendarDays, Briefcase, Sparkles, Pencil } from "lucide-react";
+import { CalendarDays, Briefcase, Clock, Sparkles, Pencil } from "lucide-react";
 
 export type DeveloperDetails = {
   name: string;
@@ -33,10 +33,14 @@ export function DeveloperDetailsModal({
   developer,
   onClose,
   onEdit,
+  onViewHours,
 }: {
   readonly developer: DeveloperDetails | null;
   readonly onClose: () => void;
   readonly onEdit?: () => void;
+  // Opens the developer's submitted hours. Only Admin → Users passes it
+  // (admins only); without it, as in Staffing, the button doesn't show.
+  readonly onViewHours?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -82,16 +86,31 @@ export function DeveloperDetailsModal({
                     )}
                   </div>
                 </div>
-                {onEdit && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1 self-start sm:shrink-0 smalltext border-primary/30 text-primary hover:bg-background hover:text-primary"
-                    onClick={onEdit}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
+                {(onViewHours || onEdit) && (
+                  <div className="flex gap-2 self-start sm:shrink-0">
+                    {onViewHours && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 smalltext border-primary/30 text-primary hover:bg-background hover:text-primary"
+                        onClick={onViewHours}
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                        Hours
+                      </Button>
+                    )}
+                    {onEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 smalltext border-primary/30 text-primary hover:bg-background hover:text-primary"
+                        onClick={onEdit}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             </DialogHeader>

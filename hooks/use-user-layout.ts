@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUser } from "context/UserContext";
 import { supabase } from "@/lib/supabase-client";
-import { expandedPanelKey, setPanelExpanded } from "@/lib/user-layout";
+import { expandedPanelKey, setPanelExpanded, showAllPanelKey } from "@/lib/user-layout";
 
 // The signed-in user's own screen layout (portal.user_layout, one row per
 // user; RLS lets each user read and write only their own): the sidebar's menu
@@ -74,13 +74,26 @@ export function useSaveNavOrder() {
 // Whether a panel on a page (other than the Dashboard) is widened to the full
 // page width, and a toggle for it.
 export function usePanelExpanded(page: string, panelId: string) {
+  return useLayoutFlag(expandedPanelKey(page, panelId), "Couldn't save the panel size. Please try again.");
+}
+
+// Whether a ticket panel (Build, Bugs, Developer) shows every ticket in
+// several rows ("View all") instead of one row. Kept per user, like widths.
+export function usePanelShowAll(page: string, panelId: string) {
+  return useLayoutFlag(showAllPanelKey(page, panelId), "Couldn't save the panel view. Please try again.");
+}
+
+// One on/off entry of expanded_panels.
+function useLayoutFlag(key: string, errorMessage: string) {
   const { data } = useUserLayout();
-  const save = useSaveLayout("expanded_panels", "Couldn't save the panel size. Please try again.");
-  const key = expandedPanelKey(page, panelId);
+  const save = useSaveLayout("expanded_panels", errorMessage);
   const keys = data?.expanded_panels ?? [];
   const expanded = keys.includes(key);
   return {
     expanded,
     toggle: () => save.mutate(setPanelExpanded(keys, key, !expanded)),
+    set: (value: boolean) => {
+      if (value !== expanded) save.mutate(setPanelExpanded(keys, key, value));
+    },
   };
 }

@@ -10,20 +10,21 @@
        the app renders identically regardless of that class.
        Hex sources: background #111111, foreground/secondary/card #f7f4f0,
        primary #f78035, donut #b5b5b5. */
-    --background: 0 0% 7%;
+    /* 6.7% = exactly #111111. */
+    --background: 0 0% 6.7%;
     --foreground: 34 30% 95%;
 
     --primary: 23 92% 59%;
-    --primary-foreground: 0 0% 7%;
+    --primary-foreground: 0 0% 6.7%;
 
     --secondary: 34 30% 95%;
-    --secondary-foreground: 0 0% 7%;
+    --secondary-foreground: 0 0% 6.7%;
 
     --card: 34 30% 95%;
-    --card-foreground: 0 0% 7%;
+    --card-foreground: 0 0% 6.7%;
 
     --popover: 34 30% 95%;
-    --popover-foreground: 0 0% 7%;
+    --popover-foreground: 0 0% 6.7%;
 
     --donut: 0 0% 71%;
 
@@ -39,7 +40,17 @@
     --input: 0 0% 20%;
     --ring: 34 30% 95%;
 
-    --sidebar: 0 0% 7%;
+    /* Depth for panels and the cards inside them: each layer a little lighter
+       than the one under it (page 7% → panel 9% → card 14%), so they're told
+       apart by their background instead of by a gray outline on the same
+       color. `surface-line` is the faint edge they keep. */
+    --surface: 0 0% 9%;
+    --surface-raised: 0 0% 14%;
+    /* Same as the sidebar's selected item (--sidebar-accent). */
+    --surface-hover: 0 0% 16%;
+    --surface-line: 0 0% 100% / 0.06;
+
+    --sidebar: 0 0% 6.7%;
     --sidebar-border: 0 0% 20%;
     --sidebar-foreground: 34 30% 95%;
     --sidebar-accent: 0 0% 16%;
@@ -124,8 +135,10 @@
      without `!important` these silently lose that fight and never take effect —
      which is exactly what happened to the Backlog status badge: `.light-card-text`
      was being completely overridden by Badge's own `text-foreground`. */
+  /* Ticket cards: one step lighter than the panel they sit on, with a faint
+     edge (see --surface-* above) instead of a gray outline on the same color. */
   .light-card {
-    @apply !bg-background !text-foreground hover:!bg-muted transition-colors;
+    @apply !bg-surface-raised !text-foreground !border-surface-line hover:!bg-surface-hover hover:!border-white/10 transition-colors;
   }
   .light-card-text {
     @apply !text-foreground;

@@ -36,6 +36,8 @@ async function mergedConnectionInput(existing: any, body: any) {
     database: body?.database ?? existing.database_name,
     username: body?.username ?? existing.username,
     ssl: body?.ssl ?? existing.ssl,
+    // Sent as "" to remove it; left out to keep the saved one.
+    ssl_ca: body?.ssl_ca === undefined ? existing.ssl_ca : body.ssl_ca,
     password: body?.password ? body.password : await storedPassword(existing.id),
   });
 }
@@ -106,6 +108,7 @@ export async function handleUpdateDataSource(id: string, req: Request): Promise<
       database_name: config.database,
       username: config.username,
       ssl: config.ssl,
+      ssl_ca: config.ca ?? null,
     })
     .eq("id", id)
     .select(DATA_SOURCE_COLUMNS)

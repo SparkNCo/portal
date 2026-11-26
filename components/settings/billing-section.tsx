@@ -379,8 +379,8 @@ function StripeIdPanel({
   if (isAdmin || stripeCustomerId) return null;
 
   return (
-    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
-      <CardContent className="bg-background flex items-center gap-4 pt-4">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
+      <CardContent className="flex items-center gap-4 pt-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
           <CreditCard className="h-6 w-6" />
         </div>
@@ -586,9 +586,9 @@ function AdminBillingControls({
   // rather than showing a toggle that might be wrong.
 
   return (
-    <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
+    <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
       <CardContent
-        className={`bg-background flex flex-col pt-4 ${hasStripeId ? "divide-y divide-border" : ""}`}
+        className={`flex flex-col pt-4 ${hasStripeId ? "divide-y divide-border" : ""}`}
       >
         <div className={hasStripeId ? "pb-4" : ""}>
           <StripeIdField
@@ -707,8 +707,8 @@ export function BillingSection({
       // manually-invoiced client, or briefly claiming a client is manual
       // when they're not.
       billingContent = (
-        <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
-          <CardContent className="bg-background flex items-center gap-4 pt-4">
+        <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
+          <CardContent className="flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6" />
             </div>
@@ -727,8 +727,8 @@ export function BillingSection({
       );
     } else if (isManual) {
       billingContent = (
-        <Card className="bg-transparent border-transparent sm:border-border rounded-none sm:rounded-xl text-foreground">
-          <CardContent className="bg-background flex items-center gap-4 pt-4">
+        <Card className="bg-surface border-transparent sm:border-surface-line rounded-none sm:rounded-xl text-foreground">
+          <CardContent className="flex items-center gap-4 pt-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <CreditCard className="h-6 w-6" />
             </div>

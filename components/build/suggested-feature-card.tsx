@@ -133,7 +133,9 @@ export function SuggestedFeatureCard({
     // The card shows the title, a short preview and where it would go, with
     // View / Decline; the full description, the project and milestone
     // pickers and Approve are in the modal that View opens.
-    <div className="group relative w-80 shrink-0 flex flex-col rounded-lg border border-border bg-background transition-colors hover:border-primary/40">
+    // 280px on phones (fits a 375px screen whole), 320px from sm up — same
+    // as the ticket rows (priority-tasks.tsx → RowView).
+    <div className="group relative w-[280px] sm:w-80 shrink-0 flex flex-col rounded-lg border border-surface-line bg-surface-raised transition-colors hover:border-primary/40">
       {/* No priority yet (a suggestion only gets one once approved), so the
           stripe is just the app's fixed orange accent. */}
       <span className="absolute inset-y-0 left-0 w-1 rounded-l-lg bg-primary" aria-hidden="true" />

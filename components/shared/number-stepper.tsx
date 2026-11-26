@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Replaces the browser's native (and inconsistently styled) number input
 // spinner with a bordered up/down chevron pair matching the rest of this
@@ -14,10 +15,13 @@ export function NumberStepper({
   onBump,
   step,
   min,
+  max,
   autoFocus,
   placeholder,
   className,
   leadingSlot,
+  invalid = false,
+  describedBy,
 }: {
   id?: string;
   value: string;
@@ -25,17 +29,25 @@ export function NumberStepper({
   onBump: (delta: number) => void;
   step: number;
   min: number;
+  max?: number;
   autoFocus?: boolean;
   placeholder?: string;
   className?: string;
   leadingSlot?: ReactNode;
+  // The value breaks the caller's rule: red ring, and announced as invalid.
+  invalid?: boolean;
+  // Id of the element explaining what's wrong.
+  describedBy?: string;
 }) {
   return (
+    // cn (tailwind-merge): a caller's className replaces the base classes it
+    // conflicts with (e.g. "border-0 bg-muted/40" over the bordered default).
     <div
-      className={
-        "flex h-9 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring" +
-        (className ? ` ${className}` : "")
-      }
+      className={cn(
+        "flex h-9 items-stretch overflow-hidden rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring",
+        className,
+        invalid && "ring-1 ring-destructive focus-within:ring-destructive",
+      )}
     >
       {leadingSlot}
       <input
@@ -43,7 +55,10 @@ export function NumberStepper({
         autoFocus={autoFocus}
         type="number"
         min={min}
+        max={max}
         step={step}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

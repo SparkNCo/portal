@@ -2,6 +2,7 @@
 // Backs the developer dashboard's "Log Hours" modal — one row per submission in
 // portal.hours_logged (see the companion migration for the table shape).
 import { corsHeaders } from "../utils/headers.ts";
+import { INVALID_HOURS_MESSAGE, MAX_TICKETS_PER_ENTRY, isValidHours, normalizeTickets } from "./hoursRules.ts";
 
 const supabaseUrl = () => Deno.env.get("PROJECT_URL")!;
 const serviceKey = () => Deno.env.get("SERVICE_SECRET_KEY")!;
@@ -58,6 +59,22 @@ Deno.serve(async (req) => {
   }
 });
 
+const INVALID_TICKETS_MESSAGE = `tickets must be a list of up to ${MAX_TICKETS_PER_ENTRY} { id, code, title }`;
+
+// The ticket columns to save. `tickets` ({ id, code, title }, saved as they
+// are so showing them needs no lookup) fills both tickets and issue_ids. A
+// client still sending only issue_ids keeps working: ids only, no code or
+// title (they're looked up when shown, as for older entries). null = invalid.
+function ticketColumns(tickets: unknown, issueIds: unknown) {
+  if (tickets !== undefined) {
+    const normalized = normalizeTickets(tickets);
+    if (!normalized) return null;
+    return { tickets: normalized, issue_ids: normalized.map((t) => t.id) };
+  }
+  const ids = Array.isArray(issueIds) ? issueIds.filter((id) => typeof id === "string" && id) : [];
+  return { tickets: [], issue_ids: ids };
+}
+
 // POST /hours — log worked hours against a project, optionally tied to specific tickets.
 async function handleLogHours(req: Request): Promise<Response> {
   const schema = "portal";
@@ -69,8 +86,12 @@ async function handleLogHours(req: Request): Promise<Response> {
     hours,
     worked_on,
     issue_ids,
+    tickets,
     summary,
   } = await req.json();
+
+  const ticketFields = ticketColumns(tickets, issue_ids);
+  if (!ticketFields) return Response.json({ error: INVALID_TICKETS_MESSAGE }, { status: 400 });
 
   if (!developer_id || !developer_email || !project_slug || !project_name) {
     return Response.json(
@@ -78,8 +99,8 @@ async function handleLogHours(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
-  if (!Number.isInteger(hours) || hours <= 0) {
-    return Response.json({ error: "hours must be a positive integer" }, { status: 400 });
+  if (!isValidHours(hours)) {
+    return Response.json({ error: INVALID_HOURS_MESSAGE }, { status: 400 });
   }
 
   const res = await fetch(db("hours_logged"), {
@@ -92,7 +113,7 @@ async function handleLogHours(req: Request): Promise<Response> {
       project_name,
       hours,
       worked_on: worked_on || todayISODate(),
-      issue_ids: Array.isArray(issue_ids) ? issue_ids : [],
+      ...ticketFields,
       summary: typeof summary === "string" && summary.trim() ? summary.trim() : null,
     }),
   });
@@ -146,15 +167,19 @@ async function handleUpdateHours(req: Request): Promise<Response> {
     project_slug,
     project_name,
     issue_ids,
+    tickets,
     summary,
   } = await req.json();
 
   if (!id || !developer_id) {
     return Response.json({ error: "Missing id or developer_id" }, { status: 400 });
   }
-  if (hours !== undefined && (!Number.isInteger(hours) || hours <= 0)) {
-    return Response.json({ error: "hours must be a positive integer" }, { status: 400 });
+  if (hours !== undefined && !isValidHours(hours)) {
+    return Response.json({ error: INVALID_HOURS_MESSAGE }, { status: 400 });
   }
+  // Only when the tickets are being changed (either field present).
+  const ticketFields = tickets !== undefined || issue_ids !== undefined ? ticketColumns(tickets, issue_ids) : undefined;
+  if (ticketFields === null) return Response.json({ error: INVALID_TICKETS_MESSAGE }, { status: 400 });
 
   const ownership = await assertOwnsEntry(schema, id, developer_id);
   if (!ownership.ok) return ownership.response;
@@ -164,7 +189,7 @@ async function handleUpdateHours(req: Request): Promise<Response> {
   if (worked_on !== undefined) updatePayload.worked_on = worked_on;
   if (project_slug !== undefined) updatePayload.project_slug = project_slug;
   if (project_name !== undefined) updatePayload.project_name = project_name;
-  if (issue_ids !== undefined) updatePayload.issue_ids = Array.isArray(issue_ids) ? issue_ids : [];
+  if (ticketFields) Object.assign(updatePayload, ticketFields);
   if (summary !== undefined) {
     updatePayload.summary = typeof summary === "string" && summary.trim() ? summary.trim() : null;
   }

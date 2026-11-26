@@ -149,7 +149,7 @@ async function handleCreateExecution(req: Request): Promise<Response> {
   const data = await res.json();
   if (!res.ok) return Response.json({ error: "Failed to attach test", details: data }, { status: 500 });
 
-  await markIssueUpdated(issue_id, created_by);
+  await markIssueUpdated(issue_id, created_by, "tests");
 
   return Response.json(data[0] ?? data);
 }

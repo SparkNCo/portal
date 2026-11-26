@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase-client";
 import { useUser } from "context/UserContext";
-import type { Issue } from "./issues.types";
+import type { Issue, IssueDetailTab } from "./issues.types";
 
 // portal.issue_updates holds the latest change per issue (who/when). Each
 // user's own read state lives separately in portal.issue_views (issue_id,
@@ -20,7 +20,7 @@ export function useIssueUpdateBadge() {
       const { data, error } = await supabase
         .schema("portal")
         .from("issue_updates")
-        .select("issue_id, updated_by, updated_at");
+        .select("issue_id, updated_by, updated_at, tab");
       if (error) throw error;
       return data ?? [];
     },
@@ -44,7 +44,11 @@ export function useIssueUpdateBadge() {
     const updateByIssueId = new Map(
       (updates ?? []).map((r) => [
         r.issue_id,
-        { updatedBy: r.updated_by as string | null, updatedAt: r.updated_at as string },
+        {
+          updatedBy: r.updated_by as string | null,
+          updatedAt: r.updated_at as string,
+          tab: (r.tab as IssueDetailTab | null) ?? null,
+        },
       ]),
     );
     const viewedAtByIssueId = new Map(
@@ -61,6 +65,13 @@ export function useIssueUpdateBadge() {
       const update = updateByIssueId.get(issue.id);
       return !!update && update.updatedBy === currentUserEmail;
     }
-    return { hasUnseenUpdate, isOwnUnseenUpdate };
+    // The modal tab the unseen update was made in, so opening the ticket
+    // from its badge lands there. Null when there's no unseen update, or it's
+    // from before the tab was recorded (the modal opens on its default tab).
+    function unseenUpdateTab(issue: Issue, currentUserEmail?: string): IssueDetailTab | null {
+      if (!hasUnseenUpdate(issue, currentUserEmail)) return null;
+      return updateByIssueId.get(issue.id)?.tab ?? null;
+    }
+    return { hasUnseenUpdate, isOwnUnseenUpdate, unseenUpdateTab };
   }, [updates, views]);
 }

@@ -12,6 +12,8 @@ node_modules
 .claude
 .vscode
 supabase
+# Shared with the portal: lib/hours-api.ts imports it
+!supabase/functions/hours/hoursRules.ts
 tests
 test-results
 playwright-report

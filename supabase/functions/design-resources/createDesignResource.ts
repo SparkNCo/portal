@@ -59,7 +59,7 @@ export const createDesignResource = async (req: Request, schema: string) => {
     throw new Error(insertError.message);
   }
 
-  await markIssueUpdated(issue_id, email);
+  await markIssueUpdated(issue_id, email, "design");
 
   // Fire-and-forget so notifications don't delay the response.
   EdgeRuntime.waitUntil(notifyProject({

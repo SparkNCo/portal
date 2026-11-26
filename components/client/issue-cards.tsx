@@ -177,7 +177,7 @@ export function IssueCard({
         "group relative flex h-full min-h-36 flex-col rounded-lg border border-border hover:shadow-md hover:-translate-y-px transition-all duration-150",
         lightCard
           ? "light-card"
-          : "bg-background hover:bg-muted text-foreground",
+          : "bg-surface-raised border-surface-line hover:bg-surface-hover text-foreground",
       )}
     >
       <span
@@ -193,20 +193,12 @@ export function IssueCard({
         onClick={onOpen}
         aria-label={issue.title}
       />
-      {hasUpdate && (
-        <span
-          className="absolute top-2 right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 ring-2 ring-background"
-          title="Recently updated"
-        >
-          <Mail className="h-2.5 w-2.5 text-white" />
-        </span>
-      )}
+
       {onEdit && (
         <button
           type="button"
           className={cn(
-            "absolute top-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
-            hasUpdate ? "right-8" : "right-2",
+            "absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity",
             lightCard ? "light-card-chip" : "hover:bg-secondary",
           )}
           onClick={(e) => {
@@ -234,6 +226,20 @@ export function IssueCard({
           >
             {getIssueCode(issue.branchName)}
           </span>
+          {/* Right of the code. Opens the ticket like the card does — on the
+              tab the update was made in (the caller's onOpen, see
+              unseenUpdateTab); above the card's own click area. */}
+          {hasUpdate && (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-orange-500 hover:scale-110 transition-transform"
+              title="Recently updated: open to see what changed"
+              aria-label={`${issue.title}: recently updated, open to see what changed`}
+            >
+              <Mail className="h-2.5 w-2.5 text-white" />
+            </button>
+          )}
           {showProject && issue.project?.name && (
             <span
               className={cn(
@@ -327,7 +333,7 @@ export function IssueListRow({
         "group relative flex flex-wrap items-center gap-1.5 px-3 py-2.5 rounded-lg transition-all border border-transparent hover:border-border sm:flex-nowrap",
         lightCard
           ? "light-card"
-          : "bg-background hover:bg-muted text-foreground",
+          : "bg-surface-raised border-surface-line hover:bg-surface-hover text-foreground",
       )}
     >
       <button
@@ -377,12 +383,15 @@ export function IssueListRow({
         </span>
       )}
       {hasUpdate && (
-        <span
-          className="order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500"
-          title="Recently updated"
+        <button
+          type="button"
+          onClick={onOpen}
+          className="relative z-10 order-4 sm:order-none flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-orange-500 hover:scale-110 transition-transform"
+          title="Recently updated: open to see what changed"
+          aria-label={`${issue.title}: recently updated, open to see what changed`}
         >
           <Mail className="h-2 w-2 text-white" />
-        </span>
+        </button>
       )}
       <div className="order-5 basis-full sm:hidden" aria-hidden="true" />
       {issue.state?.name &&

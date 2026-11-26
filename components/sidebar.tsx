@@ -48,9 +48,10 @@ import { developerProjectNames, pickDeveloperProject, routeSlugFor } from "@/lib
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { API_JSON_HEADERS } from "@/lib/api-headers";
 
@@ -113,30 +114,79 @@ function InitiativeSelect({
   readonly placeholder?: string;
   readonly onChange: (value: string) => void;
 }) {
+  const selected = options.find((option) => option.value === value);
   return (
     <div className="px-4 py-3 border-b border-sidebar-border">
-      <label className="mb-1.5 block px-0.5 smalltext font-medium text-sidebar-foreground/50">{label}</label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-9 w-full gap-2 rounded-lg border-0 bg-sidebar-accent/60 px-3 smalltext font-medium text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40 [&>span]:truncate">
-          <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <SelectValue placeholder={placeholder} />
+        {/* Two lines inside the button: the label ("Workspace") small and
+            muted, the selected workspace below it; a bigger icon on the left
+            on a lighter square. The text is written here rather than through
+            SelectValue, which would repeat each option's avatar. */}
+        <SelectTrigger
+          aria-label={selected ? `${label}: ${selected.label}` : label}
+          className="h-auto w-full cursor-pointer gap-2.5 rounded-lg border-0 bg-sidebar-accent/60 px-2.5 py-2 text-left text-sidebar-foreground shadow-none ring-0 hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/40"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10">
+              <FolderKanban className="h-[18px] w-[18px] text-primary" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="text-[11px] font-medium text-sidebar-foreground/50">{label}</p>
+              <p className="truncate smalltext font-semibold text-sidebar-foreground">
+                {selected?.label ?? placeholder ?? "Select a workspace"}
+              </p>
+            </div>
+          </div>
         </SelectTrigger>
         <SelectContent className="rounded-lg">
-          {options.map((option) => (
-            <SelectItem
-              key={option.value}
-              value={option.value}
-              // Hide the default checkmark indicator for the selected
-              // option — the trigger above already shows it, so repeating
-              // it in every row here is just noise.
-              className="smalltext pr-2 [&>span:first-child]:hidden"
-            >
-              {option.label}
-            </SelectItem>
-          ))}
+          <SelectGroup>
+            <SelectLabel className="px-2 pb-1 pt-1.5 text-[11px] font-semibold opacity-60">
+              Switch workspace
+            </SelectLabel>
+            {options.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                // The current workspace keeps the checkmark on the right
+                // (SelectItem's own indicator).
+                className="smalltext cursor-pointer pr-8"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <WorkspaceAvatar name={option.label} />
+                  <span className="truncate">{option.label}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+// A workspace's square on the left of its row: its first letter for now.
+// Where the customer's logo will go once customers have one (pass `logoUrl`).
+function WorkspaceAvatar({ name, logoUrl }: Readonly<{ name: string; logoUrl?: string | null }>) {
+  if (logoUrl) {
+    return <img src={logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />;
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/15 text-xs font-bold uppercase text-primary"
+    >
+      {name.trim().charAt(0) || "?"}
+    </span>
+  );
+}
+
+// A heading over a group of nav items (admins: "Workspace" for the selected
+// customer's pages, "Admin" for their own).
+function NavSectionLabel({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
+  return (
+    <p className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50", className)}>
+      {children}
+    </p>
   );
 }
 
@@ -161,7 +211,7 @@ function NavLink({
     return (
       <span
         aria-disabled="true"
-        title="Select an initiative first"
+        title="Select a workspace first"
         className="flex items-center gap-3 rounded-md px-3 py-2 smalltext font-medium text-muted-foreground/50"
       >
         <Icon className="h-4 w-4" />
@@ -439,7 +489,7 @@ export function Sidebar() {
       </div>
       {portalType === "developer" && developerProjects.length > 1 && (
         <InitiativeSelect
-          label="Working on"
+          label="Workspace"
           value={selectedDeveloperProject}
           options={developerProjects.map((clientName) => ({ value: clientName, label: clientName }))}
           onChange={handleDeveloperProjectChange}
@@ -447,10 +497,10 @@ export function Sidebar() {
       )}
       {isAdmin && (
         <InitiativeSelect
-          label="Initiative"
+          label="Workspace"
           value={adminSelectedInitiative}
           options={adminInitiativeOptions}
-          placeholder="Select an initiative"
+          placeholder="Select a workspace"
           onChange={handleAdminInitiativeChange}
         />
       )}
@@ -460,6 +510,7 @@ export function Sidebar() {
             {/* Always listed so the menu keeps the same items; disabled
                 until an initiative is selected. The Admin section below
                 keeps its place. */}
+            <NavSectionLabel className="pt-1">Workspace</NavSectionLabel>
             <SortableNavList
               items={orderedAdminCustomerNavItems}
               onReorder={(keys) => saveNavOrder.mutate(keys)}
@@ -477,9 +528,7 @@ export function Sidebar() {
                 />
               )}
             />
-            <p className="px-3 pt-4 pb-1 smalltext font-medium text-sidebar-foreground/50">
-              Admin
-            </p>
+            <NavSectionLabel className="pt-4">Admin</NavSectionLabel>
             {adminNavItems.map((item) => (
               <NavLink
                 key={item.href}

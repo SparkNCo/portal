@@ -1,6 +1,7 @@
 "use client";
 
 import { Header } from "@/components/headerDashboard";
+import { usePanelShowAll } from "@/hooks/use-user-layout";
 import { PriorityTasks, IssueDetailModal } from "@/components/client/priority-tasks";
 import { BugReportPanel } from "@/components/bugs/bug-report-panel";
 import { EditIssueModal } from "@/components/build/edit-issue-modal";
@@ -22,6 +23,8 @@ import { fetchIssues } from "../dashboard/page";
 import type { Issue } from "@/components/client/issues.types";
 import { isClosedIssue } from "@/components/client/issues.types";
 import { PinButton } from "@/components/dashboard/pin-button";
+import { TICKET_PANEL_ICONS } from "@/components/client/ticket-panel-icons";
+import { TOOLBAR_INSIDE_TOP } from "@/components/dashboard/sortable-pinned-panel";
 import { safeDecodeURIComponent } from "@/lib/utils";
 
 export default function BugsPage() {
@@ -42,6 +45,8 @@ function BugsPageContent() {
   // notification fired — the fallback query further down covers that case
   // the same way build/page.tsx does.
   const { openIssueId, openIssueTab, clearDeepLink } = useIssueDeepLink();
+  // "View all" kept per user (portal.user_layout).
+  const showAll = usePanelShowAll("bugs", "bugs_list");
   // Aliased — this page already has its own `selectedProject` state below
   // for the Linear sub-project filter buttons, a different concept.
   const { selectedProject: selectedSidebarProject } = useSelectedProject();
@@ -214,7 +219,7 @@ function BugsPageContent() {
         {/* The pin sits inside the panel's corner, level with its title (no
             strip above the panel), same as Build's panels. */}
         <div className="relative -mx-4 sm:mx-0 overflow-x-hidden">
-          <div className="absolute top-2.5 right-3 z-10">
+          <div className={`absolute ${TOOLBAR_INSIDE_TOP} right-3 z-10`}>
             <PinButton panelId="bugs_list" inline />
           </div>
           <PriorityTasks
@@ -224,10 +229,13 @@ function BugsPageContent() {
             onOpenChat={() => {}}
             onEditIssue={(issue) => setEditingIssue(issue)}
             title="Bugs"
+            icon={TICKET_PANEL_ICONS.bugs_list}
             slug={slug}
             headerAction={projectFilterDropdown}
             lightCard
             reserveTopRight={1}
+            expanded={showAll.expanded}
+            onExpandedChange={showAll.set}
             openIssueId={openIssueId}
             openIssueTab={openIssueTab}
             onDeepLinkClose={clearDeepLink}

@@ -200,7 +200,7 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
   }
 
   return (
-    <Card className="bg-background text-foreground border-transparent sm:border-border rounded-none sm:rounded-xl">
+    <Card className="bg-surface text-foreground border-transparent sm:border-surface-line rounded-none sm:rounded-xl">
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle level={2} className="body font-semibold flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-primary" />
@@ -281,7 +281,8 @@ export function FeatureRequestPanel({ slug }: { slug: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="feature-attachments" className="smalltext">
+              {/* block: on its own line, with "Add files" below it. */}
+              <Label htmlFor="feature-attachments" className="smalltext block">
                 Attachments{" "}
                 <span className="text-muted-foreground font-normal">
                   (optional)

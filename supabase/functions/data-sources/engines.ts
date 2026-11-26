@@ -111,5 +111,6 @@ export function configFor(dataSource: any, password: string): ConnectionConfig {
     username: dataSource.username,
     password,
     ssl: dataSource.ssl,
+    ca: dataSource.ssl_ca ?? null,
   };
 }
